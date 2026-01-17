@@ -11,7 +11,7 @@ This project should work for local development against any docker-compatible run
 
 ## Goals
 
-- Make it easy to run coding agents (Claude Code, Codex, etc.) with fewer ambient permissions
+- Make it easy to run coding agents (Claude Code, Codex, etc.) in yolo mode with no fear
 - Provide a reusable, team-friendly devcontainer setup
 - Enforce outbound allowlists through a single choke point (proxy) with logs
 - Keep agent runtimes reproducible and easy to update
@@ -26,16 +26,16 @@ Non-goals (for now):
 
 Agent Sandbox is built from three reusable pieces:
 
-1) Images
+1. Images
    - agent-sandbox-base: common dev tools + hardening defaults
-   - agent-* images: add a specific agent (e.g., agent-claude, agent-codex)
+   - agent-\* images: add a specific agent (e.g., agent-claude, agent-codex)
 
-2) Runtime (locked-down network + logs)
+2. Runtime (locked-down network + logs)
    - Docker Compose stack: agent + proxy
    - The agent container has no direct egress; all outbound traffic goes through the proxy
    - Proxy enforces an allowlist and emits structured logs
 
-3) Devcontainer templates
+3. Devcontainer templates
    - Reusable .devcontainer/ scaffolding for projects
    - Minimal per-project config: choose an agent image + policy profile
 
@@ -45,7 +45,7 @@ Inside the agent container:
 
 - Workspace: /workspace (your repo, writable, expected to be a git repository)
 - Agent state: /agent-state (project-scoped, writable)
-- Network: outbound allowed only via proxy (HTTP(S)_PROXY)
+- Network: outbound allowed only via proxy (HTTP(S)\_PROXY)
 
 ## Quick start (macOS + Colima + VS Code devcontainers)
 
@@ -75,6 +75,7 @@ cp -R path/to/agent-sandbox/devcontainer/templates/minimal/.devcontainer .
 ### 3) Open in devcontainer
 
 In VS Code:
+
 - Install the Dev Containers extension
 - Command Palette -> Dev Containers: Reopen in Container
 
@@ -87,6 +88,7 @@ cd runtime/compose
 docker compose up -d
 docker compose logs -f proxy
 ```
+
 Then exec into the agent container:
 
 ```bash
@@ -96,11 +98,13 @@ docker compose exec agent bash
 ## Policies
 
 Policies live under `runtime/policy/` and are intended to be:
+
 - reviewed like code
 - shared across projects
 - easy to tighten over time
 
 Common policy concepts:
+
 - allowedDomains: outbound allowlist for the proxy
 - profiles like strict vs dev
 - project overrides via .devcontainer/policy-overrides.yaml (optional)
@@ -110,6 +114,7 @@ Common policy concepts:
 ### Base image
 
 agent-sandbox-base includes:
+
 - core shell tooling (bash, coreutils)
 - git + common dev utilities (jq, rg, fd, curl, ca-certs)
 - tmux (recommended for long-running agent sessions)
@@ -118,6 +123,7 @@ agent-sandbox-base includes:
 ### Agent images
 
 Agent images extend the base with only what is needed for that agent:
+
 - agent-claude
 - agent-codex
 - more to come?
@@ -125,6 +131,7 @@ Agent images extend the base with only what is needed for that agent:
 ## Reproducibility and updates
 
 Recommended workflow for teams:
+
 - build and publish images in CI
 - pin images by digest in devcontainer configs
 - update agent versions by bumping a digest and opening a PR
@@ -136,6 +143,7 @@ This avoids "same Dockerfile, different image" drift.
 This project is designed to reduce risk, not eliminate it.
 
 Key principles:
+
 - minimize mounts: only the repo workspace + project-scoped state
 - prefer short-lived credentials (SSO/STS) and read-only IAM roles
 - route all outbound through the proxy and review logs
@@ -152,12 +160,14 @@ If you discover a sandbox escape or bypass, please open a security issue (see be
 ## Contributing
 
 PRs welcome:
+
 - new agent images
 - improved proxy policy/lists
 - templates for common stacks
 - docs and examples
 
 Please keep changes:
+
 - agent-agnostic where possible
 - policy-as-code friendly
 - compatible with Colima on macOS
@@ -165,6 +175,7 @@ Please keep changes:
 ## Security
 
 If you believe you have found a security issue or bypass, please:
+
 - open a GitHub Security Advisory (preferred), or
 - open an issue with minimal reproduction details
 
