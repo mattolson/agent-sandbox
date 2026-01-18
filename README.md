@@ -79,6 +79,23 @@ In VS Code:
 - Install the Dev Containers extension
 - Command Palette -> Dev Containers: Reopen in Container
 
+### 4. Authenticate Claude Code (first time only)
+
+On first run, Claude Code needs to authenticate. From your **host terminal** (not VS Code):
+
+```bash
+docker exec -it <container-name> zsh -i -c 'claude'
+```
+
+This triggers the onboarding flow (which includes OAuth login):
+
+1. Copy the OAuth URL and open it in your browser
+2. Authorize the application
+3. Paste the authorization code back into the terminal
+4. Type `/exit` to close Claude
+
+Credentials are stored in the container's `.claude` volume and persist across restarts. You only need to do this once per devcontainer.
+
 ## Usage (without VS Code)
 
 Agent Sandbox is editor-agnostic. You can run the runtime stack directly:
@@ -92,7 +109,7 @@ docker compose logs -f proxy
 Then exec into the agent container:
 
 ```bash
-docker compose exec agent bash
+docker compose exec agent zsh
 ```
 
 ## Policies
