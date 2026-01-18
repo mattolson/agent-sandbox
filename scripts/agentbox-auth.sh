@@ -92,11 +92,10 @@ main() {
     log_info "1. Copy the URL and open it in your browser"
     log_info "2. Authorize the application"
     log_info "3. Paste the authorization code when prompted"
-    log_warn "4. Type /exit to close Claude when done"
     echo
 
     set +e
-    docker exec -it "$CONTAINER" claude /login
+    docker exec -it "$CONTAINER" claude setup-token
     login_exit_code=$?
     set -e
 

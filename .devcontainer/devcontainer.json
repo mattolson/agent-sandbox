@@ -37,18 +37,17 @@
       }
     }
   },
-  "remoteUser": "node",
+  "remoteUser": "dev",
   "mounts": [
     // Per-project bash history (named volume)
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     // Per-project .claude state (named volume)
-    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
+    "source=claude-code-config-${devcontainerId},target=/home/dev/.claude,type=volume",
     // Convenience: Host claude.md injected into the volume path
-    "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/node/.claude/CLAUDE.md,type=bind,readonly"
+    "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/dev/.claude/CLAUDE.md,type=bind,readonly"
   ],
   "containerEnv": {
-    "NODE_OPTIONS": "--max-old-space-size=4096",
-    "CLAUDE_CONFIG_DIR": "/home/node/.claude",
+    "CLAUDE_CONFIG_DIR": "/home/dev/.claude",
     "POWERLEVEL9K_DISABLE_GITSTATUS": "true"
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
