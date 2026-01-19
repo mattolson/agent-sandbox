@@ -103,21 +103,18 @@ Split current Dockerfile into base + claude, add compose support.
 - Update devcontainer to use new image structure
 - Verify both modes work (devcontainer and compose)
 
-### m1.3-extract-policy
+### m1.3-policy-file
 
-Extract domains from init-firewall.sh to policy.yaml.
+Extract hardcoded domains to policy.yaml and update firewall to read from it. (Merged from original m1.3 + m1.4)
 
-- Create policy.yaml with current allowlist
-- Keep init-firewall.sh working (reads from policy.yaml)
-
-### m1.4-firewall-reads-policy
-
-Update init-firewall.sh to parse policy.yaml.
-
-- Add YAML parsing (yq or simple grep/awk)
+- Create `images/base/policy.yaml` with default allowlist
+- Bake policy into image at `/etc/agent-sandbox/policy.yaml`
+- Update init-firewall.sh to parse policy via yq
 - Handle "services" section (github-meta lookup)
 - Handle "domains" section (DNS resolution)
-- Maintain existing verification checks
+- Allow optional override via read-only mount from host
+
+Security: Policy file owned by root, not writable by dev user. Override must be mounted read-only from outside workspace.
 
 ### m1.5-create-template
 

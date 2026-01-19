@@ -1,0 +1,26 @@
+# Agent Sandbox Network Policy
+# Defines allowed outbound destinations for the sandboxed environment.
+#
+# To customize: mount your own policy file over /etc/agent-sandbox/policy.yaml
+# See README for details.
+
+# Services with special handling (dynamic IP resolution)
+services:
+  - github  # Fetches IP ranges from api.github.com/meta
+
+# Static domains (resolved via DNS at firewall init)
+domains:
+  # npm registry
+  - registry.npmjs.org
+
+  # Claude Code
+  - api.anthropic.com
+  - sentry.io
+  - statsig.anthropic.com
+  - statsig.com
+
+  # VS Code (for devcontainer mode)
+  - marketplace.visualstudio.com
+  - mobile.events.data.microsoft.com
+  - vscode.blob.core.windows.net
+  - update.code.visualstudio.com
