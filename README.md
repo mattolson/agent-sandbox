@@ -111,6 +111,8 @@ Key principles:
 
 ## Roadmap
 
+Project plan can be seen in [docs/plan/project.md](./docs/plan/project.md) and related files, but here is the overview:
+
 ### m1: Devcontainer template
 
 Extract `.devcontainer/` into a reusable template with:
