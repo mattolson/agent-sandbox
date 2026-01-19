@@ -28,8 +28,9 @@
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     // Per-project .claude state (named volume)
     "source=claude-code-config-${devcontainerId},target=/home/dev/.claude,type=volume",
-    // Convenience: Host claude.md injected into the volume path
-    "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/dev/.claude/CLAUDE.md,type=bind,readonly"
+    // Convenience: Host claude.md and settings.json injected into the volume path
+    "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/dev/.claude/CLAUDE.md,type=bind,readonly",
+    "source=${localEnv:HOME}/.claude/settings.json,target=/home/dev/.claude/settings.json,type=bind,readonly"
   ],
   "containerEnv": {
     "CLAUDE_CONFIG_DIR": "/home/dev/.claude",
