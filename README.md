@@ -46,7 +46,7 @@ If you previously used Docker Desktop, set your Docker credential helper to `osx
 ### 2. Build the images
 
 ```bash
-git clone https://github.com/anthropics/agent-sandbox.git
+git clone https://github.com/mattolson/agent-sandbox.git
 cd agent-sandbox
 ./images/build.sh
 ```
