@@ -134,15 +134,16 @@ volumes:
 
 ## Current State (for session resume)
 
-**Status**: Implementation complete, awaiting final testing.
+**Status**: Complete. All tests passed.
 
 **Branch**: `egress-policy`
 
-**Commits on branch** (4 total):
+**Commits on branch** (5 total):
 1. `3d66557` - Extract egress policy to YAML config file
 2. `4196970` - Refactor policy to layered structure
 3. `f7d948f` - Security fix: require policy from host filesystem
 4. `80d4821` - Add default policies to each image layer
+5. `b9a8928` - Add test plan and update learnings for session resume
 
 **What's done**:
 - Policy layering implemented across all images
@@ -154,9 +155,9 @@ volumes:
 - README updated with policy documentation
 - All images work out of the box with no configuration required
 
-**What's pending**:
-- Final testing of all three image layers
-- Create PR after tests pass
+**What's completed**:
+- All tests passed (Tests 1-5 from test plan)
+- Ready for PR
 
 ## Test Plan
 

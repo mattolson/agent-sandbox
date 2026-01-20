@@ -103,7 +103,7 @@ Split current Dockerfile into base + claude, add compose support.
 - Update devcontainer to use new image structure
 - Verify both modes work (devcontainer and compose)
 
-### m1.3-policy-file
+### m1.3-policy-file ✓
 
 Extract hardcoded domains to policy.yaml and update firewall to read from it. (Merged from original m1.3 + m1.4)
 
@@ -152,8 +152,8 @@ None (first milestone)
 
 - [x] Base and claude Dockerfiles exist and build
 - [x] Both runtime modes work (devcontainer and compose)
-- [ ] Policy YAML schema defined and documented
-- [ ] Firewall script reads from policy file
+- [x] Policy YAML schema defined and documented
+- [x] Firewall script reads from policy file
 - [ ] Template in devcontainer/templates/minimal/ is complete (both modes)
 - [ ] README documents usage for both modes
 - [ ] Template tested on fresh project
