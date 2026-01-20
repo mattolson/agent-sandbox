@@ -53,34 +53,7 @@ cd agent-sandbox
 
 This builds `agent-sandbox-base:local` and `agent-sandbox-claude:local`.
 
-### 3. Create your policy file
-
-The firewall needs a policy file on your host machine. Create it at `~/.config/agent-sandbox/policy.yaml`:
-
-```bash
-mkdir -p ~/.config/agent-sandbox
-cat > ~/.config/agent-sandbox/policy.yaml << 'EOF'
-services:
-  - github
-
-domains:
-  # VS Code (required for devcontainer mode)
-  - marketplace.visualstudio.com
-  - mobile.events.data.microsoft.com
-  - vscode.blob.core.windows.net
-  - update.code.visualstudio.com
-
-  # Claude Code
-  - api.anthropic.com
-  - sentry.io
-  - statsig.anthropic.com
-  - statsig.com
-EOF
-```
-
-This file lives outside your workspace for security. The agent cannot modify it.
-
-### 4. Choose your mode
+### 3. Choose your mode
 
 #### Option A: Devcontainer (VS Code)
 
@@ -103,13 +76,6 @@ Copy `docker-compose.yml` to your project:
 cp agent-sandbox/docker-compose.yml /path/to/your/project/
 ```
 
-Add the policy mount to your `docker-compose.yml`:
-
-```yaml
-volumes:
-  - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/agent-sandbox/policy.yaml:ro
-```
-
 Then start the container:
 
 ```bash
@@ -118,7 +84,7 @@ docker compose up -d
 docker compose exec agent zsh
 ```
 
-### 5. Authenticate Claude Code (first time only)
+### 4. Authenticate Claude Code (first time only)
 
 From your **host terminal** (not the VS Code integrated terminal):
 
@@ -139,7 +105,7 @@ This triggers the OAuth flow:
 
 Credentials persist in a Docker volume. You only need to do this once per project.
 
-### 6. Run Claude Code
+### 5. Run Claude Code
 
 From inside the container:
 
@@ -157,46 +123,25 @@ docker compose down
 
 ## Network policy
 
-The firewall blocks all outbound by default. Allowed destinations are defined in a policy file mounted from your host machine at `~/.config/agent-sandbox/policy.yaml`.
+The firewall blocks all outbound by default. Each image includes a default policy with the domains it needs:
 
-```yaml
-services:
-  - github  # Fetches IP ranges from api.github.com/meta
+| Image | Default policy |
+|-------|----------------|
+| **Base** | GitHub only |
+| **Claude agent** | GitHub + Claude Code (api.anthropic.com, sentry.io, statsig.*) |
+| **Devcontainer** | GitHub + Claude Code + VS Code (marketplace, updates, telemetry) |
 
-domains:
-  - api.anthropic.com
-  - sentry.io
-  # ... etc
-```
-
-### Why host-based policy?
-
-The policy file lives outside the workspace for security. If it were inside the workspace, the agent could modify it and re-run the firewall to allow exfiltration. By keeping it on the host filesystem (mounted read-only), the agent cannot tamper with it.
-
-### Policy structure
-
-The base image contains a minimal fallback policy (GitHub only). Your host policy file overrides this completely:
-
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| **Base image** | `images/base/policy.yaml` | Fallback if no override mounted |
-| **Host override** | `~/.config/agent-sandbox/policy.yaml` | Your custom policy (recommended) |
+This means everything works out of the box with no configuration.
 
 ### Customizing the policy
 
-Edit `~/.config/agent-sandbox/policy.yaml` to add or remove domains:
+To add or remove domains, create a policy file at `~/.config/agent-sandbox/policy.yaml`:
 
 ```yaml
 services:
   - github  # Dynamic IP fetch from api.github.com/meta
 
 domains:
-  # VS Code (for devcontainer mode)
-  - marketplace.visualstudio.com
-  - mobile.events.data.microsoft.com
-  - vscode.blob.core.windows.net
-  - update.code.visualstudio.com
-
   # Claude Code
   - api.anthropic.com
   - sentry.io
@@ -204,7 +149,25 @@ domains:
   - statsig.com
 
   # Add your own domains here
+  - pypi.org
 ```
+
+Then mount it in your config:
+
+**devcontainer.json:**
+```json
+"mounts": [
+  "source=${localEnv:HOME}/.config/agent-sandbox/policy.yaml,target=/etc/agent-sandbox/policy.yaml,type=bind,readonly"
+]
+```
+
+**docker-compose.yml:**
+```yaml
+volumes:
+  - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/agent-sandbox/policy.yaml:ro
+```
+
+The policy file must live outside the workspace. If it were inside, the agent could modify it and re-run the firewall to allow exfiltration.
 
 Changes take effect on container restart.
 

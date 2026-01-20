@@ -4,8 +4,12 @@
 ARG BASE_IMAGE=agent-sandbox-base:local
 FROM ${BASE_IMAGE}
 
-# Create claude config directory
+# Override base policy with Claude Code endpoints
 USER root
+COPY policy.yaml /etc/agent-sandbox/policy.yaml
+RUN chmod 644 /etc/agent-sandbox/policy.yaml
+
+# Create claude config directory
 RUN mkdir -p /home/dev/.claude && chown -R dev:dev /home/dev/.claude
 USER dev
 

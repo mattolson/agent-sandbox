@@ -6,10 +6,10 @@ Merged from original m1.3 (extract policy) and m1.4 (firewall reads policy).
 
 ## Goal
 
-- Create a minimal policy.yaml for the base image (fallback only)
+- Create policy.yaml files for each image layer with appropriate defaults
 - Update init-firewall.sh to parse policy.yaml using yq
-- Bake default policy into image; require override via mount from host
-- Policy overrides must come from host filesystem (outside workspace) for security
+- Bake default policies into images so things work out of the box
+- Support optional override via mount from host filesystem (outside workspace) for security
 
 ## Security Model
 
@@ -40,14 +40,19 @@ domains:
 
 ## Policy Layering
 
-The base image contains a minimal fallback policy. Users provide their own policy via host mount:
+Each image layer includes a default policy with the domains it needs. Everything works out of the box.
 
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| Base image | `images/base/policy.yaml` | Fallback (GitHub only) |
-| Host override | `~/.config/agent-sandbox/policy.yaml` | User's custom policy |
+| Image | Policy file | Domains |
+|-------|-------------|---------|
+| Base | `images/base/policy.yaml` | GitHub only |
+| Claude agent | `images/agents/claude/policy.yaml` | GitHub + Claude Code |
+| Devcontainer | `.devcontainer/policy.yaml` | GitHub + Claude Code + VS Code |
 
-**Security constraint**: Policy must come from host filesystem, not workspace. If policy were in the workspace, the agent could modify it and re-run the firewall to allow exfiltration.
+Each layer's Dockerfile copies its policy to `/etc/agent-sandbox/policy.yaml`, overwriting the parent.
+
+**Optional customization**: Users can mount their own policy from `~/.config/agent-sandbox/policy.yaml` to override the baked-in default.
+
+**Security constraint**: Custom policies must come from host filesystem, not workspace. If policy were in the workspace, the agent could modify it and re-run the firewall to allow exfiltration. Baked-in policies are safe because the agent cannot modify the image.
 
 ## Implementation Plan
 
@@ -122,8 +127,10 @@ volumes:
 - [x] Test: custom policy via mount works
 - [x] Update README with policy override instructions
 - [x] Update milestone plan (merge m1.3 and m1.4 references)
-- [x] Update `.devcontainer/devcontainer.json` to mount policy from host (`~/.config/agent-sandbox/`)
-- [x] Security fix: remove `.devcontainer/policy.yaml` (was inside workspace)
+- [x] Create `images/agents/claude/policy.yaml` (GitHub + Claude Code)
+- [x] Update `images/agents/claude/Dockerfile` to copy policy
+- [x] Create `.devcontainer/policy.yaml` (GitHub + VS Code + Claude Code)
+- [x] Update `.devcontainer/Dockerfile` to copy policy
 
 ## Current State (for session resume)
 
@@ -132,14 +139,14 @@ volumes:
 **Branch**: `egress-policy`
 
 **What's done**:
-- Base policy.yaml created (minimal: GitHub service only)
-- Dockerfile updated to copy policy to /etc/agent-sandbox/
-- devcontainer.json updated to mount policy from host (~/.config/agent-sandbox/)
-- init-firewall.sh rewritten to parse policy via yq
-- README updated with setup instructions and security explanation
-- Milestone plan updated (merged m1.3+m1.4)
-- All tests passing (default policy, blocking, custom override)
-- Security fix: policy must come from host, not workspace
+- Policy layering implemented across all images
+- Base: GitHub only
+- Claude agent: GitHub + Claude Code (api.anthropic.com, sentry.io, statsig.*)
+- Devcontainer: GitHub + Claude Code + VS Code (marketplace, updates, telemetry)
+- init-firewall.sh parses policy via yq
+- Optional host override supported via mount from ~/.config/agent-sandbox/
+- README updated with policy documentation
+- All images work out of the box with no configuration required
 
 ## Out of Scope
 

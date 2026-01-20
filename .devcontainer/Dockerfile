@@ -4,4 +4,8 @@
 ARG BASE_IMAGE=agent-sandbox-claude:local
 FROM ${BASE_IMAGE}
 
-# Any devcontainer-specific customizations can go here
+# Override policy with VS Code + Claude Code endpoints
+USER root
+COPY policy.yaml /etc/agent-sandbox/policy.yaml
+RUN chmod 644 /etc/agent-sandbox/policy.yaml
+USER dev
