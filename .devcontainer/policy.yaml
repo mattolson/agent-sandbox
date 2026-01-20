@@ -1,0 +1,20 @@
+# Devcontainer Network Policy
+# Extended policy for VS Code devcontainer mode with Claude Code support.
+#
+# This policy is mounted as an override in devcontainer.json.
+
+services:
+  - github  # Fetches IP ranges from api.github.com/meta
+
+domains:
+  # VS Code / devcontainer infrastructure
+  - marketplace.visualstudio.com
+  - mobile.events.data.microsoft.com
+  - vscode.blob.core.windows.net
+  - update.code.visualstudio.com
+
+  # Claude Code
+  - api.anthropic.com
+  - sentry.io
+  - statsig.anthropic.com
+  - statsig.com

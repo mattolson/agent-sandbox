@@ -130,21 +130,26 @@ services:
   - github  # Fetches IP ranges from api.github.com/meta
 
 domains:
-  - registry.npmjs.org
   - api.anthropic.com
   - sentry.io
   # ... etc
 ```
 
-**Default policy includes:**
-- GitHub (api, web, git) - IPs fetched dynamically
-- registry.npmjs.org - npm packages
-- api.anthropic.com, sentry.io, statsig.* - Claude Code
-- VS Code marketplace and update servers
+### Policy layering
+
+The base image contains a minimal policy (GitHub only). Mode-specific and agent-specific domains are added via policy overrides:
+
+| Mode | Policy | Includes |
+|------|--------|----------|
+| **Base image** | `images/base/policy.yaml` | GitHub only |
+| **Devcontainer** | `.devcontainer/policy.yaml` (mounted) | GitHub + VS Code + Claude Code |
+| **Compose** | Base policy (or custom mount) | GitHub only (add domains as needed) |
+
+The devcontainer mode automatically mounts its policy override. For compose mode, you can mount a custom policy if you need additional domains.
 
 ### Customizing the policy
 
-The default policy is baked into the image. To customize, mount your own policy file:
+To add domains in compose mode, mount your own policy file:
 
 **docker-compose.yml:**
 ```yaml
@@ -152,11 +157,18 @@ volumes:
   - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/agent-sandbox/policy.yaml:ro
 ```
 
-**devcontainer.json:**
-```json
-"mounts": [
-  "source=${localEnv:HOME}/.config/agent-sandbox/policy.yaml,target=/etc/agent-sandbox/policy.yaml,type=bind,readonly"
-]
+Example custom policy:
+```yaml
+services:
+  - github
+
+domains:
+  # Claude Code
+  - api.anthropic.com
+  - sentry.io
+  - statsig.anthropic.com
+  - statsig.com
+  # Add your own domains here
 ```
 
 The policy file must be mounted read-only from outside the workspace for security. The agent cannot modify a policy file that lives on your host filesystem.

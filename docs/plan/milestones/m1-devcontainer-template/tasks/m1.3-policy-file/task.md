@@ -6,9 +6,10 @@ Merged from original m1.3 (extract policy) and m1.4 (firewall reads policy).
 
 ## Goal
 
-- Create a policy.yaml with the current allowlist
+- Create a minimal policy.yaml for the base image
 - Update init-firewall.sh to parse policy.yaml using yq
 - Bake default policy into image; allow optional override via mount
+- Create mode-specific policy overrides (devcontainer gets VS Code + Claude Code domains)
 
 ## Security Model
 
@@ -33,19 +34,21 @@ services:
   - github  # special handling: fetches IPs from api.github.com/meta
 
 domains:
-  # npm
-  - registry.npmjs.org
-  # Claude Code
-  - api.anthropic.com
-  - sentry.io
-  - statsig.anthropic.com
-  - statsig.com
-  # VS Code (devcontainer mode)
-  - marketplace.visualstudio.com
-  - mobile.events.data.microsoft.com
-  - vscode.blob.core.windows.net
-  - update.code.visualstudio.com
+  - example.com
+  # ... additional domains
 ```
+
+## Policy Layering
+
+The base image contains a minimal policy. Mode-specific domains are added via overrides:
+
+| Layer | File | Contents |
+|-------|------|----------|
+| Base image | `images/base/policy.yaml` | GitHub service only |
+| Devcontainer | `.devcontainer/policy.yaml` | GitHub + VS Code + Claude Code |
+| Claude Agent image | (future) | GitHub + Claude Code |
+
+This keeps the base image agent-agnostic while allowing each mode to add what it needs.
 
 ## Implementation Plan
 
@@ -111,7 +114,7 @@ volumes:
 
 ## Tasks
 
-- [x] Create `images/base/policy.yaml`
+- [x] Create `images/base/policy.yaml` (minimal: GitHub only)
 - [x] Update `images/base/Dockerfile` to copy policy to `/etc/agent-sandbox/`
 - [x] Update `images/base/init-firewall.sh` to read from policy file via yq
 - [x] Add POLICY_FILE env var for override path (default: /etc/agent-sandbox/policy.yaml)
@@ -120,6 +123,8 @@ volumes:
 - [x] Test: custom policy via mount works
 - [x] Update README with policy override instructions
 - [x] Update milestone plan (merge m1.3 and m1.4 references)
+- [x] Create `.devcontainer/policy.yaml` with VS Code + Claude Code domains
+- [x] Update `.devcontainer/devcontainer.json` to mount policy override
 
 ## Current State (for session resume)
 
@@ -128,10 +133,12 @@ volumes:
 **Branch**: `egress-policy`
 
 **What's done**:
-- policy.yaml created with default domains
+- Base policy.yaml created (minimal: GitHub service only)
+- Devcontainer policy override created (VS Code + Claude Code domains)
 - Dockerfile updated to copy policy to /etc/agent-sandbox/
+- devcontainer.json updated to mount policy override
 - init-firewall.sh rewritten to parse policy via yq
-- README updated with customization docs
+- README updated with policy layering docs
 - Milestone plan updated (merged m1.3+m1.4)
 - All tests passing (default policy, blocking, custom override)
 
