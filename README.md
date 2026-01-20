@@ -121,27 +121,66 @@ For compose mode, stop the container when done:
 docker compose down
 ```
 
-## Network allowlist
+## Network policy
 
-The firewall (`images/base/init-firewall.sh`) blocks all outbound by default. Currently allowed:
+The firewall blocks all outbound by default. Each image includes a default policy with the domains it needs:
 
-- GitHub (api, web, git) - IPs fetched dynamically from api.github.com/meta
-- registry.npmjs.org
-- api.anthropic.com - for Claude Code operations
-- sentry.io, statsig.anthropic.com, statsig.com - for Claude Code telemetry
-- VS Code marketplace and update servers
+| Image | Default policy |
+|-------|----------------|
+| **Base** | GitHub only |
+| **Claude agent** | GitHub + Claude Code (api.anthropic.com, sentry.io, statsig.*) |
+| **Devcontainer** | GitHub + Claude Code + VS Code (marketplace, updates, telemetry) |
 
-To add a domain: edit `images/base/init-firewall.sh`, add to the domain loop, rebuild the images with `./images/build.sh`.
+This means everything works out of the box with no configuration.
+
+### Customizing the policy
+
+To add or remove domains, create a policy file at `~/.config/agent-sandbox/policy.yaml`:
+
+```yaml
+services:
+  - github  # Dynamic IP fetch from api.github.com/meta
+
+domains:
+  # Claude Code
+  - api.anthropic.com
+  - sentry.io
+  - statsig.anthropic.com
+  - statsig.com
+
+  # Add your own domains here
+  - pypi.org
+```
+
+Then mount it in your config:
+
+**devcontainer.json:**
+```json
+"mounts": [
+  "source=${localEnv:HOME}/.config/agent-sandbox/policy.yaml,target=/etc/agent-sandbox/policy.yaml,type=bind,readonly"
+]
+```
+
+**docker-compose.yml:**
+```yaml
+volumes:
+  - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/agent-sandbox/policy.yaml:ro
+```
+
+The policy file must live outside the workspace. If it were inside, the agent could modify it and re-run the firewall to allow exfiltration.
+
+Changes take effect on container restart.
 
 ## How it works
 
 The firewall is initialized by `init-firewall.sh`, which:
 
-1. Creates an ipset for allowed IPs
-2. Resolves each allowed domain and adds IPs to the set
-3. Fetches GitHub's IP ranges from their meta API
-4. Sets iptables rules to DROP all outbound except to the ipset
-5. Verifies the firewall by testing that example.com is blocked and api.github.com works
+1. Reads the policy file (`/etc/agent-sandbox/policy.yaml`)
+2. Creates an ipset for allowed IPs
+3. For each service (e.g., `github`), fetches IP ranges dynamically
+4. For each domain, resolves via DNS and adds IPs to the set
+5. Sets iptables rules to DROP all outbound except to the ipset
+6. Verifies the firewall by testing that example.com is blocked
 
 **Initialization differs by mode:**
 - **Compose mode**: The entrypoint script runs `init-firewall.sh` automatically

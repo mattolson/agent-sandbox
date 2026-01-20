@@ -12,10 +12,15 @@ Lessons learned during project execution. Review at the start of each planning s
 - VS Code devcontainers bypass Docker ENTRYPOINT; use `postStartCommand` for runtime initialization that must run every container start
 - Entrypoint scripts should be idempotent (check for existing state before acting) to support both devcontainer and compose workflows
 - devcontainer.json and docker-compose.yml need separate volume/mount configs; they serve different workflows and VS Code reads devcontainer.json directly
+- yq syntax `.foo // [] | .[]` safely iterates arrays that may be missing or null
+- Policy files that control security must live outside the workspace and be mounted read-only; otherwise the agent can modify them and re-run initialization to bypass restrictions
+- Baking default policies into images is safe (agent can't modify the image) and provides good UX (works out of the box)
+- Policy layering via Dockerfile COPY overwrites parent layer's policy cleanly
 
 ## Architecture
 
 - Devcontainer value diminishes when not using VS Code integrated terminal; compose-first may be cleaner for the core runtime
+- "Baked default + optional override" pattern works well for security-sensitive config: ship sensible defaults in the image, allow power users to mount custom config from host (read-only, outside workspace)
 
 ## Process
 
