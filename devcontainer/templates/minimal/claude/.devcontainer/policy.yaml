@@ -1,0 +1,28 @@
+# Network Policy for Claude Code Sandbox
+#
+# This policy defines which domains the container can access.
+# Customize this file to add domains your project needs.
+#
+# Format:
+#   services: Special services with dynamic IP resolution
+#   domains: Static domains resolved via DNS at container start
+
+services:
+  - github  # Fetches IP ranges from api.github.com/meta
+
+domains:
+  # Claude Code
+  - api.anthropic.com
+  - sentry.io
+  - statsig.anthropic.com
+  - statsig.com
+
+  # VS Code devcontainer infrastructure
+  - marketplace.visualstudio.com
+  - mobile.events.data.microsoft.com
+  - vscode.blob.core.windows.net
+  - update.code.visualstudio.com
+
+  # Add your project-specific domains below:
+  # - registry.npmjs.org
+  # - pypi.org

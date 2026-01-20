@@ -57,10 +57,8 @@ This builds `agent-sandbox-base:local` and `agent-sandbox-claude:local`.
 
 #### Option A: Devcontainer (VS Code)
 
-Copy the `.devcontainer` directory to your project:
-
 ```bash
-cp -R agent-sandbox/.devcontainer /path/to/your/project/
+cp -R agent-sandbox/devcontainer/templates/minimal/claude/.devcontainer /path/to/your/project/
 ```
 
 Then open your project in VS Code:
@@ -70,15 +68,8 @@ Then open your project in VS Code:
 
 #### Option B: Docker Compose (CLI)
 
-Copy `docker-compose.yml` to your project:
-
 ```bash
-cp agent-sandbox/docker-compose.yml /path/to/your/project/
-```
-
-Then start the container:
-
-```bash
+cp agent-sandbox/devcontainer/templates/minimal/claude/docker-compose.yml /path/to/your/project/
 cd /path/to/your/project
 docker compose up -d
 docker compose exec agent zsh
@@ -205,12 +196,11 @@ Key principles:
 
 Project plan can be seen in [docs/plan/project.md](./docs/plan/project.md) and related files, but here is the overview:
 
-### m1: Devcontainer template
+### m1: Devcontainer template (done)
 
-Extract `.devcontainer/` into a reusable template with:
-
-- Split Dockerfile into base + agent-specific images
-- Policy YAML file for configurable domain allowlists
+- Base + agent-specific images (`images/`)
+- Policy YAML for configurable domain allowlists
+- Reusable template (`devcontainer/templates/minimal/claude/`)
 - Documentation for adding to other projects
 
 ### m2: Published images

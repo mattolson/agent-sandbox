@@ -1,0 +1,41 @@
+# Claude Code Sandbox - Docker Compose mode
+#
+# Requires: Build images first from the agent-sandbox repo:
+#   git clone https://github.com/mattolson/agent-sandbox.git
+#   cd agent-sandbox && ./images/build.sh
+#
+# Usage:
+#   docker compose up -d
+#   docker compose exec agent zsh
+#   # Run claude inside the container
+#   docker compose down
+
+services:
+  agent:
+    image: agent-sandbox-claude:local
+    container_name: claude-sandbox
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      # Your project workspace
+      - .:/workspace
+      # Persist Claude credentials
+      - claude-state:/home/dev/.claude
+      # Persist shell history
+      - claude-history:/commandhistory
+      # Host Claude config (optional - comment out if not needed)
+      - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
+      - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
+      # To customize network policy, uncomment and create the file:
+      # - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/agent-sandbox/policy.yaml:ro
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      - TZ=${TZ:-America/Los_Angeles}
+      - CLAUDE_CONFIG_DIR=/home/dev/.claude
+
+volumes:
+  claude-state:
+  claude-history:
