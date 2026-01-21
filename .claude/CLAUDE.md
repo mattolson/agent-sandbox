@@ -13,7 +13,7 @@ Agent Sandbox creates locked-down local sandboxes for running AI coding agents (
 This project uses Docker Compose. The container runs Debian bookworm with:
 - Non-root `dev` user (uid/gid 500)
 - Zsh with powerline10k theme
-- Network lockdown via `init-firewall.sh` at container start
+- Network lockdown via `init-firewall.py` at container start
 
 ### Key Paths Inside Container
 - `/workspace` - Your repo (bind mount)
@@ -25,27 +25,28 @@ This project uses Docker Compose. The container runs Debian bookworm with:
 
 ## Network Policy
 
-The firewall blocks all outbound by default. Allowed destinations are defined in policy.yaml files.
+The firewall blocks all outbound by default. Allowed destinations are defined in policy.json files.
 
 ### Policy Layering
 
-Each image layer has its own policy file baked in at `/etc/agent-sandbox/policy.yaml`:
+Each image layer has its own policy file baked in at `/etc/agent-sandbox/policy.json`:
 
 | Image | Policy | Allows |
 |-------|--------|--------|
-| base | `images/base/policy.yaml` | GitHub only |
-| claude | `images/agents/claude/policy.yaml` | GitHub + Claude Code endpoints |
-| devcontainer | `.devcontainer/policy.yaml` | GitHub + Claude Code + VS Code |
+| base | `images/base/policy.json` | GitHub only |
+| claude | `images/agents/claude/policy.json` | GitHub + Claude Code endpoints |
+| devcontainer | `.devcontainer/policy.json` | GitHub + Claude Code + VS Code |
 
 ### Policy Format
 
-```yaml
-services:
-  - github  # Special handling: fetches IPs from api.github.com/meta
-
-domains:
-  - api.anthropic.com
-  - sentry.io
+```json
+{
+  "services": ["github"],
+  "domains": [
+    "api.anthropic.com",
+    "sentry.io"
+  ]
+}
 ```
 
 ### Customizing the Policy
@@ -55,7 +56,7 @@ To override the baked-in policy, mount your own from the host filesystem:
 ```yaml
 # docker-compose.yml
 volumes:
-  - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/agent-sandbox/policy.yaml:ro
+  - ${HOME}/.config/agent-sandbox/policy.json:/etc/agent-sandbox/policy.json:ro
 ```
 
 Policy must come from outside the workspace for security (prevents agent from modifying its own allowlist).
@@ -79,7 +80,7 @@ The base image contains the firewall script and common tools. Agent images exten
 
 ## Testing Firewall Changes
 
-The `init-firewall.sh` script verifies the firewall after setup:
+The `init-firewall.py` script verifies the firewall after setup:
 1. Confirms example.com is blocked
 2. Confirms at least one allowed endpoint is reachable (GitHub API if enabled, otherwise first domain)
 

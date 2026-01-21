@@ -2,7 +2,7 @@
 # Requires: ./images/build.sh first
 
 services:
-  agent:
+  agent-sandbox:
     image: agent-sandbox-claude:local
     container_name: agent-sandbox
     cap_add:

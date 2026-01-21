@@ -1,0 +1,11 @@
+{
+  "services": ["github"],
+  "domains": [
+    "api.anthropic.com",
+    "sentry.io",
+    "statsig.anthropic.com",
+    "statsig.com",
+    "pypi.org",
+    "mise-versions.jdx.dev"
+  ]
+}

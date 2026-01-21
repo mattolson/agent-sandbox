@@ -1,0 +1,13 @@
+{
+  "services": ["github"],
+  "domains": [
+    "marketplace.visualstudio.com",
+    "mobile.events.data.microsoft.com",
+    "vscode.blob.core.windows.net",
+    "update.code.visualstudio.com",
+    "api.anthropic.com",
+    "sentry.io",
+    "statsig.anthropic.com",
+    "statsig.com"
+  ]
+}

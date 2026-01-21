@@ -2,10 +2,10 @@
 set -e
 
 # Initialize firewall if not already done
-# Check if allowed-domains ipset exists (created by init-firewall.sh)
+# Check if allowed-domains ipset exists (created by init-firewall.py)
 if ! ipset list allowed-domains >/dev/null 2>&1; then
   echo "Initializing firewall..."
-  if ! sudo /usr/local/bin/init-firewall.sh; then
+  if ! sudo /usr/local/bin/init-firewall.py; then
     echo ""
     echo "=========================================="
     echo "FATAL: Firewall initialization failed!"

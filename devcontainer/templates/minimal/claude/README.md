@@ -52,28 +52,24 @@ yolo-claude
 
 ### Devcontainer mode
 
-Edit `.devcontainer/policy.yaml` and rebuild the container:
+Edit `.devcontainer/policy.json` and rebuild the container:
 
-```yaml
-services:
-  - github
-
-domains:
-  # Claude Code (required)
-  - api.anthropic.com
-  - sentry.io
-  - statsig.anthropic.com
-  - statsig.com
-
-  # VS Code (required for devcontainer)
-  - marketplace.visualstudio.com
-  - mobile.events.data.microsoft.com
-  - vscode.blob.core.windows.net
-  - update.code.visualstudio.com
-
-  # Add your domains here
-  - registry.npmjs.org
-  - pypi.org
+```json
+{
+  "services": ["github"],
+  "domains": [
+    "api.anthropic.com",
+    "sentry.io",
+    "statsig.anthropic.com",
+    "statsig.com",
+    "marketplace.visualstudio.com",
+    "mobile.events.data.microsoft.com",
+    "vscode.blob.core.windows.net",
+    "update.code.visualstudio.com",
+    "registry.npmjs.org",
+    "pypi.org"
+  ]
+}
 ```
 
 Then: Command Palette > "Dev Containers: Rebuild Container"
@@ -84,16 +80,17 @@ Create a policy file on your host:
 
 ```bash
 mkdir -p ~/.config/agent-sandbox
-cat > ~/.config/agent-sandbox/policy.yaml << 'EOF'
-services:
-  - github
-
-domains:
-  - api.anthropic.com
-  - sentry.io
-  - statsig.anthropic.com
-  - statsig.com
-  - registry.npmjs.org
+cat > ~/.config/agent-sandbox/policy.json << 'EOF'
+{
+  "services": ["github"],
+  "domains": [
+    "api.anthropic.com",
+    "sentry.io",
+    "statsig.anthropic.com",
+    "statsig.com",
+    "registry.npmjs.org"
+  ]
+}
 EOF
 ```
 
@@ -102,7 +99,7 @@ Uncomment the mount in `docker-compose.yml`:
 ```yaml
 volumes:
   # ...
-  - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/agent-sandbox/policy.yaml:ro
+  - ${HOME}/.config/agent-sandbox/policy.json:/etc/agent-sandbox/policy.json:ro
 ```
 
 Then restart: `docker compose down && docker compose up -d`
@@ -129,7 +126,7 @@ The host claude config mounts (`~/.claude/CLAUDE.md`, `~/.claude/settings.json`)
 
 ### Firewall verification fails
 
-Check the policy.yaml syntax. The script exits non-zero if:
+Check the policy.json syntax. The script exits non-zero if:
 - Policy file is missing or malformed
 - DNS resolution fails for a domain
 - GitHub API is unreachable (if github service is enabled)

@@ -30,7 +30,7 @@ services:
       - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
       - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
       # To customize network policy, uncomment and create the file:
-      # - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/agent-sandbox/policy.yaml:ro
+      # - ${HOME}/.config/agent-sandbox/policy.json:/etc/agent-sandbox/policy.json:ro
     working_dir: /workspace
     stdin_open: true
     tty: true

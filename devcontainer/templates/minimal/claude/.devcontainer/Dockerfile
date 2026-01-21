@@ -10,8 +10,8 @@
 ARG BASE_IMAGE=ghcr.io/mattolson/agent-sandbox-claude:latest
 FROM ${BASE_IMAGE}
 
-# Copy project policy (customize policy.yaml to add domains)
+# Copy project policy (customize policy.json to add domains)
 USER root
-COPY policy.yaml /etc/agent-sandbox/policy.yaml
-RUN chmod 644 /etc/agent-sandbox/policy.yaml
+COPY policy.json /etc/agent-sandbox/policy.json
+RUN chmod 644 /etc/agent-sandbox/policy.json
 USER dev

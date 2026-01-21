@@ -26,7 +26,7 @@
     "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/dev/.claude/CLAUDE.md,type=bind,readonly",
     "source=${localEnv:HOME}/.claude/settings.json,target=/home/dev/.claude/settings.json,type=bind,readonly"
     // To customize network policy, add:
-    // "source=${localEnv:HOME}/.config/agent-sandbox/policy.yaml,target=/etc/agent-sandbox/policy.yaml,type=bind,readonly"
+    // "source=${localEnv:HOME}/.config/agent-sandbox/policy.json,target=/etc/agent-sandbox/policy.json,type=bind,readonly"
   ],
   "containerEnv": {
     "TZ": "${localEnv:TZ:America/Los_Angeles}",
@@ -35,6 +35,6 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh",
+  "postStartCommand": "sudo /usr/local/bin/init-firewall.py",
   "waitFor": "postStartCommand"
 }

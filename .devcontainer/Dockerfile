@@ -6,6 +6,6 @@ FROM ${BASE_IMAGE}
 
 # Override policy with VS Code + Claude Code endpoints
 USER root
-COPY policy.yaml /etc/agent-sandbox/policy.yaml
-RUN chmod 644 /etc/agent-sandbox/policy.yaml
+COPY policy.json /etc/agent-sandbox/policy.json
+RUN chmod 644 /etc/agent-sandbox/policy.json
 USER dev

@@ -6,8 +6,19 @@ FROM ${BASE_IMAGE}
 
 # Override base policy with Claude Code endpoints
 USER root
-COPY policy.yaml /etc/agent-sandbox/policy.yaml
-RUN chmod 644 /etc/agent-sandbox/policy.yaml
+
+# Install mise via official APT repo
+RUN install -dm 755 /etc/apt/keyrings && \
+  curl -fsSL https://mise.jdx.dev/gpg-key.pub \
+    | tee /etc/apt/keyrings/mise-archive-keyring.asc > /dev/null && \
+  echo "deb [signed-by=/etc/apt/keyrings/mise-archive-keyring.asc] https://mise.jdx.dev/deb stable main" \
+    > /etc/apt/sources.list.d/mise.list && \
+  apt-get update && \
+  apt-get install -y --no-install-recommends mise && \
+  apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY policy.json /etc/agent-sandbox/policy.json
+RUN chmod 644 /etc/agent-sandbox/policy.json
 
 # Create claude config directory
 RUN mkdir -p /home/dev/.claude && chown -R dev:dev /home/dev/.claude

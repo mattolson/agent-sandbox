@@ -22,6 +22,7 @@ RUN apt-get update && \
   dnsutils \
   aggregate \
   jq \
+  python3 \
   neovim \
   curl \
   wget \
@@ -71,12 +72,12 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
   -x
 
 # Copy default network policy and firewall script
-COPY policy.yaml /etc/agent-sandbox/policy.yaml
-COPY init-firewall.sh /usr/local/bin/
+COPY policy.json /etc/agent-sandbox/policy.json
+COPY init-firewall.py /usr/local/bin/
 USER root
-RUN chmod 644 /etc/agent-sandbox/policy.yaml && \
-  chmod +x /usr/local/bin/init-firewall.sh && \
-  echo "${USERNAME} ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/firewall && \
+RUN chmod 644 /etc/agent-sandbox/policy.json && \
+  chmod +x /usr/local/bin/init-firewall.py && \
+  echo "${USERNAME} ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.py" > /etc/sudoers.d/firewall && \
   chmod 0440 /etc/sudoers.d/firewall
 
 # Copy and set up entrypoint
