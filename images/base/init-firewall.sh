@@ -52,6 +52,9 @@ ipset create allowed-domains hash:net
 
 # Process services from policy file
 echo "Processing services..."
+
+mise trust
+
 for service in $(mise x -- yq -r '.services // [] | .[]' "$POLICY_FILE"); do
     case "$service" in
         github)

@@ -3,7 +3,7 @@ FROM debian:bookworm
 ARG TZ
 ENV TZ="$TZ"
 
-# Install basic development tools, firewall dependencies, and yq for policy parsing
+# Install basic development tools, firewall dependencies
 RUN apt-get update && \
   apt-get install -y --no-install-recommends \
   less \
@@ -22,25 +22,11 @@ RUN apt-get update && \
   dnsutils \
   aggregate \
   jq \
-  nano \
-  vim \
+  neovim \
   curl \
   wget \
-  ca-certificates
-
-# Install mise via official APT repo
-RUN install -dm 755 /etc/apt/keyrings && \
-  curl -fsSL https://mise.jdx.dev/gpg-key.pub \
-    | tee /etc/apt/keyrings/mise-archive-keyring.asc > /dev/null && \
-  echo "deb [signed-by=/etc/apt/keyrings/mise-archive-keyring.asc] https://mise.jdx.dev/deb stable main" \
-    > /etc/apt/sources.list.d/mise.list && \
-  apt-get update && \
-  apt-get install -y --no-install-recommends mise && \
-  apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Install yq for YAML parsing
-ARG YQ_VERSION=v4.44.1
-RUN mise use --global yq@$YQ_VERSION
+  ca-certificates \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Set up non-root user
 ARG USERNAME=dev

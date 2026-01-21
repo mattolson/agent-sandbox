@@ -17,9 +17,6 @@ USER dev
 ARG CLAUDE_CODE_VERSION=latest
 RUN mise use -g claude-code@$CLAUDE_CODE_VERSION
 
-ARG PYTHON_VERSION
-RUN mise use -g python@$PYTHON_VERSION
-
 ARG UV_VERSION
 RUN mise use -g uv@$UV_VERSION
 
