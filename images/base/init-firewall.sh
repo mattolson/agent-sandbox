@@ -52,7 +52,7 @@ ipset create allowed-domains hash:net
 
 # Process services from policy file
 echo "Processing services..."
-for service in $(yq -r '.services // [] | .[]' "$POLICY_FILE"); do
+for service in $(mise x -- yq -r '.services // [] | .[]' "$POLICY_FILE"); do
     case "$service" in
         github)
             echo "Fetching GitHub IP ranges..."
@@ -85,7 +85,7 @@ done
 
 # Process domains from policy file
 echo "Processing domains..."
-for domain in $(yq -r '.domains // [] | .[]' "$POLICY_FILE"); do
+for domain in $(mise x -- yq -r '.domains // [] | .[]' "$POLICY_FILE"); do
     echo "Resolving $domain..."
     ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')
     if [ -z "$ips" ]; then
@@ -149,12 +149,12 @@ VERIFY_URL=""
 VERIFY_NAME=""
 
 # Prefer GitHub API if github service is enabled (reliable endpoint)
-if yq -r '.services // [] | .[]' "$POLICY_FILE" | grep -q "^github$"; then
+if mise x -- yq -r '.services // [] | .[]' "$POLICY_FILE" | grep -q "^github$"; then
     VERIFY_URL="https://api.github.com/zen"
     VERIFY_NAME="api.github.com"
 else
     # Fall back to first domain in policy
-    FIRST_DOMAIN=$(yq -r '.domains // [] | .[0] // ""' "$POLICY_FILE")
+    FIRST_DOMAIN=$(mise x -- yq -r '.domains // [] | .[0] // ""' "$POLICY_FILE")
     if [ -n "$FIRST_DOMAIN" ]; then
         VERIFY_URL="https://$FIRST_DOMAIN"
         VERIFY_NAME="$FIRST_DOMAIN"

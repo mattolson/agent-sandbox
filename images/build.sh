@@ -20,6 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Defaults
 : "${TZ:=America/Los_Angeles}"
 : "${YQ_VERSION:=v4.44.1}"
+: "${PYTHON_VERSION:=3.13.11}"
 : "${GIT_DELTA_VERSION:=0.18.2}"
 : "${ZSH_IN_DOCKER_VERSION:=1.2.0}"
 : "${CLAUDE_CODE_VERSION:=latest}"
