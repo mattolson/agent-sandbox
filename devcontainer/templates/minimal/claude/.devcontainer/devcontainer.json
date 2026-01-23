@@ -10,6 +10,7 @@
         "remote.autoForwardPorts": false,
         "remote.forwardOnOpen": false,
         "remote.autoForwardPortsSource": "output",
+        "security.promptForRemoteFileProtocolHandling": true,
         "terminal.integrated.defaultProfile.linux": "zsh"
       }
     }
@@ -23,6 +24,8 @@
     // Inject host Claude config (optional - comment out if not needed)
     "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/dev/.claude/CLAUDE.md,type=bind,readonly",
     "source=${localEnv:HOME}/.claude/settings.json,target=/home/dev/.claude/settings.json,type=bind,readonly"
+    // To customize network policy, add:
+    // "source=${localEnv:HOME}/.config/agent-sandbox/policy.yaml,target=/etc/agent-sandbox/policy.yaml,type=bind,readonly"
     // Shell customizations (optional - uncomment to enable)
     // "source=${localEnv:HOME}/.config/agent-sandbox/shell.d,target=/home/dev/.config/agent-sandbox/shell.d,type=bind,readonly",
     // Dotfiles directory (optional - uncomment to enable, use with shell.d script to symlink)
