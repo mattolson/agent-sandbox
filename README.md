@@ -200,9 +200,10 @@ Project plan can be seen in [docs/plan/project.md](./docs/plan/project.md) and r
 - Reusable template (`devcontainer/templates/minimal/claude/`)
 - Documentation for adding to other projects
 
-### m2: Published images
+### m2: Published images (done)
 
 - Build and publish images to GitHub Container Registry
+- Multi-platform support
 - Pin images by digest for reproducibility
 
 ### m3: CLI
