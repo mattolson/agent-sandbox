@@ -31,6 +31,10 @@ services:
       - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
       # To customize network policy, uncomment and create the file:
       # - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/agent-sandbox/policy.yaml:ro
+      # Shell customizations (optional - uncomment to enable)
+      # - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
+      # Dotfiles directory (optional - use with shell.d script to symlink)
+      # - ${HOME}/.dotfiles:/home/dev/.dotfiles:ro
     working_dir: /workspace
     stdin_open: true
     tty: true

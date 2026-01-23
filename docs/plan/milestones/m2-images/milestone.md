@@ -98,11 +98,12 @@ Document image versioning and updates.
 
 ## Definition of Done
 
-- [ ] GitHub Actions builds and pushes images on merge to main
-- [ ] GitHub Actions builds and pushes images on version tags
-- [ ] Template references ghcr.io images with digest
-- [ ] Template README documents how to update digest
-- [ ] Images are publicly pullable without auth
+- [x] GitHub Actions builds and pushes images on merge to main
+- [x] GitHub Actions builds and pushes images on version tags
+- [x] Template references ghcr.io images with digest
+- [x] Template README documents how to update digest
+- [x] Images are publicly pullable without auth
+- [x] Multi-arch support (amd64 + arm64)
 
 ## Open Questions
 

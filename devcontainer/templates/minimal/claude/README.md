@@ -121,6 +121,74 @@ curl -s https://api.github.com/zen
 curl --connect-timeout 5 https://example.com
 ```
 
+## Shell Customization
+
+Customize your shell environment by mounting scripts into the container.
+
+### Adding aliases and functions
+
+Create scripts in `~/.config/agent-sandbox/shell.d/`:
+
+```bash
+mkdir -p ~/.config/agent-sandbox/shell.d
+
+cat > ~/.config/agent-sandbox/shell.d/my-aliases.sh << 'EOF'
+alias ll='ls -la'
+alias gs='git status'
+alias gd='git diff'
+EOF
+```
+
+Uncomment the shell.d mount in your config:
+
+**devcontainer.json:**
+```json
+"source=${localEnv:HOME}/.config/agent-sandbox/shell.d,target=/home/dev/.config/agent-sandbox/shell.d,type=bind,readonly"
+```
+
+**docker-compose.yml:**
+```yaml
+- ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
+```
+
+### Using existing dotfiles
+
+Mount your dotfiles directory and use a shell.d script to symlink them:
+
+```bash
+cat > ~/.config/agent-sandbox/shell.d/00-dotfiles.sh << 'EOF'
+if [ -d ~/.dotfiles ]; then
+  ln -sf ~/.dotfiles/.vimrc ~/.vimrc
+  ln -sf ~/.dotfiles/.gitconfig ~/.gitconfig
+  ln -sf ~/.dotfiles/.tmux.conf ~/.tmux.conf
+  [ -f ~/.dotfiles/.aliases ] && source ~/.dotfiles/.aliases
+fi
+EOF
+```
+
+Then mount both directories:
+
+**docker-compose.yml:**
+```yaml
+- ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
+- ${HOME}/.dotfiles:/home/dev/.dotfiles:ro
+```
+
+### Overriding built-in aliases
+
+The container includes `yolo-claude` and `yc` aliases. To override or remove them:
+
+```bash
+cat > ~/.config/agent-sandbox/shell.d/99-overrides.sh << 'EOF'
+# Remove built-in aliases
+unalias yolo-claude 2>/dev/null
+unalias yc 2>/dev/null
+
+# Or redefine with different flags
+alias yolo-claude='claude --dangerously-skip-permissions --verbose'
+EOF
+```
+
 ## Troubleshooting
 
 ### "Permission denied" mounting host files

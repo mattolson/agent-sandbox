@@ -76,19 +76,31 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
   -a "export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
   -x
 
-# Copy default network policy and firewall script
+# Copy default network policy, firewall script, and shell init
+# All in /etc/agent-sandbox are root-owned to prevent agent tampering
 COPY policy.yaml /etc/agent-sandbox/policy.yaml
+COPY shell-init.sh /etc/agent-sandbox/shell-init.sh
 COPY init-firewall.sh /usr/local/bin/
+COPY entrypoint.sh /usr/local/bin/
 USER root
-RUN chmod 644 /etc/agent-sandbox/policy.yaml && \
-  chmod +x /usr/local/bin/init-firewall.sh && \
+RUN chmod 644 /etc/agent-sandbox/policy.yaml /etc/agent-sandbox/shell-init.sh && \
+  chown root:root /etc/agent-sandbox/policy.yaml /etc/agent-sandbox/shell-init.sh && \
+  chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/entrypoint.sh && \
   echo "${USERNAME} ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/firewall && \
   chmod 0440 /etc/sudoers.d/firewall
 
-# Copy and set up entrypoint
-COPY entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Create shell.d directory (root-owned to prevent agent from injecting malicious scripts)
+# Users mount their customizations here; the mount overlays this empty directory
+RUN mkdir -p /home/${USERNAME}/.config/agent-sandbox/shell.d && \
+  chown root:root /home/${USERNAME}/.config/agent-sandbox/shell.d && \
+  chmod 755 /home/${USERNAME}/.config/agent-sandbox/shell.d
+
 USER ${USERNAME}
+
+# Add shell initialization hook to zshrc
+RUN echo '' >> ~/.zshrc && \
+  echo '# Agent Sandbox shell initialization' >> ~/.zshrc && \
+  echo 'source /etc/agent-sandbox/shell-init.sh' >> ~/.zshrc
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["zsh"]
