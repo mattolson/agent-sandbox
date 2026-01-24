@@ -122,6 +122,25 @@ The firewall blocks all outbound by default. Each image includes a default polic
 
 This means everything works out of the box with no configuration.
 
+### How it works
+
+The firewall is initialized by `init-firewall.sh`, which:
+
+1. Reads the policy file (`/etc/agent-sandbox/policy.yaml`)
+2. Creates an ipset for allowed IPs
+3. For each service (e.g., `github`), fetches IP ranges dynamically
+4. For each domain, resolves via DNS and adds IPs to the set
+5. Sets iptables rules to DROP all outbound except to the ipset
+6. Verifies the firewall works (example.com blocked, at least one allowed endpoint reachable)
+
+**Initialization differs by mode:**
+- **Compose mode**: The entrypoint script runs `init-firewall.sh` automatically
+- **Devcontainer mode**: VS Code bypasses entrypoints, so `postStartCommand` triggers initialization
+
+The script is idempotent (checks for existing rules before running), so both paths work correctly.
+
+The container runs as a non-root `dev` user with passwordless sudo only for the firewall setup commands.
+
 ### Customizing the policy
 
 To add or remove domains, create a policy file at `~/.config/agent-sandbox/policy.yaml`:
@@ -218,26 +237,7 @@ volumes:
 
 The mount is read-only, so the agent cannot modify your host configuration.
 
-## How it works
-
-The firewall is initialized by `init-firewall.sh`, which:
-
-1. Reads the policy file (`/etc/agent-sandbox/policy.yaml`)
-2. Creates an ipset for allowed IPs
-3. For each service (e.g., `github`), fetches IP ranges dynamically
-4. For each domain, resolves via DNS and adds IPs to the set
-5. Sets iptables rules to DROP all outbound except to the ipset
-6. Verifies the firewall works (example.com blocked, at least one allowed endpoint reachable)
-
-**Initialization differs by mode:**
-- **Compose mode**: The entrypoint script runs `init-firewall.sh` automatically
-- **Devcontainer mode**: VS Code bypasses entrypoints, so `postStartCommand` triggers initialization
-
-The script is idempotent (checks for existing rules before running), so both paths work correctly.
-
-The container runs as a non-root `dev` user with passwordless sudo only for the firewall setup commands.
-
-## Security notes
+## Security
 
 This project reduces risk but does not eliminate it. Local dev is inherently best-effort sandboxing. For example, operating as a VS Code devcontainer opens up a channel to the IDE and installing extensions can introduce risk.
 
@@ -246,6 +246,13 @@ Key principles:
 - Minimal mounts: only the repo workspace + project-scoped agent state
 - Prefer short-lived credentials (SSO/STS) and read-only IAM roles
 - Firewall verification runs at every container start
+
+### Security issues
+
+If you find a sandbox escape or bypass:
+
+- Open a GitHub Security Advisory (preferred), or
+- Open an issue with minimal reproduction details
 
 ## Roadmap
 
@@ -260,13 +267,6 @@ PRs welcome for:
 - Documentation and examples
 
 Please keep changes agent-agnostic where possible and compatible with Colima on macOS.
-
-## Security issues
-
-If you find a sandbox escape or bypass:
-
-- Open a GitHub Security Advisory (preferred), or
-- Open an issue with minimal reproduction details
 
 ## License
 
