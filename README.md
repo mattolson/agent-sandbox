@@ -160,6 +160,64 @@ The policy file must live outside the workspace. If it were inside, the agent co
 
 Changes take effect on container restart.
 
+## Shell customization
+
+You can inject custom shell configuration (aliases, environment variables, tool setup) by mounting scripts to `~/.config/agent-sandbox/shell.d/`. Any `*.sh` files in this directory are sourced when zsh starts.
+
+### Setup
+
+Create your customization directory and scripts on the host:
+
+```bash
+mkdir -p ~/.config/agent-sandbox/shell.d
+```
+
+Example script (`~/.config/agent-sandbox/shell.d/my-aliases.sh`):
+
+```bash
+# Custom aliases
+alias ll='ls -la'
+alias gs='git status'
+
+# Environment variables
+export EDITOR=vim
+```
+
+### Mounting the directory
+
+**devcontainer.json:**
+```json
+"mounts": [
+  "source=${localEnv:HOME}/.config/agent-sandbox/shell.d,target=/home/dev/.config/agent-sandbox/shell.d,type=bind,readonly"
+]
+```
+
+**docker-compose.yml:**
+```yaml
+volumes:
+  - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
+```
+
+### Using dotfiles
+
+For more complex setups, you can mount your dotfiles directory and use a shell.d script to symlink them:
+
+**docker-compose.yml:**
+```yaml
+volumes:
+  - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
+  - ${HOME}/.dotfiles:/home/dev/.dotfiles:ro
+```
+
+**`~/.config/agent-sandbox/shell.d/dotfiles.sh`:**
+```bash
+# Symlink dotfiles on shell start
+[ -f ~/.dotfiles/.vimrc ] && ln -sf ~/.dotfiles/.vimrc ~/.vimrc
+[ -f ~/.dotfiles/.gitconfig ] && ln -sf ~/.dotfiles/.gitconfig ~/.gitconfig
+```
+
+The mount is read-only, so the agent cannot modify your host configuration.
+
 ## How it works
 
 The firewall is initialized by `init-firewall.sh`, which:
@@ -205,6 +263,12 @@ Project plan can be seen in [docs/plan/project.md](./docs/plan/project.md) and r
 - Build and publish images to GitHub Container Registry
 - Multi-platform support
 - Pin images by digest for reproducibility
+
+### m2.5: Shell customization (done)
+
+- Mount custom shell scripts via `~/.config/agent-sandbox/shell.d/`
+- Support for dotfiles directory mounting
+- Read-only mounts to prevent agent modification
 
 ### m3: CLI
 
