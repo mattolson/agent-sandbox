@@ -78,7 +78,34 @@ Build the image hierarchy so devcontainers use pre-built images instead of build
 
 **Dependencies:** m1 (template exists to update)
 
-### m3-cli
+### m3-proxy
+
+Add proxy-based network observability to understand what endpoints agents need.
+
+**Goals:**
+- mitmproxy sidecar container with structured JSON logging
+- Discovery mode (log everything, block nothing) to observe traffic
+- Agent container routes through proxy via HTTP_PROXY env vars
+- Tools to extract domain lists from logs
+- Later: enforcement mode with allowlist
+
+**Dependencies:** m2 (images established)
+
+**Rationale:** Pulled forward from m5 because multi-agent support requires knowing what endpoints each agent needs. The proxy in discovery mode lets us observe traffic before defining policy.
+
+### m4-multi-agent
+
+Support additional coding agents beyond Claude Code.
+
+**Goals:**
+- agent-sandbox-opencode image
+- agent-sandbox-codex image
+- Agent-specific configuration in templates
+- Documentation for adding new agents
+
+**Dependencies:** m2 (image hierarchy established), m3 (proxy for endpoint discovery)
+
+### m5-cli
 
 Create the `agentbox` CLI for managing sandbox configurations.
 
@@ -88,31 +115,6 @@ Create the `agentbox` CLI for managing sandbox configurations.
 - `agentbox policy` - manage allowlist domains
 
 **Dependencies:** m1 (templates exist), m2 (images to reference)
-
-### m4-multi-agent
-
-Support additional coding agents beyond Claude Code.
-
-**Goals:**
-- agent-sandbox-codex image
-- agent-sandbox-opencode image
-- Agent-specific configuration in templates
-- Documentation for adding new agents
-
-**Dependencies:** m2 (image hierarchy established)
-
-### m5-proxy-runtime
-
-Add proxy-based network enforcement as an alternative to iptables.
-
-**Goals:**
-- Proxy image (squid or similar with allowlist config)
-- Docker Compose stack (agent + proxy)
-- Request-level structured logging
-- "proxy-locked" devcontainer template
-- Policy-as-code in `runtime/policy/`
-
-**Dependencies:** m1, m2, m4
 
 ## Decisions
 

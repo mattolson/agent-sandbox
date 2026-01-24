@@ -21,19 +21,21 @@ Detailed project plan can be found in [docs/plan/project.md](./docs/plan/project
 - Support for dotfiles directory mounting
 - Read-only mounts to prevent agent modification
 
-## m3: Multi-agent support
+## m3: Proxy observability
+
+- mitmproxy sidecar for traffic logging
+- Discovery mode to observe what endpoints agents need
+- Structured JSON logs for analysis
+- Foundation for request-level enforcement
+
+## m4: Multi-agent support
 
 - Codex support (first target)
 - Support for OpenCode and other agents
 - Agent-specific images and configuration
 
-## m4: CLI
+## m5: CLI
 
 - `agentbox init` - scaffold devcontainer from template
 - `agentbox bump` - update image digests
 - `agentbox policy` - manage allowlist domains
-
-## m5: Proxy enforcement and logging
-
-- Proxy-based network enforcement for request-level logging
-- Docker Compose stack with structured audit logs
