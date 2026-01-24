@@ -15,9 +15,13 @@ RUN chmod 644 /etc/agent-sandbox/policy.yaml /etc/agent-sandbox/aliases.sh
 RUN mkdir -p /home/dev/.claude && chown -R dev:dev /home/dev/.claude
 USER dev
 
-# Install Claude Code
-ARG CLAUDE_CODE_VERSION=latest
+# Install Claude Code via official install script
+# CLAUDE_CODE_VERSION is determined by the build workflow and used for image tagging
+ARG CLAUDE_CODE_VERSION
 RUN curl -fsSL https://claude.ai/install.sh | bash -s $CLAUDE_CODE_VERSION
 
-# Add Claude to PATH
-RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+# Add Claude to PATH (install script puts it in ~/.local/bin)
+ENV PATH="/home/dev/.local/bin:$PATH"
+
+LABEL org.opencontainers.image.description="Agent Sandbox with Claude Code"
+LABEL com.mattolson.agentsandbox.claude-code-version="${CLAUDE_CODE_VERSION}"

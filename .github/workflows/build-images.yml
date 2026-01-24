@@ -77,10 +77,18 @@ jobs:
 
     outputs:
       digest: ${{ steps.build.outputs.digest }}
+      claude_version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Get latest Claude Code version
+        id: version
+        run: |
+          VERSION=$(npm view @anthropic-ai/claude-code version)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Claude Code version: $VERSION"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -102,6 +110,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.CLAUDE_IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=claude-${{ steps.version.outputs.version }}
             type=sha,prefix=sha-
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -117,6 +126,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BASE_IMAGE=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}@${{ needs.build-base.outputs.digest }}
+            CLAUDE_CODE_VERSION=${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -132,6 +142,7 @@ jobs:
           echo "## Image Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Platforms:** linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
+          echo "**Claude Code version:** ${{ needs.build-claude.outputs.claude_version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Image | Digest |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
