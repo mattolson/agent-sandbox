@@ -49,6 +49,13 @@ build_claude() {
     "$SCRIPT_DIR/agents/claude"
 }
 
+build_proxy() {
+  echo "Building agent-sandbox-proxy..."
+  docker build \
+    -t agent-sandbox-proxy:local \
+    "$SCRIPT_DIR/proxy"
+}
+
 case "${1:-all}" in
   base)
     build_base
@@ -56,12 +63,16 @@ case "${1:-all}" in
   claude)
     build_claude
     ;;
+  proxy)
+    build_proxy
+    ;;
   all)
     build_base
     build_claude
+    build_proxy
     ;;
   *)
-    echo "Usage: $0 [base|claude|all]"
+    echo "Usage: $0 [base|claude|proxy|all]"
     echo ""
     echo "Environment variables:"
     echo "  TZ                    Timezone (default: America/Los_Angeles)"

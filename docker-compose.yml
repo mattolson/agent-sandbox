@@ -13,9 +13,24 @@
 #   image: agent-sandbox-claude:local
 
 services:
+  proxy:
+    build: ./images/proxy
+    container_name: agent-sandbox-proxy
+    volumes:
+      - proxy-state:/home/mitmproxy/.mitmproxy
+      - proxy-ca:/ca-export
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8080"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
   agent:
     image: agent-sandbox-claude:local
     container_name: agent-sandbox
+    depends_on:
+      proxy:
+        condition: service_healthy
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -26,6 +41,8 @@ services:
       - claude-state:/home/dev/.claude
       # Persist shell history
       - claude-history:/commandhistory
+      # Proxy CA certificate for HTTPS interception (public cert only, no private key)
+      - proxy-ca:/etc/mitmproxy:ro
       # Host Claude config (optional - comment out if not needed)
       - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
       - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
@@ -41,7 +58,13 @@ services:
     environment:
       - TZ=${TZ:-America/Los_Angeles}
       - CLAUDE_CONFIG_DIR=/home/dev/.claude
+      # Proxy configuration for traffic logging
+      - HTTP_PROXY=http://proxy:8080
+      - HTTPS_PROXY=http://proxy:8080
+      - NO_PROXY=localhost,127.0.0.1,proxy
 
 volumes:
   claude-state:
   claude-history:
+  proxy-state:
+  proxy-ca:

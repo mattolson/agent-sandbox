@@ -18,5 +18,17 @@ else
   echo "Firewall already initialized."
 fi
 
+# Install mitmproxy CA certificate if available - this is used by the sidecar
+# proxy to properly handle TLS requests
+MITMPROXY_CA="/etc/mitmproxy/ca.crt"
+if [ -f "$MITMPROXY_CA" ]; then
+  # Check if already installed by comparing with installed cert
+  INSTALLED_CA="/usr/local/share/ca-certificates/mitmproxy-ca.crt"
+  if [ ! -f "$INSTALLED_CA" ] || ! cmp -s "$MITMPROXY_CA" "$INSTALLED_CA"; then
+    echo "Installing mitmproxy CA certificate..."
+    sudo /usr/local/bin/install-proxy-ca.sh
+  fi
+fi
+
 # Execute the provided command (or default to zsh)
 exec "${@:-zsh}"
