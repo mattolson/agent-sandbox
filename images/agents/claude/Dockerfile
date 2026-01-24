@@ -17,7 +17,7 @@ USER dev
 
 # Install Claude Code via official install script
 # CLAUDE_CODE_VERSION is determined by the build workflow and used for image tagging
-ARG CLAUDE_CODE_VERSION
+ARG CLAUDE_CODE_VERSION=latest
 RUN curl -fsSL https://claude.ai/install.sh | bash -s $CLAUDE_CODE_VERSION
 
 # Add Claude to PATH (install script puts it in ~/.local/bin)
