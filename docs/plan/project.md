@@ -80,18 +80,19 @@ Build the image hierarchy so devcontainers use pre-built images instead of build
 
 ### m3-proxy
 
-Add proxy-based network observability to understand what endpoints agents need.
+Replace iptables-based domain enforcement with proxy-based enforcement.
 
 **Goals:**
-- mitmproxy sidecar container with structured JSON logging
-- Discovery mode (log everything, block nothing) to observe traffic
-- Agent container routes through proxy via HTTP_PROXY env vars
-- Tools to extract domain lists from logs
-- Later: enforcement mode with allowlist
+- mitmproxy sidecar as the enforcement point for domain allowlists
+- iptables as gatekeeper (forces all traffic through proxy)
+- Structured JSON logging of all requests
+- Discovery mode (log only) and enforcement mode (log + block)
+- Block SSH, require git over HTTPS
+- Devcontainer support via compose backend
 
 **Dependencies:** m2 (images established)
 
-**Rationale:** Pulled forward from m5 because multi-agent support requires knowing what endpoints each agent needs. The proxy in discovery mode lets us observe traffic before defining policy.
+**Rationale:** Proxy-based enforcement provides better observability, handles dynamic IPs, and offers a simpler mental model than IP-based iptables rules. iptables ensures the proxy cannot be bypassed.
 
 ### m4-multi-agent
 
@@ -118,13 +119,15 @@ Create the `agentbox` CLI for managing sandbox configurations.
 
 ## Decisions
 
-1. **Policy format**: YAML with domain-only granularity for m1-m4. Path/method filtering deferred to m5-proxy-runtime.
+1. **Policy format**: YAML with domain-only granularity for m1-m4. Path/method filtering deferred to future work.
 2. **CLI language**: Go. Single static binary, no runtime dependencies, easy cross-compilation.
 3. **Registry**: GitHub Container Registry (ghcr.io). Free for public repos, native GitHub Actions integration.
+4. **Proxy as enforcer**: iptables forces traffic through proxy sidecar, proxy enforces domain allowlist. See `decisions/001-proxy-as-enforcer.md`.
+5. **No SSH**: Block SSH entirely, require git over HTTPS. Closes tunneling/exfiltration vector. See `decisions/002-no-ssh-https-only.md`.
 
 ## Open Questions
 
-1. **Proxy choice**: Squid? Nginx? Custom Go proxy? Deferred to m5.
+(None currently - proxy choice resolved as mitmproxy in m3)
 
 ## Success Criteria
 

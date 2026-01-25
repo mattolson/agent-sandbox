@@ -1,165 +1,167 @@
 # m3-proxy
 
-Add proxy-based network observability and enforcement as a complement to iptables.
+Proxy-based network enforcement and observability, replacing domain-based iptables rules.
 
 ## Motivation
 
-The iptables approach works for enforcement but provides no visibility into what requests agents actually make. Before building out multi-agent support (m4), we need to understand what endpoints each agent needs. A proxy gives us:
+The original iptables approach resolves domains to IPs at container startup and blocks everything else. This works but has limitations:
 
-- Request-level logging (hostname, method, status)
+- No visibility into what requests agents actually make
+- IP addresses can change after resolution
+- No request-level logging for debugging or discovery
+- Complex ipset management
+
+A proxy-based approach provides:
+
+- Request-level logging with hostnames (not just IPs)
+- Domain-based enforcement that works with dynamic IPs
 - Discovery mode to observe traffic before defining policy
-- Foundation for future enforcement at the request level
+- Simpler mental model (one enforcement point)
 
-## Goals
+## Architecture
 
-- Run mitmproxy as a sidecar container
-- Route agent traffic through the proxy via environment variables
-- Structured JSON logging of all requests
-- Discovery mode first (log everything, block nothing)
-- Later: enforcement mode with allowlist
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Docker Compose Stack                                        │
+│                                                             │
+│  ┌─────────────────────┐      ┌─────────────────────┐      │
+│  │   agent container   │      │   proxy container   │      │
+│  │                     │      │   (mitmproxy)       │      │
+│  │  ┌───────────────┐  │      │                     │      │
+│  │  │ iptables      │  │      │  - Logs all traffic │      │
+│  │  │               │  │      │  - Enforces policy  │      │
+│  │  │ ALLOW proxy   │──┼─────▶│  - Can't be bypassed│─────▶│ internet
+│  │  │ ALLOW Docker  │  │      │                     │      │
+│  │  │ DROP all else │  │      └─────────────────────┘      │
+│  │  └───────────────┘  │                                    │
+│  │                     │                                    │
+│  │  HTTP_PROXY=proxy   │                                    │
+│  └─────────────────────┘                                    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
 
-## Non-goals (for now)
-
-- MITM inspection of request/response bodies (CONNECT passthrough is sufficient)
-- CA certificate injection
-- Path-level or method-level filtering
-- Replacing iptables (proxy is complementary)
+**Key insight**: iptables forces all traffic through the proxy. The agent can ignore `HTTP_PROXY` env vars, but direct connections are blocked. The proxy becomes the single enforcement point.
 
 ## Design Decisions
 
 ### Proxy choice: mitmproxy
 
-Considered alternatives:
-- **Squid**: Battle-tested but config is arcane, logging less structured
-- **Nginx**: Better as reverse proxy, forward proxy support is awkward
-- **Custom Go proxy**: Full control but significant effort
-
-mitmproxy wins because:
 - Designed for traffic inspection and logging
-- Excellent structured JSON output via `--set hardump=...` or event hooks
-- Python scripting for custom logging/filtering
-- Good docs, active community
-- Easy to run in transparent or explicit proxy mode
+- Python scripting for custom enforcement logic
+- Structured JSON output via addons
+- Active community, good docs
 
-### Proxy mode: explicit (not transparent)
+### iptables as gatekeeper, proxy as enforcer
 
-Two ways to route traffic through a proxy:
+- iptables: blocks all outbound except to proxy container and Docker internals
+- Proxy: logs all requests, enforces domain allowlist
+- Agent cannot bypass either layer
 
-1. **Transparent proxy**: iptables redirects traffic to proxy. App doesn't know.
-2. **Explicit proxy**: App configured via `HTTP_PROXY`/`HTTPS_PROXY` env vars.
+### No SSH (git over HTTPS only)
 
-Explicit is simpler:
-- No iptables complexity in the proxy path
-- Works with standard tooling (curl, npm, pip all respect proxy env vars)
-- Claude Code and other agents should respect these vars
-- Easier to debug (can disable by unsetting env var)
+SSH to arbitrary hosts is a data exfiltration vector. By blocking SSH entirely:
 
-### HTTPS handling: CONNECT passthrough
+- Git must use HTTPS (works fine, just needs credential setup)
+- No covert channels via SSH tunneling
+- Simpler security model
 
-For HTTPS, the proxy sees a CONNECT request to `host:443`, then tunnels encrypted traffic.
-
-What we can log without MITM:
-- Destination hostname and port
-- Timestamp
-- Connection duration
-- Bytes transferred
-
-What we cannot log without MITM:
-- Full URL path
-- Request/response headers
-- Request/response bodies
-
-Hostname-level logging is sufficient for building domain allowlists. If we need path-level visibility later, we can add MITM with CA injection as a separate task.
-
-### Logging format
-
-mitmproxy can output structured logs via addon scripts. Target format:
-
-```json
-{"timestamp": "2024-01-15T10:30:00Z", "client": "172.18.0.2", "method": "CONNECT", "host": "api.anthropic.com", "port": 443, "status": 200}
-{"timestamp": "2024-01-15T10:30:01Z", "client": "172.18.0.2", "method": "GET", "host": "api.github.com", "port": 443, "path": "/meta", "status": 200}
+Users configure git with:
+```bash
+git config --global url."https://github.com/".insteadOf git@github.com:
 ```
 
-For HTTPS CONNECT tunnels, we log the CONNECT. For plain HTTP, we log the full request.
+### Discovery vs enforcement modes
 
-### Container architecture
+The proxy supports two modes:
 
-```
-┌─────────────────────────────────────────────────┐
-│ Docker Compose Stack                            │
-│                                                 │
-│  ┌─────────────┐      ┌─────────────┐          │
-│  │   agent     │─────▶│   proxy     │─────▶ internet
-│  │             │      │ (mitmproxy) │          │
-│  │ HTTP_PROXY= │      │             │          │
-│  │ proxy:8080  │      │ :8080       │          │
-│  └─────────────┘      └─────────────┘          │
-│                              │                  │
-│                              ▼                  │
-│                       /var/log/proxy/           │
-│                       (volume mount)            │
-└─────────────────────────────────────────────────┘
-```
+- **Discovery mode**: Log all requests, allow everything. Use to observe what endpoints an agent needs.
+- **Enforcement mode**: Log all requests, block those not on allowlist. Use in production.
 
-The proxy container:
-- Runs mitmproxy in regular (non-transparent) mode on port 8080
-- Writes structured logs to a mounted volume
-- In discovery mode: allows all traffic
-- In enforcement mode: applies allowlist
+Mode is controlled by environment variable on the proxy container.
 
-The agent container:
-- Sets `HTTP_PROXY` and `HTTPS_PROXY` to `http://proxy:8080`
-- All HTTP/HTTPS traffic routes through proxy
-- iptables firewall still runs (defense in depth) but allows proxy container
+### Host network access
+
+The Docker host network (e.g., 172.18.0.0/24) is allowed. This enables:
+
+- Communication with proxy container
+- Communication with other sidecar services
+- Docker DNS resolution
+
+This is acceptable because other containers in the compose stack are explicitly configured and trusted.
 
 ## Tasks
 
-### m3.1-proxy-container
+### m3.1-proxy-container (DONE)
 
 Create the mitmproxy container image and compose service.
 
-- Dockerfile based on `mitmproxy/mitmproxy` official image
-- Custom addon script for structured JSON logging
-- Compose service definition with volume for logs
-- Health check
+- [x] Dockerfile based on `mitmproxy/mitmproxy` official image
+- [x] Custom addon script for structured JSON logging
+- [x] Compose service definition with health check
+- [x] Agent container routes through proxy via env vars
 
-### m3.2-agent-integration
+### m3.2-firewall-lockdown
 
-Configure agent container to route through proxy.
+Update iptables to force all traffic through proxy.
 
-- Add proxy env vars to compose service
-- Verify curl/npm/pip respect proxy
-- Verify Claude Code respects proxy
-- Update iptables rules to allow traffic to proxy container
+- Remove domain-based ipset rules
+- Remove SSH allowance (port 22)
+- Allow only: localhost, Docker DNS, Docker host network (for proxy)
+- Drop everything else
+- Update verification to test proxy connectivity instead of direct domain access
 
-### m3.3-log-analysis
-
-Tools to analyze proxy logs and extract domain lists.
-
-- Script to parse JSON logs and output unique domains
-- Script to generate policy.yaml from observed traffic
-- Documentation for discovery workflow
-
-### m3.4-enforcement-mode
+### m3.3-proxy-enforcement
 
 Add allowlist enforcement to the proxy.
 
-- mitmproxy addon that checks requests against allowlist
-- Read allowlist from policy.yaml (same format as iptables)
-- Block non-allowed requests with clear error
-- Toggle between discovery and enforcement mode
+- mitmproxy addon that checks CONNECT requests against allowlist
+- Read allowlist from mounted policy.yaml
+- Block non-allowed requests with clear error message
+- Environment variable to toggle discovery/enforcement mode
+- Support same policy format as before (services + domains)
+
+### m3.4-git-https
+
+Configure git to use HTTPS instead of SSH.
+
+- Add git config to image that rewrites SSH URLs to HTTPS
+- Document credential caching options (credential helper, gh auth)
+- Test clone/push/pull work through proxy
+- Update any documentation that references SSH
+
+### m3.5-devcontainer-integration
+
+Make devcontainer use the compose-based proxy setup.
+
+- Create docker-compose.yml in .devcontainer/ (or reference root compose file)
+- Update devcontainer.json to use `dockerComposeFile` instead of `build`
+- Configure VS Code to attach to agent service
+- Test full workflow in VS Code
+
+### m3.6-cleanup
+
+Retire iptables-only approach and update documentation.
+
+- Remove domain resolution logic from init-firewall.sh
+- Remove ipset creation (no longer needed)
+- Update CLAUDE.md with new architecture
+- Update README with proxy-based setup
+- Document discovery workflow for new agents
 
 ## Open Questions
 
-1. Should proxy replace iptables or complement it? Current thinking: complement (defense in depth).
-2. How to handle non-HTTP traffic (git over SSH)? Current thinking: SSH continues to bypass proxy, handled by iptables only.
-3. Log rotation strategy? Defer until logs become unwieldy.
+1. **Log rotation**: Proxy logs will grow. Defer until it becomes a problem, then add logrotate or size limits.
+
+2. **Policy file location for proxy**: Mount from host or bake into image? Probably mount for flexibility, same pattern as iptables policy.
+
+3. **Devcontainer rebuild experience**: When proxy policy changes, does user need to rebuild? Ideally just restart.
 
 ## Definition of Done
 
-- [ ] Proxy container runs alongside agent container
-- [ ] All HTTP/HTTPS traffic from agent routes through proxy
-- [ ] Requests logged in structured JSON format
-- [ ] Can extract unique domains from logs
-- [ ] Documentation for discovery workflow
-- [ ] (stretch) Enforcement mode with allowlist
+- [ ] iptables blocks all direct outbound (only proxy allowed)
+- [ ] Proxy enforces domain allowlist
+- [ ] Git works over HTTPS through proxy
+- [ ] Devcontainer works with proxy sidecar
+- [ ] Documentation updated
+- [ ] Old iptables-only code removed
