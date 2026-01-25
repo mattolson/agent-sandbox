@@ -1,0 +1,15 @@
+# Claude Code policy
+#
+# Allows GitHub and the domains Claude Code needs to function.
+# Mount into the proxy container:
+#   volumes:
+#     - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/mitmproxy/policy.yaml:ro
+
+services:
+  - github
+
+domains:
+  - api.anthropic.com
+  - sentry.io
+  - statsig.anthropic.com
+  - statsig.com
