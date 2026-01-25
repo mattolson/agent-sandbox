@@ -45,13 +45,13 @@ iptables -A INPUT -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
 
 # 5. Detect and allow Docker host network (where proxy container lives)
-HOST_IP=$(ip route | grep default | cut -d" " -f3)
-if [ -z "$HOST_IP" ]; then
-    echo "ERROR: Failed to detect host IP from default route"
+# Extract network CIDR from the route table instead of assuming /24
+DEFAULT_IF=$(ip route | grep default | awk '{print $5}')
+HOST_NETWORK=$(ip route | grep -E "^[0-9].*dev $DEFAULT_IF" | grep -v default | awk '{print $1}' | head -1)
+if [ -z "$HOST_NETWORK" ]; then
+    echo "ERROR: Failed to detect host network from route table"
     exit 1
 fi
-
-HOST_NETWORK=$(echo "$HOST_IP" | sed "s/\.[0-9]*$/.0\/24/")
 echo "Host network: $HOST_NETWORK"
 
 iptables -A INPUT -s "$HOST_NETWORK" -j ACCEPT
