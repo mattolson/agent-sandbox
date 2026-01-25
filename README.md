@@ -128,31 +128,39 @@ The proxy's CA certificate is shared via a Docker volume and automatically insta
 
 ### Customizing the policy
 
-To add or remove domains, create a policy file at `~/.config/agent-sandbox/policy.yaml`:
+The repo includes ready-to-use policy files in `docs/policy/examples/`. To use the Claude Code policy:
 
-```yaml
-services:
-  - github  # Expands to github.com, *.github.com, *.githubusercontent.com
-
-domains:
-  # Claude Code
-  - api.anthropic.com
-  - sentry.io
-  - statsig.anthropic.com
-  - statsig.com
-
-  # Add your own domains here
-  - pypi.org
+```bash
+mkdir -p ~/.config/agent-sandbox
+cp agent-sandbox/docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policy.yaml
 ```
 
-Then uncomment the mount in `docker-compose.yml`:
+Then uncomment the mount in your project's `docker-compose.yml`:
 
 ```yaml
 # Under proxy.volumes:
 - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/mitmproxy/policy.yaml:ro
 ```
 
+To add project-specific domains, edit your copy at `~/.config/agent-sandbox/policy.yaml`:
+
+```yaml
+services:
+  - github
+
+domains:
+  - api.anthropic.com
+  - sentry.io
+  - statsig.anthropic.com
+  - statsig.com
+  # Add your own
+  - registry.npmjs.org
+  - pypi.org
+```
+
 The policy file must live outside the workspace. If it were inside, the agent could modify it to allow exfiltration.
+
+See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format reference.
 
 Changes take effect on proxy restart: `docker compose restart proxy`
 
