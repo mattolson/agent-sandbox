@@ -1,93 +1,77 @@
 # Policy Schema
 
-Policy files configure sandbox restrictions for agent-sandbox containers. Currently supports outbound network allowlists, with future support planned for ingress rules, port forwarding, and mount restrictions.
+Policy files configure which domains the sandbox can reach. The proxy enforcer reads this file at startup and blocks requests to any domain not on the allowlist.
+
+Policy file location: `/etc/mitmproxy/policy.yaml` (inside the proxy container).
 
 ## Format
 
 ```yaml
-egress:
-  services:
-    - claude-code
-    - github
-    - vscode
-  domains:
-    - registry.npmjs.org
-    - your-internal-api.example.com
+services:
+  - github
 
-# Future sections (not yet implemented):
-# ingress:
-#   ports: [8080, 3000]
-# mounts:
-#   readonly: [~/.ssh]
-#   blocked: [~/.aws/credentials]
+domains:
+  - api.anthropic.com
+  - "*.example.com"
 ```
 
-## Egress
+## services
 
-Controls outbound network traffic. The firewall blocks all outbound except to destinations listed here.
+A list of predefined service names. Each service expands to a set of domain patterns.
 
-### egress.services
+| Service | Domains |
+|---------|---------|
+| `github` | `github.com`, `*.github.com`, `githubusercontent.com`, `*.githubusercontent.com` |
 
-A list of predefined service names. Each service expands to a set of domains with appropriate resolution logic.
+Services are defined as a static mapping in the proxy enforcer addon (`images/proxy/addons/enforcer.py`). To add a new service, add an entry to the `SERVICE_DOMAINS` dict.
 
-| Service | Domains | Notes |
-|---------|---------|-------|
-| `claude-code` | Anthropic API and telemetry | api.anthropic.com, sentry.io, statsig.anthropic.com, statsig.com |
-| `github` | GitHub web, API, and git endpoints | IPs fetched from api.github.com/meta and aggregated into CIDR blocks |
-| `vscode` | VS Code marketplace and telemetry | marketplace.visualstudio.com, mobile.events.data.microsoft.com, vscode.blob.core.windows.net, update.code.visualstudio.com |
+## domains
 
-### egress.domains
+A list of domain names to allow. Supports two formats:
 
-A list of additional domain names to allow. Each domain is resolved via DNS at container startup, and the resulting IPs are added to the allowlist.
+- **Exact match**: `api.anthropic.com` allows only that exact hostname
+- **Wildcard suffix**: `*.example.com` allows any subdomain of example.com (but not example.com itself)
 
 Use this for:
+- Agent API endpoints (e.g., api.anthropic.com for Claude Code)
 - Package registries (e.g., registry.npmjs.org, pypi.org)
 - Internal APIs your project needs
-- Any domain not covered by a service
+
+## How enforcement works
+
+The proxy sidecar (mitmproxy) runs in one of two modes, controlled by the `PROXY_MODE` environment variable:
+
+- **enforce** (default in templates): loads the policy file, blocks non-matching requests with HTTP 403
+- **log**: allows all traffic, logs requests to stdout as JSON
+
+When a request arrives:
+1. For HTTPS: the proxy intercepts the CONNECT tunnel and checks the target hostname
+2. For HTTP: the proxy checks the Host header in the request
+3. If the hostname matches an allowed domain (exact or wildcard), the request proceeds
+4. If not, the proxy returns `403 Blocked by proxy policy: <hostname>`
+
+All requests are logged to stdout as JSON with an `"action"` field of `"allowed"` or `"blocked"`.
+
+If `PROXY_MODE=enforce` and no policy file exists at `/etc/mitmproxy/policy.yaml`, the proxy refuses to start.
+
+## Where policy files live
+
+There are two places a policy can come from:
+
+1. **Baked into the proxy image** at build time (`images/proxy/policy.yaml`). The default allows GitHub only.
+2. **Mounted from the host** at runtime, overriding the baked-in default.
+
+To mount a custom policy in docker-compose.yml:
+
+```yaml
+# Under proxy.volumes:
+- ${HOME}/.config/agent-sandbox/policy.yaml:/etc/mitmproxy/policy.yaml:ro
+```
+
+The policy file must live outside the workspace. If it were inside, the agent could modify its own allowlist.
 
 ## Examples
 
-### Minimal policy (Claude Code only)
+See [examples/](./examples/) for ready-to-use policy files.
 
-```yaml
-egress:
-  services:
-    - claude-code
-    - github
-```
-
-### With VS Code devcontainer support
-
-```yaml
-egress:
-  services:
-    - claude-code
-    - github
-    - vscode
-```
-
-### Adding project-specific domains
-
-```yaml
-egress:
-  services:
-    - claude-code
-    - github
-    - vscode
-  domains:
-    - api.stripe.com          # payment processing
-    - pypi.org                # Python packages
-    - registry.npmjs.org      # npm packages
-```
-
-## How It Works
-
-At container startup, `init-firewall.sh` reads the policy file and:
-
-1. For each service in `egress.services`, resolves the associated domains (or fetches IP ranges for github)
-2. For each domain in `egress.domains`, performs DNS resolution
-3. Adds all IPs to an ipset
-4. Configures iptables to allow only traffic to IPs in the set
-5. Verifies the firewall by checking that example.com is blocked
-
-Changes to the policy require rebuilding the container.
+- [claude.yaml](./examples/claude.yaml) - Claude Code (GitHub + Anthropic API)
