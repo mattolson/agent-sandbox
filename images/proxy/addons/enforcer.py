@@ -71,7 +71,7 @@ class PolicyEnforcer:
 
     def _add_domain(self, domain):
         if domain.startswith("*."):
-            self.allowed_wildcards.append(domain[1:])
+            self.allowed_wildcards.append(domain[2:])
         else:
             self.allowed_exact.add(domain)
 
@@ -81,7 +81,7 @@ class PolicyEnforcer:
         if host in self.allowed_exact:
             return True
         for suffix in self.allowed_wildcards:
-            if host.endswith(suffix):
+            if host == suffix or host.endswith('.' + suffix):
                 return True
         return False
 
