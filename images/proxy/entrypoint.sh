@@ -10,7 +10,7 @@ EXPORT_DIR="/ca-export"
 # Generate the CA if it doesn't exist yet
 if [ ! -f "$CA_DIR/mitmproxy-ca-cert.pem" ]; then
   # Run mitmdump briefly to trigger CA generation
-  timeout 2 mitmdump --set confdir="$CA_DIR" || true
+  timeout 5 mitmdump --set confdir="$CA_DIR" || true
 fi
 
 # Copy only the public certificate to the export volume
