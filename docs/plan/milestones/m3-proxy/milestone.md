@@ -101,67 +101,103 @@ Create the mitmproxy container image and compose service.
 - [x] Compose service definition with health check
 - [x] Agent container routes through proxy via env vars
 
-### m3.2-firewall-lockdown
+### m3.2-firewall-lockdown (DONE)
 
 Update iptables to force all traffic through proxy.
 
-- Remove domain-based ipset rules
-- Remove SSH allowance (port 22)
-- Allow only: localhost, Docker DNS, Docker host network (for proxy)
-- Drop everything else
-- Update verification to test proxy connectivity instead of direct domain access
+- [x] Remove domain-based ipset rules
+- [x] Remove SSH allowance (port 22)
+- [x] Allow only: localhost, Docker DNS, Docker host network (for proxy)
+- [x] Drop everything else
+- [x] Update verification to test proxy connectivity instead of direct domain access
 
-### m3.3-proxy-enforcement
+### m3.3-proxy-enforcement (DONE)
 
 Add allowlist enforcement to the proxy.
 
-- mitmproxy addon that checks CONNECT requests against allowlist
-- Read allowlist from mounted policy.yaml
-- Block non-allowed requests with clear error message
-- Environment variable to toggle discovery/enforcement mode
-- Support same policy format as before (services + domains)
+- [x] mitmproxy addon that checks CONNECT requests against allowlist
+- [x] Read allowlist from mounted policy.yaml
+- [x] Block non-allowed requests with clear error message
+- [x] Environment variable to toggle discovery/enforcement mode
+- [x] Support same policy format as before (services + domains)
 
-### m3.4-git-https
+### m3.4-devcontainer-ux
 
-Configure git to use HTTPS instead of SSH.
+Validate and refine the devcontainer experience. Use this repo as the test case before finalizing the template.
 
-- Add git config to image that rewrites SSH URLs to HTTPS
-- Document credential caching options (credential helper, gh auth)
-- Test clone/push/pull work through proxy
-- Update any documentation that references SSH
+**Problem**: The current template has a single docker-compose.yml at project root shared by both VS Code devcontainer and CLI usage. This causes:
 
-### m3.5-devcontainer-integration
+1. Container/volume name conflicts if both run simultaneously
+2. Policy conflicts: VS Code needs Microsoft/extension domains that CLI doesn't
 
-Make devcontainer use the compose-based proxy setup.
+**Solution**: Separate compose files with isolated naming and different policies.
 
-- Create docker-compose.yml in .devcontainer/ (or reference root compose file)
-- Update devcontainer.json to use `dockerComposeFile` instead of `build`
-- Configure VS Code to attach to agent service
-- Test full workflow in VS Code
+**Structure:**
 
-### m3.6-cleanup
+```
+.devcontainer/
+  devcontainer.json           # Points to ./docker-compose.yml
+  docker-compose.yml          # VS Code mode: relaxed policy, namespaced resources
+docker-compose.yml            # CLI mode: tight policy, standard naming
+docs/policy/examples/
+  claude.yaml                 # Base Claude Code policy (CLI)
+  claude-devcontainer.yaml    # Adds VS Code domains (devcontainer)
+```
 
-Retire iptables-only approach and update documentation.
+**Subtasks:**
 
-- Remove domain resolution logic from init-firewall.sh
-- Remove ipset creation (no longer needed)
-- Update CLAUDE.md with new architecture
-- Update README with proxy-based setup
-- Document discovery workflow for new agents
+Proxy changes:
+- [ ] Add `vscode` service to SERVICE_DOMAINS in enforcer.py (update.code.visualstudio.com, marketplace.visualstudio.com, *.vsassets.io, etc.)
+
+Policy examples:
+- [ ] Create `docs/policy/examples/claude-devcontainer.yaml` with `services: [github, vscode]`
+- [ ] Verify `docs/policy/examples/claude.yaml` works for CLI usage
+
+This repo's devcontainer:
+- [ ] Create `.devcontainer/docker-compose.yml` with namespaced container/volume names
+- [ ] Update `.devcontainer/devcontainer.json` to use `dockerComposeFile` backend
+- [ ] Remove `.devcontainer/Dockerfile` (no longer needed, use published image)
+- [ ] Remove `.devcontainer/policy.yaml` (policy now in proxy image or host mount)
+- [ ] Test full VS Code workflow: open in container, proxy works, firewall blocks direct
+
+Template updates:
+- [ ] Update `templates/claude/.devcontainer/` to match validated structure
+- [ ] Update `templates/claude/docker-compose.yml` for CLI-only usage
+- [ ] Update `templates/claude/README.md` with clear separation of modes
+
+Cleanup (rolled into this task):
+- [ ] Update root CLAUDE.md with new architecture
+- [ ] Update root README.md with proxy-based setup
+- [ ] Remove any remaining iptables-only code paths
+
+### m3.5-git-https
+
+Configure git to use HTTPS instead of SSH. (Moved to end; blocked on m3.4)
+
+Port 22 is now blocked by the firewall, so git-over-SSH no longer works. This task ensures git operations work through the proxy.
+
+- [ ] Add git config to base image that rewrites SSH URLs to HTTPS
+- [ ] Document credential caching options (credential helper, gh auth)
+- [ ] Test clone/push/pull work through proxy
+- [ ] Update any documentation that references SSH
 
 ## Open Questions
 
 1. **Log rotation**: Proxy logs will grow. Defer until it becomes a problem, then add logrotate or size limits.
 
-2. **Policy file location for proxy**: Mount from host or bake into image? Probably mount for flexibility, same pattern as iptables policy.
+2. ~~**Policy file location for proxy**: Mount from host or bake into image?~~ Resolved: Bake default into image, allow host mount override.
 
-3. **Devcontainer rebuild experience**: When proxy policy changes, does user need to rebuild? Ideally just restart.
+3. ~~**Devcontainer rebuild experience**: When proxy policy changes, does user need to rebuild?~~ Resolved: Just restart proxy container.
+
+4. **VS Code domain coverage**: Need to discover all domains VS Code needs. May require running in discovery mode and observing traffic.
 
 ## Definition of Done
 
-- [ ] iptables blocks all direct outbound (only proxy allowed)
-- [ ] Proxy enforces domain allowlist
+- [x] iptables blocks all direct outbound (only proxy allowed)
+- [x] Proxy enforces domain allowlist
 - [ ] Git works over HTTPS through proxy
-- [ ] Devcontainer works with proxy sidecar
+- [ ] Devcontainer works with proxy sidecar (separate compose file, isolated from CLI mode)
+- [ ] CLI and devcontainer can run simultaneously without conflicts
+- [ ] Template refined and validated on this repo
 - [ ] Documentation updated
-- [ ] Old iptables-only code removed
+- [ ] Old iptables-only code paths removed
