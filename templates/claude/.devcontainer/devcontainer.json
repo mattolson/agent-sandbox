@@ -1,0 +1,18 @@
+{
+  "name": "Claude Code Sandbox",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "agent",
+  "workspaceFolder": "/workspace",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "remote.autoForwardPorts": false,
+        "remote.forwardOnOpen": false,
+        "remote.autoForwardPortsSource": "output",
+        "security.promptForRemoteFileProtocolHandling": true,
+        "terminal.integrated.defaultProfile.linux": "zsh"
+      }
+    }
+  },
+  "remoteUser": "dev"
+}

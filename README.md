@@ -3,7 +3,8 @@
 Run AI coding agents in a locked-down local sandbox with:
 
 - Minimal filesystem access (only your repo + project-scoped agent state)
-- Restricted outbound network (iptables-based allowlist)
+- Proxy-enforced domain allowlist (mitmproxy sidecar blocks non-allowed domains)
+- Iptables firewall preventing direct outbound (all traffic must go through the proxy)
 - Reproducible environments (Debian container with pinned dependencies)
 
 Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](https://docs.docker.com/engine/) on Apple Silicon. Should work on any Docker-compatible runtime.
@@ -12,25 +13,22 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 
 Creates a sandboxed environment for Claude Code that:
 
-- Blocks all outbound network traffic by default
-- Allows only specific domains that you specify in a policy file
+- Routes all HTTP/HTTPS traffic through an enforcing proxy sidecar
+- Blocks requests to domains not on the allowlist (403 with domain name in response)
+- Blocks all direct outbound via iptables (prevents bypassing the proxy)
 - Runs as non-root user with limited sudo for firewall initialization in entrypoint
 - Persists Claude credentials and configuration in a Docker volume across container rebuilds
 
 ## Runtime modes
 
-Two modes are supported, using the same images:
+Two modes are supported, both using Docker Compose under the hood:
 
 | Mode | Best for | How to use |
 |------|----------|------------|
 | **Devcontainer** | VS Code users | Open project in Dev Container |
 | **Compose** | CLI users, non-VS Code editors | `docker compose up -d && docker compose exec agent zsh` |
 
-Both modes provide identical sandboxing. The difference is how the firewall gets initialized:
-- **Devcontainer**: VS Code bypasses Docker entrypoints, so firewall runs via `postStartCommand`
-- **Compose**: Firewall runs via the container's entrypoint script
-
-Choose based on your editor preference. The quick start below covers both.
+Both modes run a two-container stack: a proxy sidecar (mitmproxy) and the agent container. The devcontainer mode uses the same docker-compose.yml as a backend.
 
 ## Quick start (macOS + Colima)
 
@@ -56,7 +54,8 @@ git clone https://github.com/mattolson/agent-sandbox.git
 #### Option A: Devcontainer (VS Code)
 
 ```bash
-cp -R agent-sandbox/devcontainer/templates/minimal/claude/.devcontainer /path/to/your/project/
+cp -R agent-sandbox/templates/claude/.devcontainer /path/to/your/project/
+cp agent-sandbox/templates/claude/docker-compose.yml /path/to/your/project/
 ```
 
 Then open your project in VS Code:
@@ -67,7 +66,7 @@ Then open your project in VS Code:
 #### Option B: Docker Compose (CLI)
 
 ```bash
-cp agent-sandbox/devcontainer/templates/minimal/claude/docker-compose.yml /path/to/your/project/
+cp agent-sandbox/templates/claude/docker-compose.yml /path/to/your/project/
 cd /path/to/your/project
 docker compose up -d
 docker compose exec agent zsh
@@ -112,34 +111,20 @@ docker compose down
 
 ## Network policy
 
-The firewall blocks all outbound by default. Each image includes a default policy with the domains it needs:
+Network enforcement has two layers:
 
-| Image | Default policy |
-|-------|----------------|
-| **Base** | GitHub only |
-| **Claude agent** | GitHub + Claude Code (api.anthropic.com, sentry.io, statsig.*) |
-| **Devcontainer** | GitHub + Claude Code + VS Code (marketplace, updates, telemetry) |
+1. **Proxy** (mitmproxy sidecar) - Enforces a domain allowlist at the HTTP/HTTPS level. Blocks requests to non-allowed domains with 403.
+2. **Firewall** (iptables) - Blocks all direct outbound from the agent container. Only the Docker host network is reachable, which is where the proxy sidecar runs. This prevents applications from bypassing the proxy.
 
-This means everything works out of the box with no configuration.
+The proxy image ships with a default policy that allows GitHub only.
 
 ### How it works
 
-The firewall is initialized by `init-firewall.sh`, which:
+The agent container has `HTTP_PROXY`/`HTTPS_PROXY` set to point at the proxy sidecar. The proxy runs a mitmproxy addon (`enforcer.py`) that checks every HTTP request and HTTPS CONNECT tunnel against the domain allowlist. Non-matching requests get a 403 response.
 
-1. Reads the policy file (`/etc/agent-sandbox/policy.yaml`)
-2. Creates an ipset for allowed IPs
-3. For each service (e.g., `github`), fetches IP ranges dynamically
-4. For each domain, resolves via DNS and adds IPs to the set
-5. Sets iptables rules to DROP all outbound except to the ipset
-6. Verifies the firewall works (example.com blocked, at least one allowed endpoint reachable)
+The agent's iptables firewall (`init-firewall.sh`) blocks all direct outbound except to the Docker bridge network. This means even if an application ignores the proxy env vars, it cannot reach the internet directly.
 
-**Initialization differs by mode:**
-- **Compose mode**: The entrypoint script runs `init-firewall.sh` automatically
-- **Devcontainer mode**: VS Code bypasses entrypoints, so `postStartCommand` triggers initialization
-
-The script is idempotent (checks for existing rules before running), so both paths work correctly.
-
-The container runs as a non-root `dev` user with passwordless sudo only for the firewall setup commands.
+The proxy's CA certificate is shared via a Docker volume and automatically installed into the agent's system trust store at startup.
 
 ### Customizing the policy
 
@@ -147,7 +132,7 @@ To add or remove domains, create a policy file at `~/.config/agent-sandbox/polic
 
 ```yaml
 services:
-  - github  # Dynamic IP fetch from api.github.com/meta
+  - github  # Expands to github.com, *.github.com, *.githubusercontent.com
 
 domains:
   # Claude Code
@@ -160,24 +145,16 @@ domains:
   - pypi.org
 ```
 
-Then mount it in your config:
+Then uncomment the mount in `docker-compose.yml`:
 
-**devcontainer.json:**
-```json
-"mounts": [
-  "source=${localEnv:HOME}/.config/agent-sandbox/policy.yaml,target=/etc/agent-sandbox/policy.yaml,type=bind,readonly"
-]
-```
-
-**docker-compose.yml:**
 ```yaml
-volumes:
-  - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/agent-sandbox/policy.yaml:ro
+# Under proxy.volumes:
+- ${HOME}/.config/agent-sandbox/policy.yaml:/etc/mitmproxy/policy.yaml:ro
 ```
 
-The policy file must live outside the workspace. If it were inside, the agent could modify it and re-run the firewall to allow exfiltration.
+The policy file must live outside the workspace. If it were inside, the agent could modify it to allow exfiltration.
 
-Changes take effect on container restart.
+Changes take effect on proxy restart: `docker compose restart proxy`
 
 ## Shell customization
 

@@ -6,7 +6,7 @@ Detailed project plan can be found in [docs/plan/project.md](./docs/plan/project
 
 - Base + agent-specific images (`images/`)
 - Policy YAML for configurable domain allowlists
-- Reusable template (`devcontainer/templates/minimal/claude/`)
+- Reusable template (`templates/claude/`)
 - Documentation for adding to other projects
 
 ## m2: Published images (done)

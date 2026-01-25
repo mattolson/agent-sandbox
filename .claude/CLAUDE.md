@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Agent Sandbox creates locked-down local sandboxes for running AI coding agents (Claude Code, Codex, etc.) with minimal filesystem access and restricted outbound network. It enforces network allowlisting via iptables/ipset rules at container startup.
+Agent Sandbox creates locked-down local sandboxes for running AI coding agents (Claude Code, Codex, etc.) with minimal filesystem access and restricted outbound network. Enforcement uses two layers: an mitmproxy sidecar that enforces a domain allowlist at the HTTP/HTTPS level, and iptables rules that block all direct outbound to prevent bypassing the proxy.
 
 **Note**: During development of this project, Claude Code operates inside a locked-down container using the docker compose method. This means git push/pull and other network operations outside the allowlist will fail from within the container. Handle git operations from the host.
 
@@ -25,23 +25,18 @@ This project uses Docker Compose. The container runs Debian bookworm with:
 
 ## Network Policy
 
-The firewall blocks all outbound by default. Allowed destinations are defined in policy.yaml files.
+Two layers of enforcement:
 
-### Policy Layering
-
-Each image layer has its own policy file baked in at `/etc/agent-sandbox/policy.yaml`:
-
-| Image | Policy | Allows |
-|-------|--------|--------|
-| base | `images/base/policy.yaml` | GitHub only |
-| claude | `images/agents/claude/policy.yaml` | GitHub + Claude Code endpoints |
-| devcontainer | `.devcontainer/policy.yaml` | GitHub + Claude Code + VS Code |
+1. **Proxy** (mitmproxy sidecar) - Enforces a domain allowlist at the HTTP/HTTPS level. Blocks non-allowed domains with 403.
+2. **Firewall** (iptables) - Blocks all direct outbound. Only the Docker host network (where the proxy lives) is reachable.
 
 ### Policy Format
 
+The proxy reads policy from `/etc/mitmproxy/policy.yaml`:
+
 ```yaml
 services:
-  - github  # Special handling: fetches IPs from api.github.com/meta
+  - github  # Expands to github.com, *.github.com, *.githubusercontent.com
 
 domains:
   - api.anthropic.com
@@ -50,25 +45,26 @@ domains:
 
 ### Customizing the Policy
 
-To override the baked-in policy, mount your own from the host filesystem:
+To override the baked-in proxy policy, mount your own from the host filesystem:
 
 ```yaml
-# docker-compose.yml
+# docker-compose.yml, under proxy.volumes:
 volumes:
-  - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/agent-sandbox/policy.yaml:ro
+  - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/mitmproxy/policy.yaml:ro
 ```
 
 Policy must come from outside the workspace for security (prevents agent from modifying its own allowlist).
 
 ## Architecture
 
-Three components:
+Four components:
 
-1. **Images** (`images/`) - Base image + agent-specific images
-2. **Runtime** (`docker-compose.yml`) - Docker Compose stack for standalone mode
-3. **Devcontainer** (`.devcontainer/`) - VS Code devcontainer config
+1. **Images** (`images/`) - Base image, agent-specific images, and proxy image
+2. **Templates** (`templates/`) - Ready-to-copy templates for each supported agent
+3. **Runtime** (`docker-compose.yml`) - Docker Compose stack for developing this project
+4. **Devcontainer** (`.devcontainer/`) - VS Code devcontainer for developing this project
 
-The base image contains the firewall script and common tools. Agent images extend it with agent-specific software and policies.
+The base image contains the firewall script and common tools. Agent images extend it with agent-specific software. The proxy image runs mitmproxy with the policy enforcement addon.
 
 ## Key Principles
 
@@ -77,17 +73,23 @@ The base image contains the firewall script and common tools. Agent images exten
 - **Agent-agnostic**: Core changes should support multiple agents. Agent-specific logic belongs in agent-specific images.
 - **Policy-as-code**: Network policies should be reviewed like source code.
 
-## Testing Firewall Changes
+## Testing Changes
 
-The `init-firewall.sh` script verifies the firewall after setup:
-1. Confirms example.com is blocked
-2. Confirms at least one allowed endpoint is reachable (GitHub API if enabled, otherwise first domain)
+The firewall (`init-firewall.sh`) verifies on startup that direct outbound is blocked and the host network is reachable.
 
-After modifying a policy file:
-1. Rebuild the relevant image (`./images/build.sh`)
-2. Restart container
-3. Script auto-verifies on startup
-4. Manually test your new allowed domain
+To test proxy enforcement:
+```bash
+# Should return 403 (blocked)
+curl -x http://proxy:8080 https://example.com
+
+# Should succeed (allowed by policy)
+curl -x http://proxy:8080 https://github.com
+```
+
+After modifying a policy file or proxy addon:
+1. Rebuild the proxy image (`./images/build.sh proxy`)
+2. Restart: `docker compose up -d proxy`
+3. Check proxy logs: `docker compose logs proxy`
 
 ## Target Platform
 
