@@ -62,11 +62,23 @@ The proxy's CA certificate is automatically shared with the agent container and 
 
 ## Network Policy
 
-The proxy image ships with a default policy that allows GitHub only. To add domains your project needs, mount a custom policy file from your host:
+The proxy image ships with a default policy that allows GitHub only. The agent-sandbox repo includes a ready-to-use Claude Code policy. Copy it to your host config:
 
 ```bash
 mkdir -p ~/.config/agent-sandbox
-cat > ~/.config/agent-sandbox/policy.yaml << 'EOF'
+cp agent-sandbox/docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policy.yaml
+```
+
+Then uncomment the mount in `docker-compose.yml`:
+
+```yaml
+# Under proxy.volumes:
+- ${HOME}/.config/agent-sandbox/policy.yaml:/etc/mitmproxy/policy.yaml:ro
+```
+
+To add project-specific domains, edit your copy at `~/.config/agent-sandbox/policy.yaml`:
+
+```yaml
 services:
   - github
 
@@ -75,16 +87,9 @@ domains:
   - sentry.io
   - statsig.anthropic.com
   - statsig.com
+  # Add your own
   - registry.npmjs.org
-EOF
-```
-
-Then uncomment the mount in `docker-compose.yml`:
-
-```yaml
-volumes:
-  # ...
-  - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/mitmproxy/policy.yaml:ro
+  - pypi.org
 ```
 
 Restart the proxy: `docker compose restart proxy`
