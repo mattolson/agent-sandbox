@@ -75,7 +75,7 @@ echo ""
 echo "Verifying..."
 
 # Negative test: direct outbound should be blocked
-if curl --connect-timeout 3 -x "" https://example.com >/dev/null 2>&1; then
+if curl --connect-timeout 3 --noproxy '*' https://example.com >/dev/null 2>&1; then
     echo "ERROR: Verification failed - direct connection to example.com succeeded"
     exit 1
 else
