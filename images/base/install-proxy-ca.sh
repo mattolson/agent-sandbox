@@ -1,5 +1,8 @@
 #!/bin/bash
 # Install mitmproxy CA certificate into system trust store
+#
+# Security: This script runs via sudo. All paths are hardcoded with no
+# user-controlled input to prevent command injection.
 set -e
 
 MITMPROXY_CA="/etc/mitmproxy/ca.crt"
