@@ -6,9 +6,9 @@
 #
 # See README for customization details.
 
-# Services with special handling (dynamic IP resolution)
+# Services with predefined domain patterns (defined in proxy enforcer)
 services:
-  - github  # Fetches IP ranges from api.github.com/meta
+  - github
 
-# Static domains (resolved via DNS at firewall init)
+# Additional domains to allow
 domains: []
