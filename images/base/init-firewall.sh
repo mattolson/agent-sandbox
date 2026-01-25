@@ -1,30 +1,36 @@
 #!/bin/bash
-set -euo pipefail  # Exit on error, undefined vars, and pipeline failures
-IFS=$'\n\t'       # Stricter word splitting
+set -euo pipefail
+IFS=$'\n\t'
 
-# Policy file location (can be overridden via environment variable)
-POLICY_FILE="${POLICY_FILE:-/etc/agent-sandbox/policy.yaml}"
+# Proxy-gatekeeper firewall
+#
+# Blocks all direct outbound traffic. Only the Docker host network is allowed,
+# which includes the proxy sidecar container. All HTTP/HTTPS must go through
+# the proxy, which handles domain-level enforcement.
+#
+# Allowed:
+#   - Loopback (localhost, Docker DNS at 127.0.0.11)
+#   - Docker host network (proxy container, other compose services)
+#   - Established/related return traffic
+#
+# Blocked:
+#   - All direct outbound (including SSH)
+#   - All inbound except established connections and host network
 
-if [ ! -f "$POLICY_FILE" ]; then
-    echo "ERROR: Policy file not found: $POLICY_FILE"
-    exit 1
-fi
+echo "Initializing proxy-gatekeeper firewall..."
 
-echo "Using policy file: $POLICY_FILE"
-
-# 1. Extract Docker DNS info BEFORE any flushing
+# 1. Extract Docker DNS NAT rules BEFORE any flushing
 DOCKER_DNS_RULES=$(iptables-save -t nat | grep "127\.0\.0\.11" || true)
 
-# Flush existing rules and delete existing ipsets
+# 2. Flush all existing rules
 iptables -F
 iptables -X
 iptables -t nat -F
 iptables -t nat -X
 iptables -t mangle -F
 iptables -t mangle -X
-ipset destroy allowed-domains 2>/dev/null || true
 
-# 2. Selectively restore ONLY internal Docker DNS resolution
+# 3. Restore Docker internal DNS resolution
 if [ -n "$DOCKER_DNS_RULES" ]; then
     echo "Restoring Docker DNS rules..."
     iptables -t nat -N DOCKER_OUTPUT 2>/dev/null || true
@@ -34,142 +40,54 @@ else
     echo "No Docker DNS rules to restore"
 fi
 
-# First allow DNS and localhost before any restrictions
-# Allow outbound DNS
-iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
-# Allow inbound DNS responses
-iptables -A INPUT -p udp --sport 53 -j ACCEPT
-# Allow outbound SSH
-iptables -A OUTPUT -p tcp --dport 22 -j ACCEPT
-# Allow inbound SSH responses
-iptables -A INPUT -p tcp --sport 22 -m state --state ESTABLISHED -j ACCEPT
-# Allow localhost
+# 4. Allow loopback (covers Docker DNS at 127.0.0.11)
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
 
-# Create ipset with CIDR support
-ipset create allowed-domains hash:net
-
-# Process services from policy file
-echo "Processing services..."
-for service in $(yq -r '.services // [] | .[]' "$POLICY_FILE"); do
-    case "$service" in
-        github)
-            echo "Fetching GitHub IP ranges..."
-            gh_ranges=$(curl -s https://api.github.com/meta)
-            if [ -z "$gh_ranges" ]; then
-                echo "ERROR: Failed to fetch GitHub IP ranges"
-                exit 1
-            fi
-
-            if ! echo "$gh_ranges" | jq -e '.web and .api and .git' >/dev/null; then
-                echo "ERROR: GitHub API response missing required fields"
-                exit 1
-            fi
-
-            echo "Processing GitHub IPs..."
-            while read -r cidr; do
-                if [[ ! "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
-                    echo "ERROR: Invalid CIDR range from GitHub meta: $cidr"
-                    exit 1
-                fi
-                echo "  Adding GitHub range $cidr"
-                ipset add allowed-domains "$cidr"
-            done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
-            ;;
-        *)
-            echo "WARNING: Unknown service '$service', skipping"
-            ;;
-    esac
-done
-
-# Process domains from policy file
-echo "Processing domains..."
-for domain in $(yq -r '.domains // [] | .[]' "$POLICY_FILE"); do
-    echo "Resolving $domain..."
-    ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')
-    if [ -z "$ips" ]; then
-        echo "ERROR: Failed to resolve $domain"
-        exit 1
-    fi
-
-    while read -r ip; do
-        if [[ ! "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-            echo "ERROR: Invalid IP from DNS for $domain: $ip"
-            exit 1
-        fi
-        echo "  Adding $ip for $domain"
-        ipset add allowed-domains "$ip"
-    done < <(echo "$ips")
-done
-
-# Get host IP from default route
+# 5. Detect and allow Docker host network (where proxy container lives)
 HOST_IP=$(ip route | grep default | cut -d" " -f3)
 if [ -z "$HOST_IP" ]; then
-    echo "ERROR: Failed to detect host IP"
+    echo "ERROR: Failed to detect host IP from default route"
     exit 1
 fi
 
 HOST_NETWORK=$(echo "$HOST_IP" | sed "s/\.[0-9]*$/.0\/24/")
-echo "Host network detected as: $HOST_NETWORK"
+echo "Host network: $HOST_NETWORK"
 
-# Set up remaining iptables rules
 iptables -A INPUT -s "$HOST_NETWORK" -j ACCEPT
 iptables -A OUTPUT -d "$HOST_NETWORK" -j ACCEPT
 
-# Set default policies to DROP first
+# 6. Allow established/related connections (return traffic)
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# 7. Set default policies to DROP
 iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT DROP
 
-# First allow established connections for already approved traffic
-iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-
-# Then allow only specific outbound traffic to allowed domains
-iptables -A OUTPUT -m set --match-set allowed-domains dst -j ACCEPT
-
-# Explicitly REJECT all other outbound traffic for immediate feedback
+# 8. Reject remaining outbound with ICMP for immediate feedback
+#    (instead of silent DROP which causes timeouts)
 iptables -A OUTPUT -j REJECT --reject-with icmp-admin-prohibited
 
-echo "Firewall configuration complete"
-echo "Verifying firewall rules..."
+echo "Firewall configured."
+echo ""
+echo "Verifying..."
 
-# Verify blocked destination is actually blocked
-# Using example.com as it's a reserved domain that should never be allowlisted
-if curl --connect-timeout 5 https://example.com >/dev/null 2>&1; then
-    echo "ERROR: Firewall verification failed - was able to reach https://example.com"
+# Negative test: direct outbound should be blocked
+if curl --connect-timeout 3 -x "" https://example.com >/dev/null 2>&1; then
+    echo "ERROR: Verification failed - direct connection to example.com succeeded"
     exit 1
 else
-    echo "Firewall verification passed - unable to reach https://example.com as expected"
+    echo "  PASS: Direct outbound blocked (example.com unreachable)"
 fi
 
-# Verify at least one allowed destination is reachable
-VERIFY_URL=""
-VERIFY_NAME=""
-
-# Prefer GitHub API if github service is enabled (reliable endpoint)
-if yq -r '.services // [] | .[]' "$POLICY_FILE" | grep -q "^github$"; then
-    VERIFY_URL="https://api.github.com/zen"
-    VERIFY_NAME="api.github.com"
+# Positive test: host network gateway should be reachable
+if ping -c 1 -W 3 "$HOST_IP" >/dev/null 2>&1; then
+    echo "  PASS: Host network reachable ($HOST_IP)"
 else
-    # Fall back to first domain in policy
-    FIRST_DOMAIN=$(yq -r '.domains // [] | .[0] // ""' "$POLICY_FILE")
-    if [ -n "$FIRST_DOMAIN" ]; then
-        VERIFY_URL="https://$FIRST_DOMAIN"
-        VERIFY_NAME="$FIRST_DOMAIN"
-    fi
+    echo "  WARN: Host network gateway not responding to ping (may be normal)"
 fi
 
-if [ -n "$VERIFY_URL" ]; then
-    if ! curl --connect-timeout 5 -m 10 "$VERIFY_URL" >/dev/null 2>&1; then
-        echo "ERROR: Firewall verification failed - unable to reach $VERIFY_NAME"
-        exit 1
-    else
-        echo "Firewall verification passed - able to reach $VERIFY_NAME"
-    fi
-else
-    echo "WARNING: No services or domains in policy to verify positive connectivity"
-fi
-
-echo "Firewall initialization complete"
+echo ""
+echo "Firewall initialization complete."
