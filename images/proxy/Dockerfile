@@ -14,4 +14,5 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # mitmdump for headless operation with policy enforcement addon
 # --set stream_large_bodies=1 prevents buffering large responses
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh", "-s", "/home/mitmproxy/addons/enforcer.py", "--set", "stream_large_bodies=1"]
+# --set http2=false avoids HTTP/2 header validation issues (e.g., gh CLI trailing whitespace)
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh", "-s", "/home/mitmproxy/addons/enforcer.py", "--set", "stream_large_bodies=1", "--set", "http2=false"]

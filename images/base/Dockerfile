@@ -76,6 +76,10 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
   -a "export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
   -x
 
+# Configure git to use HTTPS instead of SSH (port 22 is blocked to prevent tunneling)
+RUN git config --global url."https://github.com/".insteadOf git@github.com: && \
+  git config --global --add url."https://github.com/".insteadOf ssh://git@github.com/
+
 # Copy default network policy, firewall script, and shell init
 # All in /etc/agent-sandbox are root-owned to prevent agent tampering
 COPY policy.yaml /etc/agent-sandbox/policy.yaml
@@ -90,11 +94,14 @@ RUN chmod 644 /etc/agent-sandbox/policy.yaml /etc/agent-sandbox/shell-init.sh &&
   echo "${USERNAME} ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh, /usr/local/bin/install-proxy-ca.sh" > /etc/sudoers.d/firewall && \
   chmod 0440 /etc/sudoers.d/firewall
 
-# Create shell.d directory (root-owned to prevent agent from injecting malicious scripts)
-# Users mount their customizations here; the mount overlays this empty directory
-RUN mkdir -p /home/${USERNAME}/.config/agent-sandbox/shell.d && \
+# Create .config directory owned by dev (for gh, etc.)
+# Then create shell.d subdirectory owned by root (prevents agent from injecting malicious scripts)
+RUN mkdir -p /home/${USERNAME}/.config && \
+  chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.config && \
+  mkdir -p /home/${USERNAME}/.config/agent-sandbox/shell.d && \
+  chown root:root /home/${USERNAME}/.config/agent-sandbox && \
   chown root:root /home/${USERNAME}/.config/agent-sandbox/shell.d && \
-  chmod 755 /home/${USERNAME}/.config/agent-sandbox/shell.d
+  chmod 755 /home/${USERNAME}/.config/agent-sandbox /home/${USERNAME}/.config/agent-sandbox/shell.d
 
 USER ${USERNAME}
 

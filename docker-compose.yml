@@ -64,6 +64,8 @@ services:
       - HTTP_PROXY=http://proxy:8080
       - HTTPS_PROXY=http://proxy:8080
       - NO_PROXY=localhost,127.0.0.1,proxy
+      # Disable HTTP/2 in Go clients (gh CLI) to avoid header validation issues through proxy
+      - GODEBUG=http2client=0
 
 volumes:
   claude-state:
