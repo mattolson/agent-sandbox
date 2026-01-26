@@ -29,11 +29,12 @@ Detailed project plan can be found in [docs/plan/project.md](./docs/plan/project
 - Two-layer enforcement: proxy allowlist + iptables to prevent bypass
 - SSH blocked, git over HTTPS only
 
-## m4: Multi-agent support
+## m4: Multi-agent support (in progress)
 
-- Codex support (first target)
-- Support for OpenCode and other agents
-- Agent-specific images and configuration
+- [x] GitHub Copilot CLI support (`templates/copilot/`)
+- [ ] Codex support
+- [ ] OpenCode support
+- [ ] Agent-specific images and configuration
 
 ## m5: CLI
 
