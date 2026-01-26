@@ -11,13 +11,20 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 
 ## What it does
 
-Creates a sandboxed environment for Claude Code that:
+Creates a sandboxed environment for AI coding agents (Claude Code, GitHub Copilot CLI) that:
 
 - Routes all HTTP/HTTPS traffic through an enforcing proxy sidecar
 - Blocks requests to domains not on the allowlist (403 with domain name in response)
 - Blocks all direct outbound via iptables (prevents bypassing the proxy)
 - Runs as non-root user with limited sudo for firewall initialization in entrypoint
-- Persists Claude credentials and configuration in a Docker volume across container rebuilds
+- Persists agent credentials and configuration in a Docker volume across container rebuilds
+
+## Supported agents
+
+| Agent | Template | Status |
+|-------|----------|--------|
+| [Claude Code](https://claude.ai/code) | `templates/claude/` | ✅ Stable |
+| [GitHub Copilot CLI](https://github.com/github/copilot-cli) | `templates/copilot/` | 🧪 Preview |
 
 ## Runtime modes
 
@@ -31,6 +38,8 @@ Two modes are supported with separate compose files:
 Both modes run a two-container stack: a proxy sidecar (mitmproxy) and the agent container. The separate compose files allow both to run simultaneously without container or volume name conflicts.
 
 ## Quick start (macOS + Colima)
+
+The examples below use Claude Code. For Copilot CLI, substitute `copilot` for `claude` in paths and commands. See [templates/copilot/README.md](./templates/copilot/README.md) for Copilot-specific instructions.
 
 ### 1. Install prerequisites
 
