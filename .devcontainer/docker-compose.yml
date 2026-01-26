@@ -5,7 +5,7 @@
 #
 # Requires:
 #   1. Build local images: ./images/build.sh
-#   2. Copy policy to host: cp docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policy.yaml
+#   2. Copy policy to host: cp docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-vscode.yaml
 
 services:
   proxy:
