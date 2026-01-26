@@ -21,12 +21,13 @@ Detailed project plan can be found in [docs/plan/project.md](./docs/plan/project
 - Support for dotfiles directory mounting
 - Read-only mounts to prevent agent modification
 
-## m3: Proxy observability
+## m3: Proxy enforcement (done)
 
-- mitmproxy sidecar for traffic logging
+- mitmproxy sidecar for traffic logging and domain enforcement
 - Discovery mode to observe what endpoints agents need
 - Structured JSON logs for analysis
-- Foundation for request-level enforcement
+- Two-layer enforcement: proxy allowlist + iptables to prevent bypass
+- SSH blocked, git over HTTPS only
 
 ## m4: Multi-agent support
 
