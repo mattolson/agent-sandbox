@@ -86,12 +86,13 @@ COPY policy.yaml /etc/agent-sandbox/policy.yaml
 COPY shell-init.sh /etc/agent-sandbox/shell-init.sh
 COPY init-firewall.sh /usr/local/bin/
 COPY install-proxy-ca.sh /usr/local/bin/
+COPY configure-apt-proxy.sh /usr/local/bin/
 COPY entrypoint.sh /usr/local/bin/
 USER root
 RUN chmod 644 /etc/agent-sandbox/policy.yaml /etc/agent-sandbox/shell-init.sh && \
   chown root:root /etc/agent-sandbox/policy.yaml /etc/agent-sandbox/shell-init.sh && \
-  chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/install-proxy-ca.sh /usr/local/bin/entrypoint.sh && \
-  echo "${USERNAME} ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh, /usr/local/bin/install-proxy-ca.sh" > /etc/sudoers.d/firewall && \
+  chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/install-proxy-ca.sh /usr/local/bin/configure-apt-proxy.sh /usr/local/bin/entrypoint.sh && \
+  echo "${USERNAME} ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh, /usr/local/bin/install-proxy-ca.sh, /usr/local/bin/configure-apt-proxy.sh" > /etc/sudoers.d/firewall && \
   chmod 0440 /etc/sudoers.d/firewall
 
 # Create .config directory owned by dev (for gh, etc.)

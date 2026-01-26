@@ -35,17 +35,7 @@ fi
 if [ -n "$HTTP_PROXY" ]; then
   APT_PROXY_CONF="/etc/apt/apt.conf.d/99proxy"
   if [ ! -f "$APT_PROXY_CONF" ]; then
-    # Validate proxy URL format before writing to system config
-    # Block quotes/semicolons to prevent apt config injection, allow everything else
-    if echo "$HTTP_PROXY" | grep -qE '^https?://[^";\s]+$'; then
-      echo "Configuring apt proxy ($HTTP_PROXY)..."
-      sudo tee "$APT_PROXY_CONF" > /dev/null <<EOF
-Acquire::http::Proxy "$HTTP_PROXY";
-Acquire::https::Proxy "${HTTPS_PROXY:-$HTTP_PROXY}";
-EOF
-    else
-      echo "Warning: HTTP_PROXY has unexpected format, skipping apt proxy config"
-    fi
+    sudo /usr/local/bin/configure-apt-proxy.sh "${HTTPS_PROXY:-$HTTP_PROXY}"
   fi
 fi
 
