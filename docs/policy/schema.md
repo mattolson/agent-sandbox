@@ -23,6 +23,7 @@ A list of predefined service names. Each service expands to a set of domain patt
 |---------|---------|
 | `github` | `github.com`, `*.github.com`, `githubusercontent.com`, `*.githubusercontent.com` |
 | `claude` | `*.anthropic.com`, `*.claude.ai`, `*.claude.com`, `*.sentry.io`, `*.datadoghq.com` |
+| `copilot` | `api.githubcopilot.com`, `*.githubcopilot.com`, `copilot-proxy.githubusercontent.com`, `*.exp-tas.com`, `*.githubassets.com` |
 | `vscode` | `update.code.visualstudio.com`, `marketplace.visualstudio.com`, `mobile.events.data.microsoft.com`, `main.vscode-cdn.net`, `*.vsassets.io` |
 
 Services are defined as a static mapping in the proxy enforcer addon (`images/proxy/addons/enforcer.py`). To add a new service, add an entry to the `SERVICE_DOMAINS` dict.
@@ -77,3 +78,4 @@ The policy file must live outside the workspace. If it were inside, the agent co
 See [examples/](./examples/) for ready-to-use policy files.
 
 - [claude.yaml](./examples/claude.yaml) - Claude Code (GitHub + Anthropic API)
+- [copilot.yaml](./examples/copilot.yaml) - GitHub Copilot CLI (GitHub + Copilot API)
