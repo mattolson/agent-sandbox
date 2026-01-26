@@ -19,4 +19,5 @@ if [ -f "$CA_DIR/mitmproxy-ca-cert.pem" ] && [ -d "$EXPORT_DIR" ]; then
 fi
 
 # Run mitmdump with all passed arguments, using the same confdir
-exec mitmdump --set confdir="$CA_DIR" "$@"
+# --quiet suppresses mitmproxy's built-in logging (we use our own JSON logs)
+exec mitmdump --quiet --set confdir="$CA_DIR" "$@"

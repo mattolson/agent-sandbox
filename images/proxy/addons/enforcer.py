@@ -1,12 +1,12 @@
 """
 Proxy policy enforcement addon for mitmproxy.
 
-Logs all HTTP requests and HTTPS CONNECT tunnels to stdout in JSON format.
+Logs HTTP/HTTPS traffic to stdout in JSON format.
 In enforce mode, blocks requests to domains not on the allowlist.
 
-Modes (controlled by PROXY_MODE env var):
-  - log: Log all traffic, allow everything (default)
-  - enforce: Log all traffic, block non-allowed domains with 403
+Environment variables:
+  PROXY_MODE: log (allow all) or enforce (block non-allowed)
+  PROXY_LOG_LEVEL: quiet (errors only) or normal (default, one line per request)
 """
 
 import json
@@ -19,8 +19,6 @@ from mitmproxy import http
 
 POLICY_PATH = "/etc/mitmproxy/policy.yaml"
 
-# Static service-to-domain mapping.
-# Services in policy.yaml map to these domain patterns.
 SERVICE_DOMAINS = {
     "github": [
         "github.com",
@@ -33,6 +31,7 @@ SERVICE_DOMAINS = {
         "*.claude.ai",
         "*.claude.com",
         "*.sentry.io",
+        "*.datadoghq.com",
     ],
     "vscode": [
         "update.code.visualstudio.com",
@@ -47,6 +46,7 @@ SERVICE_DOMAINS = {
 class PolicyEnforcer:
     def __init__(self):
         self.mode = os.getenv("PROXY_MODE", "log")
+        self.log_level = os.getenv("PROXY_LOG_LEVEL", "normal")
         self.allowed_exact = set()
         self.allowed_wildcards = []
 
@@ -78,8 +78,8 @@ class PolicyEnforcer:
             self._add_domain(domain)
 
         self._log_info(
-            f"Policy loaded: {len(self.allowed_exact)} exact domains, "
-            f"{len(self.allowed_wildcards)} wildcard patterns"
+            f"Policy loaded: {len(self.allowed_exact)} exact, "
+            f"{len(self.allowed_wildcards)} wildcard"
         )
 
     def _add_domain(self, domain):
@@ -95,66 +95,75 @@ class PolicyEnforcer:
         if host in self.allowed_exact:
             return True
         for suffix in self.allowed_wildcards:
-            if host == suffix or host.endswith('.' + suffix):
+            if host == suffix or host.endswith("." + suffix):
                 return True
         return False
 
+    def _timestamp(self):
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
     def _log_info(self, message):
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "ts": self._timestamp(),
             "type": "info",
-            "message": message,
+            "msg": message,
         }
         print(json.dumps(entry), file=sys.stdout, flush=True)
 
     def _log(self, entry):
-        print(json.dumps(entry), file=sys.stdout, flush=True)
+        if self.log_level != "quiet":
+            print(json.dumps(entry), file=sys.stdout, flush=True)
 
     def http_connect(self, flow: http.HTTPFlow):
+        """Handle HTTPS CONNECT - block disallowed hosts before tunnel established."""
         host = flow.request.host
         allowed = self._is_allowed(host)
-        action = "allowed" if allowed else "blocked"
-
-        self._log({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "type": "connect",
-            "host": host,
-            "port": flow.request.port,
-            "action": action,
-        })
 
         if not allowed:
+            # Log and block immediately (no request/response will follow)
+            self._log({
+                "ts": self._timestamp(),
+                "host": host,
+                "action": "blocked",
+            })
             flow.response = http.Response.make(
                 403, f"Blocked by proxy policy: {host}"
             )
 
     def request(self, flow: http.HTTPFlow):
+        """Handle HTTP requests - block disallowed hosts."""
+        # HTTPS requests already filtered at http_connect
         if flow.request.scheme == "http":
             host = flow.request.host
-            allowed = self._is_allowed(host)
-            action = "allowed" if allowed else "blocked"
-
-            self._log({
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "type": "http",
-                "method": flow.request.method,
-                "host": host,
-                "port": flow.request.port,
-                "path": flow.request.path,
-                "action": action,
-            })
-
-            if not allowed:
+            if not self._is_allowed(host):
+                self._log({
+                    "ts": self._timestamp(),
+                    "method": flow.request.method,
+                    "host": host,
+                    "path": flow.request.path,
+                    "action": "blocked",
+                })
                 flow.response = http.Response.make(
                     403, f"Blocked by proxy policy: {host}"
                 )
 
-    def error(self, flow: http.HTTPFlow):
+    def response(self, flow: http.HTTPFlow):
+        """Log completed requests with full details."""
         self._log({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "type": "error",
+            "ts": self._timestamp(),
+            "method": flow.request.method,
             "host": flow.request.host,
-            "port": flow.request.port,
+            "path": flow.request.path,
+            "status": flow.response.status_code,
+            "action": "allowed",
+        })
+
+    def error(self, flow: http.HTTPFlow):
+        """Log errors."""
+        self._log({
+            "ts": self._timestamp(),
+            "host": flow.request.host if flow.request else "unknown",
+            "path": flow.request.path if flow.request else "unknown",
             "error": str(flow.error) if flow.error else "unknown",
         })
 
