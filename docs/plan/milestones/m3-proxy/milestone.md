@@ -172,14 +172,15 @@ Cleanup (rolled into this task):
 
 ### m3.5-git-https
 
-Configure git to use HTTPS instead of SSH. (Moved to end; blocked on m3.4)
+Configure git to use HTTPS instead of SSH.
 
-Port 22 is now blocked by the firewall, so git-over-SSH no longer works. This task ensures git operations work through the proxy.
+Port 22 is blocked by the firewall (prevents tunneling that could bypass the proxy). This task ensures git operations work via HTTPS.
 
-- [ ] Add git config to base image that rewrites SSH URLs to HTTPS
-- [ ] Document credential caching options (credential helper, gh auth)
+- [x] Add `git config --global url."https://github.com/".insteadOf git@github.com:` to base image
+- [x] Add `git config --global url."https://github.com/".insteadOf ssh://git@github.com/` to base image
+- [x] Document HTTPS-only constraint in README (explain why SSH is blocked)
+- [x] Document credential options: `gh auth login`, fine-grained PAT, host-based git
 - [ ] Test clone/push/pull work through proxy
-- [ ] Update any documentation that references SSH
 
 ## Open Questions
 

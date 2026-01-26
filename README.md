@@ -215,15 +215,61 @@ volumes:
 
 The mount is read-only, so the agent cannot modify your host configuration.
 
+## Git configuration
+
+Git operations can be run from the host or from inside the container.
+
+### Option 1: Git from host (recommended)
+
+Run git commands (clone, commit, push) from your host terminal. The agent writes code, you handle version control. No credential setup needed inside the container.
+
+### Option 2: Git from container
+
+If you want the agent to run git commands, some setup is required.
+
+**SSH is blocked.** Port 22 is blocked to prevent SSH tunneling, which could bypass the proxy. The container automatically rewrites SSH URLs to HTTPS:
+
+```
+git@github.com:user/repo.git  ->  https://github.com/user/repo.git
+```
+
+**Credential setup.** To push or access private repos, authenticate with GitHub:
+
+```bash
+gh auth login
+```
+
+This stores a token in the container's Claude state volume (persists across rebuilds). The gh CLI configures git to use this token automatically.
+
+**Alternative: Fine-grained PAT.** For tighter access control, create a [fine-grained personal access token](https://github.com/settings/tokens?type=beta) scoped to specific repositories, then:
+
+```bash
+gh auth login --with-token < token.txt
+```
+
 ## Security
 
-This project reduces risk but does not eliminate it. Local dev is inherently best-effort sandboxing. For example, operating as a VS Code devcontainer opens up a channel to the IDE and installing extensions can introduce risk.
+This project reduces risk but does not eliminate it. Local dev is inherently best-effort sandboxing.
 
 Key principles:
 
 - Minimal mounts: only the repo workspace + project-scoped agent state
 - Prefer short-lived credentials (SSO/STS) and read-only IAM roles
 - Firewall verification runs at every container start
+
+### Git credentials
+
+If you run `gh auth login` inside the container, the resulting OAuth token grants access to **all repositories** your GitHub account can access, not just the current project. The network allowlist limits where data can be sent, but an agent with this token could read or modify any of your repos on github.com.
+
+To limit exposure:
+
+- **Run git from the host** - No credentials in the container at all
+- **Use a fine-grained PAT** - Scope the token to specific repositories
+- **Use a separate GitHub account** - Isolate sandboxed work entirely
+
+### VS Code devcontainer
+
+Operating as a VS Code devcontainer opens a channel to the IDE. Installing extensions can introduce risk.
 
 ### Security issues
 
