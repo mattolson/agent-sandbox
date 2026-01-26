@@ -1,55 +1,85 @@
-# Local development of Agent Sandbox
+# Local Development of Agent Sandbox
 
-This devcontainer is used for development of Agent Sandbox. It also acts as a bootstrap for continuously improving the Claude Code image we publish.
+This devcontainer is used for development of Agent Sandbox itself.
+
+## Setup
+
+### 1. Build local images
+
+From the repo root on your host:
+
+```bash
+./images/build.sh
+```
+
+### 2. Set up policy files
+
+Copy the policy files to your host config:
+
+```bash
+mkdir -p ~/.config/agent-sandbox/policies
+cp docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
+cp docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-vscode.yaml
+```
+
+### 3. Open in VS Code
+
+- Command Palette > "Dev Containers: Reopen in Container"
 
 ## Files
 
-- `Dockerfile` - Debian bookworm base with dev tools, zsh, Claude Code, and firewall utilities
-- `devcontainer.json` - VS Code devcontainer config with mounts and capabilities
-- `init-firewall.sh` - Network lockdown script that runs at container start
+- `docker-compose.yml` - Compose stack with proxy sidecar and agent container
+- `devcontainer.json` - VS Code devcontainer config pointing to the compose file
 
 ## How It Works
 
-On container start, `init-firewall.sh` runs with sudo and:
+The devcontainer runs as a Docker Compose stack with two containers:
 
-1. Flushes existing iptables rules (preserving Docker DNS)
-2. Creates an ipset of allowed IP addresses
-3. Fetches GitHub IP ranges dynamically from api.github.com/meta
-4. Resolves other allowed domains (npm, Anthropic API, VS Code, etc.)
-5. Sets default OUTPUT policy to DROP
-6. Allows only traffic to the ipset destinations
-7. Verifies the firewall blocks example.com and allows api.github.com
+1. **proxy** - mitmproxy with policy enforcement. Blocks requests to domains not on the allowlist.
+2. **agent** - Development environment with Claude Code. All HTTP/HTTPS traffic routes through the proxy.
 
-The container requires `CAP_NET_ADMIN` and `CAP_NET_RAW` capabilities for iptables manipulation.
+The agent container runs `init-firewall.sh` at startup which blocks all direct outbound traffic, forcing everything through the proxy.
 
 ## First-Time Setup
 
 Claude Code needs OAuth authentication on first run. From your **host terminal**:
 
 ```bash
+docker compose -f .devcontainer/docker-compose.yml ps  # find container name
 docker exec -it <container-name> zsh -i -c 'claude'
 ```
 
-Follow the OAuth flow, then `/exit`. Credentials persist in the `.claude` volume.
+Follow the OAuth flow, then `/exit`. Credentials persist in a Docker volume.
 
 ## Adding Allowed Domains
 
-Edit `init-firewall.sh` and add your domain to the `for domain in` loop:
+Edit your policy file at `~/.config/agent-sandbox/policies/claude-vscode.yaml`:
 
-```bash
-for domain in \
-    "registry.npmjs.org" \
-    "api.anthropic.com" \
-    "your-new-domain.com" \  # Add here
-    ...
+```yaml
+services:
+  - github
+  - claude
+  - vscode
+
+domains:
+  - your-new-domain.com  # Add here
 ```
 
-Then rebuild the container (Command Palette > Dev Containers: Rebuild Container).
+Then restart the proxy:
+
+```bash
+docker compose -f .devcontainer/docker-compose.yml restart proxy
+```
 
 ## Troubleshooting
 
-**Connection refused / timeouts**: The domain is probably not in the allowlist. Check `init-firewall.sh`.
+**403 errors**: The domain is not in the allowlist. Check `~/.config/agent-sandbox/policies/claude-vscode.yaml`.
 
-**Firewall verification failed on start**: DNS resolution or GitHub API fetch failed. Check your host network connection.
+**Proxy health check fails**: Check proxy logs:
+```bash
+docker compose -f .devcontainer/docker-compose.yml logs proxy
+```
 
-**Claude auth issues**: Run auth from host terminal, not VS Code integrated terminal. See First-Time Setup above.
+**Policy file not found**: Make sure you copied the policy to `~/.config/agent-sandbox/policies/claude-vscode.yaml`.
+
+**Claude auth issues**: Run auth from host terminal, not VS Code integrated terminal.

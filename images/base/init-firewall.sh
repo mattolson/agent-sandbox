@@ -83,8 +83,9 @@ else
 fi
 
 # Positive test: host network gateway should be reachable
-if ping -c 1 -W 3 "$HOST_IP" >/dev/null 2>&1; then
-    echo "  PASS: Host network reachable ($HOST_IP)"
+GATEWAY_IP=$(ip route | grep default | awk '{print $3}')
+if ping -c 1 -W 3 "$GATEWAY_IP" >/dev/null 2>&1; then
+    echo "  PASS: Host network reachable ($GATEWAY_IP)"
 else
     echo "  WARN: Host network gateway not responding to ping (may be normal)"
 fi

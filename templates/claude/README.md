@@ -4,17 +4,32 @@ Run Claude Code in a network-locked container. All outbound traffic is routed th
 
 ## Quick Start
 
-### 1. Copy template to your project
+### 1. Clone the agent-sandbox repo
 
 ```bash
 git clone https://github.com/mattolson/agent-sandbox.git
 ```
 
+### 2. Set up policy files
+
+The proxy requires policy files on the host. Copy the examples:
+
+```bash
+mkdir -p ~/.config/agent-sandbox/policies
+cp agent-sandbox/docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
+cp agent-sandbox/docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-vscode.yaml
+```
+
+The compose files mount the appropriate policy:
+- CLI mode uses `policies/claude.yaml`
+- Devcontainer mode uses `policies/claude-vscode.yaml` (includes VS Code infrastructure domains)
+
+### 3. Copy template to your project
+
 #### Option A: VS Code Devcontainer
 
 ```bash
-cp agent-sandbox/templates/claude/.devcontainer /path/to/your/project/
-cp agent-sandbox/templates/claude/docker-compose.yml /path/to/your/project/
+cp -r agent-sandbox/templates/claude/.devcontainer /path/to/your/project/
 ```
 
 Then open in VS Code:
@@ -30,18 +45,20 @@ docker compose up -d
 docker compose exec agent zsh
 ```
 
-### 2. Authenticate Claude (first run only)
+Note: CLI mode requires the policy file at `~/.config/agent-sandbox/policies/claude.yaml`.
+
+### 4. Authenticate Claude (first run only)
 
 From a host terminal (not VS Code integrated terminal):
 
 ```bash
-docker ps  # find container name
+docker compose ps  # find container name
 docker exec -it <container-name> zsh -i -c 'claude'
 ```
 
 Follow the OAuth flow, then `/exit`. Credentials persist in a Docker volume.
 
-### 3. Use Claude Code
+### 5. Use Claude Code
 
 Inside the container:
 
@@ -51,7 +68,18 @@ claude
 yolo-claude
 ```
 
-## How it works
+## Two Modes
+
+This template supports two usage modes with separate compose files:
+
+| Mode | Compose file | Policy | Use case |
+|------|-------------|--------|----------|
+| **Devcontainer** | `.devcontainer/docker-compose.yml` | Requires host mount | VS Code users |
+| **CLI** | `docker-compose.yml` | Baked-in default | Terminal/headless usage |
+
+The separate compose files allow both modes to run simultaneously without container or volume name conflicts.
+
+## How It Works
 
 Two containers run as a Docker Compose stack:
 
@@ -62,50 +90,51 @@ The proxy's CA certificate is automatically shared with the agent container and 
 
 ## Network Policy
 
-The proxy image ships with a default policy that allows GitHub only. The agent-sandbox repo includes a ready-to-use Claude Code policy. Copy it to your host config:
+### Policy location
 
-```bash
-mkdir -p ~/.config/agent-sandbox
-cp agent-sandbox/docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policy.yaml
-```
+Policy files live on the host at `~/.config/agent-sandbox/policies/`. The compose files mount the appropriate policy:
+- CLI: `policies/claude.yaml`
+- Devcontainer: `policies/claude-vscode.yaml`
 
-Then uncomment the mount in `docker-compose.yml`:
+Policy files must live outside the workspace. If they were inside, the agent could modify its own allowlist.
 
-```yaml
-# Under proxy.volumes:
-- ${HOME}/.config/agent-sandbox/policy.yaml:/etc/mitmproxy/policy.yaml:ro
-```
+### Customizing the policy
 
-To add project-specific domains, edit your copy at `~/.config/agent-sandbox/policy.yaml`:
+Edit your policy file to add project-specific domains:
 
 ```yaml
 services:
   - github
+  - claude
+  - vscode  # Include for devcontainer mode
 
 domains:
-  - api.anthropic.com
-  - sentry.io
-  - statsig.anthropic.com
-  - statsig.com
   # Add your own
   - registry.npmjs.org
   - pypi.org
 ```
 
-Restart the proxy: `docker compose restart proxy`
-
-The policy file must live outside the workspace. If it were inside, the agent could modify its own allowlist.
+Restart the proxy after changes: `docker compose restart proxy`
 
 ### Policy format
 
 ```yaml
 services:
   - github  # Expands to github.com, *.github.com, *.githubusercontent.com
+  - vscode  # Expands to VS Code infrastructure domains
 
 domains:
   - api.anthropic.com      # Exact match
-  - "*.example.com"        # Wildcard suffix match
+  - "*.example.com"        # Wildcard suffix match (also matches example.com)
 ```
+
+### Available services
+
+The proxy understands these service aliases that expand to multiple domains:
+
+- `github` - github.com, *.github.com, *.githubusercontent.com
+- `claude` - *.anthropic.com, *.claude.ai, *.claude.com, *.sentry.io, *.statsig.com
+- `vscode` - VS Code marketplace and update infrastructure
 
 ## Verifying the Sandbox
 
@@ -115,7 +144,7 @@ domains:
 # Should fail with 403 (blocked by proxy)
 curl -s -o /dev/null -w "%{http_code}" https://example.com
 
-# Should succeed (GitHub is allowed by default)
+# Should succeed (GitHub is allowed)
 curl -s https://api.github.com/zen
 
 # Direct outbound bypassing proxy should also fail (blocked by iptables)
@@ -135,18 +164,13 @@ alias gs='git status'
 EOF
 ```
 
-Uncomment the shell.d mount in `docker-compose.yml`:
-
-```yaml
-- ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
-```
+Uncomment the shell.d mount in the compose file you're using.
 
 ## Image Versioning
 
 By default, the template pulls `:latest`. For reproducibility, pin to a specific digest:
 
 ```yaml
-# docker-compose.yml
 image: ghcr.io/mattolson/agent-sandbox-claude@sha256:<digest>
 image: ghcr.io/mattolson/agent-sandbox-proxy@sha256:<digest>
 ```
@@ -162,7 +186,7 @@ To use locally-built images instead:
 
 ```bash
 cd agent-sandbox && ./images/build.sh
-# Then change docker-compose.yml to use:
+# Then update the compose file to use:
 #   image: agent-sandbox-claude:local
 #   image: agent-sandbox-proxy:local
 ```
@@ -171,7 +195,17 @@ cd agent-sandbox && ./images/build.sh
 
 ### "Permission denied" mounting host files
 
-The host Claude config mounts (`~/.claude/CLAUDE.md`, `~/.claude/settings.json`) require these files to exist. Either create them or comment out those mounts.
+The host Claude config mounts (`~/.claude/CLAUDE.md`, `~/.claude/settings.json`) require these files to exist. Either create them or comment out those mounts in the compose file.
+
+### Policy file not found
+
+The policy files must exist on the host:
+
+```bash
+mkdir -p ~/.config/agent-sandbox/policies
+cp agent-sandbox/docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
+cp agent-sandbox/docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-vscode.yaml
+```
 
 ### Proxy health check fails
 

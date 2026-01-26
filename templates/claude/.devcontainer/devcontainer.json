@@ -1,6 +1,6 @@
 {
   "name": "Claude Code Sandbox",
-  "dockerComposeFile": "../docker-compose.yml",
+  "dockerComposeFile": "docker-compose.yml",
   "service": "agent",
   "workspaceFolder": "/workspace",
   "customizations": {

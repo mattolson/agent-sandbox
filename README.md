@@ -21,14 +21,14 @@ Creates a sandboxed environment for Claude Code that:
 
 ## Runtime modes
 
-Two modes are supported, both using Docker Compose under the hood:
+Two modes are supported with separate compose files:
 
-| Mode | Best for | How to use |
-|------|----------|------------|
-| **Devcontainer** | VS Code users | Open project in Dev Container |
-| **Compose** | CLI users, non-VS Code editors | `docker compose up -d && docker compose exec agent zsh` |
+| Mode | Compose file | Best for |
+|------|-------------|----------|
+| **Devcontainer** | `.devcontainer/docker-compose.yml` | VS Code users |
+| **CLI** | `docker-compose.yml` | Terminal users, non-VS Code editors |
 
-Both modes run a two-container stack: a proxy sidecar (mitmproxy) and the agent container. The devcontainer mode uses the same docker-compose.yml as a backend.
+Both modes run a two-container stack: a proxy sidecar (mitmproxy) and the agent container. The separate compose files allow both to run simultaneously without container or volume name conflicts.
 
 ## Quick start (macOS + Colima)
 
@@ -43,19 +43,27 @@ colima start --cpu 4 --memory 8 --disk 60
 
 If you previously used Docker Desktop, set your Docker credential helper to `osxkeychain` (not `desktop`) in `~/.docker/config.json`.
 
-### 2. Copy template to your project
+### 2. Set up policy files
 
-Clone the repo to get the template files (images are pulled from GHCR automatically):
+The proxy requires policy files on the host. Clone the repo and copy the examples:
 
 ```bash
 git clone https://github.com/mattolson/agent-sandbox.git
+mkdir -p ~/.config/agent-sandbox/policies
+cp agent-sandbox/docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
+cp agent-sandbox/docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-vscode.yaml
 ```
+
+The compose files mount the appropriate policy:
+- CLI mode uses `policies/claude.yaml`
+- Devcontainer mode uses `policies/claude-vscode.yaml` (includes VS Code infrastructure domains)
+
+### 3. Copy template to your project
 
 #### Option A: Devcontainer (VS Code)
 
 ```bash
-cp -R agent-sandbox/templates/claude/.devcontainer /path/to/your/project/
-cp agent-sandbox/templates/claude/docker-compose.yml /path/to/your/project/
+cp -r agent-sandbox/templates/claude/.devcontainer /path/to/your/project/
 ```
 
 Then open your project in VS Code:
@@ -72,7 +80,9 @@ docker compose up -d
 docker compose exec agent zsh
 ```
 
-### 3. Authenticate Claude Code (first time only)
+Note: CLI mode requires the policy file at `~/.config/agent-sandbox/policies/claude.yaml`.
+
+### 4. Authenticate Claude Code (first time only)
 
 From your **host terminal** (not the VS Code integrated terminal):
 
@@ -93,7 +103,7 @@ This triggers the OAuth flow:
 
 Credentials persist in a Docker volume. You only need to do this once per project.
 
-### 4. Run Claude Code
+### 5. Run Claude Code
 
 From inside the container:
 
@@ -128,31 +138,19 @@ The proxy's CA certificate is shared via a Docker volume and automatically insta
 
 ### Customizing the policy
 
-The repo includes ready-to-use policy files in `docs/policy/examples/`. To use the Claude Code policy:
+Policy files live on the host at `~/.config/agent-sandbox/policies/`. The compose files mount the appropriate policy based on mode:
 
-```bash
-mkdir -p ~/.config/agent-sandbox
-cp agent-sandbox/docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policy.yaml
-```
+- CLI: `policies/claude.yaml`
+- Devcontainer: `policies/claude-vscode.yaml`
 
-Then uncomment the mount in your project's `docker-compose.yml`:
-
-```yaml
-# Under proxy.volumes:
-- ${HOME}/.config/agent-sandbox/policy.yaml:/etc/mitmproxy/policy.yaml:ro
-```
-
-To add project-specific domains, edit your copy at `~/.config/agent-sandbox/policy.yaml`:
+To add project-specific domains, edit your policy file:
 
 ```yaml
 services:
   - github
+  - claude
 
 domains:
-  - api.anthropic.com
-  - sentry.io
-  - statsig.anthropic.com
-  - statsig.com
   # Add your own
   - registry.npmjs.org
   - pypi.org
@@ -189,25 +187,20 @@ export EDITOR=vim
 
 ### Mounting the directory
 
-**devcontainer.json:**
-```json
-"mounts": [
-  "source=${localEnv:HOME}/.config/agent-sandbox/shell.d,target=/home/dev/.config/agent-sandbox/shell.d,type=bind,readonly"
-]
-```
+Uncomment the shell.d mount in your compose file:
 
-**docker-compose.yml:**
 ```yaml
+# docker-compose.yml or .devcontainer/docker-compose.yml
 volumes:
   - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
 ```
 
 ### Using dotfiles
 
-For more complex setups, you can mount your dotfiles directory and use a shell.d script to symlink them:
+For more complex setups, mount your dotfiles directory and use a shell.d script to symlink them:
 
-**docker-compose.yml:**
 ```yaml
+# In your compose file
 volumes:
   - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
   - ${HOME}/.dotfiles:/home/dev/.dotfiles:ro

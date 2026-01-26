@@ -1,9 +1,8 @@
 {
   "name": "Agent Sandbox Development",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "runArgs": ["--cap-add=NET_ADMIN", "--cap-add=NET_RAW"],
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "agent",
+  "workspaceFolder": "/workspace",
   "customizations": {
     "vscode": {
       "settings": {
@@ -15,28 +14,5 @@
       }
     }
   },
-  "remoteUser": "dev",
-  "mounts": [
-    // Persist Claude credentials across rebuilds
-    "source=claude-state-${devcontainerId},target=/home/dev/.claude,type=volume",
-    // Persist shell history
-    "source=claude-history-${devcontainerId},target=/commandhistory,type=volume",
-    // Inject host Claude config (optional - comment out if not needed)
-    "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/dev/.claude/CLAUDE.md,type=bind,readonly",
-    "source=${localEnv:HOME}/.claude/settings.json,target=/home/dev/.claude/settings.json,type=bind,readonly",
-    // To customize network policy, add:
-    // "source=${localEnv:HOME}/.config/agent-sandbox/policy.yaml,target=/etc/agent-sandbox/policy.yaml,type=bind,readonly"
-    // Shell customizations (optional - uncomment to enable)
-    "source=${localEnv:HOME}/.config/agent-sandbox/shell.d,target=/home/dev/.config/agent-sandbox/shell.d,type=bind,readonly"
-    // Dotfiles directory (optional - uncomment to enable, use with shell.d script to symlink)
-    // "source=${localEnv:HOME}/.dotfiles,target=/home/dev/.dotfiles,type=bind,readonly"
-  ],
-  "containerEnv": {
-    "TZ": "${localEnv:TZ:America/Los_Angeles}",
-    "CLAUDE_CONFIG_DIR": "/home/dev/.claude"
-  },
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
-  "workspaceFolder": "/workspace",
-  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh",
-  "waitFor": "postStartCommand"
+  "remoteUser": "dev"
 }

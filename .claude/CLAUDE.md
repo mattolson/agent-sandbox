@@ -10,10 +10,31 @@ Agent Sandbox creates locked-down local sandboxes for running AI coding agents (
 
 ## Development Environment
 
-This project uses Docker Compose. The container runs Debian bookworm with:
+This project uses Docker Compose with a proxy sidecar. Two modes are available:
+
+- **Devcontainer mode** (`.devcontainer/docker-compose.yml`) - For VS Code users
+- **CLI mode** (`docker-compose.yml`) - For terminal usage
+
+Both use separate compose files to allow running simultaneously without conflicts.
+
+The container runs Debian bookworm with:
 - Non-root `dev` user (uid/gid 500)
 - Zsh with powerline10k theme
 - Network lockdown via `init-firewall.sh` at container start
+
+### Setup (one-time)
+
+Copy the policy files to your host:
+```bash
+mkdir -p ~/.config/agent-sandbox/policies
+cp docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
+cp docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-vscode.yaml
+```
+
+Build local images:
+```bash
+./images/build.sh
+```
 
 ### Key Paths Inside Container
 - `/workspace` - Your repo (bind mount)
@@ -45,13 +66,10 @@ domains:
 
 ### Customizing the Policy
 
-To override the baked-in proxy policy, mount your own from the host filesystem:
+Policy files live on the host at `~/.config/agent-sandbox/policies/`. The compose files mount the appropriate policy:
 
-```yaml
-# docker-compose.yml, under proxy.volumes:
-volumes:
-  - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/mitmproxy/policy.yaml:ro
-```
+- CLI mode: `policies/claude.yaml`
+- Devcontainer mode: `policies/claude-vscode.yaml`
 
 Policy must come from outside the workspace for security (prevents agent from modifying its own allowlist).
 

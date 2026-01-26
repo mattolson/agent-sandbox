@@ -1,18 +1,10 @@
-# Claude Code Sandbox
+# Claude Code Sandbox - Devcontainer mode
 #
-# Usage:
-#   docker compose up -d
-#   docker compose exec agent zsh
-#   # Run claude inside the container
-#   docker compose down
+# Used by VS Code devcontainer. Separate from root docker-compose.yml to allow
+# both to run simultaneously without container/volume name conflicts.
 #
-# For reproducibility, pin images to a specific digest:
-#   image: ghcr.io/mattolson/agent-sandbox-claude@sha256:<digest>
-#   image: ghcr.io/mattolson/agent-sandbox-proxy@sha256:<digest>
-#
-# For local development images:
-#   image: agent-sandbox-claude:local
-#   image: agent-sandbox-proxy:local
+# Requires policy file at ~/.config/agent-sandbox/policies/claude-vscode.yaml
+# See README.md for setup instructions.
 
 services:
   proxy:
@@ -22,7 +14,7 @@ services:
     volumes:
       - proxy-state:/home/mitmproxy/.mitmproxy
       - proxy-ca:/ca-export
-      - ${HOME}/.config/agent-sandbox/policies/claude.yaml:/etc/mitmproxy/policy.yaml:ro
+      - ${HOME}/.config/agent-sandbox/policies/claude-vscode.yaml:/etc/mitmproxy/policy.yaml:ro
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "8080"]
       interval: 5s
@@ -34,25 +26,25 @@ services:
     depends_on:
       proxy:
         condition: service_healthy
+    # Required for iptables firewall setup. The agent runs as non-root and
+    # sudoers only permits specific scripts, so it cannot modify iptables directly.
     cap_add:
       - NET_ADMIN
       - NET_RAW
     volumes:
-      # Your project workspace
-      - .:/workspace
+      # Project workspace
+      - ../../:/workspace
       # Persist Claude credentials
       - claude-state:/home/dev/.claude
       # Persist shell history
       - claude-history:/commandhistory
       # Proxy CA certificate (public cert only, no private key)
       - proxy-ca:/etc/mitmproxy:ro
-      # Host Claude config (optional - comment out if not needed)
+      # Host Claude config (optional - comment out if files don't exist)
       - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
       - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
       # Shell customizations (optional - uncomment to enable)
       # - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
-      # Dotfiles directory (optional - use with shell.d script to symlink)
-      # - ${HOME}/.dotfiles:/home/dev/.dotfiles:ro
     working_dir: /workspace
     stdin_open: true
     tty: true

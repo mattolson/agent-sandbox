@@ -31,6 +31,7 @@ Lessons learned during project execution. Review at the start of each planning s
 - iptables as gatekeeper + proxy as enforcer is more robust than either alone: iptables ensures traffic goes through proxy, proxy does domain-level filtering
 - Defense in depth works when layers serve different purposes; redundant enforcement at the same layer adds complexity without security benefit
 - Devcontainers can use Docker Compose backend via `dockerComposeFile` in devcontainer.json, enabling sidecar patterns
+- Relative paths in docker-compose files are resolved from the compose file's directory, not the project root; `.devcontainer/docker-compose.yml` needs `../` to reach repo root, not `../../`
 
 ## Security
 

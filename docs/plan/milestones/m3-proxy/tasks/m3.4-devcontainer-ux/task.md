@@ -15,12 +15,12 @@ Validate and refine the devcontainer experience using this repo as the test case
 
 ## Acceptance Criteria
 
-- [ ] Devcontainer opens in VS Code with proxy enforcement working
-- [ ] CLI compose and devcontainer can run simultaneously (no name conflicts)
-- [ ] VS Code extensions install/update without being blocked
-- [ ] Firewall blocks direct outbound (bypassing proxy)
-- [ ] Template structure matches this repo's validated setup
-- [ ] Documentation reflects the new architecture
+- [x] Devcontainer opens in VS Code with proxy enforcement working
+- [x] CLI compose and devcontainer can run simultaneously (no name conflicts)
+- [x] VS Code extensions install/update without being blocked
+- [x] Firewall blocks direct outbound (bypassing proxy)
+- [x] Template structure matches this repo's validated setup
+- [x] Documentation reflects the new architecture
 
 ## Applicable Learnings
 
@@ -109,24 +109,28 @@ Update `templates/claude/` to match the validated structure:
 
 ### Implementation Steps
 
-- [ ] Add vscode service to SERVICE_DOMAINS in enforcer.py
-- [ ] Create `.devcontainer/docker-compose.yml` with namespaced resources
-- [ ] Update `.devcontainer/devcontainer.json` for compose backend
-- [ ] Delete `.devcontainer/Dockerfile` and `.devcontainer/policy.yaml`
-- [ ] Create `docs/policy/examples/claude-devcontainer.yaml`
-- [ ] Test devcontainer workflow in VS Code
-- [ ] Test CLI compose still works alongside devcontainer
-- [ ] Create `templates/claude/.devcontainer/docker-compose.yml`
-- [ ] Update `templates/claude/.devcontainer/devcontainer.json`
-- [ ] Update `templates/claude/docker-compose.yml` for CLI-only
-- [ ] Update `templates/claude/README.md`
-- [ ] Update `.claude/CLAUDE.md`
-- [ ] Update root `README.md`
+- [x] Add vscode service to SERVICE_DOMAINS in enforcer.py
+- [x] Create `.devcontainer/docker-compose.yml` with namespaced resources
+- [x] Update `.devcontainer/devcontainer.json` for compose backend
+- [x] Delete `.devcontainer/Dockerfile` and `.devcontainer/policy.yaml`
+- [x] Create `docs/policy/examples/claude-devcontainer.yaml`
+- [x] Test devcontainer workflow in VS Code
+- [x] Test CLI compose still works alongside devcontainer
+- [x] Create `templates/claude/.devcontainer/docker-compose.yml`
+- [x] Update `templates/claude/.devcontainer/devcontainer.json`
+- [x] Update `templates/claude/docker-compose.yml` for CLI-only
+- [x] Update `templates/claude/README.md`
+- [x] Update `.claude/CLAUDE.md`
+- [x] Update root `README.md`
 
-### Open Questions
+### Decisions
 
-1. **VS Code domain completeness**: The list of VS Code domains may be incomplete. May need to run in discovery mode to find all required domains.
+1. **VS Code domain coverage**: Start with known domains, add as needed during testing.
 
-2. **Container naming in devcontainer**: Should we use `${localWorkspaceFolderBasename}` in container names for better identification, or keep it simple with a static prefix?
+2. **Container naming**: Use dynamic naming via compose project name. Remove explicit `container_name` directives so compose auto-generates names like `projectname-proxy-1`, `projectname-agent-1`. Volumes are already auto-prefixed.
 
-3. **Policy mount strategy for devcontainer**: Mount from `~/.config/agent-sandbox/policy-devcontainer.yaml` or use the baked-in proxy policy with vscode service enabled?
+3. **Policy strategy**:
+   - Proxy image bakes in tight default (`services: [github]` only)
+   - Devcontainer usage requires mounting policy from host (`~/.config/agent-sandbox/policy.yaml`)
+   - Provide example policies in `docs/policy/examples/` for users to copy
+   - This keeps policy outside workspace for security

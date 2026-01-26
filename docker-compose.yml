@@ -15,14 +15,13 @@
 services:
   proxy:
     build: ./images/proxy
-    container_name: agent-sandbox-proxy
     environment:
       - PROXY_MODE=enforce
     volumes:
       - proxy-state:/home/mitmproxy/.mitmproxy
       - proxy-ca:/ca-export
       # Override baked-in policy with agent-specific policy from host:
-      # - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/mitmproxy/policy.yaml:ro
+      - ${HOME}/.config/agent-sandbox/policies/claude.yaml:/etc/mitmproxy/policy.yaml:ro
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "8080"]
       interval: 5s
@@ -31,7 +30,6 @@ services:
 
   agent:
     image: agent-sandbox-claude:local
-    container_name: agent-sandbox
     depends_on:
       proxy:
         condition: service_healthy
@@ -52,8 +50,6 @@ services:
       # Host Claude config (optional - comment out if not needed)
       - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
       - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
-      # To customize network policy, uncomment and create the file:
-      # - ${HOME}/.config/agent-sandbox/policy.yaml:/etc/agent-sandbox/policy.yaml:ro
       # Shell customizations (optional - uncomment to enable)
       - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
       # Dotfiles directory (optional - use with shell.d script to symlink)

@@ -28,6 +28,19 @@ SERVICE_DOMAINS = {
         "githubusercontent.com",
         "*.githubusercontent.com",
     ],
+    "claude": [
+        "*.anthropic.com",
+        "*.claude.ai",
+        "*.claude.com",
+        "*.sentry.io",
+    ],
+    "vscode": [
+        "update.code.visualstudio.com",
+        "marketplace.visualstudio.com",
+        "mobile.events.data.microsoft.com",
+        "main.vscode-cdn.net",
+        "*.vsassets.io",
+    ],
 }
 
 
@@ -70,6 +83,7 @@ class PolicyEnforcer:
         )
 
     def _add_domain(self, domain):
+        self._log_info(f"Adding '{domain}' to allowlist")
         if domain.startswith("*."):
             self.allowed_wildcards.append(domain[2:])
         else:

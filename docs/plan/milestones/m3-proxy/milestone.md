@@ -121,7 +121,7 @@ Add allowlist enforcement to the proxy.
 - [x] Environment variable to toggle discovery/enforcement mode
 - [x] Support same policy format as before (services + domains)
 
-### m3.4-devcontainer-ux
+### m3.4-devcontainer-ux (DONE)
 
 Validate and refine the devcontainer experience. Use this repo as the test case before finalizing the template.
 
@@ -147,28 +147,28 @@ docs/policy/examples/
 **Subtasks:**
 
 Proxy changes:
-- [ ] Add `vscode` service to SERVICE_DOMAINS in enforcer.py (update.code.visualstudio.com, marketplace.visualstudio.com, *.vsassets.io, etc.)
+- [x] Add `vscode` service to SERVICE_DOMAINS in enforcer.py (update.code.visualstudio.com, marketplace.visualstudio.com, *.vsassets.io, etc.)
 
 Policy examples:
-- [ ] Create `docs/policy/examples/claude-devcontainer.yaml` with `services: [github, vscode]`
-- [ ] Verify `docs/policy/examples/claude.yaml` works for CLI usage
+- [x] Create `docs/policy/examples/claude-devcontainer.yaml` with `services: [github, vscode]`
+- [x] Verify `docs/policy/examples/claude.yaml` works for CLI usage
 
 This repo's devcontainer:
-- [ ] Create `.devcontainer/docker-compose.yml` with namespaced container/volume names
-- [ ] Update `.devcontainer/devcontainer.json` to use `dockerComposeFile` backend
-- [ ] Remove `.devcontainer/Dockerfile` (no longer needed, use published image)
-- [ ] Remove `.devcontainer/policy.yaml` (policy now in proxy image or host mount)
-- [ ] Test full VS Code workflow: open in container, proxy works, firewall blocks direct
+- [x] Create `.devcontainer/docker-compose.yml` with namespaced container/volume names
+- [x] Update `.devcontainer/devcontainer.json` to use `dockerComposeFile` backend
+- [x] Remove `.devcontainer/Dockerfile` (no longer needed, use published image)
+- [x] Remove `.devcontainer/policy.yaml` (policy now in proxy image or host mount)
+- [x] Test full VS Code workflow: open in container, proxy works, firewall blocks direct
 
 Template updates:
-- [ ] Update `templates/claude/.devcontainer/` to match validated structure
-- [ ] Update `templates/claude/docker-compose.yml` for CLI-only usage
-- [ ] Update `templates/claude/README.md` with clear separation of modes
+- [x] Update `templates/claude/.devcontainer/` to match validated structure
+- [x] Update `templates/claude/docker-compose.yml` for CLI-only usage
+- [x] Update `templates/claude/README.md` with clear separation of modes
 
 Cleanup (rolled into this task):
-- [ ] Update root CLAUDE.md with new architecture
-- [ ] Update root README.md with proxy-based setup
-- [ ] Remove any remaining iptables-only code paths
+- [x] Update root CLAUDE.md with new architecture
+- [x] Update root README.md with proxy-based setup
+- [x] Remove any remaining iptables-only code paths
 
 ### m3.5-git-https
 
@@ -196,8 +196,8 @@ Port 22 is now blocked by the firewall, so git-over-SSH no longer works. This ta
 - [x] iptables blocks all direct outbound (only proxy allowed)
 - [x] Proxy enforces domain allowlist
 - [ ] Git works over HTTPS through proxy
-- [ ] Devcontainer works with proxy sidecar (separate compose file, isolated from CLI mode)
-- [ ] CLI and devcontainer can run simultaneously without conflicts
-- [ ] Template refined and validated on this repo
-- [ ] Documentation updated
-- [ ] Old iptables-only code paths removed
+- [x] Devcontainer works with proxy sidecar (separate compose file, isolated from CLI mode)
+- [x] CLI and devcontainer can run simultaneously without conflicts
+- [x] Template refined and validated on this repo
+- [x] Documentation updated
+- [x] Old iptables-only code paths removed
