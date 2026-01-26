@@ -1,5 +1,7 @@
 # m3-proxy
 
+**Status: Complete**
+
 Proxy-based network enforcement and observability, replacing domain-based iptables rules.
 
 ## Motivation
@@ -170,7 +172,7 @@ Cleanup (rolled into this task):
 - [x] Update root README.md with proxy-based setup
 - [x] Remove any remaining iptables-only code paths
 
-### m3.5-git-https
+### m3.5-git-https (DONE)
 
 Configure git to use HTTPS instead of SSH.
 
@@ -180,7 +182,7 @@ Port 22 is blocked by the firewall (prevents tunneling that could bypass the pro
 - [x] Add `git config --global url."https://github.com/".insteadOf ssh://git@github.com/` to base image
 - [x] Document HTTPS-only constraint in README (explain why SSH is blocked)
 - [x] Document credential options: `gh auth login`, fine-grained PAT, host-based git
-- [ ] Test clone/push/pull work through proxy
+- [x] Test clone/push/pull work through proxy
 
 ## Open Questions
 
@@ -196,7 +198,7 @@ Port 22 is blocked by the firewall (prevents tunneling that could bypass the pro
 
 - [x] iptables blocks all direct outbound (only proxy allowed)
 - [x] Proxy enforces domain allowlist
-- [ ] Git works over HTTPS through proxy
+- [x] Git works over HTTPS through proxy
 - [x] Devcontainer works with proxy sidecar (separate compose file, isolated from CLI mode)
 - [x] CLI and devcontainer can run simultaneously without conflicts
 - [x] Template refined and validated on this repo

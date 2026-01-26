@@ -1,5 +1,7 @@
 # Task: m3.5 - Git over HTTPS
 
+**Status: Complete**
+
 ## Summary
 
 Configure the container image so git operations work through the proxy. Port 22 is blocked, so git-over-SSH does not work. This task ensures git clone/push/pull work via HTTPS and documents credential setup options.
@@ -13,12 +15,12 @@ Configure the container image so git operations work through the proxy. Port 22 
 
 ## Acceptance Criteria
 
-- [ ] `git clone git@github.com:...` automatically rewrites to HTTPS
-- [ ] `gh auth login` works from inside the container
-- [ ] `git push` works with cached credentials
-- [ ] README documents the HTTPS-only constraint
-- [ ] README documents credential setup options
-- [ ] README Security section warns about OAuth token scope (user-level, not repo-level)
+- [x] `git clone git@github.com:...` automatically rewrites to HTTPS
+- [x] `gh auth login` works from inside the container
+- [x] `git push` works with cached credentials
+- [x] README documents the HTTPS-only constraint
+- [x] README documents credential setup options
+- [x] README Security section warns about OAuth token scope (user-level, not repo-level)
 
 ## Applicable Learnings
 
@@ -86,13 +88,13 @@ Manual tests to verify:
 ### Implementation Steps
 
 - [x] Add git URL rewrite config to base Dockerfile
-- [ ] Rebuild base and agent images (from host: `./images/build.sh`)
-- [ ] Test URL rewrite: clone with ssh URL
-- [ ] Test `gh auth login` flow
-- [ ] Test push after auth
+- [x] Rebuild base and agent images (from host: `./images/build.sh`)
+- [x] Test URL rewrite: clone with ssh URL
+- [x] Test `gh auth login` flow
+- [x] Test push after auth
 - [x] Add "Git configuration" section to README
 - [x] Add credential scope warning to README Security section
-- [ ] Verify documentation accuracy
+- [x] Verify documentation accuracy
 
 ### Decisions
 
