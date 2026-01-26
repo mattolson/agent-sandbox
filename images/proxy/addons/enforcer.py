@@ -33,6 +33,12 @@ SERVICE_DOMAINS = {
         "*.sentry.io",
         "*.datadoghq.com",
     ],
+    "copilot": [
+        "*.githubcopilot.com",
+        "copilot-proxy.githubusercontent.com",
+        "*.exp-tas.com",
+        "*.githubassets.com",
+    ],
     "vscode": [
         "update.code.visualstudio.com",
         "marketplace.visualstudio.com",
