@@ -1,0 +1,27 @@
+# GitHub Copilot CLI agent image
+# Extends base with Copilot CLI installed via npm
+
+ARG BASE_IMAGE=agent-sandbox-base:local
+FROM ${BASE_IMAGE}
+
+# Override base policy with Copilot endpoints
+USER root
+COPY policy.yaml /etc/agent-sandbox/policy.yaml
+RUN chmod 644 /etc/agent-sandbox/policy.yaml
+
+# Install Node.js (required for npm)
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Create copilot config directory
+RUN mkdir -p /home/dev/.copilot && chown -R dev:dev /home/dev/.copilot
+
+# Install Copilot CLI via npm - must be root for global install
+ARG COPILOT_VERSION=latest
+RUN npm install -g @github/copilot@${COPILOT_VERSION}
+
+USER dev
+
+LABEL org.opencontainers.image.description="Agent Sandbox with GitHub Copilot CLI"
+LABEL com.mattolson.agentsandbox.copilot-version="${COPILOT_VERSION}"
