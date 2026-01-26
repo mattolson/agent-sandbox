@@ -1,0 +1,72 @@
+name: Check Copilot CLI Version
+
+on:
+  schedule:
+    - cron: '0 7 * * *'  # Daily at 7am UTC (offset from Claude check)
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-copilot
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      actions: write  # Needed to trigger workflows
+
+    steps:
+      - name: Get latest Copilot CLI version from npm
+        id: npm
+        run: |
+          VERSION=$(npm view @github/copilot@latest version 2>/dev/null || echo "")
+          if [ -z "$VERSION" ]; then
+            echo "Failed to fetch version from npm"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Latest npm version: $VERSION"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if version tag exists in registry
+        id: check
+        run: |
+          TAG="copilot-${{ steps.npm.outputs.version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
+
+          # Use docker manifest inspect to check if tag exists (no pull required)
+          if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "Tag $TAG already exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Tag $TAG does not exist"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          DOCKER_CLI_EXPERIMENTAL: enabled
+
+      - name: Trigger image rebuild
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Triggering build-images workflow for Copilot CLI ${{ steps.npm.outputs.version }}..."
+          gh workflow run build-images.yml --repo ${{ github.repository }}
+
+      - name: Summary
+        run: |
+          echo "## Copilot CLI Version Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| npm latest | ${{ steps.npm.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag exists | ${{ steps.check.outputs.exists }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Rebuild triggered | ${{ steps.check.outputs.exists == 'false' }} |" >> $GITHUB_STEP_SUMMARY
