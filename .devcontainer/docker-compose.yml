@@ -3,13 +3,12 @@
 # Used by VS Code devcontainer. Separate from root docker-compose.yml to allow
 # both to run simultaneously without container/volume name conflicts.
 #
-# Requires:
-#   1. Build local images: ./images/build.sh
-#   2. Copy policy to host: cp docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-vscode.yaml
+# Requires policy file at ~/.config/agent-sandbox/policies/claude-vscode.yaml
+# See README.md for setup instructions.
 
 services:
   proxy:
-    build: ../images/proxy
+    image: ghcr.io/mattolson/agent-sandbox-proxy:latest
     environment:
       - PROXY_MODE=enforce
     volumes:
@@ -23,7 +22,7 @@ services:
       retries: 3
 
   agent:
-    image: agent-sandbox-claude:local
+    image: ghcr.io/mattolson/agent-sandbox-claude:latest
     depends_on:
       proxy:
         condition: service_healthy
@@ -44,7 +43,7 @@ services:
       # Host Claude config (optional - comment out if files don't exist)
       - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
       - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
-      # Shell customizations (optional)
+      # Shell customizations (optional - uncomment to enable)
       - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
     working_dir: /workspace
     stdin_open: true

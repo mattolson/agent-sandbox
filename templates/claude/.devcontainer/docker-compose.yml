@@ -33,7 +33,7 @@ services:
       - NET_RAW
     volumes:
       # Project workspace
-      - ../../:/workspace
+      - ../:/workspace
       # Persist Claude credentials
       - claude-state:/home/dev/.claude
       # Persist shell history
