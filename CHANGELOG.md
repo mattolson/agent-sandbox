@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Default proxy policy now blocks all traffic.** The baked-in proxy policy no longer allows GitHub by default. You must mount a policy file to allow any outbound requests.
+
+- **Simplified base image.** Removed optional packages to reduce image size and build time:
+  - `yq` (YAML processor)
+  - `git-delta` (diff viewer)
+  - `zsh-in-docker` / powerline10k theme
+
+  The base image now ships with a minimal zsh configuration. To add these tools or customize further, create a derived image:
+
+  ```dockerfile
+  FROM ghcr.io/mattolson/agent-sandbox-base:latest
+
+  # Install git-delta
+  RUN ARCH=$(dpkg --print-architecture) && \
+    wget "https://github.com/dandavison/delta/releases/download/0.18.2/git-delta_0.18.2_${ARCH}.deb" && \
+    dpkg -i "git-delta_0.18.2_${ARCH}.deb" && \
+    rm "git-delta_0.18.2_${ARCH}.deb"
+
+  # Or mount your own dotfiles for shell customization
+  ```
+
 ## [0.3.0] - 2026-01-25 (1a9103d)
 
 Proxy-based network enforcement. This release replaces the iptables-only domain blocking with a two-layer architecture: mitmproxy sidecar for domain enforcement + iptables to prevent bypassing the proxy.
