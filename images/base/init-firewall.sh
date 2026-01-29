@@ -72,22 +72,33 @@ iptables -A OUTPUT -j REJECT --reject-with icmp-admin-prohibited
 
 echo "Firewall configured."
 echo ""
-echo "Verifying..."
 
-# Negative test: direct outbound should be blocked
-if curl --connect-timeout 3 --noproxy '*' https://example.com >/dev/null 2>&1; then
-    echo "ERROR: Verification failed - direct connection to example.com succeeded"
+# Positive test: proxy should be reachable
+MAX_ATTEMPTS=30
+ATTEMPT=1
+echo -n "Waiting for proxy..."
+while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+    if curl -s --connect-timeout 1 -o /dev/null http://proxy:8080 2>/dev/null; then
+        echo "  OK (proxy:8080 reachable)"
+        break
+    fi
+    echo -n "."
+    sleep 1
+    ATTEMPT=$((ATTEMPT + 1))
+done
+if [ $ATTEMPT -gt $MAX_ATTEMPTS ]; then
+    echo "  FAILED"
+    echo "ERROR: Proxy not reachable after ${MAX_ATTEMPTS}s"
     exit 1
-else
-    echo "  PASS: Direct outbound blocked (example.com unreachable)"
 fi
 
-# Positive test: host network gateway should be reachable
-GATEWAY_IP=$(ip route | grep default | awk '{print $3}')
-if ping -c 1 -W 3 "$GATEWAY_IP" >/dev/null 2>&1; then
-    echo "  PASS: Host network reachable ($GATEWAY_IP)"
+# Negative test: direct outbound should be blocked
+echo "Verifying firewall..."
+if curl --connect-timeout 3 --noproxy '*' https://example.com >/dev/null 2>&1; then
+    echo "FAIL: Direct connection to example.com succeeded"
+    exit 1
 else
-    echo "  WARN: Host network gateway not responding to ping (may be normal)"
+    echo "PASS: Direct outbound blocked (example.com unreachable)"
 fi
 
 echo ""

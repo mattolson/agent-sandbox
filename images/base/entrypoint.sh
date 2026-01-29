@@ -6,7 +6,6 @@ set -e
 if iptables -S OUTPUT 2>/dev/null | grep -q "^-P OUTPUT DROP"; then
   echo "Firewall already initialized."
 else
-  echo "Initializing firewall..."
   if ! sudo /usr/local/bin/init-firewall.sh; then
     echo ""
     echo "=========================================="
