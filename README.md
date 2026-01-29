@@ -126,7 +126,7 @@ Network enforcement has two layers:
 1. **Proxy** (mitmproxy sidecar) - Enforces a domain allowlist at the HTTP/HTTPS level. Blocks requests to non-allowed domains with 403.
 2. **Firewall** (iptables) - Blocks all direct outbound from the agent container. Only the Docker host network is reachable, which is where the proxy sidecar runs. This prevents applications from bypassing the proxy.
 
-The proxy image ships with a default policy that allows GitHub only.
+The proxy image ships with a default policy that blocks all traffic. You must mount a policy file to allow any outbound requests.
 
 ### How it works
 
