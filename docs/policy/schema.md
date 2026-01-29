@@ -22,6 +22,8 @@ A list of predefined service names. Each service expands to a set of domain patt
 | Service | Domains |
 |---------|---------|
 | `github` | `github.com`, `*.github.com`, `githubusercontent.com`, `*.githubusercontent.com` |
+| `claude` | `*.anthropic.com`, `*.claude.ai`, `*.claude.com`, `*.sentry.io`, `*.datadoghq.com` |
+| `vscode` | `update.code.visualstudio.com`, `marketplace.visualstudio.com`, `mobile.events.data.microsoft.com`, `main.vscode-cdn.net`, `*.vsassets.io` |
 
 Services are defined as a static mapping in the proxy enforcer addon (`images/proxy/addons/enforcer.py`). To add a new service, add an entry to the `SERVICE_DOMAINS` dict.
 
@@ -58,7 +60,7 @@ If `PROXY_MODE=enforce` and no policy file exists at `/etc/mitmproxy/policy.yaml
 
 There are two places a policy can come from:
 
-1. **Baked into the proxy image** at build time (`images/proxy/policy.yaml`). The default allows GitHub only.
+1. **Baked into the proxy image** at build time (`images/proxy/policy.yaml`). The default blocks all traffic.
 2. **Mounted from the host** at runtime, overriding the baked-in default.
 
 To mount a custom policy in docker-compose.yml:

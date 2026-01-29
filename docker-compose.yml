@@ -7,12 +7,16 @@
 #   docker compose down
 #
 # For reproducibility, pin images to a specific digest:
+# proxy:
 #   image: ghcr.io/mattolson/agent-sandbox-claude@sha256:<digest>
+# agent:
 #   image: ghcr.io/mattolson/agent-sandbox-proxy@sha256:<digest>
 #
 # For local development images:
-#   image: agent-sandbox-claude:local
+# proxy:
 #   image: agent-sandbox-proxy:local
+# agent:
+#   image: agent-sandbox-claude:local
 
 services:
   proxy:

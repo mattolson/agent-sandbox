@@ -4,12 +4,10 @@
 ARG BASE_IMAGE=agent-sandbox-base:local
 FROM ${BASE_IMAGE}
 
-# Override base policy with Claude Code endpoints
-# Copy aliases file (sourced by base image's .zshrc)
+# Copy aliases file (sourced by shell-init.sh)
 USER root
-COPY policy.yaml /etc/agent-sandbox/policy.yaml
 COPY aliases.sh /etc/agent-sandbox/aliases.sh
-RUN chmod 644 /etc/agent-sandbox/policy.yaml /etc/agent-sandbox/aliases.sh
+RUN chmod 644 /etc/agent-sandbox/aliases.sh
 
 # Create claude config directory
 RUN mkdir -p /home/dev/.claude && chown -R dev:dev /home/dev/.claude

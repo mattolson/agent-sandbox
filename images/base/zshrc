@@ -1,0 +1,22 @@
+# Minimal zsh configuration for agent-sandbox
+# Users can mount their own dotfiles for customization
+
+# History
+HISTFILE=/commandhistory/.zsh_history
+HISTSIZE=10000
+SAVEHIST=10000
+setopt SHARE_HISTORY
+setopt HIST_IGNORE_DUPS
+
+# Basic completion
+autoload -Uz compinit && compinit
+
+# fzf integration
+[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && source /usr/share/doc/fzf/examples/key-bindings.zsh
+[ -f /usr/share/doc/fzf/examples/completion.zsh ] && source /usr/share/doc/fzf/examples/completion.zsh
+
+# Simple prompt: user@host:path$
+PROMPT='%n@%m:%~%# '
+
+# Agent Sandbox shell initialization
+source /etc/agent-sandbox/shell-init.sh

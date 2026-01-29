@@ -1,7 +1,5 @@
-# Default proxy policy - GitHub only
+# Default proxy policy - blocks all outbound traffic
 # Override by mounting a custom policy at /etc/mitmproxy/policy.yaml
-
-services:
-  - github
-
+# See docs/policy for details
+services: []
 domains: []
