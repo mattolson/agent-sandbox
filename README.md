@@ -30,8 +30,6 @@ Two modes are supported with separate compose files:
 
 Both modes run a two-container stack: a proxy sidecar (mitmproxy) and the agent container. The separate compose files allow both to run simultaneously without container or volume name conflicts.
 
-JetBrains IDEs (IntelliJ, PyCharm, WebStorm, etc.) support devcontainers through the same `.devcontainer/` configuration. Open your project and select "Dev Containers" from the remote development options.
-
 ## Quick start (macOS + Colima)
 
 ### 1. Install prerequisites
@@ -92,7 +90,7 @@ Note: CLI mode requires the policy file at `~/.config/agent-sandbox/policies/cla
 
 ### 4. Authenticate Claude Code (first time only)
 
-From your **host terminal** (not the VS Code integrated terminal):
+From your **host terminal** (not the IDE integrated terminal):
 
 ```bash
 # Find your container name
@@ -121,22 +119,24 @@ claude
 yolo-claude
 ```
 
-For compose mode, stop the container when done:
+Afterward, for compose mode, stop the container:
 
 ```bash
 docker compose down
 ```
 
-## Claude Code: Terminal vs IDE extension
+## Claude Code: Two devcontainer modes
 
-You can run Claude Code two ways inside the sandbox:
+You can run Claude Code two ways with the devcontainer:
 
 | Mode | How to start | IDE support |
 |------|--------------|-------------|
 | **Terminal** | Run `claude` in the integrated terminal | VS Code, JetBrains |
 | **IDE extension** | Install Claude Code extension | VS Code only |
 
-Both modes work with the sandbox. The proxy and firewall apply equally because both binaries run inside the container and respect the `HTTP_PROXY` environment variable.
+**JetBrains users.** Use the terminal to run `claude` directly. The Claude Code JetBrains plugin does not work with devcontainers. See [Known issues](#known-issues) for details.
+
+In VS Code, both modes work with the sandbox. The proxy and firewall apply equally because both binaries run inside the container and respect the `HTTP_PROXY` environment variable.
 
 **Shared configuration.** Both modes use the same Claude credentials and settings stored in the Docker volume (`~/.claude`). You can switch between terminal and extension freely. Authenticate once in either mode and both will work.
 
@@ -145,8 +145,6 @@ Both modes work with the sandbox. The proxy and firewall apply equally because b
 **First-time setup with extension.** If you start fresh with the extension (no prior authentication), the extension will prompt you to authenticate through its UI. This works the same as the terminal OAuth flow.
 
 **Connecting terminal to IDE.** Running `/ide` in the terminal Claude session shows the connection status to VS Code. When connected, Claude can interact with the editor directly.
-
-**JetBrains users.** Use the terminal to run `claude` directly. The Claude Code JetBrains plugin does not work with devcontainers. See [Known issues](#known-issues) for details.
 
 ## Network policy
 
@@ -317,11 +315,7 @@ The Claude Code plugin for JetBrains IDEs (IntelliJ, PyCharm, WebStorm, etc.) do
 
 **Workaround:** Run `claude` in the JetBrains integrated terminal. The terminal connects to the container, so Claude runs inside the sandbox with full network restrictions. You get the CLI experience but not the native IDE panel.
 
-This is a limitation of the JetBrains plugin architecture, not something we can fix in the sandbox.
-
-### VS Code extension may fail on first install
-
-The Claude Code VS Code extension sometimes fails to install on first container startup because the proxy isn't fully ready. VS Code retries automatically, and the extension typically installs successfully on the second attempt. Check the Extensions panel if Claude doesn't appear immediately.
+This is a limitation of the JetBrains plugin architecture. Hopefully they will support installing the plugin in the container in the future.
 
 ## Roadmap
 
