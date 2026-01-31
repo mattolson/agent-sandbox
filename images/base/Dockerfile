@@ -85,4 +85,4 @@ RUN mkdir -p /home/${USERNAME}/.config && \
 USER ${USERNAME}
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["zsh"]
+CMD [ "sleep", "infinity" ]
