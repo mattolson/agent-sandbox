@@ -29,7 +29,7 @@ Copy the policy files to your host:
 ```bash
 mkdir -p ~/.config/agent-sandbox/policies
 cp docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
-cp docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-vscode.yaml
+cp docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-devcontainer.yaml
 ```
 
 Build local images:
@@ -77,7 +77,7 @@ Adding a new service requires modifying `enforcer.py`. For one-off domains, use 
 Policy files live on the host at `~/.config/agent-sandbox/policies/`. The compose files mount the appropriate policy:
 
 - CLI mode: `claude.yaml`
-- Devcontainer mode: `claude-vscode.yaml`
+- Devcontainer mode: `claude-devcontainer.yaml`
 
 Policy must come from outside the workspace for security (prevents agent from modifying its own allowlist).
 

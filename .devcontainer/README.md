@@ -19,7 +19,7 @@ Copy the policy files to your host config:
 ```bash
 mkdir -p ~/.config/agent-sandbox/policies
 cp docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
-cp docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-vscode.yaml
+cp docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-devcontainer.yaml
 ```
 
 ### 3. Open in VS Code
@@ -53,7 +53,7 @@ Follow the OAuth flow, then `/exit`. Credentials persist in a Docker volume.
 
 ## Adding Allowed Domains
 
-Edit your policy file at `~/.config/agent-sandbox/policies/claude-vscode.yaml`:
+Edit your policy file at `~/.config/agent-sandbox/policies/claude-devcontainer.yaml`:
 
 ```yaml
 services:
@@ -73,13 +73,13 @@ docker compose -f .devcontainer/docker-compose.yml restart proxy
 
 ## Troubleshooting
 
-**403 errors**: The domain is not in the allowlist. Check `~/.config/agent-sandbox/policies/claude-vscode.yaml`.
+**403 errors**: The domain is not in the allowlist. Check `~/.config/agent-sandbox/policies/claude-devcontainer.yaml`.
 
 **Proxy health check fails**: Check proxy logs:
 ```bash
 docker compose -f .devcontainer/docker-compose.yml logs proxy
 ```
 
-**Policy file not found**: Make sure you copied the policy to `~/.config/agent-sandbox/policies/claude-vscode.yaml`.
+**Policy file not found**: Make sure you copied the policy to `~/.config/agent-sandbox/policies/claude-devcontainer.yaml`.
 
 **Claude auth issues**: Run auth from host terminal, not VS Code integrated terminal.

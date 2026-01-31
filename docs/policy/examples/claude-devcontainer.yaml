@@ -1,7 +1,7 @@
 # Claude Code policy (VS Code devcontainer mode)
 #
 # Includes VS Code infrastructure domains in addition to Claude Code requirements.
-# Copy to: ~/.config/agent-sandbox/policies/claude-vscode.yaml
+# Copy to: ~/.config/agent-sandbox/policies/claude-devcontainer.yaml
 
 services:
   - github

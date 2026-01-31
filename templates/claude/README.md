@@ -17,12 +17,12 @@ The proxy requires policy files on the host. Copy the examples:
 ```bash
 mkdir -p ~/.config/agent-sandbox/policies
 cp agent-sandbox/docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
-cp agent-sandbox/docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-vscode.yaml
+cp agent-sandbox/docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-devcontainer.yaml
 ```
 
 The compose files mount the appropriate policy:
 - CLI mode uses `policies/claude.yaml`
-- Devcontainer mode uses `policies/claude-vscode.yaml` (includes VS Code infrastructure domains)
+- Devcontainer mode uses `policies/claude-devcontainer.yaml` (includes VS Code infrastructure domains)
 
 ### 3. Copy template to your project
 
@@ -114,7 +114,7 @@ The proxy's CA certificate is automatically shared with the agent container and 
 
 Policy files live on the host at `~/.config/agent-sandbox/policies/`. The compose files mount the appropriate policy:
 - CLI: `policies/claude.yaml`
-- Devcontainer: `policies/claude-vscode.yaml`
+- Devcontainer: `policies/claude-devcontainer.yaml`
 
 Policy files must live outside the workspace. If they were inside, the agent could modify its own allowlist.
 
@@ -224,7 +224,7 @@ The policy files must exist on the host:
 ```bash
 mkdir -p ~/.config/agent-sandbox/policies
 cp agent-sandbox/docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
-cp agent-sandbox/docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-vscode.yaml
+cp agent-sandbox/docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-devcontainer.yaml
 ```
 
 ### Proxy health check fails
