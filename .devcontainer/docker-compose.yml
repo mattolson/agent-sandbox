@@ -3,7 +3,7 @@
 # Used by VS Code devcontainer. Separate from root docker-compose.yml to allow
 # both to run simultaneously without container/volume name conflicts.
 #
-# Requires policy file at ~/.config/agent-sandbox/policies/claude-vscode.yaml
+# Requires policy file at ~/.config/agent-sandbox/policies/claude-devcontainer.yaml
 # See README.md for setup instructions.
 
 services:
@@ -14,7 +14,7 @@ services:
     volumes:
       - proxy-state:/home/mitmproxy/.mitmproxy
       - proxy-ca:/ca-export
-      - ${HOME}/.config/agent-sandbox/policies/claude-vscode.yaml:/etc/mitmproxy/policy.yaml:ro
+      - ${HOME}/.config/agent-sandbox/policies/claude-devcontainer.yaml:/etc/mitmproxy/policy.yaml:ro
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "8080"]
       interval: 5s

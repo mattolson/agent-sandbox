@@ -39,7 +39,7 @@ Proxy-based network enforcement. This release replaces the iptables-only domain 
   ```bash
   mkdir -p ~/.config/agent-sandbox/policies
   cp docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
-  cp docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-vscode.yaml
+  cp docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-devcontainer.yaml
   ```
   You can use a different directory if you prefer, but you'll need to update the volume mount in your compose file to match.
 
