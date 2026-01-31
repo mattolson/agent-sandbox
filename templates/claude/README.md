@@ -26,15 +26,20 @@ The compose files mount the appropriate policy:
 
 ### 3. Copy template to your project
 
-#### Option A: VS Code Devcontainer
+#### Option A: Devcontainer (VS Code / JetBrains)
 
 ```bash
 cp -r agent-sandbox/templates/claude/.devcontainer /path/to/your/project/
 ```
 
-Then open in VS Code:
+**VS Code:**
 1. Install the Dev Containers extension
 2. Command Palette > "Dev Containers: Reopen in Container"
+
+**JetBrains (IntelliJ, PyCharm, WebStorm, etc.):**
+1. Open your project
+2. From the Remote Development menu, select "Dev Containers"
+3. Select the devcontainer configuration
 
 #### Option B: Docker Compose (CLI)
 
@@ -74,10 +79,25 @@ This template supports two usage modes with separate compose files:
 
 | Mode | Compose file | Policy | Use case |
 |------|-------------|--------|----------|
-| **Devcontainer** | `.devcontainer/docker-compose.yml` | Requires host mount | VS Code users |
+| **Devcontainer** | `.devcontainer/docker-compose.yml` | Requires host mount | VS Code, JetBrains IDEs |
 | **CLI** | `docker-compose.yml` | Baked-in default | Terminal/headless usage |
 
 The separate compose files allow both modes to run simultaneously without container or volume name conflicts.
+
+## Terminal vs IDE Extension
+
+You can run Claude Code two ways inside the sandbox:
+
+| Mode | How to start | IDE support |
+|------|--------------|-------------|
+| **Terminal** | Run `claude` in the integrated terminal | VS Code, JetBrains |
+| **IDE extension** | Install Claude Code extension | VS Code only |
+
+Both modes work with the sandbox. The proxy and firewall apply equally because Claude runs inside the container in both cases.
+
+**VS Code users** can use either the terminal or the Claude Code extension. The extension auto-installs when opening the devcontainer. Both share the same credentials stored in the Docker volume.
+
+**JetBrains users** should use the terminal to run `claude`. The Claude Code JetBrains plugin does not work with devcontainers because the plugin runs on the host while Claude runs in the container. They cannot communicate across this boundary.
 
 ## How It Works
 
