@@ -11,8 +11,17 @@
         "remote.autoForwardPortsSource": "output",
         "security.promptForRemoteFileProtocolHandling": true,
         "terminal.integrated.defaultProfile.linux": "zsh"
+      },
+      "extensions": [
+        "anthropic.claude-code"
+      ]
+    },
+    "jetbrains": {
+      "settings": {
+        "com.intellij:app:HttpConfigurable.use_proxy_pac": true
       }
     }
   },
-  "remoteUser": "dev"
+  "remoteUser": "dev",
+  "overrideCommand": false
 }
