@@ -17,24 +17,29 @@ The proxy requires policy files on the host. Copy the examples:
 ```bash
 mkdir -p ~/.config/agent-sandbox/policies
 cp agent-sandbox/docs/policy/examples/copilot.yaml ~/.config/agent-sandbox/policies/copilot.yaml
-cp agent-sandbox/docs/policy/examples/copilot-devcontainer.yaml ~/.config/agent-sandbox/policies/copilot-vscode.yaml
+cp agent-sandbox/docs/policy/examples/copilot-devcontainer.yaml ~/.config/agent-sandbox/policies/copilot-devcontainer.yaml
 ```
 
 The compose files mount the appropriate policy:
 - CLI mode uses `policies/copilot.yaml`
-- Devcontainer mode uses `policies/copilot-vscode.yaml` (includes VS Code infrastructure domains)
+- Devcontainer mode uses `policies/copilot-devcontainer.yaml` (includes VS Code infrastructure domains)
 
 ### 3. Copy template to your project
 
-#### Option A: VS Code Devcontainer
+#### Option A: Devcontainer (VS Code / JetBrains)
 
 ```bash
 cp -r agent-sandbox/templates/copilot/.devcontainer /path/to/your/project/
 ```
 
-Then open in VS Code:
+**VS Code:**
 1. Install the Dev Containers extension
 2. Command Palette > "Dev Containers: Reopen in Container"
+
+**JetBrains (IntelliJ, PyCharm, WebStorm, etc.):**
+1. Open your project
+2. From the Remote Development menu, select "Dev Containers"
+3. Select the devcontainer configuration
 
 #### Option B: Docker Compose (CLI)
 
@@ -74,7 +79,7 @@ This template supports two usage modes with separate compose files:
 
 | Mode | Compose file | Policy | Use case |
 |------|-------------|--------|----------|
-| **Devcontainer** | `.devcontainer/docker-compose.yml` | Requires host mount | VS Code users |
+| **Devcontainer** | `.devcontainer/docker-compose.yml` | Requires host mount | VS Code, JetBrains IDEs |
 | **CLI** | `docker-compose.yml` | Baked-in default | Terminal/headless usage |
 
 The separate compose files allow both modes to run simultaneously without container or volume name conflicts.
@@ -94,7 +99,7 @@ The proxy's CA certificate is automatically shared with the agent container and 
 
 Policy files live on the host at `~/.config/agent-sandbox/policies/`. The compose files mount the appropriate policy:
 - CLI: `policies/copilot.yaml`
-- Devcontainer: `policies/copilot-vscode.yaml`
+- Devcontainer: `policies/copilot-devcontainer.yaml`
 
 Policy files must live outside the workspace. If they were inside, the agent could modify its own allowlist.
 
@@ -192,7 +197,7 @@ The policy files must exist on the host:
 ```bash
 mkdir -p ~/.config/agent-sandbox/policies
 cp agent-sandbox/docs/policy/examples/copilot.yaml ~/.config/agent-sandbox/policies/copilot.yaml
-cp agent-sandbox/docs/policy/examples/copilot-devcontainer.yaml ~/.config/agent-sandbox/policies/copilot-vscode.yaml
+cp agent-sandbox/docs/policy/examples/copilot-devcontainer.yaml ~/.config/agent-sandbox/policies/copilot-devcontainer.yaml
 ```
 
 ### Proxy health check fails

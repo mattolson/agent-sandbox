@@ -103,7 +103,7 @@ Domains discovered by running Copilot in discovery mode and observing traffic.
 Two compose files, matching Claude template structure:
 
 - `docker-compose.yml`: CLI mode, mounts `policies/copilot.yaml`
-- `.devcontainer/docker-compose.yml`: VS Code mode, mounts `policies/copilot-vscode.yaml`
+- `.devcontainer/docker-compose.yml`: Devcontainer mode, mounts `policies/copilot-devcontainer.yaml`
 
 Separate compose files allow CLI and devcontainer modes to run simultaneously without container/volume name conflicts.
 

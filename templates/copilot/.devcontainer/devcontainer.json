@@ -12,7 +12,13 @@
         "security.promptForRemoteFileProtocolHandling": true,
         "terminal.integrated.defaultProfile.linux": "zsh"
       }
+    },
+    "jetbrains": {
+      "settings": {
+        "com.intellij:app:HttpConfigurable.use_proxy_pac": true
+      }
     }
   },
-  "remoteUser": "dev"
+  "remoteUser": "dev",
+  "overrideCommand": false
 }
