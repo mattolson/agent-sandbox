@@ -3,11 +3,12 @@ set -euo pipefail
 
 # Build agent-sandbox images locally
 #
-# Usage: ./build.sh [base|claude|proxy|all] [docker build options...]
+# Usage: ./build.sh [base|proxy|claude|copilot|all] [docker build options...]
 #
 # Environment variables (all optional):
 #   TZ                    - Timezone (default: America/Los_Angeles)
 #   CLAUDE_CODE_VERSION   - Claude Code version (default: latest)
+#   COPILOT_VERSION       - GitHub Copilot CLI version (default: latest)
 #
 # Examples:
 #   CLAUDE_CODE_VERSION=1.0.0 ./build.sh claude
@@ -19,7 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Parse target and extra args
 # If first arg is a known target, use it; otherwise default to 'all'
 case "${1:-}" in
-  base|claude|proxy|all)
+  base|claude|proxy|copilot|all)
     TARGET="$1"
     shift
     ;;
@@ -32,6 +33,7 @@ DOCKER_BUILD_ARGS=("$@")
 # Defaults
 : "${TZ:=America/Los_Angeles}"
 : "${CLAUDE_CODE_VERSION:=latest}"
+: "${COPILOT_VERSION:=latest}"
 
 build_base() {
   echo "Building agent-sandbox-base..."
@@ -41,6 +43,14 @@ build_base() {
     ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \
     -t agent-sandbox-base:local \
     "$SCRIPT_DIR/base"
+}
+
+build_proxy() {
+  echo "Building agent-sandbox-proxy..."
+  docker build \
+    ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \
+    -t agent-sandbox-proxy:local \
+    "$SCRIPT_DIR/proxy"
 }
 
 build_claude() {
@@ -54,37 +64,45 @@ build_claude() {
     "$SCRIPT_DIR/agents/claude"
 }
 
-build_proxy() {
-  echo "Building agent-sandbox-proxy..."
+build_copilot() {
+  echo "Building agent-sandbox-copilot..."
+  echo "  COPILOT_VERSION=$COPILOT_VERSION"
   docker build \
+    --build-arg BASE_IMAGE=agent-sandbox-base:local \
+    --build-arg COPILOT_VERSION="$COPILOT_VERSION" \
     ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \
-    -t agent-sandbox-proxy:local \
-    "$SCRIPT_DIR/proxy"
+    -t agent-sandbox-copilot:local \
+    "$SCRIPT_DIR/agents/copilot"
 }
 
 case "$TARGET" in
   base)
     build_base
     ;;
-  claude)
-    build_claude
-    ;;
   proxy)
     build_proxy
     ;;
+  claude)
+    build_claude
+    ;;
+  copilot)
+    build_copilot
+    ;;
   all)
     build_base
-    build_claude
     build_proxy
+    build_claude
+    build_copilot
     ;;
   *)
-    echo "Usage: $0 [base|claude|proxy|all] [docker build options...]"
+    echo "Usage: $0 [base|proxy|claude|copilot|all] [docker build options...]"
     echo ""
     echo "Any additional arguments are passed to docker build."
     echo ""
     echo "Environment variables:"
-    echo "  TZ                    Timezone (default: America/Los_Angeles)"
-    echo "  CLAUDE_CODE_VERSION   Claude Code version (default: latest)"
+    echo "  TZ                   Timezone (default: America/Los_Angeles)"
+    echo "  CLAUDE_CODE_VERSION  Claude Code version (default: latest)"
+    echo "  COPILOT_VERSION      GitHub Copilot CLI version (default: latest)"
     exit 1
     ;;
 esac

@@ -39,33 +39,26 @@ Both modes run a two-container stack: a proxy sidecar (mitmproxy) and the agent 
 
 ## Quick start (macOS + Colima)
 
-The examples below use Claude Code. For Copilot CLI, substitute `copilot` for `claude` in paths and commands. See [templates/copilot/README.md](./templates/copilot/README.md) for Copilot-specific instructions.
-
 ### 1. Install prerequisites
 
-You need docker and docker-compose installed. So far we've only tested with Colima + Docker Engine, but this should work with Docker Desktop for Mac or Podman as well. Instructions that follow are for Colima.
+You need docker and docker-compose installed. So far we've tested with Colima + Docker Engine, but this should work with Docker Desktop for Mac or Podman as well. Instructions that follow are for Colima.
 
 ```bash
-brew install colima docker docker-compose
+brew install colima docker docker-compose docker-buildx
 colima start --cpu 4 --memory 8 --disk 60
 ```
 
-If you previously used Docker Desktop, set your Docker credential helper to `osxkeychain` (not `desktop`) in `~/.docker/config.json`.
+Set your Docker credential helper to `osxkeychain` (not `desktop`) in `~/.docker/config.json`.
 
-### 2. Set up policy files
+### 2. Set up network policy files
 
-The proxy requires policy files on the host. Clone the repo and copy the examples:
+The network proxy reads its policy from a file on the host. Clone the repo and copy the examples:
 
 ```bash
 git clone https://github.com/mattolson/agent-sandbox.git
 mkdir -p ~/.config/agent-sandbox/policies
-cp agent-sandbox/docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
-cp agent-sandbox/docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-devcontainer.yaml
+cp agent-sandbox/docs/policy/examples/* ~/.config/agent-sandbox/policies/
 ```
-
-The compose files mount the appropriate policy:
-- CLI mode uses `policies/claude.yaml`
-- Devcontainer mode uses `policies/claude-devcontainer.yaml` (includes VS Code infrastructure domains)
 
 ### 3. Copy template to your project
 
@@ -95,65 +88,11 @@ docker compose up -d
 docker compose exec agent zsh
 ```
 
-Note: CLI mode requires the policy file at `~/.config/agent-sandbox/policies/claude.yaml`.
+### 4. Agent-specific setup
 
-### 4. Authenticate Claude Code (first time only)
-
-From your **host terminal** (not the IDE integrated terminal):
-
-```bash
-# Find your container name
-docker ps
-
-# Exec into it
-docker exec -it <container-name> zsh -i -c 'claude'
-```
-
-This triggers the OAuth flow:
-
-1. Copy the URL and open it in your browser
-2. Authorize the application
-3. Paste the authorization code back into the terminal
-4. Type `/exit` to close Claude
-
-Credentials persist in a Docker volume. You only need to do this once per project.
-
-### 5. Run Claude Code
-
-From inside the container:
-
-```bash
-claude
-# or as a shortcut for `claude --dangerously-skip-permissions`:
-yolo-claude
-```
-
-Afterward, for compose mode, stop the container:
-
-```bash
-docker compose down
-```
-
-## Claude Code: Two devcontainer modes
-
-You can run Claude Code two ways with the devcontainer:
-
-| Mode | How to start | IDE support |
-|------|--------------|-------------|
-| **Terminal** | Run `claude` in the integrated terminal | VS Code, JetBrains |
-| **IDE extension** | Install Claude Code extension | VS Code only |
-
-**JetBrains users.** Use the terminal to run `claude` directly. The Claude Code JetBrains plugin does not work with devcontainers. See [Known issues](#known-issues) for details.
-
-In VS Code, both modes work with the sandbox. The proxy and firewall apply equally because both binaries run inside the container and respect the `HTTP_PROXY` environment variable.
-
-**Shared configuration.** Both modes use the same Claude credentials and settings stored in the Docker volume (`~/.claude`). You can switch between terminal and extension freely. Authenticate once in either mode and both will work.
-
-**Feature differences.** The IDE extension provides tighter editor integration (inline suggestions, chat panel). The terminal provides the full CLI feature set. Use whichever fits your workflow, or both.
-
-**First-time setup with extension.** If you start fresh with the extension (no prior authentication), the extension will prompt you to authenticate through its UI. This works the same as the terminal OAuth flow.
-
-**Connecting terminal to IDE.** Running `/ide` in the terminal Claude session shows the connection status to VS Code. When connected, Claude can interact with the editor directly.
+Follow the setup instructions specific to the agent image you are using:
+- [Claude Code](./templates/claude/README.md)
+- [GitHub Copilot](./templates/copilot/README.md)
 
 ## Network policy
 
@@ -314,21 +253,9 @@ If you find a sandbox escape or bypass:
 - Open a GitHub Security Advisory (preferred), or
 - Open an issue with minimal reproduction details
 
-## Known issues
-
-### JetBrains Claude Code plugin not supported
-
-The Claude Code plugin for JetBrains IDEs (IntelliJ, PyCharm, WebStorm, etc.) does not work with devcontainers. Use the terminal to run `claude` instead.
-
-**Why it doesn't work:** JetBrains runs the Claude plugin in the "frontend" (thin client on your host machine), while Claude Code runs inside the container. The plugin communicates with Claude via lock files and websockets, but these mechanisms assume both are on the same machine. The plugin writes to `~/.claude/ide/` on the host, but Claude looks for it at `/home/dev/.claude/ide/` in the container. Even if you mount the directory, the websocket connection from container to host would require additional network configuration.
-
-**Workaround:** Run `claude` in the JetBrains integrated terminal. The terminal connects to the container, so Claude runs inside the sandbox with full network restrictions. You get the CLI experience but not the native IDE panel.
-
-This is a limitation of the JetBrains plugin architecture. Hopefully they will support installing the plugin in the container in the future.
-
 ## Roadmap
 
-See [ROADMAP.md](./ROADMAP.md) for planned features and milestones.
+See [docs/roadmap.md](./docs/roadmap.md) for planned features and milestones.
 
 ## Contributing
 

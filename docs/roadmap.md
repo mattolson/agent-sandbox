@@ -1,6 +1,6 @@
 # Roadmap
 
-Detailed project plan can be found in [docs/plan/project.md](./docs/plan/project.md) and related files.
+Detailed project plan can be found in [plan/project.md](./plan/project.md) and related files.
 
 ## m1: Devcontainer template (done)
 
@@ -31,10 +31,11 @@ Detailed project plan can be found in [docs/plan/project.md](./docs/plan/project
 
 ## m4: Multi-agent support (in progress)
 
+- [x] Claude Code support (`templates/claude/`)
 - [x] GitHub Copilot CLI support (`templates/copilot/`)
+- [ ] Gemini support
 - [ ] Codex support
 - [ ] OpenCode support
-- [ ] Agent-specific images and configuration
 
 ## m5: CLI
 

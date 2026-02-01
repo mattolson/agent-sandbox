@@ -26,14 +26,14 @@ services:
     volumes:
       - proxy-state:/home/mitmproxy/.mitmproxy
       - proxy-ca:/ca-export
-      - ${HOME}/.config/agent-sandbox/policies/claude.yaml:/etc/mitmproxy/policy.yaml:ro
+      - ${HOME}/.config/agent-sandbox/policies/all-agents.yaml:/etc/mitmproxy/policy.yaml:ro
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "8080"]
       interval: 5s
       timeout: 3s
       retries: 3
 
-  agent:
+  claude:
     image: agent-sandbox-claude:local
     depends_on:
       proxy:
@@ -69,8 +69,42 @@ services:
       # Disable HTTP/2 in Go clients (gh CLI) to avoid header validation issues through proxy
       - GODEBUG=http2client=0
 
+  copilot:
+    image: agent-sandbox-copilot:local
+    depends_on:
+      proxy:
+        condition: service_healthy
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      # Your project workspace
+      - .:/workspace
+      # Persist Copilot credentials
+      - copilot-state:/home/dev/.copilot
+      # Persist shell history
+      - copilot-history:/commandhistory
+      # Proxy CA certificate (public cert only, no private key)
+      - proxy-ca:/etc/mitmproxy:ro
+      # Shell customizations (optional - uncomment to enable)
+      # - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
+      # Dotfiles directory (optional - use with shell.d script to symlink)
+      # - ${HOME}/.dotfiles:/home/dev/.dotfiles:ro
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      - TZ=${TZ:-America/Los_Angeles}
+      - HTTP_PROXY=http://proxy:8080
+      - HTTPS_PROXY=http://proxy:8080
+      - NO_PROXY=localhost,127.0.0.1,proxy
+      # Disable HTTP/2 in Go clients (gh CLI) to avoid header validation issues through proxy
+      - GODEBUG=http2client=0
+
 volumes:
   claude-state:
   claude-history:
+  copilot-state:
+  copilot-history:
   proxy-state:
   proxy-ca:

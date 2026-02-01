@@ -12,16 +12,15 @@ git clone https://github.com/mattolson/agent-sandbox.git
 
 ### 2. Set up policy files
 
-The proxy requires policy files on the host. Copy the examples:
+The network proxy reads a policy file on the host. Copy the examples:
 
 ```bash
 mkdir -p ~/.config/agent-sandbox/policies
-cp agent-sandbox/docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
-cp agent-sandbox/docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-devcontainer.yaml
+cp agent-sandbox/docs/policy/examples/claude* ~/.config/agent-sandbox/policies/
 ```
 
 The compose files mount the appropriate policy:
-- CLI mode uses `policies/claude.yaml`
+- Docker Compose CLI mode uses `policies/claude.yaml`
 - Devcontainer mode uses `policies/claude-devcontainer.yaml` (includes VS Code infrastructure domains)
 
 ### 3. Copy template to your project
@@ -50,18 +49,24 @@ docker compose up -d
 docker compose exec agent zsh
 ```
 
-Note: CLI mode requires the policy file at `~/.config/agent-sandbox/policies/claude.yaml`.
-
 ### 4. Authenticate Claude (first run only)
 
-From a host terminal (not VS Code integrated terminal):
+From your **host terminal** (not the IDE integrated terminal, as this will attempt to open a browser and will be unable to make the OAuth callback back into the container):
 
 ```bash
 docker compose ps  # find container name
 docker exec -it <container-name> zsh -i -c 'claude'
 ```
 
-Follow the OAuth flow, then `/exit`. Credentials persist in a Docker volume.
+
+This triggers the OAuth flow:
+
+1. Copy the URL and open it in your browser
+2. Authorize the application
+3. Paste the authorization code back into the terminal
+4. Type `/exit` to close Claude
+
+Credentials persist in a Docker volume. You only need to do this once per project.
 
 ### 5. Use Claude Code
 
@@ -69,8 +74,14 @@ Inside the container:
 
 ```bash
 claude
-# or auto-approve mode:
+# or as a shortcut for `claude --dangerously-skip-permissions`:
 yolo-claude
+```
+
+Afterward, for compose mode, stop the container:
+
+```bash
+docker compose down
 ```
 
 ## Two Modes
@@ -84,20 +95,26 @@ This template supports two usage modes with separate compose files:
 
 The separate compose files allow both modes to run simultaneously without container or volume name conflicts.
 
-## Terminal vs IDE Extension
+## Within devcontainer: Terminal vs IDE Extension
 
-You can run Claude Code two ways inside the sandbox:
+You can run Claude Code two ways with the devcontainer:
 
 | Mode | How to start | IDE support |
 |------|--------------|-------------|
 | **Terminal** | Run `claude` in the integrated terminal | VS Code, JetBrains |
 | **IDE extension** | Install Claude Code extension | VS Code only |
 
-Both modes work with the sandbox. The proxy and firewall apply equally because Claude runs inside the container in both cases.
+**JetBrains users.** Use the terminal to run `claude` directly. The Claude Code JetBrains plugin does not work with devcontainers. See [Known issues](#known-issues) for details.
 
-**VS Code users** can use either the terminal or the Claude Code extension. The extension auto-installs when opening the devcontainer. Both share the same credentials stored in the Docker volume.
+In VS Code, both modes work with the sandbox container. The IDE extension runs a separately bundled claude binary, but the proxy and firewall apply equally because both binaries run inside the container and respect the `HTTP_PROXY` environment variable.
 
-**JetBrains users** should use the terminal to run `claude`. The Claude Code JetBrains plugin does not work with devcontainers because the plugin runs on the host while Claude runs in the container. They cannot communicate across this boundary.
+**Shared configuration.** Both modes use the same Claude credentials and settings stored in the Docker volume (`~/.claude`). You can switch between terminal and extension freely. Authenticate once in either mode and both will work.
+
+**Feature differences.** The IDE extension provides tighter editor integration (inline suggestions, chat panel). The terminal provides the full CLI feature set. Use whichever fits your workflow, or both.
+
+**First-time setup with extension.** If you start fresh with the extension (no prior authentication), the extension will prompt you to authenticate through its UI. This works the same as the terminal OAuth flow.
+
+**Connecting terminal to IDE.** Running `/ide` in the terminal Claude session shows the connection status to VS Code. When connected, Claude can interact with the editor directly.
 
 ## How It Works
 
@@ -112,11 +129,11 @@ The proxy's CA certificate is automatically shared with the agent container and 
 
 ### Policy location
 
-Policy files live on the host at `~/.config/agent-sandbox/policies/`. The compose files mount the appropriate policy:
+Policy files live on the host in `~/.config/agent-sandbox/policies/`. The compose files mount the appropriate policy:
 - CLI: `policies/claude.yaml`
 - Devcontainer: `policies/claude-devcontainer.yaml`
 
-Policy files must live outside the workspace. If they were inside, the agent could modify its own allowlist.
+You can customize the volume mount, but policy files must live outside the workspace. If they were inside, the agent could modify its own allowlist.
 
 ### Customizing the policy
 
@@ -211,6 +228,18 @@ cd agent-sandbox && ./images/build.sh
 #   image: agent-sandbox-proxy:local
 ```
 
+## Known issues
+
+### JetBrains Claude Code plugin not supported
+
+The Claude Code plugin for JetBrains IDEs (IntelliJ, PyCharm, WebStorm, etc.) does not work with devcontainers. Use the terminal to run `claude` instead.
+
+**Why it doesn't work:** JetBrains runs the Claude plugin in the "frontend" (thin client on your host machine), while Claude Code runs inside the container. The plugin communicates with Claude via lock files and websockets, but these mechanisms assume both are on the same machine. The plugin writes to `~/.claude/ide/` on the host, but Claude looks for it at `/home/dev/.claude/ide/` in the container. Even if you mount the directory, the websocket connection from container to host would require additional network configuration.
+
+**Workaround:** Run `claude` in the JetBrains integrated terminal. The terminal connects to the container, so Claude runs inside the sandbox with full network restrictions. You get the CLI experience but not the native IDE panel.
+
+This is a limitation of the JetBrains plugin architecture. Hopefully they will support installing the plugin in the container in the future.
+
 ## Troubleshooting
 
 ### "Permission denied" mounting host files
@@ -223,8 +252,7 @@ The policy files must exist on the host:
 
 ```bash
 mkdir -p ~/.config/agent-sandbox/policies
-cp agent-sandbox/docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
-cp agent-sandbox/docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-devcontainer.yaml
+cp agent-sandbox/docs/policy/examples/claude* ~/.config/agent-sandbox/policies/
 ```
 
 ### Proxy health check fails

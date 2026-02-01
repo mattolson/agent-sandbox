@@ -16,8 +16,7 @@ The proxy requires policy files on the host. Copy the examples:
 
 ```bash
 mkdir -p ~/.config/agent-sandbox/policies
-cp agent-sandbox/docs/policy/examples/copilot.yaml ~/.config/agent-sandbox/policies/copilot.yaml
-cp agent-sandbox/docs/policy/examples/copilot-devcontainer.yaml ~/.config/agent-sandbox/policies/copilot-devcontainer.yaml
+cp agent-sandbox/docs/policy/examples/copilot* ~/.config/agent-sandbox/policies/
 ```
 
 The compose files mount the appropriate policy:
@@ -49,8 +48,6 @@ cd /path/to/your/project
 docker compose up -d
 docker compose exec agent zsh
 ```
-
-Note: CLI mode requires the policy file at `~/.config/agent-sandbox/policies/copilot.yaml`.
 
 ### 4. Authenticate Copilot (first run only)
 

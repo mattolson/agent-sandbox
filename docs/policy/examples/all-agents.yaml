@@ -1,0 +1,10 @@
+# All agents policy (CLI mode)
+#
+# Union of Claude Code and GitHub Copilot policies.
+# Use this when running the development docker-compose.yml which includes both agents.
+# Copy to: ~/.config/agent-sandbox/policies/all-agents.yaml
+
+services:
+  - github
+  - claude
+  - copilot
