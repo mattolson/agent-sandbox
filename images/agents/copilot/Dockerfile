@@ -4,12 +4,8 @@
 ARG BASE_IMAGE=agent-sandbox-base:local
 FROM ${BASE_IMAGE}
 
-# Override base policy with Copilot endpoints
-USER root
-COPY policy.yaml /etc/agent-sandbox/policy.yaml
-RUN chmod 644 /etc/agent-sandbox/policy.yaml
-
 # Install Node.js (required for npm)
+USER root
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && rm -rf /var/lib/apt/lists/*

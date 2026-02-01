@@ -17,7 +17,6 @@ A working Copilot CLI sandbox with:
 ```
 images/agents/copilot/
   Dockerfile           # Extends base, installs Copilot CLI via npm
-  policy.yaml          # Default network policy for Copilot
 
 templates/copilot/
   README.md            # Usage documentation
@@ -50,15 +49,16 @@ ROADMAP.md                          # Update m4 progress
 ARG BASE_IMAGE=agent-sandbox-base:local
 FROM ${BASE_IMAGE}
 
-# Install Node.js and Copilot CLI
+# Install Node.js (required for npm)
 USER root
-COPY policy.yaml /etc/agent-sandbox/policy.yaml
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Create copilot config directory
 RUN mkdir -p /home/dev/.copilot && chown -R dev:dev /home/dev/.copilot
 
+# Install Copilot CLI via npm
 ARG COPILOT_VERSION=latest
 RUN npm install -g @github/copilot@${COPILOT_VERSION}
 
@@ -123,7 +123,6 @@ Validated locally before creating plan:
 ## Checklist
 
 - [x] `images/agents/copilot/Dockerfile` - extends base, installs Copilot CLI
-- [x] `images/agents/copilot/policy.yaml` - default network policy
 - [x] `images/proxy/addons/enforcer.py` - add `copilot` service domains
 - [x] `docs/policy/examples/copilot.yaml` - CLI policy example
 - [x] `docs/policy/examples/copilot-devcontainer.yaml` - devcontainer policy example
