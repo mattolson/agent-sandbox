@@ -46,6 +46,10 @@ SERVICE_DOMAINS = {
         "main.vscode-cdn.net",
         "*.vsassets.io",
     ],
+    "jetbrains": [
+       "plugins.jetbrains.com"
+       "downloads.marketplace.jetbrains.com",
+    ]
 }
 
 

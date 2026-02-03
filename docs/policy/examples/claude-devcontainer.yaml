@@ -7,3 +7,4 @@ services:
   - github
   - claude
   - vscode
+  - jetbrains

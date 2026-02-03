@@ -7,3 +7,4 @@ services:
   - github
   - copilot
   - vscode
+  - jetbrains
