@@ -21,7 +21,7 @@ cp agent-sandbox/docs/policy/examples/claude* ~/.config/agent-sandbox/policies/
 
 The compose files mount the appropriate policy:
 - Docker Compose CLI mode uses `policies/claude.yaml`
-- Devcontainer mode uses `policies/claude-devcontainer.yaml` (includes VS Code infrastructure domains)
+- Devcontainer mode uses `policies/claude-devcontainer.yaml` (includes VS Code and JetBrains infrastructure domains)
 
 ### 3. Copy template to your project
 
