@@ -93,13 +93,26 @@ The separate compose files allow both modes to run simultaneously without contai
 
 You can run Claude Code two ways with the devcontainer:
 
-| Mode | How to start | IDE support |
-|------|--------------|-------------|
-| **Terminal** | Run `claude` in the integrated terminal | VS Code, JetBrains |
-| **IDE extension** | Install Claude Code extension | VS Code only |
+| Mode | How to start                                                   | IDE support |
+|------|----------------------------------------------------------------|-------------|
+| **Terminal** | Run `claude` in the integrated terminal                        | VS Code, JetBrains |
+| **IDE extension** | `devcontainer.json` should install the extension automatically | VS Code, JetBrains |
 
-**JetBrains users.** Use the terminal to run `claude` directly. The Claude Code JetBrains plugin does not work with devcontainers. See [Known issues](#known-issues) for details.
 
+### JetBrains IDE
+The JetBrains IDE plugin has very limited features. 
+Most of the work happens in the terminal, but it will allow you to review changes in the GUI diff viewer. 
+
+To start, either click the Claude Code icon in the status bar or run `claude` from the (remote) terminal.
+When Claude is running use `/ide` command to connect the IDE to Claude.
+
+[<img src="../../docs/images/idea-claude-connect.png" alt="Claude Code JetBrains plugin" width="200"/>](../../docs/images/idea-claude-connect.png)
+
+If you encounter issues, make sure that the extension is installed on "host" (this is the container).
+
+[<img src="../../docs/images/idea-claude-plugin-on-host.png" alt="Claude Code JetBrains plugin installed on host" width="200"/>](../../docs/images/idea-claude-plugin-on-host.png)
+
+### VS Code
 In VS Code, both modes work with the sandbox container. The IDE extension runs a separately bundled claude binary, but the proxy and firewall apply equally because both binaries run inside the container and respect the `HTTP_PROXY` environment variable.
 
 **Shared configuration.** Both modes use the same Claude credentials and settings stored in the Docker volume (`~/.claude`). You can switch between terminal and extension freely. Authenticate once in either mode and both will work.
@@ -221,18 +234,6 @@ cd agent-sandbox && ./images/build.sh
 #   image: agent-sandbox-claude:local
 #   image: agent-sandbox-proxy:local
 ```
-
-## Known issues
-
-### JetBrains Claude Code plugin not supported
-
-The Claude Code plugin for JetBrains IDEs (IntelliJ, PyCharm, WebStorm, etc.) does not work with devcontainers. Use the terminal to run `claude` instead.
-
-**Why it doesn't work:** JetBrains runs the Claude plugin in the "frontend" (thin client on your host machine), while Claude Code runs inside the container. The plugin communicates with Claude via lock files and websockets, but these mechanisms assume both are on the same machine. The plugin writes to `~/.claude/ide/` on the host, but Claude looks for it at `/home/dev/.claude/ide/` in the container. Even if you mount the directory, the websocket connection from container to host would require additional network configuration.
-
-**Workaround:** Run `claude` in the JetBrains integrated terminal. The terminal connects to the container, so Claude runs inside the sandbox with full network restrictions. You get the CLI experience but not the native IDE panel.
-
-This is a limitation of the JetBrains plugin architecture. Hopefully they will support installing the plugin in the container in the future.
 
 ## Troubleshooting
 
