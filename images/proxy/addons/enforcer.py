@@ -47,7 +47,7 @@ SERVICE_DOMAINS = {
         "*.vsassets.io",
     ],
     "jetbrains": [
-       "plugins.jetbrains.com"
+       "plugins.jetbrains.com",
        "downloads.marketplace.jetbrains.com",
     ]
 }
