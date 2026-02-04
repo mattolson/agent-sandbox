@@ -4,5 +4,4 @@
 # Copy to: ~/.config/agent-sandbox/policies/claude.yaml
 
 services:
-  - github
   - claude
