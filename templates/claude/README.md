@@ -112,6 +112,11 @@ If you encounter issues, make sure that the extension is installed on "host" (th
 
 [<img src="../../docs/images/idea-claude-plugin-on-host.png" alt="Claude Code JetBrains plugin installed on host" width="200"/>](../../docs/images/idea-claude-plugin-on-host.png)
 
+If you can see ` ❯ 1. IntelliJ IDEA ✔    ` after issuing `/ide` command, but the integration is not working, check the `/status`.
+You should see `Connected to IntelliJ IDEA extension`, otherwise remove the Devcontainers containers and volumes and try again.
+
+[<img src="../../docs/images/idea-claude-plugin-connected.png" alt="Claude Code JetBrains plugin connected" width="200"/>](../../docs/images/idea-claude-plugin-connected.png)
+
 ### VS Code
 In VS Code, both modes work with the sandbox container. The IDE extension runs a separately bundled claude binary, but the proxy and firewall apply equally because both binaries run inside the container and respect the `HTTP_PROXY` environment variable.
 
