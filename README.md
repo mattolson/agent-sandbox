@@ -122,7 +122,6 @@ To add project-specific domains, edit your policy file:
 
 ```yaml
 services:
-  - github
   - claude
 
 domains:
