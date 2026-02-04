@@ -208,6 +208,14 @@ If you want the agent to run git commands, some setup is required.
 git@github.com:user/repo.git  ->  https://github.com/user/repo.git
 ```
 
+**Proxy setup.** Add `github` to allowed services, e.g.:
+```yaml
+ services:
+  - github
+  - claude
+  - vscode
+```
+
 **Credential setup.** To push or access private repos, authenticate with GitHub:
 
 ```bash
