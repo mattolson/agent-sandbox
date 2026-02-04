@@ -103,6 +103,8 @@ You can run Claude Code two ways with the devcontainer:
 The JetBrains IDE plugin has very limited features. 
 Most of the work happens in the terminal, but it will allow you to review changes in the GUI diff viewer. 
 
+To use this feature, make sure that "Open devcontainer projects natively" is **disabled** in "Advanced Settings"
+
 To start, either click the Claude Code icon in the status bar or run `claude` from the (remote) terminal.
 When Claude is running use `/ide` command to connect the IDE to Claude.
 
