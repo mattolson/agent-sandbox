@@ -49,7 +49,7 @@ SERVICE_DOMAINS = {
     "jetbrains": [
        "plugins.jetbrains.com",
        "downloads.marketplace.jetbrains.com",
-    ]
+    ],
 }
 
 
