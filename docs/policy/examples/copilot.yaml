@@ -4,5 +4,4 @@
 # Copy to: ~/.config/agent-sandbox/policies/copilot.yaml
 
 services:
-  - github
   - copilot
