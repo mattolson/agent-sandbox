@@ -1,6 +1,6 @@
 # GitHub Copilot CLI policy (devcontainer mode)
 #
-# Allows GitHub, Copilot CLI, and VS Code infrastructure domains.
+# Allows Copilot CLI, and VS Code infrastructure domains.
 # Copy to: ~/.config/agent-sandbox/policies/copilot-devcontainer.yaml
 
 services:
