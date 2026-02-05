@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+shopt -s inherit_errexit lastpipe
+
+# shellcheck source=../../lib/logging.bash
+source "$AGB_LIBDIR/logging.bash"
+# shellcheck source=../../lib/require.bash
+source "$AGB_LIBDIR/require.bash"
+# shellcheck source=../../lib/select.bash
+source "$AGB_LIBDIR/select.bash"
+
+# Creates a network policy file for the proxy.
+# Prompts for allowed services (claude, copilot, vscode, jetbrains, github) and additional domains.
+# Args:
+#   $1 - Optional path to policy file (default: $AGB_POLICY_DIR/<current-dir>.yaml)
+# Outputs:
+#   Creates a YAML policy file with services and domains lists
+policy(){
+  local policy_file=${1-"$AGB_POLICY_DIR/$(basename "$PWD").yaml"}
+  require yq
+
+  # see images/proxy/addons/enforcer.py
+  local available_services=(claude copilot vscode jetbrains github)
+
+  local services domains
+
+  services=$(select_multiple "Select allowed services" "${available_services[@]}")
+
+  domains=$(read_multiline "Enter additional domains to allow")
+
+  services="$services" domains="$domains" yq -n '
+    .services = (strenv(services) | split("\n") ) |
+    .domains = (strenv(domains) | split("\n") )
+  ' > "$policy_file"
+
+  echo "Policy file created at: $policy_file" | info
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
+then
+	policy "$@"
+fi

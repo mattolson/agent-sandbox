@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+shopt -s inherit_errexit lastpipe
+
+# shellcheck source=../../lib/logging.bash
+source "$AGB_LIBDIR/logging.bash"
+# shellcheck source=../../lib/composefile.bash
+source "$AGB_LIBDIR/composefile.bash"
+
+# Sets up CLI mode docker-compose configuration for an agent.
+# Copies the docker-compose.yml template and customizes it.
+# Args:
+#   $1 - The agent name (e.g., "claude")
+#   $2 - Path to the policy file
+#   $3 - Path to the project directory
+cli(){
+  local agent=$1
+  local policy_file=$2
+  local project_path=$3
+
+  local compose_file="$project_path/docker-compose.yml"
+
+  cp \
+    "$AGB_TEMPLATEDIR/$agent/cli/docker-compose.yml" \
+    "$compose_file"
+
+  customize_compose_file "$agent" "$policy_file" "$compose_file"
+
+  echo "Compose file created at $compose_file" | info
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
+then
+	cli "$@"
+fi

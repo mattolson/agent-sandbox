@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+
+# Note: We first need to use POSIX's `[ ... ]` instead of Bash's `[[ ... ]]`
+# because this is the check for Bash, where the shell may not be Bash.  Once we
+# confirm that we are in Bash, we can use [[ ... ]] and (( ... )).  Note that
+# these [[ ... ]] and (( ... )) do not cause syntax errors in POSIX shells,
+# though they can be parsed differently.
+# shellcheck disable=2292
+if [ -z "${BASH_VERSION-}" ] ||
+	[[ -z "${BASH_VERSINFO-}" ]] ||
+	((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 2)))
+then
+	echo "$0: this program needs to be run by Bash >= 4.2" >&2
+	exit 1
+fi
+
+set -euo pipefail
+shopt -s inherit_errexit lastpipe
+
+main() {
+	AGB_ROOT="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.."
+  export AGB_ROOT
+  export AGB_LIBDIR="$AGB_ROOT/lib"
+  export AGB_TEMPLATEDIR="$AGB_ROOT/templates"
+  export AGB_HOME="$HOME/.config/agent-sandbox"
+  export AGB_POLICY_DIR="$AGB_HOME/policies"
+  mkdir -p "$AGB_POLICY_DIR"
+
+	local -a modules
+	find "$AGB_ROOT/libexec" \
+		-mindepth 1 \
+		-maxdepth 1 \
+		-type d \
+		-print |
+		while IFS= read -r
+		do
+			basename -- "$REPLY"
+		done |
+		sort |
+		readarray -t modules
+
+	local -r usage="
+Usage: ${BASH_SOURCE[0]} <$(IFS='|'; echo "${modules[*]}")> [command] [args...]
+
+To list available commands use: ${BASH_SOURCE[0]} <module> help
+"
+
+	if [[ $# -lt 1 ]]
+	then
+		echo "$usage" >&2
+		exit 1
+	fi
+
+	local -r module="$1"
+	shift 1
+
+	local command="${1:-}"
+	if [[ -z "$command" || "${command:0:1}" == "-" ]]
+	then
+		command="$module"
+	else
+		shift 1
+	fi
+
+	if [[ "$module" =~ [[:space:]] ]] ||
+		! [[ "${modules[*]}" =~ $module ]]
+	then
+		echo "First parameter must be one of: ${modules[*]}" >&2
+		echo "$usage" >&2
+		exit 1
+	fi
+
+	if [[ "$command" == "help" ]]
+	then
+		echo "Commands in $module:" >&2
+		find "$AGB_ROOT/libexec/$module" \
+			-maxdepth 1 \
+			-type f \
+			-executable \
+			-print |
+			while IFS= read -r
+			do
+				echo -n '  '
+				basename -- "$REPLY"
+			done |
+			sort >&2
+		exit 0
+	fi
+
+	local exec="$AGB_ROOT/libexec/$module/$command"
+	if ! [[ -x "$exec" ]]
+	then
+		exec="$AGB_ROOT/libexec/$module/_"
+		if ! [[ -x "$exec" ]]
+		then
+			echo "Command '$command' not found in $module" >&2
+			echo "$usage" >&2
+			exit 127
+		else
+			set -- "$command" "$@"
+		fi
+	fi
+
+	"$AGB_ROOT/libexec/version/version" "Agent Sandbox"
+
+	export PATH="$AGB_ROOT/libexec/$module:$PATH"
+
+	exec "$exec" "$@"
+}
+
+main "$@"

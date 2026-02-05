@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+shopt -s inherit_errexit lastpipe
+
+# shellcheck source=../../lib/logging.bash
+source "$AGB_LIBDIR/logging.bash"
+
+# Removes the agent-sandbox home directory ($AGB_HOME).
+clean(){
+ echo "Removing $AGB_HOME" | warning
+ rm -rf "$AGB_HOME"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
+then
+	clean "$@"
+fi

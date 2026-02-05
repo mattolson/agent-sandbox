@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+shopt -s inherit_errexit lastpipe
+
+# shellcheck source=../../lib/logging.bash
+source "$AGB_LIBDIR/logging.bash"
+# shellcheck source=../../lib/select.bash
+source "$AGB_LIBDIR/select.bash"
+
+# Initializes agent-sandbox for a project.
+#   - Prompts for project path (defaults to current directory)
+#   - Prompts for project name (defaults to directory name)
+#   - Prompts to select agent type (claude/copilot)
+#   - Prompts to select mode (cli/devcontainer)
+#   - Creates a network policy file
+#   - Sets up the selected mode configuration files
+init(){
+  local project_path
+  project_path=$(read_line "Enter project path (empty for current directory):")
+
+  if [[ -z "$project_path" ]]; then
+    project_path="."
+  fi
+
+  if [[ ! -d "$project_path" ]]; then
+    echo "Directory does not exist: $project_path" | error
+    return 1
+  fi
+  project_path=$(cd "$project_path" && pwd)
+
+  local project_name
+  project_name=$(read_line "Enter project name (empty to use directory name):")
+  if [[ -z "$project_name" ]]; then
+    project_name=$(basename "$project_path")
+  fi
+
+  echo "Configuring project $project_name on path: $project_path" | info
+
+  local available_agents=(claude copilot)
+  local agent
+  agent=$(select_option "Select agent:" "${available_agents[@]}")
+
+  local available_modes=(cli devcontainer)
+  local mode
+  mode=$(select_option "Select mode:" "${available_modes[@]}")
+
+  #TODO: preselect services based on agent/mode
+  local policy_file="$AGB_POLICY_DIR/$project_name.yaml"
+  policy "$policy_file"
+
+  case "$mode" in
+    cli)
+      cli "$agent" "$policy_file" "$project_path"
+      ;;
+    devcontainer)
+      devcontainer "$agent" "$policy_file" "$project_path"
+      ;;
+    *)
+      echo "Invalid mode selected: $mode" | error
+      return 1
+      ;;
+  esac
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
+then
+	init "$@"
+fi

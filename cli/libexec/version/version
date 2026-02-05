@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+shopt -s inherit_errexit lastpipe
+
+# shellcheck source=../../lib/logging.bash
+source "$AGB_LIBDIR/logging.bash"
+
+# Displays version information for the agent-sandbox project.
+# Uses git to determine the version from commit date and SHA, or falls back to .version file.
+# Args:
+#   $1 - Optional name to display (default: "Agent Sandbox")
+#   $2 - Optional path to repository (default: $AGB_ROOT)
+version() {
+	local -r name=${1-"Agent Sandbox"}
+	local -r path=${2-$AGB_ROOT}
+
+	if command -v git &>/dev/null
+	then
+		local date sha
+		date=$(git -C "$path" log -n1 --date=format:%Y%m%d.%H%M%S --format=%cd)
+		sha=$(git -C "$path" describe --abbrev=7 --dirty --always --tags)
+
+		echo "$name $date-$sha" | info
+	elif [[ -s "$path/.version" ]]
+	then
+			local ver
+			ver=$(<"$path/.version")
+			echo "$name $ver" | info
+	else
+		echo "git not found, cannot determine version" | warning
+	fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
+then
+	version "$@"
+fi
