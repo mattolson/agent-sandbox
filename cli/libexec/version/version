@@ -23,9 +23,9 @@ version() {
 		echo "$name $date-$sha" | info
 	elif [[ -s "$path/.version" ]]
 	then
-			local ver
-			ver=$(<"$path/.version")
-			echo "$name $ver" | info
+		local ver
+		ver=$(<"$path/.version")
+		echo "$name $ver" | info
 	else
 		echo "git not found, cannot determine version" | warning
 	fi
