@@ -67,7 +67,7 @@ if "$coverage"
 then
 	echo "Merging coverage reports..."
 	# shellcheck disable=SC2086
-	"$kcov_cmd" --merge "$coverage_dir/merged" $coverage_dir/partial/*
+	"$kcov_cmd" --merge "$coverage_dir/merged" "$coverage_dir"/partial/*
 	echo "Coverage report generated at file://$PWD/$coverage_dir/merged/index.html"
 
 	echo "Total $(jq -r '.percent_covered' <"$coverage_dir/merged/kcov-merged/coverage.json")%"
