@@ -32,7 +32,9 @@ cli/
 │   ├── clean/             #    Each module can contain multiple commands               
 │   ├── init/              
 │   └── version/           
-└── templates/             # Configuration templates
+├── support/               # BATS and it's extensions
+├── templates/             # Configuration templates
+└── test/             	   # BATS tests
 ```
 
 ## Environment Variables
