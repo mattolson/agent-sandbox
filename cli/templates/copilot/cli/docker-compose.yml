@@ -40,7 +40,7 @@ services:
       - NET_RAW
     volumes:
       # Project workspace
-      - ../:/workspace
+      - ./:/workspace
       # Persist Copilot credentials
       - copilot-state:/home/dev/.copilot
       # Persist shell history
