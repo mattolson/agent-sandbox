@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# shellcheck disable=SC2030,SC2031
 
 setup() {
 	load test_helper
@@ -39,6 +40,17 @@ teardown() {
 		"inspect --format='{{index .RepoDigests 0}}' ghcr.io/example/test:latest : echo 'ghcr.io/example/test@sha256:abc123'"
 
 	run pull_and_pin_image "ghcr.io/example/test:latest"
+
+	assert_success
+	assert_output "ghcr.io/example/test@sha256:abc123"
+}
+
+@test "pull_and_pin_image handles remote images with digests" {
+	stub docker \
+		"pull ghcr.io/example/test@sha256:abc123 : :" \
+		"inspect --format='{{index .RepoDigests 0}}' ghcr.io/example/test@sha256:abc123 : echo 'ghcr.io/example/test@sha256:abc123'"
+
+	run pull_and_pin_image "ghcr.io/example/test@sha256:abc123"
 
 	assert_success
 	assert_output "ghcr.io/example/test@sha256:abc123"
@@ -114,25 +126,19 @@ teardown() {
 @test "customize_compose_file handles full workflow with all options enabled" {
 	POLICY_FILE="policy.yaml"
 	touch "$BATS_TEST_TMPDIR/$POLICY_FILE"
+	# shellcheck disable=SC2016
 	export AGB_HOME_PATTERN='${HOME}/.config/agent-sandbox'
 
-	# Unset functions for stubbing
-	unset -f read_line
-	unset -f select_yes_no
+	export proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
+	export agent_image="ghcr.io/mattolson/agent-sandbox-claude:latest"
+	export mount_claude_config="true"
+	export enable_shell_customizations="true"
+	export enable_dotfiles="true"
+
 	unset -f pull_and_pin_image
-
-	stub read_line \
-		"'Proxy image [ghcr.io/mattolson/agent-sandbox-proxy:latest]:' : echo ''" \
-		"'Agent image [ghcr.io/mattolson/agent-sandbox-claude:latest]:' : echo ''"
-
 	stub pull_and_pin_image \
 		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
 		"ghcr.io/mattolson/agent-sandbox-claude:latest : echo 'ghcr.io/mattolson/agent-sandbox-claude@sha256:def456'"
-
-	stub select_yes_no \
-		"'Mount host Claude config (~/.claude)?' : exit 0" \
-		"'Enable shell customizations?' : exit 0" \
-		"'Enable dotfiles?' : exit 0"
 
 	run customize_compose_file "claude" "$POLICY_FILE" "$COMPOSE_FILE"
 

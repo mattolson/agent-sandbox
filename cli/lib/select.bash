@@ -4,14 +4,18 @@
 # Prompts the user for a yes/no answer.
 # Args:
 #   $1 - The prompt text to display
-# Returns:
-#   0 if user answered 'y' or 'Y', non-zero otherwise
+# Outputs:
+#   "true" if the user answered "yes", "false" otherwise
 select_yes_no() {
   local prompt="$1"
   local answer
 
   read -rp "$prompt [y/N]: " answer >&2
-  [[ $answer =~ ^[Yy]$ ]]
+  if [[ $answer =~ ^[Yy]$ ]]; then
+    echo "true"
+  else
+    echo "false"
+  fi
 }
 
 # Prompts the user to select one option from a list.

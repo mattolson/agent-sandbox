@@ -8,10 +8,12 @@ source "$AGB_LIBDIR/select.bash"
 source "$AGB_LIBDIR/path.bash"
 
 # Customizes a Docker Compose file with policy and optional user configurations.
-# Prompts the user for:
-#   - Docker images for proxy and agent (pulls and pins to digest)
-#   - Optional host Claude config mount
-#   - Optional shell customizations and dotfiles
+# Prompts the user for configuration options unless provided via environment variables:
+#   - proxy_image: Docker image for proxy service (pulls and pins to digest)
+#   - agent_image: Docker image for agent service (pulls and pins to digest)
+#   - mount_claude_config: "true" to mount host Claude config (~/.claude)
+#   - enable_shell_customizations: "true" to enable shell customizations
+#   - enable_dotfiles: "true" to mount dotfiles
 # Args:
 #   $1 - The agent name (e.g., "claude")
 #   $2 - Path to the policy file to mount, relative to the Docker Compose file directory
@@ -30,35 +32,36 @@ customize_compose_file(){
 
 	verify_relative_path "$compose_dir" "$policy_file"
 
-	local proxy_image_input
-	proxy_image_input=$(read_line "Proxy image [$default_proxy_image]:")
+	: "${proxy_image:=$(read_line "Proxy image [$default_proxy_image]:")}"
 
-	local proxy_image
-	proxy_image=$(pull_and_pin_image "${proxy_image_input:-$default_proxy_image}")
-	set_proxy_image "$compose_file" "$proxy_image"
+	local proxy_image_pinned
+	proxy_image_pinned=$(pull_and_pin_image "${proxy_image:-$default_proxy_image}")
+	set_proxy_image "$compose_file" "$proxy_image_pinned"
 
-	local agent_image_input
-	agent_image_input=$(read_line "Agent image [$default_agent_image]:")
+	: "${agent_image:=$(read_line "Agent image [$default_agent_image]:")}"
 
-	local agent_image
-	agent_image=$(pull_and_pin_image "${agent_image_input:-$default_agent_image}")
-	set_agent_image "$compose_file" "$agent_image"
+	local agent_image_pinned
+	agent_image_pinned=$(pull_and_pin_image "${agent_image:-$default_agent_image}")
+	set_agent_image "$compose_file" "$agent_image_pinned"
 
 	add_policy_volume "$compose_file" "$policy_file"
 
 	if [[ $agent == "claude" ]]
 	then
-		if select_yes_no "Mount host Claude config (~/.claude)?"
+		: "${mount_claude_config:=$(select_yes_no "Mount host Claude config (~/.claude)?")}"
+		if [[ $mount_claude_config == "true" ]]
 		then
 			add_claude_config_volumes "$compose_file"
 		fi
 	fi
 
-	if select_yes_no "Enable shell customizations?"
+	: "${enable_shell_customizations:=$(select_yes_no "Enable shell customizations?")}"
+	if [[ $enable_shell_customizations == "true" ]]
 	then
 		add_shell_customizations_volume "$compose_file"
 
-		if select_yes_no "Enable dotfiles?"
+		: "${enable_dotfiles:=$(select_yes_no "Enable dotfiles?")}"
+		if [[ $enable_dotfiles == "true" ]]
 		then
 			add_dotfiles_volume "$compose_file"
 		fi
