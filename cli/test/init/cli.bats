@@ -81,7 +81,7 @@ assert_named_volumes() {
 	local volume_names=("$@")
 
 	for volume_name in "${volume_names[@]}"; do
-		run yq -e ".volumes | select(has(\"$volume_name\"))" "$compose_file"
+		volume_name="$volume_name" run yq -e '.volumes | select(has(env(volume_name)))' "$compose_file"
 		assert_success
 	done
 }

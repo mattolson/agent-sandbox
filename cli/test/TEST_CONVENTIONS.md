@@ -64,13 +64,21 @@ stub docker \
 - `: echo 'output'` = return output
 - `unstub_all` in teardown (never manual `unstub`)
 
-## yq Existence Checks
+## yq Usage
+
+### Existence Checks
 Use `yq -e` (exits non-zero if no match):
 ```bash
 run yq -e '.services.agent.volumes[] | select(. == "exact:match")' "$FILE"
 assert_success
 ```
 Without `-e`, no match still exits 0 (false positive).
+
+### Variable Interpolation
+Use `env()`, not string concatenation:
+```bash
+var="$var" run yq -e '.volumes | select(has(env(var)))' "$FILE"
+```
 
 ## Testability Pattern
 Extract pure functions from user interaction:
