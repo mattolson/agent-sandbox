@@ -1,0 +1,12 @@
+[submodule "cli/support/bats"]
+	path = cli/support/bats
+	url = https://github.com/bats-core/bats-core.git
+[submodule "cli/support/bats-support"]
+	path = cli/support/bats-support
+	url = https://github.com/bats-core/bats-support.git
+[submodule "cli/support/bats-assert"]
+	path = cli/support/bats-assert
+	url = https://github.com/bats-core/bats-assert.git
+[submodule "cli/support/bats-mock"]
+	path = cli/support/bats-mock
+	url = https://github.com/buildkite-plugins/bats-mock

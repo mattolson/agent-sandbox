@@ -2,7 +2,7 @@
 
 set -eu
 {
-	find lib \
+	find lib test \
 		-type f \( -name '*.bash' -o -name '*.sh' -o -name '*.bats' \) \
 		-print0
 	find bin libexec -type f -print0
