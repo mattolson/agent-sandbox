@@ -5,6 +5,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   netcat-traditional \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Optional extra packages
+ARG EXTRA_PACKAGES=""
+RUN if [ -n "$EXTRA_PACKAGES" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends $EXTRA_PACKAGES \
+      && apt-get clean && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 RUN pip install --no-cache-dir PyYAML
 
 COPY policy.yaml /etc/mitmproxy/policy.yaml
