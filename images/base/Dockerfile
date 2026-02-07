@@ -1,32 +1,33 @@
-FROM debian:bookworm
+FROM debian:bookworm-slim
 
 ARG TZ
 ENV TZ="$TZ"
 
 # Install basic development tools and firewall dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  less \
-  git \
-  procps \
-  sudo \
+  ca-certificates \
+  curl \
   fzf \
-  zsh \
-  man-db \
-  unzip \
+  git \
   gnupg2 \
-  gh \
   iptables \
   ipset \
   iproute2 \
-  dnsutils \
-  aggregate \
-  jq \
-  nano \
+  less \
+  procps \
+  sudo \
+  tmux \
+  unzip \
   vim \
-  curl \
-  wget \
-  ca-certificates \
+  zsh \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Optional extra packages (separate layer for cacheability)
+ARG EXTRA_PACKAGES=""
+RUN if [ -n "$EXTRA_PACKAGES" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends $EXTRA_PACKAGES \
+      && apt-get clean && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # Set up non-root user
 ARG USERNAME=dev
@@ -52,8 +53,12 @@ ENV SHELL=/bin/zsh
 ENV EDITOR=vim
 ENV VISUAL=vim
 
+# Set default lang to support unicode characters
+ENV LANG=C.utf8
+
 # Create minimal .zshrc - users can mount their own dotfiles for customization
 COPY --chown=${USERNAME}:${USERNAME} zshrc /home/${USERNAME}/.zshrc
+COPY --chown=${USERNAME}:${USERNAME} tmux.conf /home/${USERNAME}/.tmux.conf
 
 # Configure git to use HTTPS instead of SSH (port 22 is blocked to prevent tunneling)
 RUN git config --global url."https://github.com/".insteadOf git@github.com: && \

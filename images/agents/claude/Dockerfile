@@ -4,8 +4,15 @@
 ARG BASE_IMAGE=agent-sandbox-base:local
 FROM ${BASE_IMAGE}
 
-# Copy aliases file (sourced by shell-init.sh)
+# Optional extra packages
+ARG EXTRA_PACKAGES=""
 USER root
+RUN if [ -n "$EXTRA_PACKAGES" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends $EXTRA_PACKAGES \
+      && apt-get clean && rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Copy aliases file (sourced by shell-init.sh)
 COPY aliases.sh /etc/agent-sandbox/aliases.sh
 RUN chmod 644 /etc/agent-sandbox/aliases.sh
 
