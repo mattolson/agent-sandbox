@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Optional extra packages
 ARG EXTRA_PACKAGES=""
 RUN if [ -n "$EXTRA_PACKAGES" ]; then \
-      printf '%s' "$EXTRA_PACKAGES" | grep -qE '^[a-zA-Z0-9][a-zA-Z0-9.+\- :]*$' \
+      printf '%s' "$EXTRA_PACKAGES" | grep -qE '^[a-zA-Z0-9][a-zA-Z0-9.+ :-]*$' \
         || { echo "ERROR: EXTRA_PACKAGES contains invalid characters: $EXTRA_PACKAGES" >&2; exit 1; }; \
       apt-get update && apt-get install -y --no-install-recommends $EXTRA_PACKAGES \
       && apt-get clean && rm -rf /var/lib/apt/lists/*; \
