@@ -117,6 +117,18 @@ Create the `agentbox` CLI for managing sandbox configurations.
 
 **Dependencies:** m1 (templates exist), m2 (images to reference)
 
+### m6-deep-customization
+
+Extend the customization story to support dotfiles, custom zshrc, and language stacks without forking Dockerfiles.
+
+**Goals:**
+- Shell-init hooks survive user .zshrc replacement (system-level sourcing via `/etc/zsh/zshrc`)
+- First-class dotfiles support with recursive auto-symlinking at startup
+- Language stack installer scripts shipped in base image (python, node, go, rust)
+- STACKS build arg for one-liner stack installation via build.sh
+
+**Dependencies:** m2.5 (shell customization established)
+
 ## Decisions
 
 1. **Policy format**: YAML with domain-only granularity for m1-m4. Path/method filtering deferred to future work.

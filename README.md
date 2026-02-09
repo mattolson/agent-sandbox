@@ -177,7 +177,7 @@ For more complex setups, mount your dotfiles directory and use a shell.d script 
 # In your compose file
 volumes:
   - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
-  - ${HOME}/.dotfiles:/home/dev/.dotfiles:ro
+  - ${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro
 ```
 
 **`~/.config/agent-sandbox/shell.d/dotfiles.sh`:**

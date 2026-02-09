@@ -1,0 +1,4 @@
+# Agent Sandbox system-level zsh configuration
+# Sourced before ~/.zshrc to ensure shell hooks survive custom dotfiles
+
+source /etc/agent-sandbox/shell-init.sh

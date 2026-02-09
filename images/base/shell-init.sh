@@ -1,8 +1,5 @@
 # Agent Sandbox shell initialization
-# Sourced at the end of .zshrc
-
-# Source agent-specific aliases if present
-[ -f /etc/agent-sandbox/aliases.sh ] && source /etc/agent-sandbox/aliases.sh
+# Sourced from /etc/zsh/zshrc (system-level, runs before ~/.zshrc)
 
 # Source user customizations from shell.d
 # Mount your scripts to ~/.config/agent-sandbox/shell.d/

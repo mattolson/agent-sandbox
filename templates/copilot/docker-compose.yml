@@ -46,10 +46,15 @@ services:
       - copilot-history:/commandhistory
       # Proxy CA certificate (public cert only, no private key)
       - proxy-ca:/etc/mitmproxy:ro
-      # Shell customizations (optional - uncomment to enable)
+      # Host config - choose one or both approaches:
+      #
+      # Option A: Mount dotfiles directory (auto-linked into $HOME at startup)
+      # - ${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro
+      #
+      # Option B: Mount individual config files (none for copilot by default)
+      #
+      # Shell customizations (optional - scripts sourced at shell startup)
       # - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
-      # Dotfiles directory (optional - use with shell.d script to symlink)
-      # - ${HOME}/.dotfiles:/home/dev/.dotfiles:ro
     working_dir: /workspace
     stdin_open: true
     tty: true

@@ -46,13 +46,17 @@ services:
       - claude-history:/commandhistory
       # Proxy CA certificate (public cert only, no private key)
       - proxy-ca:/etc/mitmproxy:ro
-      # Host Claude config (optional - comment out if not needed)
-      - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
-      - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
-      # Shell customizations (optional - uncomment to enable)
+      # Host config - choose one or both approaches:
+      #
+      # Option A: Mount dotfiles directory (auto-linked into $HOME at startup)
+      # - ${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro
+      #
+      # Option B: Mount individual config files
+      # - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
+      # - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
+      #
+      # Shell customizations (optional - scripts sourced at shell startup)
       # - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
-      # Dotfiles directory (optional - use with shell.d script to symlink)
-      # - ${HOME}/.dotfiles:/home/dev/.dotfiles:ro
     working_dir: /workspace
     stdin_open: true
     tty: true

@@ -66,19 +66,51 @@ COPY --chown=${USERNAME}:${USERNAME} tmux.conf /home/${USERNAME}/.tmux.conf
 RUN git config --global url."https://github.com/".insteadOf git@github.com: && \
   git config --global --add url."https://github.com/".insteadOf ssh://git@github.com/
 
-# Copy firewall script and shell init
+# Copy firewall script, shell init, and utilities
 # Files in /etc/agent-sandbox are root-owned to prevent agent tampering
 COPY shell-init.sh /etc/agent-sandbox/shell-init.sh
+COPY stacks/ /etc/agent-sandbox/stacks/
 COPY init-firewall.sh /usr/local/bin/
 COPY install-proxy-ca.sh /usr/local/bin/
 COPY configure-apt-proxy.sh /usr/local/bin/
+COPY link-dotfiles.sh /usr/local/bin/
 COPY entrypoint.sh /usr/local/bin/
+
+# System-level zshrc: sources shell-init.sh before ~/.zshrc so hooks survive
+# custom dotfile mounts
+COPY system-zshrc /etc/zsh/zshrc
+
 USER root
 RUN chmod 644 /etc/agent-sandbox/shell-init.sh && \
   chown root:root /etc/agent-sandbox/shell-init.sh && \
-  chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/install-proxy-ca.sh /usr/local/bin/configure-apt-proxy.sh /usr/local/bin/entrypoint.sh && \
+  chmod 644 /etc/zsh/zshrc && \
+  chown root:root /etc/zsh/zshrc && \
+  chmod -R 755 /etc/agent-sandbox/stacks && \
+  chown -R root:root /etc/agent-sandbox/stacks && \
+  chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/install-proxy-ca.sh /usr/local/bin/configure-apt-proxy.sh /usr/local/bin/link-dotfiles.sh /usr/local/bin/entrypoint.sh && \
   echo "${USERNAME} ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh, /usr/local/bin/install-proxy-ca.sh, /usr/local/bin/configure-apt-proxy.sh" > /etc/sudoers.d/firewall && \
   chmod 0440 /etc/sudoers.d/firewall
+
+# Create zshenv.d drop-in directory for PATH additions from stack scripts
+# Append sourcing loop to /etc/zsh/zshenv
+RUN mkdir -p /etc/zsh/zshenv.d && \
+  printf '\n# Source drop-in environment files\nfor f in /etc/zsh/zshenv.d/*.zsh(N); do source "$f"; done\n' >> /etc/zsh/zshenv
+
+# Install language stacks (optional, via STACKS build arg)
+ARG STACKS=""
+RUN if [ -n "$STACKS" ]; then \
+      IFS=',' ; for stack in $STACKS; do \
+        name="${stack%%:*}"; \
+        version="${stack#*:}"; \
+        [ "$name" = "$version" ] && version=""; \
+        script="/etc/agent-sandbox/stacks/${name}.sh"; \
+        if [ -f "$script" ]; then \
+          "$script" $version; \
+        else \
+          echo "WARNING: Unknown stack: $name" >&2; \
+        fi \
+      done \
+    fi
 
 # Create .config directory owned by dev (for gh, etc.)
 # Then create shell.d subdirectory owned by root (prevents agent from injecting malicious scripts)

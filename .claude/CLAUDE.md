@@ -42,9 +42,6 @@ Build local images:
 - `/home/dev/.claude` - Claude Code state (named volume, persists per-project)
 - `/commandhistory` - Bash/zsh history (named volume)
 
-### Useful Aliases
-- `yolo-claude` (or `yc`) - Runs `claude --dangerously-skip-permissions` from /workspace
-
 ## Network Policy
 
 Two layers of enforcement:
@@ -139,7 +136,17 @@ The daily `check-claude-version.yml` workflow queries npm for the latest Claude 
 
 ## Shell Customization
 
+Shell initialization runs from `/etc/zsh/zshrc` (system-level), which sources `/etc/agent-sandbox/shell-init.sh` before `~/.zshrc`. This means shell.d scripts survive custom `.zshrc` replacements via dotfiles.
+
 Drop scripts in `~/.config/agent-sandbox/shell.d/*.sh` on the host. They're sourced at shell startup (read-only mount). The shell-init chain is root-owned to prevent the agent from injecting commands.
+
+## Dotfiles
+
+Mount `~/.config/agent-sandbox/dotfiles` into the container and files are auto-symlinked into `$HOME` at startup. Protected paths (`.config/agent-sandbox`) are skipped. See `images/base/link-dotfiles.sh`.
+
+## Language Stacks
+
+Installer scripts at `/etc/agent-sandbox/stacks/` (python, node, go, rust). Not executed in published images. Users extend the image with a Dockerfile or use `STACKS="python,go:1.23"` when building via `build.sh`.
 
 ## Target Platform
 

@@ -1,5 +1,5 @@
 # Claude Code agent image
-# Extends base with Claude Code CLI and convenience aliases
+# Extends base with Claude Code CLI
 
 ARG BASE_IMAGE=agent-sandbox-base:local
 FROM ${BASE_IMAGE}
@@ -13,10 +13,6 @@ RUN if [ -n "$EXTRA_PACKAGES" ]; then \
       apt-get update && apt-get install -y --no-install-recommends $EXTRA_PACKAGES \
       && apt-get clean && rm -rf /var/lib/apt/lists/*; \
     fi
-
-# Copy aliases file (sourced by shell-init.sh)
-COPY aliases.sh /etc/agent-sandbox/aliases.sh
-RUN chmod 644 /etc/agent-sandbox/aliases.sh
 
 # Create claude config directory
 RUN mkdir -p /home/dev/.claude && chown -R dev:dev /home/dev/.claude

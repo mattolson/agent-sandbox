@@ -38,5 +38,10 @@ if [ -n "$HTTP_PROXY" ]; then
   fi
 fi
 
+# Auto-link dotfiles if ~/.dotfiles is mounted
+if [ -x /usr/local/bin/link-dotfiles.sh ]; then
+  /usr/local/bin/link-dotfiles.sh
+fi
+
 # Execute the provided command (or default to zsh)
 exec "${@:-zsh}"

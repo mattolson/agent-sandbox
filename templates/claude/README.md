@@ -68,8 +68,8 @@ Inside the container:
 
 ```bash
 claude
-# or as a shortcut for `claude --dangerously-skip-permissions`:
-yolo-claude
+# or to auto-approve all actions:
+claude --dangerously-skip-permissions
 ```
 
 Afterward, for compose mode, stop the container:
@@ -202,9 +202,40 @@ curl -s https://api.github.com/zen
 curl --noproxy '*' --connect-timeout 3 https://example.com
 ```
 
+## Dotfiles
+
+Mount your dotfiles directory to have them auto-linked into `$HOME` at container startup:
+
+```yaml
+volumes:
+  - ${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro
+```
+
+The entrypoint recursively walks `~/.dotfiles` and creates symlinks for each file at the corresponding `$HOME` path. Intermediate directories are created as needed.
+
+For example, if your dotfiles contain:
+```
+.dotfiles/
+  .zshrc
+  .gitconfig
+  .config/
+    git/config
+    starship.toml
+```
+
+The container will have:
+- `~/.zshrc` -> `~/.dotfiles/.zshrc`
+- `~/.gitconfig` -> `~/.dotfiles/.gitconfig`
+- `~/.config/git/config` -> `~/.dotfiles/.config/git/config`
+- `~/.config/starship.toml` -> `~/.dotfiles/.config/starship.toml`
+
+Protected paths (`.config/agent-sandbox`) are never overwritten. Docker bind mounts (like individually mounted `CLAUDE.md`) take precedence over dotfile symlinks.
+
+Shell.d scripts are sourced from the system-level zshrc (`/etc/zsh/zshrc`), which runs before `~/.zshrc`. This means your dotfiles can include a custom `.zshrc` without breaking agent-sandbox functionality.
+
 ## Shell Customization
 
-Mount scripts into `~/.config/agent-sandbox/shell.d/` to customize your shell environment. Any `*.sh` files are sourced when zsh starts.
+Mount scripts into `~/.config/agent-sandbox/shell.d/` to customize your shell environment. Any `*.sh` files are sourced when zsh starts (before `~/.zshrc`).
 
 ```bash
 mkdir -p ~/.config/agent-sandbox/shell.d
@@ -216,6 +247,45 @@ EOF
 ```
 
 Uncomment the shell.d mount in the compose file you're using.
+
+## Language Stacks
+
+The base image ships installer scripts for common language stacks. Use them in a custom Dockerfile or via the `STACKS` build arg.
+
+### Custom Dockerfile
+
+```dockerfile
+FROM ghcr.io/mattolson/agent-sandbox-claude:latest
+USER root
+RUN /etc/agent-sandbox/stacks/python.sh
+RUN /etc/agent-sandbox/stacks/go.sh 1.23.6
+USER dev
+```
+
+Build and use your custom image:
+```bash
+docker build -t my-claude-sandbox .
+# Update docker-compose.yml to use image: my-claude-sandbox
+```
+
+### STACKS build arg
+
+If building from source, use the `STACKS` env var. Stacks are installed in the base image, so build with `all` or build base first:
+
+```bash
+STACKS="python,go:1.23.6" ./images/build.sh all
+```
+
+### Available stacks
+
+| Stack | Script | Version arg | Default |
+|-------|--------|-------------|---------|
+| Python | `python.sh` | (ignored, uses apt) | System Python 3 |
+| Node.js | `node.sh` | Major version | 22 |
+| Go | `go.sh` | Full version | 1.23.6 |
+| Rust | `rust.sh` | Toolchain | stable |
+
+Each script handles both amd64 and arm64 architectures.
 
 ## Image Versioning
 

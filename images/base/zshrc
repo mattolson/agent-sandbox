@@ -17,6 +17,3 @@ autoload -Uz compinit && compinit
 
 # Simple prompt: user@host:path$
 PROMPT='%n@%m:%~%# '
-
-# Agent Sandbox shell initialization
-source /etc/agent-sandbox/shell-init.sh
