@@ -33,6 +33,8 @@ find "$DOTFILES_DIR" -name .git -prune -o -type f -print | while read -r source;
   # Create parent directories if needed
   mkdir -p "$(dirname "$target")"
 
-  # Create symlink (ignore failures from bind-mount conflicts)
-  ln -sf "$source" "$target" 2>/dev/null || true
+  # Create symlink (log failures but continue - bind-mount conflicts are expected)
+  if ! ln -sf "$source" "$target" 2>/dev/null; then
+    echo "dotfiles: failed to link $relpath" >&2
+  fi
 done
