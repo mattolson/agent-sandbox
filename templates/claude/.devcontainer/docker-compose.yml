@@ -1,10 +1,18 @@
-# Claude Code Sandbox - Devcontainer mode
+# Claude Code Sandbox
 #
-# Used by VS Code devcontainer. Separate from root docker-compose.yml to allow
-# both to run simultaneously without container/volume name conflicts.
+# Works with both devcontainer (VS Code, JetBrains) and CLI usage.
+# A .env file at the project root sets COMPOSE_FILE so that
+# `docker compose` commands work from the project directory.
 #
-# Requires policy file at ~/.config/agent-sandbox/policies/claude-devcontainer.yaml
-# See README.md for setup instructions.
+# CLI usage:
+#   docker compose up -d
+#   docker compose exec agent zsh
+#   claude
+#   docker compose down
+#
+# For reproducibility, pin images to a specific digest:
+#   image: ghcr.io/mattolson/agent-sandbox-claude@sha256:<digest>
+#   image: ghcr.io/mattolson/agent-sandbox-proxy@sha256:<digest>
 
 services:
   proxy:
@@ -14,7 +22,7 @@ services:
     volumes:
       - proxy-state:/home/mitmproxy/.mitmproxy
       - proxy-ca:/ca-export
-      - ${HOME}/.config/agent-sandbox/policies/claude-devcontainer.yaml:/etc/mitmproxy/policy.yaml:ro
+      - ./policy.yaml:/etc/mitmproxy/policy.yaml:ro
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "8080"]
       interval: 5s
@@ -34,20 +42,16 @@ services:
     volumes:
       # Project workspace
       - ../:/workspace
+      # Prevent agent from modifying compose, policy, or devcontainer config
+      - .:/workspace/.devcontainer:ro
       # Persist Claude credentials
       - claude-state:/home/dev/.claude
       # Persist shell history
       - claude-history:/commandhistory
       # Proxy CA certificate (public cert only, no private key)
       - proxy-ca:/etc/mitmproxy:ro
-      # Host config - choose one or both approaches:
-      #
-      # Option A: Mount dotfiles directory (auto-linked into $HOME at startup)
+      # Dotfiles (optional - auto-linked into $HOME at startup)
       # - ${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro
-      #
-      # Option B: Mount individual config files
-      # - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
-      # - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
       #
       # Shell customizations (optional - scripts sourced at shell startup)
       # - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro

@@ -10,40 +10,31 @@ Run Claude Code in a network-locked container. All outbound traffic is routed th
 git clone https://github.com/mattolson/agent-sandbox.git
 ```
 
-### 2. Set up policy files
-
-The network proxy reads a policy file on the host. Copy the examples:
-
-```bash
-mkdir -p ~/.config/agent-sandbox/policies
-cp agent-sandbox/docs/policy/examples/claude* ~/.config/agent-sandbox/policies/
-```
-
-The compose files mount the appropriate policy:
-- Docker Compose CLI mode uses `policies/claude.yaml`
-- Devcontainer mode uses `policies/claude-devcontainer.yaml` (includes VS Code and JetBrains infrastructure domains)
-
-### 3. Copy template to your project
-
-#### Option A: Devcontainer (VS Code / JetBrains)
+### 2. Copy template to your project
 
 ```bash
 cp -r agent-sandbox/templates/claude/.devcontainer /path/to/your/project/
+cp agent-sandbox/templates/claude/.env /path/to/your/project/
 ```
 
-**VS Code:**
+The `.devcontainer/` directory contains the compose file, devcontainer config, and network policy. The `.env` file tells Docker Compose where to find the compose file.
+
+### 3. Start the sandbox
+
+**Devcontainer (VS Code / JetBrains):**
+
+VS Code:
 1. Install the Dev Containers extension
 2. Command Palette > "Dev Containers: Reopen in Container"
 
-**JetBrains (IntelliJ, PyCharm, WebStorm, etc.):**
+JetBrains (IntelliJ, PyCharm, WebStorm, etc.):
 1. Open your project
 2. From the Remote Development menu, select "Dev Containers"
 3. Select the devcontainer configuration
 
-#### Option B: Docker Compose (CLI)
+**CLI (terminal):**
 
 ```bash
-cp agent-sandbox/templates/claude/docker-compose.yml /path/to/your/project/
 cd /path/to/your/project
 docker compose up -d
 docker compose exec agent zsh
@@ -72,26 +63,15 @@ claude
 claude --dangerously-skip-permissions
 ```
 
-Afterward, for compose mode, stop the container:
+Afterward, for CLI mode, stop the container:
 
 ```bash
 docker compose down
 ```
 
-## Two Modes
+## Terminal vs IDE Extension
 
-This template supports two usage modes with separate compose files:
-
-| Mode | Compose file | Policy | Use case |
-|------|-------------|--------|----------|
-| **Devcontainer** | `.devcontainer/docker-compose.yml` | Requires host mount | VS Code, JetBrains IDEs |
-| **CLI** | `docker-compose.yml` | Baked-in default | Terminal/headless usage |
-
-The separate compose files allow both modes to run simultaneously without container or volume name conflicts.
-
-## Within devcontainer: Terminal vs IDE Extension
-
-You can run Claude Code two ways with the devcontainer:
+You can run Claude Code two ways within the container:
 
 | Mode | How to start                                                   | IDE support |
 |------|----------------------------------------------------------------|-------------|
@@ -100,8 +80,8 @@ You can run Claude Code two ways with the devcontainer:
 
 
 ### JetBrains IDE
-The JetBrains IDE plugin has very limited features. 
-Most of the work happens in the terminal, but it will allow you to review changes in the GUI diff viewer. 
+The JetBrains IDE plugin has very limited features.
+Most of the work happens in the terminal, but it will allow you to review changes in the GUI diff viewer.
 
 To use this feature, make sure that "Open devcontainer projects natively" is **disabled** in "Advanced Settings"
 
@@ -114,7 +94,7 @@ If you encounter issues, make sure that the extension is installed on "host" (th
 
 [<img src="../../docs/images/idea-claude-plugin-on-host.png" alt="Claude Code JetBrains plugin installed on host" width="200"/>](../../docs/images/idea-claude-plugin-on-host.png)
 
-If you can see ` ❯ 1. IntelliJ IDEA ✔    ` after issuing `/ide` command, but the integration is not working, check the `/status`.
+If you can see ` > 1. IntelliJ IDEA `    ` after issuing `/ide` command, but the integration is not working, check the `/status`.
 You should see `Connected to IntelliJ IDEA extension`, otherwise remove the Devcontainers containers and volumes and try again.
 
 [<img src="../../docs/images/idea-claude-plugin-connected.png" alt="Claude Code JetBrains plugin connected" width="200"/>](../../docs/images/idea-claude-plugin-connected.png)
@@ -143,21 +123,20 @@ The proxy's CA certificate is automatically shared with the agent container and 
 
 ### Policy location
 
-Policy files live on the host in `~/.config/agent-sandbox/policies/`. The compose files mount the appropriate policy:
-- CLI: `policies/claude.yaml`
-- Devcontainer: `policies/claude-devcontainer.yaml`
+The network policy lives in your project at `.devcontainer/policy.yaml`. This file is checked into version control and shared with your team.
 
-You can customize the volume mount, but policy files must live outside the workspace. If they were inside, the agent could modify its own allowlist.
+The `.devcontainer/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy, compose file, or devcontainer config. The proxy only reads the policy at startup, so even if the file were changed, it would not take effect until a human restarts the proxy from the host.
 
 ### Customizing the policy
 
-Edit your policy file to add project-specific domains:
+Edit `.devcontainer/policy.yaml` to add project-specific domains:
 
 ```yaml
 services:
   - github
   - claude
-  - vscode  # Include for devcontainer mode
+  - vscode
+  - jetbrains
 
 domains:
   # Add your own
@@ -251,7 +230,7 @@ alias gs='git status'
 EOF
 ```
 
-Uncomment the shell.d mount in the compose file you're using.
+Uncomment the shell.d mount in the compose file.
 
 ## Language Stacks
 
@@ -270,7 +249,7 @@ USER dev
 Build and use your custom image:
 ```bash
 docker build -t my-claude-sandbox .
-# Update docker-compose.yml to use image: my-claude-sandbox
+# Update .devcontainer/docker-compose.yml to use image: my-claude-sandbox
 ```
 
 ### STACKS build arg
@@ -318,19 +297,6 @@ cd agent-sandbox && ./images/build.sh
 ```
 
 ## Troubleshooting
-
-### "Permission denied" mounting host files
-
-The host Claude config mounts (`~/.claude/CLAUDE.md`, `~/.claude/settings.json`) require these files to exist. Either create them or comment out those mounts in the compose file.
-
-### Policy file not found
-
-The policy files must exist on the host:
-
-```bash
-mkdir -p ~/.config/agent-sandbox/policies
-cp agent-sandbox/docs/policy/examples/claude* ~/.config/agent-sandbox/policies/
-```
 
 ### Proxy health check fails
 

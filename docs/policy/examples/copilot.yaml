@@ -1,8 +1,0 @@
-# GitHub Copilot CLI policy (CLI mode)
-#
-# Allows GitHub and the domains Copilot CLI needs to function.
-# Copy to: ~/.config/agent-sandbox/policies/copilot.yaml
-
-services:
-  - github
-  - copilot

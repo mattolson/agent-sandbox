@@ -1,8 +1,0 @@
-# Claude Code policy (CLI mode)
-#
-# Allows GitHub and the domains Claude Code needs to function.
-# Copy to: ~/.config/agent-sandbox/policies/claude.yaml
-
-services:
-  - github
-  - claude

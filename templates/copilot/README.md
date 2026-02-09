@@ -10,40 +10,31 @@ Run GitHub Copilot CLI in a network-locked container. All outbound traffic is ro
 git clone https://github.com/mattolson/agent-sandbox.git
 ```
 
-### 2. Set up policy files
-
-The proxy requires policy files on the host. Copy the examples:
-
-```bash
-mkdir -p ~/.config/agent-sandbox/policies
-cp agent-sandbox/docs/policy/examples/copilot* ~/.config/agent-sandbox/policies/
-```
-
-The compose files mount the appropriate policy:
-- CLI mode uses `policies/copilot.yaml`
-- Devcontainer mode uses `policies/copilot-devcontainer.yaml` (includes VS Code infrastructure domains)
-
-### 3. Copy template to your project
-
-#### Option A: Devcontainer (VS Code / JetBrains)
+### 2. Copy template to your project
 
 ```bash
 cp -r agent-sandbox/templates/copilot/.devcontainer /path/to/your/project/
+cp agent-sandbox/templates/copilot/.env /path/to/your/project/
 ```
 
-**VS Code:**
+The `.devcontainer/` directory contains the compose file, devcontainer config, and network policy. The `.env` file tells Docker Compose where to find the compose file.
+
+### 3. Start the sandbox
+
+**Devcontainer (VS Code / JetBrains):**
+
+VS Code:
 1. Install the Dev Containers extension
 2. Command Palette > "Dev Containers: Reopen in Container"
 
-**JetBrains (IntelliJ, PyCharm, WebStorm, etc.):**
+JetBrains (IntelliJ, PyCharm, WebStorm, etc.):
 1. Open your project
 2. From the Remote Development menu, select "Dev Containers"
 3. Select the devcontainer configuration
 
-#### Option B: Docker Compose (CLI)
+**CLI (terminal):**
 
 ```bash
-cp agent-sandbox/templates/copilot/docker-compose.yml /path/to/your/project/
 cd /path/to/your/project
 docker compose up -d
 docker compose exec agent zsh
@@ -70,16 +61,11 @@ copilot
 copilot --yolo
 ```
 
-## Two Modes
+Afterward, for CLI mode, stop the container:
 
-This template supports two usage modes with separate compose files:
-
-| Mode | Compose file | Policy | Use case |
-|------|-------------|--------|----------|
-| **Devcontainer** | `.devcontainer/docker-compose.yml` | Requires host mount | VS Code, JetBrains IDEs |
-| **CLI** | `docker-compose.yml` | Baked-in default | Terminal/headless usage |
-
-The separate compose files allow both modes to run simultaneously without container or volume name conflicts.
+```bash
+docker compose down
+```
 
 ## How It Works
 
@@ -94,21 +80,20 @@ The proxy's CA certificate is automatically shared with the agent container and 
 
 ### Policy location
 
-Policy files live on the host at `~/.config/agent-sandbox/policies/`. The compose files mount the appropriate policy:
-- CLI: `policies/copilot.yaml`
-- Devcontainer: `policies/copilot-devcontainer.yaml`
+The network policy lives in your project at `.devcontainer/policy.yaml`. This file is checked into version control and shared with your team.
 
-Policy files must live outside the workspace. If they were inside, the agent could modify its own allowlist.
+The `.devcontainer/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy, compose file, or devcontainer config. The proxy only reads the policy at startup, so even if the file were changed, it would not take effect until a human restarts the proxy from the host.
 
 ### Customizing the policy
 
-Edit your policy file to add project-specific domains:
+Edit `.devcontainer/policy.yaml` to add project-specific domains:
 
 ```yaml
 services:
   - github
   - copilot
-  - vscode  # Include for devcontainer mode
+  - vscode
+  - jetbrains
 
 domains:
   # Add your own
@@ -187,7 +172,7 @@ alias gs='git status'
 EOF
 ```
 
-Uncomment the shell.d mount in the compose file you're using.
+Uncomment the shell.d mount in the compose file.
 
 ## Language Stacks
 
@@ -206,7 +191,7 @@ USER dev
 Build and use your custom image:
 ```bash
 docker build -t my-copilot-sandbox .
-# Update docker-compose.yml to use image: my-copilot-sandbox
+# Update .devcontainer/docker-compose.yml to use image: my-copilot-sandbox
 ```
 
 ### STACKS build arg
@@ -254,16 +239,6 @@ cd agent-sandbox && ./images/build.sh
 ```
 
 ## Troubleshooting
-
-### Policy file not found
-
-The policy files must exist on the host:
-
-```bash
-mkdir -p ~/.config/agent-sandbox/policies
-cp agent-sandbox/docs/policy/examples/copilot.yaml ~/.config/agent-sandbox/policies/copilot.yaml
-cp agent-sandbox/docs/policy/examples/copilot-devcontainer.yaml ~/.config/agent-sandbox/policies/copilot-devcontainer.yaml
-```
 
 ### Proxy health check fails
 

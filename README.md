@@ -28,14 +28,9 @@ Creates a sandboxed environment for AI coding agents (Claude Code, GitHub Copilo
 
 ## Runtime modes
 
-Two modes are supported with separate compose files:
+Each template ships a single `.devcontainer/docker-compose.yml` that works for both devcontainer and CLI usage. A `.env` file at the project root sets `COMPOSE_FILE` so that `docker compose` commands work from the project directory without extra flags.
 
-| Mode | Compose file | Best for |
-|------|-------------|----------|
-| **Devcontainer** | `.devcontainer/docker-compose.yml` | VS Code, JetBrains IDEs |
-| **CLI** | `docker-compose.yml` | Terminal users, non-devcontainer editors |
-
-Both modes run a two-container stack: a proxy sidecar (mitmproxy) and the agent container. The separate compose files allow both to run simultaneously without container or volume name conflicts.
+Both modes run a two-container stack: a proxy sidecar (mitmproxy) and the agent container.
 
 ## Quick start (macOS + Colima)
 
@@ -50,39 +45,26 @@ colima start --cpu 4 --memory 8 --disk 60
 
 Set your Docker credential helper to `osxkeychain` (not `desktop`) in `~/.docker/config.json`.
 
-### 2. Set up network policy files
-
-The network proxy reads its policy from a file on the host. Clone the repo and copy the examples:
+### 2. Copy template to your project
 
 ```bash
 git clone https://github.com/mattolson/agent-sandbox.git
-mkdir -p ~/.config/agent-sandbox/policies
-cp agent-sandbox/docs/policy/examples/* ~/.config/agent-sandbox/policies/
-```
-
-### 3. Copy template to your project
-
-#### Option A: Devcontainer (VS Code / JetBrains)
-
-```bash
 cp -r agent-sandbox/templates/claude/.devcontainer /path/to/your/project/
+cp agent-sandbox/templates/claude/.env /path/to/your/project/
 ```
 
-**VS Code:**
+The `.devcontainer/` directory contains the compose file, devcontainer config, and network policy. The `.env` file tells Docker Compose where to find the compose file.
 
-- Install the Dev Containers extension
-- Command Palette -> Dev Containers: Reopen in Container
+### 3. Start the sandbox
 
-**JetBrains (IntelliJ, PyCharm, WebStorm, etc.):**
+**Devcontainer (VS Code / JetBrains):**
 
-- Open your project
-- From the Remote Development menu, select "Dev Containers"
-- Select the devcontainer configuration
+- VS Code: Install the Dev Containers extension, then Command Palette -> Dev Containers: Reopen in Container
+- JetBrains: From the Remote Development menu, select "Dev Containers" and choose the configuration
 
-#### Option B: Docker Compose (CLI)
+**CLI (terminal):**
 
 ```bash
-cp agent-sandbox/templates/claude/docker-compose.yml /path/to/your/project/
 cd /path/to/your/project
 docker compose up -d
 docker compose exec agent zsh
@@ -113,12 +95,9 @@ The proxy's CA certificate is shared via a Docker volume and automatically insta
 
 ### Customizing the policy
 
-Policy files live on the host at `~/.config/agent-sandbox/policies/`. The compose files mount the appropriate policy based on mode:
+The network policy lives in your project at `.devcontainer/policy.yaml`. This file is checked into version control and shared with your team.
 
-- CLI: `policies/claude.yaml`
-- Devcontainer: `policies/claude-devcontainer.yaml`
-
-To add project-specific domains, edit your policy file:
+To add project-specific domains, edit the policy file:
 
 ```yaml
 services:
@@ -130,7 +109,7 @@ domains:
   - pypi.org
 ```
 
-The policy file must live outside the workspace. If it were inside, the agent could modify it to allow exfiltration.
+The `.devcontainer/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy, compose file, or devcontainer config. The proxy only reads the policy at startup, so changes require a human-initiated restart from the host.
 
 See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format reference.
 

@@ -62,20 +62,20 @@ If `PROXY_MODE=enforce` and no policy file exists at `/etc/mitmproxy/policy.yaml
 There are two places a policy can come from:
 
 1. **Baked into the proxy image** at build time (`images/proxy/policy.yaml`). The default blocks all traffic.
-2. **Mounted from the host** at runtime, overriding the baked-in default.
+2. **Mounted at runtime** from the project's `.devcontainer/policy.yaml`, overriding the baked-in default.
 
-To mount a custom policy in docker-compose.yml:
+The template compose files mount the policy from `.devcontainer/policy.yaml`:
 
 ```yaml
 # Under proxy.volumes:
-- ${HOME}/.config/agent-sandbox/policy.yaml:/etc/mitmproxy/policy.yaml:ro
+- ./policy.yaml:/etc/mitmproxy/policy.yaml:ro
 ```
 
-The policy file must live outside the workspace. If it were inside, the agent could modify its own allowlist.
+The `.devcontainer/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy. The proxy only reads the policy at startup, so changes require a human-initiated restart.
 
 ## Examples
 
-See [examples/](./examples/) for ready-to-use policy files.
+Each template ships a policy file at `.devcontainer/policy.yaml`. See the template directories for ready-to-use policies:
 
-- [claude.yaml](./examples/claude.yaml) - Claude Code (GitHub + Anthropic API)
-- [copilot.yaml](./examples/copilot.yaml) - GitHub Copilot CLI (GitHub + Copilot API)
+- [Claude Code](../../templates/claude/.devcontainer/policy.yaml)
+- [GitHub Copilot CLI](../../templates/copilot/.devcontainer/policy.yaml)

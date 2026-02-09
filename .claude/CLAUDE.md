@@ -10,12 +10,7 @@ Agent Sandbox creates locked-down local sandboxes for running AI coding agents (
 
 ## Development Environment
 
-This project uses Docker Compose with a proxy sidecar. Two modes are available:
-
-- **Devcontainer mode** (`.devcontainer/docker-compose.yml`) - For VS Code users, uses published images from ghcr.io
-- **CLI mode** (`docker-compose.yml`) - For terminal usage, uses locally-built `:local` images
-
-Both use separate compose files to allow running simultaneously without conflicts.
+This project uses Docker Compose with a proxy sidecar. A single compose file at `.devcontainer/docker-compose.yml` works for both devcontainer (VS Code/JetBrains) and CLI usage. A `.env` file at the project root sets `COMPOSE_FILE` so that `docker compose` commands work from the project directory.
 
 The container runs Debian bookworm with:
 - Non-root `dev` user (uid/gid 500)
@@ -24,13 +19,6 @@ The container runs Debian bookworm with:
 - SSH disabled (git must use HTTPS, URLs are auto-rewritten)
 
 ### Setup (one-time)
-
-Copy the policy files to your host:
-```bash
-mkdir -p ~/.config/agent-sandbox/policies
-cp docs/policy/examples/claude.yaml ~/.config/agent-sandbox/policies/claude.yaml
-cp docs/policy/examples/claude-devcontainer.yaml ~/.config/agent-sandbox/policies/claude-devcontainer.yaml
-```
 
 Build local images:
 ```bash
@@ -71,21 +59,15 @@ Adding a new service requires modifying `enforcer.py`. For one-off domains, use 
 
 ### Customizing the Policy
 
-Policy files live on the host at `~/.config/agent-sandbox/policies/`. The compose files mount the appropriate policy:
-
-- CLI mode: `claude.yaml`
-- Devcontainer mode: `claude-devcontainer.yaml`
-
-Policy must come from outside the workspace for security (prevents agent from modifying its own allowlist).
+The network policy lives in the project at `.devcontainer/policy.yaml`. The `.devcontainer/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy. The proxy only reads the policy at startup.
 
 ## Architecture
 
-Four components:
+Three components:
 
 1. **Images** (`images/`) - Base image, agent-specific images, and proxy image
 2. **Templates** (`templates/`) - Ready-to-copy templates for each supported agent
-3. **Runtime** (`docker-compose.yml`) - Docker Compose stack for developing this project
-4. **Devcontainer** (`.devcontainer/`) - VS Code devcontainer for developing this project
+3. **Runtime** (`.devcontainer/docker-compose.yml`) - Docker Compose stack for developing this project
 
 The base image contains the firewall script and common tools. Agent images extend it with agent-specific software. The proxy image runs mitmproxy with the policy enforcement addon.
 
