@@ -1,7 +1,7 @@
 {
   "name": "Agent Sandbox Development",
   "dockerComposeFile": "docker-compose.yml",
-  "service": "agent",
+  "service": "claude",
   "workspaceFolder": "/workspace",
   "customizations": {
     "vscode": {
@@ -18,8 +18,14 @@
     },
     "jetbrains": {
       "settings": {
-        "com.intellij:app:HttpConfigurable.use_proxy_pac": true
-      }
+        "com.intellij:app:HttpConfigurable.use_http_proxy": true,
+        "com.intellij:app:HttpConfigurable.proxy_host": "proxy",
+        "com.intellij:app:HttpConfigurable.proxy_port": "8080",
+        "com.intellij:app:HttpConfigurable.proxy_exceptions": "localhost,127.0.0.1,proxy"
+      },
+      "plugins" : [
+        "com.anthropic.code.plugin"
+      ]
     }
   },
   "remoteUser": "dev",

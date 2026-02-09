@@ -1,0 +1,12 @@
+# Claude Code sandbox network policy
+#
+# Domains allowed through the proxy. All other traffic is blocked with 403.
+# Changes take effect on proxy restart: docker compose restart proxy
+#
+# See docs/policy/schema.md for the full format reference.
+
+services:
+  - github
+  - claude
+  - vscode
+  - jetbrains
