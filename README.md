@@ -138,56 +138,41 @@ Changes take effect on proxy restart: `docker compose restart proxy`
 
 ## Shell customization
 
-You can inject custom shell configuration (aliases, environment variables, tool setup) by mounting scripts to `~/.config/agent-sandbox/shell.d/`. Any `*.sh` files in this directory are sourced when zsh starts.
+Two mechanisms for customizing the container environment, both mounted read-only from the host.
 
-### Setup
+### Dotfiles
 
-Create your customization directory and scripts on the host:
-
-```bash
-mkdir -p ~/.config/agent-sandbox/shell.d
-```
-
-Example script (`~/.config/agent-sandbox/shell.d/my-aliases.sh`):
-
-```bash
-# Custom aliases
-alias ll='ls -la'
-alias gs='git status'
-
-# Environment variables
-export EDITOR=vim
-```
-
-### Mounting the directory
-
-Uncomment the shell.d mount in your compose file:
+Mount your dotfiles directory to have them auto-linked into `$HOME` at container startup:
 
 ```yaml
-# docker-compose.yml or .devcontainer/docker-compose.yml
 volumes:
-  - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
-```
-
-### Using dotfiles
-
-For more complex setups, mount your dotfiles directory and use a shell.d script to symlink them:
-
-```yaml
-# In your compose file
-volumes:
-  - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
   - ${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro
 ```
 
-**`~/.config/agent-sandbox/shell.d/dotfiles.sh`:**
-```bash
-# Symlink dotfiles on shell start
-[ -f ~/.dotfiles/.vimrc ] && ln -sf ~/.dotfiles/.vimrc ~/.vimrc
-[ -f ~/.dotfiles/.gitconfig ] && ln -sf ~/.dotfiles/.gitconfig ~/.gitconfig
+The entrypoint recursively walks `~/.dotfiles` and creates symlinks for each file at the corresponding `$HOME` path, creating intermediate directories as needed. For example, `.dotfiles/.config/git/config` becomes `~/.config/git/config`.
+
+Protected paths (`.config/agent-sandbox`) are never overwritten. Docker bind mounts (like individually mounted config files) take precedence over dotfile symlinks.
+
+### Shell.d scripts
+
+Mount scripts into `~/.config/agent-sandbox/shell.d/` to inject aliases, environment variables, or tool setup. Any `*.sh` files are sourced when zsh starts, before `~/.zshrc`.
+
+```yaml
+volumes:
+  - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
 ```
 
-The mount is read-only, so the agent cannot modify your host configuration.
+Example (`~/.config/agent-sandbox/shell.d/my-aliases.sh`):
+
+```bash
+alias ll='ls -la'
+alias gs='git status'
+export EDITOR=vim
+```
+
+Shell.d scripts run from the system-level zshrc (`/etc/zsh/zshrc`), so dotfiles can include a custom `.zshrc` without breaking agent-sandbox functionality.
+
+Both mounts are read-only. The agent cannot modify your host configuration. Uncomment the relevant volume lines in your compose file to enable either or both.
 
 ## Git configuration
 

@@ -218,6 +218,9 @@ For example, if your dotfiles contain:
 .dotfiles/
   .zshrc
   .gitconfig
+  .claude/
+    CLAUDE.md
+    settings.json
   .config/
     git/config
     starship.toml
@@ -226,6 +229,8 @@ For example, if your dotfiles contain:
 The container will have:
 - `~/.zshrc` -> `~/.dotfiles/.zshrc`
 - `~/.gitconfig` -> `~/.dotfiles/.gitconfig`
+- `~/.claude/CLAUDE.md` -> `~/.dotfiles/.claude/CLAUDE.md`
+- `~/.claude/settings.json` -> `~/.dotfiles/.claude/settings.json`
 - `~/.config/git/config` -> `~/.dotfiles/.config/git/config`
 - `~/.config/starship.toml` -> `~/.dotfiles/.config/starship.toml`
 
