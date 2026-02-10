@@ -7,7 +7,7 @@ setup() {
 
 	COMPOSE_FILE="$BATS_TEST_TMPDIR/docker-compose.yml"
 
-	cat > "$COMPOSE_FILE" <<'EOF'
+	cat >"$COMPOSE_FILE" <<'EOF'
 services:
   proxy:
     image: placeholder

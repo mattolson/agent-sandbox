@@ -14,47 +14,49 @@ source "$AGB_LIBDIR/select.bash"
 #   - Prompts to select mode (cli/devcontainer)
 #   - Creates a network policy file
 #   - Sets up the selected mode configuration files
-init(){
-  local project_path
-  project_path=$(read_line "Enter project path (empty for current directory):")
+init() {
+	local project_path
+	project_path=$(read_line "Enter project path (empty for current directory):")
 
-  if [[ -z "$project_path" ]]; then
-    project_path="."
-  fi
+	if [[ -z "$project_path" ]]
+	then
+		project_path="."
+	fi
 
-  if [[ ! -d "$project_path" ]]; then
-    echo "Directory does not exist: $project_path" | error
-    return 1
-  fi
-  project_path=$(cd "$project_path" && pwd)
+	if [[ ! -d "$project_path" ]]
+	then
+		echo "Directory does not exist: $project_path" | error
+		return 1
+	fi
+	project_path=$(cd "$project_path" && pwd)
 
-  echo "Configuring project at: $project_path" | info
+	echo "Configuring project at: $project_path" | info
 
-  local available_agents=(claude copilot)
-  local agent
-  agent=$(select_option "Select agent:" "${available_agents[@]}")
+	local available_agents=(claude copilot)
+	local agent
+	agent=$(select_option "Select agent:" "${available_agents[@]}")
 
-  local available_modes=(cli devcontainer)
-  local mode
-  mode=$(select_option "Select mode:" "${available_modes[@]}")
+	local available_modes=(cli devcontainer)
+	local mode
+	mode=$(select_option "Select mode:" "${available_modes[@]}")
 
-  local policy_file="$AGB_PROJECT_DIR/$mode-policy.yaml"
+	local policy_file="$AGB_PROJECT_DIR/$mode-policy.yaml"
 
-  #TODO: preselect services based on agent/mode
-  policy "$project_path/$policy_file"
+	#TODO: preselect services based on agent/mode
+	policy "$project_path/$policy_file"
 
-  case "$mode" in
-    cli)
-      cli "$agent" "$project_path" "$policy_file"
-      ;;
-    devcontainer)
-      devcontainer "$agent" "$project_path" "$policy_file"
-      ;;
-    *)
-      echo "Invalid mode selected: $mode" | error
-      return 1
-      ;;
-  esac
+	case "$mode" in
+	cli)
+		cli "$agent" "$project_path" "$policy_file"
+		;;
+	devcontainer)
+		devcontainer "$agent" "$project_path" "$policy_file"
+		;;
+	*)
+		echo "Invalid mode selected: $mode" | error
+		return 1
+		;;
+	esac
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]

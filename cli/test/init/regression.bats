@@ -73,7 +73,8 @@ assert_named_volumes() {
 	shift
 	local volume_names=("$@")
 
-	for volume_name in "${volume_names[@]}"; do
+	for volume_name in "${volume_names[@]}"
+	do
 		volume_name="$volume_name" yq -e '.volumes | select(has(env(volume_name)))' "$compose_file"
 	done
 }
@@ -205,7 +206,7 @@ copilot_agent_compose_file_has_expected_content() {
 		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
 		"ghcr.io/mattolson/agent-sandbox-copilot:latest : echo 'ghcr.io/mattolson/agent-sandbox-copilot@sha256:ghi789'"
 
-	run devcontainer "copilot"  "$PROJECT_DIR" "$POLICY_FILE"
+	run devcontainer "copilot" "$PROJECT_DIR" "$POLICY_FILE"
 	assert_success
 	assert_output --regexp ".*Devcontainer dir created at $PROJECT_DIR/.devcontainer"
 

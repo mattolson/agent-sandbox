@@ -7,11 +7,11 @@ set -eu
 		-print0
 	find bin libexec -type f -print0
 } |
-{
-	if [ "${1-}" = "--list" ]
-	then
-		xargs -0r printf '%s\n'
-	else
-		xargs -0r shellcheck
-	fi
-}
+	{
+		if [ "${1-}" = "--list" ]
+		then
+			xargs -0r printf '%s\n'
+		else
+			xargs -0r shellcheck
+		fi
+	}

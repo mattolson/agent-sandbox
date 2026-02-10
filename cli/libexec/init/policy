@@ -15,28 +15,28 @@ source "$AGB_LIBDIR/select.bash"
 #   $1 - Optional path to policy file (default: $AGB_POLICY_DIR/<current-dir>.yaml)
 # Outputs:
 #   Creates a YAML policy file with services and domains lists
-policy(){
-  local policy_file=$1
+policy() {
+	local policy_file=$1
 
-  require yq
+	require yq
 
-  # see images/proxy/addons/enforcer.py
-  local available_services=(claude copilot vscode jetbrains github)
+	# see images/proxy/addons/enforcer.py
+	local available_services=(claude copilot vscode jetbrains github)
 
-  local services domains
+	local services domains
 
-  services=$(select_multiple "Select allowed services" "${available_services[@]}")
+	services=$(select_multiple "Select allowed services" "${available_services[@]}")
 
-  domains=$(read_multiline "Enter additional domains to allow")
+	domains=$(read_multiline "Enter additional domains to allow")
 
-  mkdir -p "$(dirname -- "$policy_file")"
+	mkdir -p "$(dirname -- "$policy_file")"
 
-  services="$services" domains="$domains" yq -n '
+	services="$services" domains="$domains" yq -n '
     .services = (strenv(services) | split("\n") ) |
     .domains = (strenv(domains) | split("\n") )
-  ' > "$policy_file"
+  ' >"$policy_file"
 
-  echo "Policy file created at: $policy_file" | info
+	echo "Policy file created at: $policy_file" | info
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
