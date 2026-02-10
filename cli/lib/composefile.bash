@@ -19,7 +19,7 @@ source "$AGB_LIBDIR/path.bash"
 #   $2 - Path to the policy file to mount, relative to the Docker Compose file directory
 #   $3 - Path to the Docker Compose file to modify
 #
-customize_compose_file(){
+customize_compose_file() {
 	local agent=$1
 	local policy_file=$2
 	local compose_file=$3
@@ -73,11 +73,11 @@ customize_compose_file(){
 #   $1 - Path to the Docker Compose file
 #   $2 - Image reference (can be tag or digest)
 set_proxy_image() {
-  require yq
-  local compose_file=$1
-  local image=$2
+	require yq
+	local compose_file=$1
+	local image=$2
 
-  image="$image" yq -i '.services.proxy.image = env(image)' "$compose_file"
+	image="$image" yq -i '.services.proxy.image = env(image)' "$compose_file"
 }
 
 # Sets the agent service image in a Docker Compose file.
@@ -85,11 +85,11 @@ set_proxy_image() {
 #   $1 - Path to the Docker Compose file
 #   $2 - Image reference (can be tag or digest)
 set_agent_image() {
-  require yq
-  local compose_file=$1
-  local image=$2
+	require yq
+	local compose_file=$1
+	local image=$2
 
-  image="$image" yq -i '.services.agent.image = env(image)' "$compose_file"
+	image="$image" yq -i '.services.agent.image = env(image)' "$compose_file"
 }
 
 # Adds policy volume mount to the proxy service.
@@ -97,54 +97,54 @@ set_agent_image() {
 #   $1 - Path to the Docker Compose file
 #   $2 - Path to the policy file (relative to compose file)
 add_policy_volume() {
-  require yq
-  local compose_file=$1
-  local policy_file=$2
+	require yq
+	local compose_file=$1
+	local policy_file=$2
 
-  policy_file="$policy_file" yq -i \
-    '.services.proxy.volumes += [env(policy_file) + ":/etc/mitmproxy/policy.yaml:ro"]' "$compose_file"
+	policy_file="$policy_file" yq -i \
+		'.services.proxy.volumes += [env(policy_file) + ":/etc/mitmproxy/policy.yaml:ro"]' "$compose_file"
 }
 
 # Adds Claude config volume mounts to the agent service.
 # Args:
 #   $1 - Path to the Docker Compose file
 add_claude_config_volumes() {
-  require yq
-  local compose_file=$1
+	require yq
+	local compose_file=$1
 
-  # shellcheck disable=SC2016
-  yq -i \
-    '.services.agent.volumes += [
-      "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro",
-      "${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro"
-    ]' "$compose_file"
+	# shellcheck disable=SC2016
+	yq -i \
+		'.services.agent.volumes += [
+			"${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro",
+			"${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro"
+		]' "$compose_file"
 }
 
 # Adds shell customizations volume mount to the agent service.
 # Args:
 #   $1 - Path to the Docker Compose file
 add_shell_customizations_volume() {
-  require yq
-  local compose_file=$1
+	require yq
+	local compose_file=$1
 
-  yq -i \
-    '.services.agent.volumes += [
-      env(AGB_HOME_PATTERN) + "/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro"
-    ]' "$compose_file"
+	yq -i \
+		'.services.agent.volumes += [
+			env(AGB_HOME_PATTERN) + "/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro"
+		]' "$compose_file"
 }
 
 # Adds dotfiles volume mount to the agent service.
 # Args:
 #   $1 - Path to the Docker Compose file
 add_dotfiles_volume() {
-  require yq
-  local compose_file=$1
+	require yq
+	local compose_file=$1
 
-  # shellcheck disable=SC2016
-  yq -i \
-    '.services.agent.volumes += [
-      "${HOME}/.dotfiles:/home/dev/.dotfiles:ro"
-    ]' "$compose_file"
+	# shellcheck disable=SC2016
+	yq -i \
+		'.services.agent.volumes += [
+			"${HOME}/.dotfiles:/home/dev/.dotfiles:ro"
+		]' "$compose_file"
 }
 
 # Pulls an image and returns its digest.
@@ -153,7 +153,8 @@ add_dotfiles_volume() {
 pull_and_pin_image() {
 	local image=$1
 
-	if [[ $image == *:local ]] || [[ $image != */* ]]; then
+	if [[ $image == *:local ]] || [[ $image != */* ]]
+	then
 		echo "$image"
 		return 0
 	fi

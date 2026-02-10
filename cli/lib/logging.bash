@@ -4,7 +4,7 @@
 # Example usage:
 # `echo 'Terrible error' | error`
 
-if ! command -v tput &> /dev/null
+if ! command -v tput &>/dev/null
 then
 	tput() { :; }
 fi

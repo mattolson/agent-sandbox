@@ -13,24 +13,24 @@ source "$AGB_LIBDIR/composefile.bash"
 #   $1 - The agent name (e.g., "claude")
 #   $2 - Path to the project directory
 #   $3 - Path to the policy file (relative to project directory)
-cli(){
-  local agent=$1
-  local project_path=$2
-  local policy_file=$3
+cli() {
+	local agent=$1
+	local project_path=$2
+	local policy_file=$3
 
 	local compose_dir="$project_path/$AGB_PROJECT_DIR"
-  local compose_file="$compose_dir/docker-compose.yml"
+	local compose_file="$compose_dir/docker-compose.yml"
 
 	mkdir -p "$compose_dir"
-  cp \
-    "$AGB_TEMPLATEDIR/$agent/cli/docker-compose.yml" \
-    "$compose_dir"
+	cp \
+		"$AGB_TEMPLATEDIR/$agent/cli/docker-compose.yml" \
+		"$compose_dir"
 
 	local rel_policy_file="../$policy_file"
 
 	customize_compose_file "$agent" "$rel_policy_file" "$compose_file"
 
-  echo "Compose file created at $compose_file" | info
+	echo "Compose file created at $compose_file" | info
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]

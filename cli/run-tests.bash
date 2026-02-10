@@ -52,7 +52,7 @@ do
 			--filter-tags '!no-coverage' \
 			${BATS_OPTS:-} \
 			${bats_opts:-} \
-			"$dir" 2> /dev/null ||
+			"$dir" 2>/dev/null ||
 			success=false
 	else
 		"$bats_cmd" \

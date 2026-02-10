@@ -13,24 +13,24 @@ source "$AGB_LIBDIR/composefile.bash"
 #   $1 - The agent name (e.g., "claude")
 #   $2 - Path to the project directory
 #   $3 - Path to the policy file (relative to project directory)
-devcontainer(){
-  local agent=$1
-  local project_path=$2
-  local policy_file=$3
+devcontainer() {
+	local agent=$1
+	local project_path=$2
+	local policy_file=$3
 
-  local devcontainer_dir="$project_path/.devcontainer"
-  local compose_file="$devcontainer_dir/docker-compose.yml"
+	local devcontainer_dir="$project_path/.devcontainer"
+	local compose_file="$devcontainer_dir/docker-compose.yml"
 
-  mkdir -p "$devcontainer_dir"
-  cp -r \
-    "$AGB_TEMPLATEDIR/$agent/devcontainer/"* \
-    "$devcontainer_dir"
+	mkdir -p "$devcontainer_dir"
+	cp -r \
+		"$AGB_TEMPLATEDIR/$agent/devcontainer/"* \
+		"$devcontainer_dir"
 
-  local rel_policy_file="../$policy_file"
+	local rel_policy_file="../$policy_file"
 
-  customize_compose_file "$agent" "$rel_policy_file" "$compose_file"
+	customize_compose_file "$agent" "$rel_policy_file" "$compose_file"
 
-  echo "Devcontainer dir created at $devcontainer_dir" | info
+	echo "Devcontainer dir created at $devcontainer_dir" | info
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]

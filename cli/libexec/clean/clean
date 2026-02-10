@@ -5,29 +5,32 @@ shopt -s inherit_errexit lastpipe
 # shellcheck source=../../lib/logging.bash
 source "$AGB_LIBDIR/logging.bash"
 
-clean(){
-  if [[ -d "$AGB_PROJECT_DIR" ]]; then
-  	if [[ -f "docker-compose.yml" ]]; then
+clean() {
+	if [[ -d "$AGB_PROJECT_DIR" ]]
+	then
+		if [[ -f "docker-compose.yml" ]]
+		then
 			echo "Stopping containers" | warning
 			docker-compose down --volumes
 
-  		echo "Removing docker-compose.yml" | warning
-  		rm docker-compose.yml
-  	fi
+			echo "Removing docker-compose.yml" | warning
+			rm docker-compose.yml
+		fi
 
-    echo "Removing $AGB_PROJECT_DIR" | warning
-    rm -rf "$AGB_PROJECT_DIR"
+		echo "Removing $AGB_PROJECT_DIR" | warning
+		rm -rf "$AGB_PROJECT_DIR"
 
-    if [[ -d ".devcontainer" ]]; then
+		if [[ -d ".devcontainer" ]]
+		then
 			echo "Stopping devcontainers" | warning
 			docker-compose --project-directory .devcontainer down --volumes
 
 			echo "Removing devcontainers" | warning
 			rm -rf ".devcontainer"
-    fi
-  else
-    echo "Directory $AGB_PROJECT_DIR not found - aborting" | error
-  fi
+		fi
+	else
+		echo "Directory $AGB_PROJECT_DIR not found - aborting" | error
+	fi
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
