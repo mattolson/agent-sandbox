@@ -1,10 +1,6 @@
-# GitHub Copilot CLI Sandbox - Devcontainer mode
+# GitHub Copilot CLI Sandbox
 #
-# Used by VS Code devcontainer. Separate from root docker-compose.yml to allow
-# both to run simultaneously without container/volume name conflicts.
-#
-# Requires policy file at ~/.config/agent-sandbox/policies/copilot-devcontainer.yaml
-# See README.md for setup instructions.
+# Works with both devcontainer (VS Code, JetBrains) and CLI usage.
 
 services:
   proxy:
