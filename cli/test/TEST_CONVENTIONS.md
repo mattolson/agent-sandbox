@@ -1,6 +1,7 @@
 # BATS Test Conventions
 
 ## Structure
+
 ```
 cli/test/<module>/
 ├── test_helper.bash       # Standard setup (see below)
@@ -8,6 +9,7 @@ cli/test/<module>/
 ```
 
 ## test_helper.bash Template
+
 ```bash
 #!/bin/bash
 bats_require_minimum_version 1.5.0
@@ -24,6 +26,7 @@ export AGB_ROOT AGB_LIBDIR="$AGB_ROOT/lib"
 ```
 
 ## Test File Template
+
 ```bash
 #!/usr/bin/env bats
 
@@ -45,20 +48,24 @@ teardown() {
 ```
 
 ## Assertions
+
 - `assert_success` / `assert_failure` - Exit code
 - `assert_output "exact"` - Exact match
 - `assert_output --partial "substr"` - Contains
 - `assert_line "text"` - Specific line
 - `assert_equal "$actual" "$expected"` - Equality
 
-Always use `run` before assertions. Never capture output with `$()`.
+Use `run` only when you need to check exit code or output. Never capture output with `$()`.
+If the only assertion would be `assert_success`, run the command directly without `run`/`assert_success`.
 
 ## Stubbing
+
 ```bash
 stub docker \
 	"pull image:tag : :" \
 	"inspect image:tag : echo 'output'"
 ```
+
 - Match exact args
 - `: :` = silent success
 - `: echo 'output'` = return output
@@ -67,29 +74,35 @@ stub docker \
 ## yq Usage
 
 ### Existence Checks
+
 Use `yq -e` (exits non-zero if no match):
+
 ```bash
-run yq -e '.services.agent.volumes[] | select(. == "exact:match")' "$FILE"
-assert_success
+yq -e '.services.agent.volumes[] | select(. == "exact:match")' "$FILE"
 ```
+
 Without `-e`, no match still exits 0 (false positive).
 
 ### Variable Interpolation
+
 Use `env()`, not string concatenation:
+
 ```bash
 var="$var" run yq -e '.volumes | select(has(env(var)))' "$FILE"
 ```
 
 ## Testability Pattern
+
 Extract pure functions from user interaction:
+
 ```bash
 # Pure (test without stubs)
 set_image() { yq -i '.services.agent.image = env(image)' "$file"; }
 
 # Orchestrator (one integration test with stubs)
 customize_file() {
-    image=$(read_line "Image:")
-    set_image "$image"
+	image=$(read_line "Image:")
+	set_image "$image"
 }
 ```
 

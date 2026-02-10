@@ -57,70 +57,53 @@ teardown() {
 }
 
 @test "set_proxy_image sets image with tag" {
-	run set_proxy_image "$COMPOSE_FILE" "nginx:latest"
-
-	assert_success
+	set_proxy_image "$COMPOSE_FILE" "nginx:latest"
 
 	run yq '.services.proxy.image' "$COMPOSE_FILE"
 	assert_output "nginx:latest"
 }
 
 @test "set_agent_image sets image with digest" {
-	run set_agent_image "$COMPOSE_FILE" "ghcr.io/example/agent@sha256:def456"
-
-	assert_success
+	set_agent_image "$COMPOSE_FILE" "ghcr.io/example/agent@sha256:def456"
 
 	run yq '.services.agent.image' "$COMPOSE_FILE"
 	assert_output "ghcr.io/example/agent@sha256:def456"
 }
 
 @test "add_policy_volume adds policy mount to proxy service" {
-	run add_policy_volume "$COMPOSE_FILE" "policy.yaml"
+	add_policy_volume "$COMPOSE_FILE" "policy.yaml"
 
-	assert_success
-
-	run yq -e '.services.proxy.volumes[] | select(. == "policy.yaml:/etc/mitmproxy/policy.yaml:ro")' "$COMPOSE_FILE"
-	assert_success
+	yq -e '.services.proxy.volumes[] | select(. == "policy.yaml:/etc/mitmproxy/policy.yaml:ro")' "$COMPOSE_FILE"
 }
 
 @test "add_claude_config_volumes adds CLAUDE.md and settings.json" {
-	run add_claude_config_volumes "$COMPOSE_FILE"
-
-	assert_success
+	add_claude_config_volumes "$COMPOSE_FILE"
 
 	run yq '.services.agent.volumes | length' "$COMPOSE_FILE"
 	assert_output "2"
 
 	# shellcheck disable=SC2016
-	run yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro")' "$COMPOSE_FILE"
-	assert_success
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro")' "$COMPOSE_FILE"
 
 	# shellcheck disable=SC2016
-	run yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro")' "$COMPOSE_FILE"
-	assert_success
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro")' "$COMPOSE_FILE"
 }
 
 @test "add_shell_customizations_volume adds shell.d mount" {
 	# shellcheck disable=SC2016
 	export AGB_HOME_PATTERN='${HOME}/.config/agent-sandbox'
 
-	run add_shell_customizations_volume "$COMPOSE_FILE"
-
-	assert_success
+	add_shell_customizations_volume "$COMPOSE_FILE"
 
 	# shellcheck disable=SC2016
-	run yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro")' "$COMPOSE_FILE"
-	assert_success
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro")' "$COMPOSE_FILE"
 }
 
 @test "add_dotfiles_volume adds dotfiles mount" {
-	run add_dotfiles_volume "$COMPOSE_FILE"
-
-	assert_success
+	add_dotfiles_volume "$COMPOSE_FILE"
 
 	# shellcheck disable=SC2016
-	run yq -e '.services.agent.volumes[] | select(. == "${HOME}/.dotfiles:/home/dev/.dotfiles:ro")' "$COMPOSE_FILE"
-	assert_success
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.dotfiles:/home/dev/.dotfiles:ro")' "$COMPOSE_FILE"
 }
 
 @test "customize_compose_file handles full workflow with all options enabled" {
@@ -140,9 +123,7 @@ teardown() {
 		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
 		"ghcr.io/mattolson/agent-sandbox-claude:latest : echo 'ghcr.io/mattolson/agent-sandbox-claude@sha256:def456'"
 
-	run customize_compose_file "claude" "$POLICY_FILE" "$COMPOSE_FILE"
-
-	assert_success
+	customize_compose_file "claude" "$POLICY_FILE" "$COMPOSE_FILE"
 
 	# Verify images
 	run yq '.services.proxy.image' "$COMPOSE_FILE"
@@ -152,26 +133,21 @@ teardown() {
 	assert_output "ghcr.io/mattolson/agent-sandbox-claude@sha256:def456"
 
 	# Verify policy volume on proxy
-	run yq -e '.services.proxy.volumes[] | select(. == "policy.yaml:/etc/mitmproxy/policy.yaml:ro")' "$COMPOSE_FILE"
-	assert_success
+	yq -e '.services.proxy.volumes[] | select(. == "policy.yaml:/etc/mitmproxy/policy.yaml:ro")' "$COMPOSE_FILE"
 
 	# Verify all agent volumes are present (2 Claude + shell.d + dotfiles = 4)
 	run yq '.services.agent.volumes | length' "$COMPOSE_FILE"
 	assert_output "4"
 
 	# shellcheck disable=SC2016
-	run yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro")' "$COMPOSE_FILE"
-	assert_success
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro")' "$COMPOSE_FILE"
 
 	# shellcheck disable=SC2016
-	run yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro")' "$COMPOSE_FILE"
-	assert_success
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro")' "$COMPOSE_FILE"
 
 	# shellcheck disable=SC2016
-	run yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro")' "$COMPOSE_FILE"
-	assert_success
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro")' "$COMPOSE_FILE"
 
 	# shellcheck disable=SC2016
-	run yq -e '.services.agent.volumes[] | select(. == "${HOME}/.dotfiles:/home/dev/.dotfiles:ro")' "$COMPOSE_FILE"
-	assert_success
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.dotfiles:/home/dev/.dotfiles:ro")' "$COMPOSE_FILE"
 }
