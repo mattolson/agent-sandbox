@@ -16,6 +16,10 @@ Removes the agent-sandbox files for a project.
 
 Displays version information for the agent-sandbox project.
 
+### `agentbox bump`
+
+Updates Docker images in the compose file to their latest digests. Reads the current images from the compose file, pulls the latest versions, and updates the compose file with the new digests. Local images (with `:local` tag or without registry prefix) are skipped.
+
 ## Directory Structure
 
 Each module is contained in its own directory under `cli/libexec/`.
