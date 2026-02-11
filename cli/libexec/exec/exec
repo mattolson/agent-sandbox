@@ -2,24 +2,12 @@
 set -euo pipefail
 shopt -s inherit_errexit lastpipe
 
-# shellcheck source=../../lib/logging.bash
-source "$AGB_LIBDIR/logging.bash"
-# shellcheck source=../../lib/require.bash
-source "$AGB_LIBDIR/require.bash"
-# shellcheck source=../../lib/path.bash
-source "$AGB_LIBDIR/path.bash"
-
 # Execute a command in the agent container.
 # Ensures containers are running before executing the command.
 exec_function() { # don't redefine `exec`
-	require docker
+	"$AGB_LIBEXECDIR/compose/compose" up -d
 
-	local compose_file
-	compose_file="$(find_compose_file)"
-
-	docker compose -f "$compose_file" up -d
-
-	exec docker compose -f "$compose_file" exec agent "${1-zsh}" "${@:2}"
+	exec "$AGB_LIBEXECDIR/compose/compose" exec agent "${1-zsh}" "${@:2}"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
