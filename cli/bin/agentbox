@@ -21,6 +21,7 @@ main() {
 	AGB_ROOT="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.."
 	export AGB_ROOT
 	export AGB_LIBDIR="$AGB_ROOT/lib"
+	export AGB_LIBEXECDIR="$AGB_ROOT/libexec"
 	export AGB_TEMPLATEDIR="$AGB_ROOT/templates"
 
 	# TODO move to lib
@@ -29,7 +30,7 @@ main() {
 	export AGB_PROJECT_DIR='./.agent-sandbox'
 
 	local -a modules
-	find "$AGB_ROOT/libexec" \
+	find "$AGB_LIBEXECDIR" \
 		-mindepth 1 \
 		-maxdepth 1 \
 		-type d \
@@ -75,7 +76,7 @@ To list available commands use: ${BASH_SOURCE[0]} <module> help
 	if [[ "$command" == "help" ]]
 	then
 		echo "Commands in $module:" >&2
-		find "$AGB_ROOT/libexec/$module" \
+		find "$AGB_LIBEXECDIR/$module" \
 			-maxdepth 1 \
 			-type f \
 			-executable \
@@ -89,10 +90,10 @@ To list available commands use: ${BASH_SOURCE[0]} <module> help
 		exit 0
 	fi
 
-	local exec="$AGB_ROOT/libexec/$module/$command"
+	local exec="$AGB_LIBEXECDIR/$module/$command"
 	if ! [[ -x "$exec" ]]
 	then
-		exec="$AGB_ROOT/libexec/$module/_"
+		exec="$AGB_LIBEXECDIR/$module/_"
 		if ! [[ -x "$exec" ]]
 		then
 			echo "Command '$command' not found in $module" >&2
@@ -103,9 +104,9 @@ To list available commands use: ${BASH_SOURCE[0]} <module> help
 		fi
 	fi
 
-	"$AGB_ROOT/libexec/version/version" "Agent Sandbox"
+	"$AGB_LIBEXECDIR/version/version" "Agent Sandbox"
 
-	export PATH="$AGB_ROOT/libexec/$module:$PATH"
+	export PATH="$AGB_LIBEXECDIR/$module:$PATH"
 
 	exec "$exec" "$@"
 }
