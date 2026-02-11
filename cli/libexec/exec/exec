@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+shopt -s inherit_errexit lastpipe
+
+# shellcheck source=../../lib/logging.bash
+source "$AGB_LIBDIR/logging.bash"
+# shellcheck source=../../lib/require.bash
+source "$AGB_LIBDIR/require.bash"
+# shellcheck source=../../lib/path.bash
+source "$AGB_LIBDIR/path.bash"
+
+# Execute a command in the agent container.
+# Locates the docker-compose.yml file by checking:
+# 1. $repo_root/$AGB_PROJECT_DIR/docker-compose.yml
+# 2. $repo_root/.devcontainer/docker-compose.yml
+# Exits with an error if neither file exists.
+exec_function() { # don't redefine `exec`
+	require docker
+
+	local repo_root
+	repo_root="$(find_repo_root)"
+
+	local project_compose="$repo_root/$AGB_PROJECT_DIR/docker-compose.yml"
+	local devcontainer_compose="$repo_root/.devcontainer/docker-compose.yml"
+
+	local compose_file
+	if [[ -f "$project_compose" ]]
+	then
+		compose_file="$project_compose"
+	elif [[ -f "$devcontainer_compose" ]]
+	then
+		compose_file="$devcontainer_compose"
+	else
+		echo "No docker-compose.yml found at $project_compose or $devcontainer_compose" | error
+		exit 1
+	fi
+
+	docker compose -f "$compose_file" up -d
+
+	exec docker compose -f "$compose_file" exec agent "${1-zsh}" "${@:2}"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
+then
+	exec_function "$@"
+fi
