@@ -93,3 +93,27 @@ read_multiline() {
 		printf '%s\n' "$line"
 	done
 }
+
+# Opens a file in the user's preferred editor.
+# Args:
+#   $1 - The file path to open
+# Environment:
+#   EDITOR - Preferred editor command (fallback: open, vi)
+#   VISUAL - Visual editor command (takes precedence over EDITOR)
+open_editor() {
+	local file="$1"
+
+	local editor="${VISUAL:-${EDITOR:-$(command -v open || echo vi)}}"
+
+	if ! command -v "${editor%% *}" &>/dev/null
+	then
+		echo "$0: editor '$editor' not found. Set EDITOR or VISUAL environment variable." >&2
+		return 1
+	fi
+
+	if [[ $editor == */open ]]; then
+		$editor --new --wait-apps "$file" </dev/tty >/dev/tty
+	else
+		$editor "$file" </dev/tty >/dev/tty
+	fi
+}

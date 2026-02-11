@@ -42,14 +42,13 @@ init() {
 
 	local policy_file="$AGB_PROJECT_DIR/$mode-policy.yaml"
 
-	#TODO: preselect services based on agent/mode
-	policy "$project_path/$policy_file"
-
 	case "$mode" in
 	cli)
+		policy "$project_path/$policy_file" "$agent"
 		cli "$agent" "$project_path" "$policy_file"
 		;;
 	devcontainer)
+		policy "$project_path/$policy_file" "$agent" 'vscode' 'jetbrains'
 		devcontainer "$agent" "$project_path" "$policy_file"
 		;;
 	*)

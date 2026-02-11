@@ -10,33 +10,33 @@ source "$AGB_LIBDIR/require.bash"
 source "$AGB_LIBDIR/select.bash"
 
 # Creates a network policy file for the proxy.
-# Prompts for allowed services (claude, copilot, vscode, jetbrains, github) and additional domains.
 # Args:
-#   $1 - Optional path to policy file (default: $AGB_POLICY_DIR/<current-dir>.yaml)
+#   $1 - Path to the policy file
+#   $@ - Service names to include (e.g., claude, copilot, vscode, jetbrains, github)
 # Outputs:
-#   Creates a YAML policy file with services and domains lists
+#   Creates a YAML policy file with services list
 policy() {
 	local policy_file=$1
+	shift
+	local services
+	services=$(printf '%s\n' "$@")
 
 	require yq
 
-	# see images/proxy/addons/enforcer.py
-	local available_services=(claude copilot vscode jetbrains github)
-
-	local services domains
-
-	services=$(select_multiple "Select allowed services" "${available_services[@]}")
-
-	domains=$(read_multiline "Enter additional domains to allow")
-
 	mkdir -p "$(dirname -- "$policy_file")"
+	cp \
+		"$AGB_TEMPLATEDIR/policy.yaml" \
+		"$policy_file"
 
-	services="$services" domains="$domains" yq -n '
-    .services = (strenv(services) | split("\n") ) |
-    .domains = (strenv(domains) | split("\n") )
-  ' >"$policy_file"
+	services="$services" yq -i '.services = (strenv(services) | split("\n") )' "$policy_file"
 
 	echo "Policy file created at: $policy_file" | info
+
+	: "${edit_policy:=$(select_yes_no "Edit the policy file?")}"
+	if [[ $edit_policy == true  ]]
+	then
+		open_editor "$policy_file"
+	fi
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
