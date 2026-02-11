@@ -4,8 +4,6 @@ shopt -s inherit_errexit lastpipe
 
 # shellcheck source=../../lib/logging.bash
 source "$AGB_LIBDIR/logging.bash"
-# shellcheck source=../../lib/require.bash
-source "$AGB_LIBDIR/require.bash"
 # shellcheck source=../../lib/select.bash
 source "$AGB_LIBDIR/select.bash"
 # shellcheck source=../../lib/path.bash
@@ -26,20 +24,21 @@ policy() {
 	local mode="*"
 	local agent="*"
 
-	while [[ $# -gt 0 ]]; do
+	while [[ $# -gt 0 ]]
+	do
 		case "$1" in
-			--mode)
-				mode="$2"
-				shift 2
-				;;
-			--agent)
-				agent="$2"
-				shift 2
-				;;
-			*)
-				echo "Unknown argument: $1" | error
-				return 1
-				;;
+		--mode)
+			mode="$2"
+			shift 2
+			;;
+		--agent)
+			agent="$2"
+			shift 2
+			;;
+		*)
+			echo "Unknown argument: $1" | error
+			return 1
+			;;
 		esac
 	done
 
@@ -53,13 +52,10 @@ policy() {
 
 	if [[ ${#policy_files[@]} -gt 1 ]]
 	then
-		echo "Multiple policy files found matching pattern:" | warn
-		printf '  %s\n' "${policy_files[@]}" | warn
-		echo "Using: ${policy_files[0]}" | warn
+		echo "Multiple policy files found matching pattern:" | warning
+		printf '  %s\n' "${policy_files[@]}" | warning
+		echo "Using: ${policy_files[0]}" | warning
 	fi
-
-	local compose_file
-	compose_file="$(find_compose_file)"
 
 	local mtime_before
 	mtime_before=$(stat -f %m "${policy_files[0]}" 2>/dev/null || stat -c %Y "${policy_files[0]}" 2>/dev/null)
@@ -71,17 +67,17 @@ policy() {
 
 	if [[ "$mtime_after" != "$mtime_before" ]]
 	then
-		require docker
-
-		if docker compose -f "$compose_file" ps proxy --status running --quiet &>/dev/null
+		local proxy_status
+		proxy_status=$("$AGB_LIBEXECDIR/compose/compose" ps proxy --status running --quiet 2>/dev/null) || true
+		if [[ -n "$proxy_status" ]]
 		then
 			echo "Policy file was modified. Restarting proxy service..." | info
-			exec docker compose -f "$compose_file" restart proxy
+			exec "$AGB_LIBEXECDIR/compose/compose" restart proxy
 		else
-			echo "Policy file was modified, but proxy service is not running. Skipping restart." | warn
+			echo "Policy file was modified, but proxy service is not running. Skipping restart." | warning
 		fi
 	else
-		echo "Policy file unchanged. No restart needed." | info
+		echo "Policy file unchanged. Skipping restart." | warning
 	fi
 
 }
