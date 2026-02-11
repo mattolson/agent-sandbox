@@ -28,3 +28,26 @@ verify_relative_path() {
 
 	return 0
 }
+
+# Finds the repository root directory by walking up the directory tree.
+# Looks for $AGB_PROJECT_DIR directory, .git directory, or .devcontainer directory.
+# Returns the absolute path to the root directory.
+find_repo_root() {
+	local current_dir="${1:-$PWD}"
+
+	while [[ "$current_dir" != "/" ]]
+	do
+		if [[ -d "$current_dir/$AGB_PROJECT_DIR" ]] || \
+		   [[ -d "$current_dir/.git" ]] || \
+		   [[ -d "$current_dir/.devcontainer" ]]
+		then
+			echo "$current_dir"
+			return 0
+		fi
+
+		current_dir="$(dirname "$current_dir")"
+	done
+
+	echo "$0: repository root not found" >&2
+	return 1
+}
