@@ -284,7 +284,7 @@ The `agentbox init` command automatically pulls the latest images and pins them 
 To update to newer image versions later:
 
 ```bash
-agentbox bump
+agentbox compose bump
 ```
 
 This pulls the newest versions and updates the compose file with the new pinned digests.
