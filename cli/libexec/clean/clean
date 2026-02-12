@@ -4,33 +4,28 @@ shopt -s inherit_errexit lastpipe
 
 # shellcheck source=../../lib/logging.bash
 source "$AGB_LIBDIR/logging.bash"
+# shellcheck source=../../lib/path.bash
+source "$AGB_LIBDIR/path.bash"
 
 clean() {
-	# FIXME: project structure
-	if [[ -d "$AGB_PROJECT_DIR" ]]
+	local repo_root
+	repo_root="$(find_repo_root)"
+
+	echo "Stopping containers" | warning
+	"$AGB_LIBEXECDIR/compose/compose" down --volumes
+
+	local project_dir="$repo_root/$AGB_PROJECT_DIR"
+	if [[ -d "$project_dir" ]]
 	then
-		if [[ -f "docker-compose.yml" ]]
-		then
-			echo "Stopping containers" | warning
-			docker-compose down --volumes
+		echo "Removing $project_dir" | warning
+		rm -rf "$project_dir"
+	fi
 
-			echo "Removing docker-compose.yml" | warning
-			rm docker-compose.yml
-		fi
-
-		echo "Removing $AGB_PROJECT_DIR" | warning
-		rm -rf "$AGB_PROJECT_DIR"
-
-		if [[ -d ".devcontainer" ]]
-		then
-			echo "Stopping devcontainers" | warning
-			docker-compose --project-directory .devcontainer down --volumes
-
-			echo "Removing devcontainers" | warning
-			rm -rf ".devcontainer"
-		fi
-	else
-		echo "Directory $AGB_PROJECT_DIR not found - aborting" | error
+	local devcontainer_dir="$repo_root/.devcontainer"
+	if [[ -d "$devcontainer_dir" ]]
+	then
+		echo "Removing $devcontainer_dir" | warning
+		rm -rf "$devcontainer_dir"
 	fi
 }
 
