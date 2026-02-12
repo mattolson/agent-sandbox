@@ -45,17 +45,22 @@ colima start --cpu 4 --memory 8 --disk 60
 
 Set your Docker credential helper to `osxkeychain` (not `desktop`) in `~/.docker/config.json`.
 
-### 2. Copy template to your project
+### 2. Install agent-sandbox CLI
 
 ```bash
 git clone https://github.com/mattolson/agent-sandbox.git
-cp -r agent-sandbox/templates/claude/.devcontainer /path/to/your/project/
-cp agent-sandbox/templates/claude/.env /path/to/your/project/
+export PATH="$PWD/agent-sandbox/cli/bin:$PATH"
 ```
 
-The `.devcontainer/` directory contains the compose file, devcontainer config, and network policy. The `.env` file tells Docker Compose where to find the compose file.
+### 3. Initialize the sandbox for your project
 
-### 3. Start the sandbox
+```bash
+agentbox init
+```
+
+This prompts you to select the agent type (Claude Code or GitHub Copilot) and mode (devcontainer or CLI), then sets up the necessary configuration files and network policy.
+
+### 4. Start the sandbox
 
 **Devcontainer (VS Code / JetBrains):**
 
@@ -65,12 +70,10 @@ The `.devcontainer/` directory contains the compose file, devcontainer config, a
 **CLI (terminal):**
 
 ```bash
-cd /path/to/your/project
-docker compose up -d
-docker compose exec agent zsh
+agentbox exec
 ```
 
-### 4. Agent-specific setup
+### 5. Agent-specific setup
 
 Follow the setup instructions specific to the agent image you are using:
 - [Claude Code](./templates/claude/README.md)
@@ -95,9 +98,17 @@ The proxy's CA certificate is shared via a Docker volume and automatically insta
 
 ### Customizing the policy
 
-The network policy lives in your project at `.devcontainer/policy.yaml`. This file is checked into version control and shared with your team.
+The network policy lives in your project. This file is checked into version control and shared with your team.
 
-To add project-specific domains, edit the policy file:
+To edit the policy file:
+
+```bash
+agentbox policy
+```
+
+This opens the network policy file in your editor. If you save changes, the proxy service will automatically restart to apply the new policy.
+
+Example policy:
 
 ```yaml
 services:
@@ -113,20 +124,13 @@ The `.devcontainer/` directory is mounted read-only inside the agent container, 
 
 See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format reference.
 
-Changes take effect on proxy restart: `docker compose restart proxy`
-
 ## Shell customization
 
 Two mechanisms for customizing the container environment, both mounted read-only from the host.
 
 ### Dotfiles
 
-Mount your dotfiles directory to have them auto-linked into `$HOME` at container startup:
-
-```yaml
-volumes:
-  - ${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro
-```
+To enable dotfiles support, choose "yes" when prompted during `agentbox init`. Your dotfiles from `~/.dotfiles` will be auto-linked into `$HOME` at container startup.
 
 The entrypoint recursively walks `~/.dotfiles` and creates symlinks for each file at the corresponding `$HOME` path, creating intermediate directories as needed. For example, `.dotfiles/.config/git/config` becomes `~/.config/git/config`.
 
@@ -134,12 +138,7 @@ Protected paths (`.config/agent-sandbox`) are never overwritten. Docker bind mou
 
 ### Shell.d scripts
 
-Mount scripts into `~/.config/agent-sandbox/shell.d/` to inject aliases, environment variables, or tool setup. Any `*.sh` files are sourced when zsh starts, before `~/.zshrc`.
-
-```yaml
-volumes:
-  - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
-```
+To enable shell customizations, choose "yes" when prompted during `agentbox init`. Scripts from `~/.config/agent-sandbox/shell.d/` will be sourced to inject aliases, environment variables, or tool setup. Any `*.sh` files are sourced when zsh starts, before `~/.zshrc`.
 
 Example (`~/.config/agent-sandbox/shell.d/my-aliases.sh`):
 
@@ -151,7 +150,7 @@ export EDITOR=vim
 
 Shell.d scripts run from the system-level zshrc (`/etc/zsh/zshrc`), so dotfiles can include a custom `.zshrc` without breaking agent-sandbox functionality.
 
-Both mounts are read-only. The agent cannot modify your host configuration. Uncomment the relevant volume lines in your compose file to enable either or both.
+Both mounts are read-only. The agent cannot modify your host configuration. The `agentbox init` command prompts whether to enable shell customizations and dotfiles when setting up your project.
 
 ## Git configuration
 
