@@ -4,7 +4,7 @@ setup() {
 	load test_helper
 	source "$AGB_LIBDIR/composefile.bash"
 	source "$AGB_LIBDIR/logging.bash"
-	source "$AGB_LIBEXECDIR/bump/bump"
+	source "$AGB_LIBEXECDIR/compose/bump"
 
 	COMPOSE_FILE="$BATS_TEST_TMPDIR/docker-compose.yml"
 }

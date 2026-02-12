@@ -18,11 +18,6 @@ deletes configuration directories.
 
 Displays the current version of agent-sandbox.
 
-### `agentbox bump`
-
-Updates Docker images to their latest versions by pulling the newest digests and updating the compose file. Skips local
-images.
-
 ### `agentbox compose`
 
 Runs docker compose commands with the correct compose file automatically detected. Pass any docker compose arguments
@@ -32,6 +27,11 @@ Runs docker compose commands with the correct compose file automatically detecte
 
 Opens the Docker Compose file in your editor. If you save changes, the stack will automatically restart to apply the new
 configuration.
+
+#### `agentbox compose bump`
+
+Updates Docker images to their latest versions by pulling the newest digests and updating the compose file. Skips local
+images.
 
 ### `agentbox policy`
 

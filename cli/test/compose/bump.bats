@@ -2,7 +2,7 @@
 
 setup() {
 	load test_helper
-	source "$AGB_LIBEXECDIR/bump/bump"
+	source "$AGB_LIBEXECDIR/compose/bump"
 
 	COMPOSE_FILE="$BATS_TEST_TMPDIR/docker-compose.yml"
 	cat >"$COMPOSE_FILE" <<'EOF'
