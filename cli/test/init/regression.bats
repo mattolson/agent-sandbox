@@ -6,15 +6,8 @@
 setup() {
 	load test_helper
 
-	# TODO move to lib
-	# shellcheck disable=SC2016
-	export AGB_HOME_PATTERN='${HOME}/.config/agent-sandbox'
-	export AGB_PROJECT_DIR='./.agent-sandbox'
-
-	export TERM=xterm
-
-	source "$AGB_ROOT/libexec/init/cli"
-	source "$AGB_ROOT/libexec/init/devcontainer"
+	source "$AGB_LIBEXECDIR/init/cli"
+	source "$AGB_LIBEXECDIR/init/devcontainer"
 
 	PROJECT_DIR="$BATS_TEST_TMPDIR/project"
 	mkdir -p "$PROJECT_DIR/$AGB_PROJECT_DIR"
@@ -89,6 +82,12 @@ assert_customization_volumes() {
 
 	# shellcheck disable=SC2016
 	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.dotfiles:/home/dev/.dotfiles:ro")' "$compose_file"
+}
+
+assert_devcontainer_volume() {
+	local compose_file=$1
+
+	yq -e '.services.agent.volumes[] | select(. == ".:/workspace/.devcontainer:ro")' "$compose_file"
 }
 
 claude_agent_compose_file_has_expected_content() {
@@ -177,6 +176,8 @@ copilot_agent_compose_file_has_expected_content() {
 	assert_output --regexp ".*Devcontainer dir created at $PROJECT_DIR/.devcontainer"
 
 	claude_agent_compose_file_has_expected_content "$PROJECT_DIR/.devcontainer/docker-compose.yml"
+
+	assert_devcontainer_volume "$PROJECT_DIR/.devcontainer/docker-compose.yml"
 }
 
 @test "cli creates docker-compose.yml for copilot agent with all options enabled" {
@@ -215,4 +216,6 @@ copilot_agent_compose_file_has_expected_content() {
 	assert_output --regexp ".*Devcontainer dir created at $PROJECT_DIR/.devcontainer"
 
 	copilot_agent_compose_file_has_expected_content "$PROJECT_DIR/.devcontainer/docker-compose.yml"
+
+	assert_devcontainer_volume "$PROJECT_DIR/.devcontainer/docker-compose.yml"
 }

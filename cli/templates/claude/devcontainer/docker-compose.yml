@@ -1,6 +1,4 @@
 # Claude Code Sandbox
-#
-# Works with both devcontainer (VS Code, JetBrains) and CLI usage.
 
 services:
   proxy:
@@ -31,6 +29,8 @@ services:
       - ../:/workspace
       # Read-only policy directory
       - ../.agent-sandbox/:/workspace/.agent-sandbox/:ro
+      # Read-only devcontainer directory
+      - .:/workspace/.devcontainer:ro
       # Persist Claude credentials
       - claude-state:/home/dev/.claude
       # Persist shell history
