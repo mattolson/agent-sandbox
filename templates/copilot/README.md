@@ -195,7 +195,8 @@ USER dev
 Build and use your custom image:
 ```bash
 docker build -t my-copilot-sandbox .
-# Update .devcontainer/docker-compose.yml to use image: my-copilot-sandbox
+agentbox compose edit
+# Update the agent service image to: my-copilot-sandbox
 ```
 
 ### STACKS build arg
@@ -233,9 +234,10 @@ To use locally-built images instead:
 
 ```bash
 cd agent-sandbox && ./images/build.sh
-# Then edit the compose file manually to use:
-#   image: agent-sandbox-copilot:local
-#   image: agent-sandbox-proxy:local
+agentbox compose edit
+# Update the images to use:
+#   agent service: agent-sandbox-copilot:local
+#   proxy service: agent-sandbox-proxy:local
 ```
 
 ## Troubleshooting

@@ -28,6 +28,11 @@ images.
 Runs docker compose commands with the correct compose file automatically detected. Pass any docker compose arguments
 (e.g., `agentbox compose up -d` or `agentbox compose logs`).
 
+#### `agentbox compose edit`
+
+Opens the Docker Compose file in your editor. If you save changes, the stack will automatically restart to apply the new
+configuration.
+
 ### `agentbox policy`
 
 Opens the network policy file in your editor. If you save changes, the proxy service will automatically restart to apply
