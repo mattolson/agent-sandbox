@@ -4,20 +4,21 @@ Run Claude Code in a network-locked container. All outbound traffic is routed th
 
 ## Quick Start
 
-### 1. Clone the agent-sandbox repo
+### 1. Install agent-sandbox CLI
 
 ```bash
 git clone https://github.com/mattolson/agent-sandbox.git
+export PATH="$PWD/agent-sandbox/cli/bin:$PATH"
 ```
 
-### 2. Copy template to your project
+### 2. Initialize the sandbox for your project
 
 ```bash
-cp -r agent-sandbox/templates/claude/.devcontainer /path/to/your/project/
-cp agent-sandbox/templates/claude/.env /path/to/your/project/
+cd /path/to/your/project
+agentbox init
 ```
 
-The `.devcontainer/` directory contains the compose file, devcontainer config, and network policy. The `.env` file tells Docker Compose where to find the compose file.
+Select "claude" when prompted for the agent type, and choose your preferred mode (devcontainer or CLI).
 
 ### 3. Start the sandbox
 
@@ -35,9 +36,7 @@ JetBrains (IntelliJ, PyCharm, WebStorm, etc.):
 **CLI (terminal):**
 
 ```bash
-cd /path/to/your/project
-docker compose up -d
-docker compose exec agent zsh
+agentbox exec
 ```
 
 ### 4. Authenticate Claude (first run only)
@@ -66,7 +65,7 @@ claude --dangerously-skip-permissions
 Afterward, for CLI mode, stop the container:
 
 ```bash
-docker compose down
+agentbox compose down
 ```
 
 ## Terminal vs IDE Extension
@@ -129,7 +128,15 @@ The `.devcontainer/` directory is mounted read-only inside the agent container, 
 
 ### Customizing the policy
 
-Edit `.devcontainer/policy.yaml` to add project-specific domains:
+To edit the network policy:
+
+```bash
+agentbox policy
+```
+
+This opens the policy file in your editor. If you save changes, the proxy service will automatically restart to apply the new policy.
+
+Example policy:
 
 ```yaml
 services:
@@ -143,8 +150,6 @@ domains:
   - registry.npmjs.org
   - pypi.org
 ```
-
-Restart the proxy after changes: `docker compose restart proxy`
 
 ### Policy format
 
@@ -230,7 +235,7 @@ alias gs='git status'
 EOF
 ```
 
-Uncomment the shell.d mount in the compose file.
+The `agentbox init` command prompts whether to enable shell customizations when setting up your project.
 
 ## Language Stacks
 
@@ -249,7 +254,8 @@ USER dev
 Build and use your custom image:
 ```bash
 docker build -t my-claude-sandbox .
-# Update .devcontainer/docker-compose.yml to use image: my-claude-sandbox
+agentbox compose edit
+# Update the agent service image to: my-claude-sandbox
 ```
 
 ### STACKS build arg
@@ -273,27 +279,24 @@ Each script handles both amd64 and arm64 architectures.
 
 ## Image Versioning
 
-By default, the template pulls `:latest`. For reproducibility, pin to a specific digest:
+The `agentbox init` command automatically pulls the latest images and pins them to their digests for reproducibility.
 
-```yaml
-image: ghcr.io/mattolson/agent-sandbox-claude@sha256:<digest>
-image: ghcr.io/mattolson/agent-sandbox-proxy@sha256:<digest>
-```
-
-To find the current digest:
+To update to newer image versions later:
 
 ```bash
-docker pull ghcr.io/mattolson/agent-sandbox-claude:latest
-docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/mattolson/agent-sandbox-claude:latest
+agentbox bump
 ```
+
+This pulls the newest versions and updates the compose file with the new pinned digests.
 
 To use locally-built images instead:
 
 ```bash
 cd agent-sandbox && ./images/build.sh
-# Then update the compose file to use:
-#   image: agent-sandbox-claude:local
-#   image: agent-sandbox-proxy:local
+agentbox compose edit
+# Update the images to use:
+#   agent service: agent-sandbox-claude:local
+#   proxy service: agent-sandbox-proxy:local
 ```
 
 ## Troubleshooting
@@ -303,5 +306,5 @@ cd agent-sandbox && ./images/build.sh
 The agent container waits for the proxy to be healthy before starting. If the proxy fails to start, check its logs:
 
 ```bash
-docker compose logs proxy
+agentbox compose logs proxy
 ```
