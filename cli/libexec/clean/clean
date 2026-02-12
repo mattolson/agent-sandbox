@@ -6,6 +6,7 @@ shopt -s inherit_errexit lastpipe
 source "$AGB_LIBDIR/logging.bash"
 
 clean() {
+	# FIXME: project structure
 	if [[ -d "$AGB_PROJECT_DIR" ]]
 	then
 		if [[ -f "docker-compose.yml" ]]

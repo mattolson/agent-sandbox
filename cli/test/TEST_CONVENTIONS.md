@@ -20,7 +20,10 @@ export SHELLOPTS
 AGB_ROOT="$BATS_TEST_DIRNAME/../.."
 BATS_LIB_PATH="$AGB_ROOT/support":${BATS_LIB_PATH-}
 
-bats_load_library bats-ext bats-support bats-assert bats-mock-ext
+bats_load_library bats-ext
+bats_load_library bats-support
+bats_load_library bats-assert
+bats_load_library bats-mock-ext
 
 export AGB_ROOT AGB_LIBDIR="$AGB_ROOT/lib"
 ```
@@ -34,6 +37,7 @@ setup() {
 	load test_helper
 	source "$AGB_LIBDIR/<module>.bash"
 	TEST_FILE="$BATS_TEST_TMPDIR/file.yml"
+	touch "$TEST_FILE"  # Create files in setup if used by multiple tests
 }
 
 teardown() {
@@ -46,6 +50,8 @@ teardown() {
 	assert_output "expected"
 }
 ```
+Don't add comments that restate what a command does.
+Use `touch` to create empty files if contents don't matter for the test.
 
 ## Assertions
 
@@ -57,6 +63,7 @@ teardown() {
 
 Use `run` only when you need to check exit code or output. Never capture output with `$()`.
 If the only assertion would be `assert_success`, run the command directly without `run`/`assert_success`.
+Never use `2>&1` with `run` - it already captures both stdout and stderr.
 
 ## Stubbing
 
@@ -67,8 +74,8 @@ stub docker \
 ```
 
 - Match exact args
-- `: :` = silent success
-- `: echo 'output'` = return output
+- `: :` = silent success (default, use unless output needed)
+- `: echo 'output'` = return specific output only when needed
 - `unstub_all` in teardown (never manual `unstub`)
 
 ## yq Usage
