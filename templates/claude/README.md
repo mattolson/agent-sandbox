@@ -14,7 +14,6 @@ export PATH="$PWD/agent-sandbox/cli/bin:$PATH"
 ### 2. Initialize the sandbox for your project
 
 ```bash
-cd /path/to/your/project
 agentbox init
 ```
 
