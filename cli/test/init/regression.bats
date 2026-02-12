@@ -145,6 +145,7 @@ copilot_agent_compose_file_has_expected_content() {
 	export mount_claude_config="true"
 	export enable_shell_customizations="true"
 	export enable_dotfiles="true"
+	export edit_compose_file="false"
 
 	unset -f pull_and_pin_image
 	stub pull_and_pin_image \
@@ -164,6 +165,7 @@ copilot_agent_compose_file_has_expected_content() {
 	export mount_claude_config="true"
 	export enable_shell_customizations="true"
 	export enable_dotfiles="true"
+	export edit_compose_file="false"
 
 	unset -f pull_and_pin_image
 	stub pull_and_pin_image \
@@ -182,6 +184,7 @@ copilot_agent_compose_file_has_expected_content() {
 	export agent_image="ghcr.io/mattolson/agent-sandbox-copilot:latest"
 	export enable_shell_customizations="true"
 	export enable_dotfiles="true"
+	export edit_compose_file="false"
 
 	unset -f pull_and_pin_image
 	stub pull_and_pin_image \
@@ -200,6 +203,7 @@ copilot_agent_compose_file_has_expected_content() {
 	export agent_image="ghcr.io/mattolson/agent-sandbox-copilot:latest"
 	export enable_shell_customizations="true"
 	export enable_dotfiles="true"
+	export edit_compose_file="false"
 
 	unset -f pull_and_pin_image
 	stub pull_and_pin_image \

@@ -31,6 +31,12 @@ cli() {
 	customize_compose_file "$agent" "$rel_policy_file" "$compose_file"
 
 	echo "Compose file created at $compose_file" | info
+
+	: "${edit_compose_file:=$(select_yes_no "Edit the compose file?")}"
+	if [[ $edit_compose_file == true  ]]
+	then
+		open_editor "$compose_file"
+	fi
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
