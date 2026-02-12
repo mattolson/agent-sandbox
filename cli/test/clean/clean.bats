@@ -1,8 +1,9 @@
 #!/usr/bin/env bats
 
 setup() {
-	load test_helper
-	source "$AGB_LIBEXECDIR/clean/clean"
+    load test_helper
+    # shellcheck source=../../libexec/clean/clean
+    source "$AGB_LIBEXECDIR/clean/clean"
 }
 
 teardown() {
