@@ -1,9 +1,10 @@
 #!/usr/bin/env bats
 
 setup() {
-	load test_helper
+    load test_helper
 
-	source "$AGB_LIBEXECDIR/compose/edit"
+    # shellcheck source=../../libexec/compose/edit
+    source "$AGB_LIBEXECDIR/compose/edit"
 
 	mkdir -p "$BATS_TEST_TMPDIR/.devcontainer"
 	COMPOSE_FILE="$BATS_TEST_TMPDIR/.devcontainer/docker-compose.yml"

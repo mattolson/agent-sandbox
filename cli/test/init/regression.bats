@@ -4,10 +4,11 @@
 # This is a regression test verifying that docker-compose configuration is generated correctly.
 
 setup() {
-	load test_helper
-
-	source "$AGB_LIBEXECDIR/init/cli"
-	source "$AGB_LIBEXECDIR/init/devcontainer"
+    load test_helper
+    # shellcheck source=../../libexec/init/cli
+    source "$AGB_LIBEXECDIR/init/cli"
+    # shellcheck source=../../libexec/init/devcontainer
+    source "$AGB_LIBEXECDIR/init/devcontainer"
 
 	PROJECT_DIR="$BATS_TEST_TMPDIR/project"
 	mkdir -p "$PROJECT_DIR/$AGB_PROJECT_DIR"

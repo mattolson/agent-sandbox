@@ -1,10 +1,13 @@
 #!/usr/bin/env bats
 
 setup() {
-	load test_helper
-	source "$AGB_LIBDIR/composefile.bash"
-	source "$AGB_LIBDIR/logging.bash"
-	source "$AGB_LIBEXECDIR/compose/bump"
+    load test_helper
+    # shellcheck source=../../lib/composefile.bash
+    source "$AGB_LIBDIR/composefile.bash"
+    # shellcheck source=../../lib/logging.bash
+    source "$AGB_LIBDIR/logging.bash"
+    # shellcheck source=../../libexec/compose/bump
+    source "$AGB_LIBEXECDIR/compose/bump"
 
 	COMPOSE_FILE="$BATS_TEST_TMPDIR/docker-compose.yml"
 }
