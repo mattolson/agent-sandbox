@@ -305,13 +305,3 @@ The agent container waits for the proxy to be healthy before starting. If the pr
 ```bash
 docker compose logs proxy
 ```
-
-### Container starts but network is unrestricted
-
-Verify the firewall ran:
-
-```bash
-sudo iptables -S OUTPUT
-```
-
-Should show `-P OUTPUT DROP` followed by rules allowing only the host network. If not, check the entrypoint logs.
