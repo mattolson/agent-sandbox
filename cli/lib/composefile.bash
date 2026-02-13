@@ -35,13 +35,25 @@ customize_compose_file() {
 
 	verify_relative_path "$compose_dir" "$policy_file"
 
+	# Collect all user input at the top
 	: "${proxy_image:=$(read_line "Proxy image [$default_proxy_image]:")}"
+	: "${agent_image:=$(read_line "Agent image [$default_agent_image]:")}"
 
+	if [[ $agent == "claude" ]]
+	then
+		: "${mount_claude_config:=$(select_yes_no "Mount host Claude config (~/.claude)?")}"
+	fi
+
+	: "${enable_shell_customizations:=$(select_yes_no "Enable shell customizations?")}"
+	: "${enable_dotfiles:=$(select_yes_no "Enable dotfiles?")}"
+	: "${mount_git_readonly:=$(select_yes_no "Mount .git/ directory as read-only?")}"
+	: "${mount_idea_readonly:=$(select_yes_no "Mount .idea/ directory as read-only?")}"
+	: "${mount_vscode_readonly:=$(select_yes_no "Mount .vscode/ directory as read-only?")}"
+
+	# Apply configuration based on collected input
 	local proxy_image_pinned
 	proxy_image_pinned=$(pull_and_pin_image "${proxy_image:-$default_proxy_image}")
 	set_proxy_image "$compose_file" "$proxy_image_pinned"
-
-	: "${agent_image:=$(read_line "Agent image [$default_agent_image]:")}"
 
 	local agent_image_pinned
 	agent_image_pinned=$(pull_and_pin_image "${agent_image:-$default_agent_image}")
@@ -51,42 +63,14 @@ customize_compose_file() {
 
 	if [[ $agent == "claude" ]]
 	then
-		: "${mount_claude_config:=$(select_yes_no "Mount host Claude config (~/.claude)?")}"
-		if [[ $mount_claude_config == "true" ]]
-		then
-			add_claude_config_volumes "$compose_file"
-		fi
+		add_claude_config_volumes "$compose_file" "$mount_claude_config"
 	fi
 
-	: "${enable_shell_customizations:=$(select_yes_no "Enable shell customizations?")}"
-	if [[ $enable_shell_customizations == "true" ]]
-	then
-		add_shell_customizations_volume "$compose_file"
-
-		: "${enable_dotfiles:=$(select_yes_no "Enable dotfiles?")}"
-		if [[ $enable_dotfiles == "true" ]]
-		then
-			add_dotfiles_volume "$compose_file"
-		fi
-	fi
-
-	: "${mount_git_readonly:=$(select_yes_no "Mount .git/ directory as read-only?")}"
-	if [[ $mount_git_readonly == "true" ]]
-	then
-		add_git_readonly_volume "$compose_file"
-	fi
-
-	: "${mount_idea_readonly:=$(select_yes_no "Mount .idea/ directory as read-only?")}"
-	if [[ $mount_idea_readonly == "true" ]]
-	then
-		add_idea_readonly_volume "$compose_file"
-	fi
-
-	: "${mount_vscode_readonly:=$(select_yes_no "Mount .vscode/ directory as read-only?")}"
-	if [[ $mount_vscode_readonly == "true" ]]
-	then
-		add_vscode_readonly_volume "$compose_file"
-	fi
+	add_shell_customizations_volume "$compose_file" "$enable_shell_customizations"
+	add_dotfiles_volume "$compose_file" "$enable_dotfiles"
+	add_git_readonly_volume "$compose_file" "$mount_git_readonly"
+	add_idea_readonly_volume "$compose_file" "$mount_idea_readonly"
+	add_vscode_readonly_volume "$compose_file" "$mount_vscode_readonly"
 }
 
 # Sets the proxy service image in a Docker Compose file.
@@ -126,85 +110,131 @@ add_policy_volume() {
 		'.services.proxy.volumes += [env(policy_file) + ":/etc/mitmproxy/policy.yaml:ro"]' "$compose_file"
 }
 
+# Adds a foot comment to the last volume entry in the agent service.
+# Args:
+#   $1 - Path to the Docker Compose file
+#   $2 - Comment text to add
+add_volume_foot_comment() {
+	require yq
+	local compose_file=$1
+	local comment=$2
+
+	local volume_count
+	volume_count=$(yq '.services.agent.volumes | length' "$compose_file")
+
+	if [[ $volume_count -eq 0 ]]; then
+		echo "${FUNCNAME[0]}: Cannot add foot comment to empty volumes array" >&2
+		return 1
+	fi
+
+	comment="$comment" yq -i '
+			.services.agent.volumes[-1] foot_comment = (
+				((.services.agent.volumes[-1] | foot_comment) // "") + "\n" + strenv(comment) | sub("^\n", "")
+			)
+		' "$compose_file"
+}
+
+# Adds a volume entry to the agent service, either as active or commented.
+# Args:
+#   $1 - Path to the Docker Compose file
+#   $2 - Volume entry (e.g., "../.git:/workspace/.git:ro")
+#   $3 - true to add as active entry, false to add as comment
+add_volume_entry() {
+	require yq
+	local compose_file=$1
+	local volume_entry=$2
+	local active=$3
+
+	if [[ $active == "true" ]]
+	then
+		volume_entry="$volume_entry" yq -i \
+			'.services.agent.volumes += [env(volume_entry)]' "$compose_file"
+	else
+		add_volume_foot_comment "$compose_file" "- $volume_entry"
+	fi
+}
+
 # Adds Claude config volume mounts to the agent service.
 # Args:
 #   $1 - Path to the Docker Compose file
+#   $2 - true to add as active, false to add as comment
 add_claude_config_volumes() {
-	require yq
 	local compose_file=$1
+	local active=${2:-true}
+
+	add_volume_foot_comment "$compose_file" 'Host Claude config (optional)'
 
 	# shellcheck disable=SC2016
-	yq -i \
-		'.services.agent.volumes += [
-			"${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro",
-			"${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro"
-		]' "$compose_file"
+	add_volume_entry "$compose_file" '${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro' "$active"
+	# shellcheck disable=SC2016
+	add_volume_entry "$compose_file" '${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro' "$active"
 }
 
 # Adds shell customizations volume mount to the agent service.
 # Args:
 #   $1 - Path to the Docker Compose file
+#   $2 - true to add as active, false to add as comment
 add_shell_customizations_volume() {
-	require yq
 	local compose_file=$1
+	local active=${2:-true}
 
-	yq -i \
-		'.services.agent.volumes += [
-			env(AGB_HOME_PATTERN) + "/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro"
-		]' "$compose_file"
+	add_volume_foot_comment "$compose_file" 'Shell customizations (optional - scripts sourced at shell startup)'
+
+	add_volume_entry "$compose_file" "$AGB_HOME_PATTERN/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro" "$active"
 }
 
 # Adds dotfiles volume mount to the agent service.
 # Args:
 #   $1 - Path to the Docker Compose file
+#   $2 - true to add as active, false to add as comment
 add_dotfiles_volume() {
-	require yq
 	local compose_file=$1
+	local active=${2:-true}
 
 	# shellcheck disable=SC2016
-	yq -i \
-		'.services.agent.volumes += [
-			"${HOME}/.dotfiles:/home/dev/.dotfiles:ro"
-		]' "$compose_file"
+	add_volume_foot_comment "$compose_file" 'Dotfiles (optional - auto-linked into $HOME at startup)'
+
+	# shellcheck disable=SC2016
+	add_volume_entry "$compose_file" '${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro' "$active"
 }
 
 # Adds .git directory mount as read-only to the agent service.
 # Args:
 #   $1 - Path to the Docker Compose file
+#   $2 - true to add as active, false to add as comment
 add_git_readonly_volume() {
-	require yq
 	local compose_file=$1
+	local active=${2:-true}
 
-	yq -i \
-		'.services.agent.volumes += [
-			"../.git:/workspace/.git:ro"
-		]' "$compose_file"
+	add_volume_foot_comment "$compose_file" 'Read-only Git directory'
+
+	add_volume_entry "$compose_file" '../.git:/workspace/.git:ro' "$active"
 }
 
 # Adds .idea directory mount as read-only to the agent service.
 # Args:
 #   $1 - Path to the Docker Compose file
+#   $2 - true to add as active, false to add as comment
 add_idea_readonly_volume() {
-	require yq
 	local compose_file=$1
+	local active=${2:-true}
 
-	yq -i \
-		'.services.agent.volumes += [
-			"../.idea:/workspace/.idea:ro"
-		]' "$compose_file"
+	add_volume_foot_comment "$compose_file" 'Read-only IntelliJ IDEA project directory'
+
+	add_volume_entry "$compose_file" '../.idea:/workspace/.idea:ro' "$active"
 }
 
 # Adds .vscode directory mount as read-only to the agent service.
 # Args:
 #   $1 - Path to the Docker Compose file
+#   $2 - true to add as active, false to add as comment
 add_vscode_readonly_volume() {
-	require yq
 	local compose_file=$1
+	local active=${2:-true}
 
-	yq -i \
-		'.services.agent.volumes += [
-			"../.vscode:/workspace/.vscode:ro"
-		]' "$compose_file"
+	add_volume_foot_comment "$compose_file" 'Read-only VS Code project directory'
+
+	add_volume_entry "$compose_file" '../.vscode:/workspace/.vscode:ro' "$active"
 }
 
 # Pulls an image and returns its digest.

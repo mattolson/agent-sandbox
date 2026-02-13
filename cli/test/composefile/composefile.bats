@@ -15,7 +15,8 @@ services:
     volumes: []
   agent:
     image: placeholder
-    volumes: []
+    volumes:
+      - ../:/workspace # need at least one volume so that we can add foot comments
 EOF
 }
 
@@ -81,7 +82,7 @@ teardown() {
 	add_claude_config_volumes "$COMPOSE_FILE"
 
 	run yq '.services.agent.volumes | length' "$COMPOSE_FILE"
-	assert_output "2"
+	assert_output "3"
 
 	# shellcheck disable=SC2016
 	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro")' "$COMPOSE_FILE"
@@ -104,7 +105,7 @@ teardown() {
 	add_dotfiles_volume "$COMPOSE_FILE"
 
 	# shellcheck disable=SC2016
-	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.dotfiles:/home/dev/.dotfiles:ro")' "$COMPOSE_FILE"
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro")' "$COMPOSE_FILE"
 }
 
 @test "add_git_readonly_volume adds .git mount as read-only" {
@@ -123,6 +124,43 @@ teardown() {
 	add_vscode_readonly_volume "$COMPOSE_FILE"
 
 	yq -e '.services.agent.volumes[] | select(. == "../.vscode:/workspace/.vscode:ro")' "$COMPOSE_FILE"
+}
+
+@test "add_volume_entry adds volume when active is true" {
+	add_volume_entry "$COMPOSE_FILE" "../test:/workspace/test:ro" "true"
+
+	yq -e '.services.agent.volumes[] | select(. == "../test:/workspace/test:ro")' "$COMPOSE_FILE"
+}
+
+@test "add_volume_entry adds comment when active is false" {
+
+	add_volume_entry "$COMPOSE_FILE" "../test:/workspace/test:ro" "false"
+
+	# Verify we have one active volume entry
+	run yq '.services.agent.volumes | length' "$COMPOSE_FILE"
+	assert_output "1"
+
+	# Verify foot comment was added to the last entry
+	run yq '.services.agent.volumes[-1] | foot_comment' "$COMPOSE_FILE"
+	assert_output "- ../test:/workspace/test:ro"
+}
+
+@test "add_volume_entry appends multiple comments" {
+	add_volume_entry "$COMPOSE_FILE" "../test1:/workspace/test1:ro" "false"
+	add_volume_entry "$COMPOSE_FILE" "../test2:/workspace/test2:ro" "false"
+	add_volume_entry "$COMPOSE_FILE" "../test3:/workspace/test3:ro" "false"
+
+	# Verify we still have one active volume entry
+	run yq '.services.agent.volumes | length' "$COMPOSE_FILE"
+	assert_output "1"
+
+	# Verify all foot comments were appended
+	run yq '.services.agent.volumes[-1] | foot_comment' "$COMPOSE_FILE"
+	assert_output - <<EOF
+- ../test1:/workspace/test1:ro
+- ../test2:/workspace/test2:ro
+- ../test3:/workspace/test3:ro
+EOF
 }
 
 @test "customize_compose_file handles full workflow with all options enabled" {
@@ -157,9 +195,9 @@ teardown() {
 	# Verify policy volume on proxy
 	yq -e '.services.proxy.volumes[] | select(. == "policy.yaml:/etc/mitmproxy/policy.yaml:ro")' "$COMPOSE_FILE"
 
-	# Verify all agent volumes are present (2 Claude + shell.d + dotfiles + .git + .idea + .vscode = 7)
+	# Verify all agent volumes are present (initial + 2 Claude + shell.d + dotfiles + .git + .idea + .vscode = 7)
 	run yq '.services.agent.volumes | length' "$COMPOSE_FILE"
-	assert_output "7"
+	assert_output "8"
 
 	# shellcheck disable=SC2016
 	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro")' "$COMPOSE_FILE"
@@ -171,7 +209,7 @@ teardown() {
 	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro")' "$COMPOSE_FILE"
 
 	# shellcheck disable=SC2016
-	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.dotfiles:/home/dev/.dotfiles:ro")' "$COMPOSE_FILE"
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro")' "$COMPOSE_FILE"
 
 	yq -e '.services.agent.volumes[] | select(. == "../.git:/workspace/.git:ro")' "$COMPOSE_FILE"
 
