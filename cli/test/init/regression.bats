@@ -86,7 +86,7 @@ assert_customization_volumes() {
 	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro")' "$compose_file"
 
 	# shellcheck disable=SC2016
-	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.dotfiles:/home/dev/.dotfiles:ro")' "$compose_file"
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro")' "$compose_file"
 
 	yq -e '.services.agent.volumes[] | select(. == "../.git:/workspace/.git:ro")' "$compose_file"
 
