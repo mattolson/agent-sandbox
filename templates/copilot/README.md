@@ -40,13 +40,16 @@ agentbox exec
 
 ### 4. Authenticate Copilot (first run only)
 
-Inside the container:
+In CLI mode you should be able to `/login` as usual.
 
-```bash
-copilot
-```
+When using VS Code (devcontainer), you need to use the "URL handler" method.
 
-Follow the authentication flow using the `/login` command, then `/exit`. Credentials persist in a Docker volume.
+[<img src="../../docs/images/copilot-auth-vscode-ide.png" alt="Copilot authentication from VS Code IDE" width="200"/>](../../docs/images/copilot-auth-vscode-ide.png)
+
+Note: even in Devcontainer mode, VS Code will store the credentials on the host (removing the containers and volumes preserves them).
+
+The IntelliJ Copilot plugin [cannot complete the authentication flow in a Devcontainer](https://github.com/microsoft/copilot-intellij-feedback/issues/1375),
+so it's impossible to use it.
 
 ### 5. Use Copilot CLI
 
