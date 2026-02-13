@@ -107,6 +107,24 @@ teardown() {
 	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.dotfiles:/home/dev/.dotfiles:ro")' "$COMPOSE_FILE"
 }
 
+@test "add_git_readonly_volume adds .git mount as read-only" {
+	add_git_readonly_volume "$COMPOSE_FILE"
+
+	yq -e '.services.agent.volumes[] | select(. == "../.git:/workspace/.git:ro")' "$COMPOSE_FILE"
+}
+
+@test "add_idea_readonly_volume adds .idea mount as read-only" {
+	add_idea_readonly_volume "$COMPOSE_FILE"
+
+	yq -e '.services.agent.volumes[] | select(. == "../.idea:/workspace/.idea:ro")' "$COMPOSE_FILE"
+}
+
+@test "add_vscode_readonly_volume adds .vscode mount as read-only" {
+	add_vscode_readonly_volume "$COMPOSE_FILE"
+
+	yq -e '.services.agent.volumes[] | select(. == "../.vscode:/workspace/.vscode:ro")' "$COMPOSE_FILE"
+}
+
 @test "customize_compose_file handles full workflow with all options enabled" {
 	POLICY_FILE="policy.yaml"
 	touch "$BATS_TEST_TMPDIR/$POLICY_FILE"
@@ -118,6 +136,9 @@ teardown() {
 	export mount_claude_config="true"
 	export enable_shell_customizations="true"
 	export enable_dotfiles="true"
+	export mount_git_readonly="true"
+	export mount_idea_readonly="true"
+	export mount_vscode_readonly="true"
 
 	unset -f pull_and_pin_image
 	stub pull_and_pin_image \
@@ -136,9 +157,9 @@ teardown() {
 	# Verify policy volume on proxy
 	yq -e '.services.proxy.volumes[] | select(. == "policy.yaml:/etc/mitmproxy/policy.yaml:ro")' "$COMPOSE_FILE"
 
-	# Verify all agent volumes are present (2 Claude + shell.d + dotfiles = 4)
+	# Verify all agent volumes are present (2 Claude + shell.d + dotfiles + .git + .idea + .vscode = 7)
 	run yq '.services.agent.volumes | length' "$COMPOSE_FILE"
-	assert_output "4"
+	assert_output "7"
 
 	# shellcheck disable=SC2016
 	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro")' "$COMPOSE_FILE"
@@ -151,4 +172,10 @@ teardown() {
 
 	# shellcheck disable=SC2016
 	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.dotfiles:/home/dev/.dotfiles:ro")' "$COMPOSE_FILE"
+
+	yq -e '.services.agent.volumes[] | select(. == "../.git:/workspace/.git:ro")' "$COMPOSE_FILE"
+
+	yq -e '.services.agent.volumes[] | select(. == "../.idea:/workspace/.idea:ro")' "$COMPOSE_FILE"
+
+	yq -e '.services.agent.volumes[] | select(. == "../.vscode:/workspace/.vscode:ro")' "$COMPOSE_FILE"
 }

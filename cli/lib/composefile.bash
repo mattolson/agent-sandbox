@@ -14,6 +14,9 @@ source "$AGB_LIBDIR/path.bash"
 #   - mount_claude_config: "true" to mount host Claude config (~/.claude)
 #   - enable_shell_customizations: "true" to enable shell customizations
 #   - enable_dotfiles: "true" to mount dotfiles
+#   - mount_git_readonly: "true" to mount .git directory as read-only
+#   - mount_idea_readonly: "true" to mount .idea directory as read-only
+#   - mount_vscode_readonly: "true" to mount .vscode directory as read-only
 # Args:
 #   $1 - The agent name (e.g., "claude")
 #   $2 - Path to the policy file to mount, relative to the Docker Compose file directory
@@ -65,6 +68,24 @@ customize_compose_file() {
 		then
 			add_dotfiles_volume "$compose_file"
 		fi
+	fi
+
+	: "${mount_git_readonly:=$(select_yes_no "Mount .git/ directory as read-only?")}"
+	if [[ $mount_git_readonly == "true" ]]
+	then
+		add_git_readonly_volume "$compose_file"
+	fi
+
+	: "${mount_idea_readonly:=$(select_yes_no "Mount .idea/ directory as read-only?")}"
+	if [[ $mount_idea_readonly == "true" ]]
+	then
+		add_idea_readonly_volume "$compose_file"
+	fi
+
+	: "${mount_vscode_readonly:=$(select_yes_no "Mount .vscode/ directory as read-only?")}"
+	if [[ $mount_vscode_readonly == "true" ]]
+	then
+		add_vscode_readonly_volume "$compose_file"
 	fi
 }
 
@@ -144,6 +165,45 @@ add_dotfiles_volume() {
 	yq -i \
 		'.services.agent.volumes += [
 			"${HOME}/.dotfiles:/home/dev/.dotfiles:ro"
+		]' "$compose_file"
+}
+
+# Adds .git directory mount as read-only to the agent service.
+# Args:
+#   $1 - Path to the Docker Compose file
+add_git_readonly_volume() {
+	require yq
+	local compose_file=$1
+
+	yq -i \
+		'.services.agent.volumes += [
+			"../.git:/workspace/.git:ro"
+		]' "$compose_file"
+}
+
+# Adds .idea directory mount as read-only to the agent service.
+# Args:
+#   $1 - Path to the Docker Compose file
+add_idea_readonly_volume() {
+	require yq
+	local compose_file=$1
+
+	yq -i \
+		'.services.agent.volumes += [
+			"../.idea:/workspace/.idea:ro"
+		]' "$compose_file"
+}
+
+# Adds .vscode directory mount as read-only to the agent service.
+# Args:
+#   $1 - Path to the Docker Compose file
+add_vscode_readonly_volume() {
+	require yq
+	local compose_file=$1
+
+	yq -i \
+		'.services.agent.volumes += [
+			"../.vscode:/workspace/.vscode:ro"
 		]' "$compose_file"
 }
 

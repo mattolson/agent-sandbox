@@ -87,6 +87,12 @@ assert_customization_volumes() {
 
 	# shellcheck disable=SC2016
 	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.dotfiles:/home/dev/.dotfiles:ro")' "$compose_file"
+
+	yq -e '.services.agent.volumes[] | select(. == "../.git:/workspace/.git:ro")' "$compose_file"
+
+	yq -e '.services.agent.volumes[] | select(. == "../.idea:/workspace/.idea:ro")' "$compose_file"
+
+	yq -e '.services.agent.volumes[] | select(. == "../.vscode:/workspace/.vscode:ro")' "$compose_file"
 }
 
 assert_devcontainer_volume() {
@@ -149,6 +155,9 @@ copilot_agent_compose_file_has_expected_content() {
 	export mount_claude_config="true"
 	export enable_shell_customizations="true"
 	export enable_dotfiles="true"
+	export mount_git_readonly="true"
+	export mount_idea_readonly="true"
+	export mount_vscode_readonly="true"
 	export edit_compose_file="false"
 
 	unset -f pull_and_pin_image
@@ -169,6 +178,9 @@ copilot_agent_compose_file_has_expected_content() {
 	export mount_claude_config="true"
 	export enable_shell_customizations="true"
 	export enable_dotfiles="true"
+	export mount_git_readonly="true"
+	export mount_idea_readonly="true"
+	export mount_vscode_readonly="true"
 	export edit_compose_file="false"
 
 	unset -f pull_and_pin_image
@@ -190,6 +202,9 @@ copilot_agent_compose_file_has_expected_content() {
 	export agent_image="ghcr.io/mattolson/agent-sandbox-copilot:latest"
 	export enable_shell_customizations="true"
 	export enable_dotfiles="true"
+	export mount_git_readonly="true"
+	export mount_idea_readonly="true"
+	export mount_vscode_readonly="true"
 	export edit_compose_file="false"
 
 	unset -f pull_and_pin_image
@@ -209,6 +224,9 @@ copilot_agent_compose_file_has_expected_content() {
 	export agent_image="ghcr.io/mattolson/agent-sandbox-copilot:latest"
 	export enable_shell_customizations="true"
 	export enable_dotfiles="true"
+	export mount_git_readonly="true"
+	export mount_idea_readonly="true"
+	export mount_vscode_readonly="true"
 	export edit_compose_file="false"
 
 	unset -f pull_and_pin_image
