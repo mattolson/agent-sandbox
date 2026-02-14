@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -euo pipefail
+shopt -s inherit_errexit lastpipe
+
+# shellcheck source=../../lib/require.bash
+source "$AGB_LIBDIR/require.bash"
+# shellcheck source=../../lib/path.bash
+source "$AGB_LIBDIR/path.bash"
+# shellcheck source=../../lib/composefile.bash
+source "$AGB_LIBDIR/composefile.bash"
+# shellcheck source=../../lib/logging.bash
+source "$AGB_LIBDIR/logging.bash"
+
+# Bumps a single service's image to the latest digest
+# Args:
+#   $1 - compose file path
+#   $2 - service name
+bump_service() {
+	local compose_file=$1
+	local service=$2
+
+	local image
+	image=$(yq eval ".services.${service}.image" "$compose_file")
+
+	if [[ "$image" == "null" ]] || [[ -z "$image" ]]
+	then
+		echo "  $service: no image defined, skipping" | info
+		return 0
+	fi
+
+	echo "  $service: $image" | info
+
+	# Skip local images
+	if [[ $image == *:local ]] || [[ $image != */* ]]
+	then
+		echo "    → Skipping local image" | info
+		return 0
+	fi
+
+	# Extract base image reference (remove digest if present)
+	local base_image
+	if [[ $image == *@sha256:* ]]
+	then
+		# Image has digest: ghcr.io/foo/bar@sha256:... -> ghcr.io/foo/bar
+		base_image="${image%%@sha256:*}"
+	else
+		# Image is already a tag reference
+		base_image="$image"
+	fi
+
+	# Pull and pin the image
+	echo "    → Pulling latest from $base_image..." | info
+	local new_digest
+	new_digest=$(pull_and_pin_image "$base_image")
+
+	# Check if the digest changed
+	if [[ "$new_digest" == "$image" ]]
+	then
+		echo "    → Already at latest digest" | info
+	else
+		echo "    → Updating to $new_digest" | info
+		new_digest="$new_digest" yq -i ".services.${service}.image = env(new_digest)" "$compose_file"
+	fi
+}
+
+# Updates Docker images in compose file to latest digests
+# Reads current images, pulls latest versions, and updates to new digests
+bump() {
+	require docker
+	require yq
+
+	local compose_file
+	compose_file="$(find_compose_file)"
+
+	echo "Found compose file: $compose_file" | info
+
+	local services=("proxy" "agent")
+
+	echo "Checking images for services: ${services[*]}" | info
+
+	local service
+	for service in "${services[@]}"
+	do
+		bump_service "$compose_file" "$service"
+	done
+
+	echo "Bump complete" | info
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
+then
+	bump "$@"
+fi

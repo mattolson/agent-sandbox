@@ -1,0 +1,14 @@
+root = true
+
+[*]
+end_of_line = lf
+indent_style = tab
+indent_size = 2
+insert_final_newline = true
+max_line_length = 120
+trim_trailing_whitespace = true
+
+# Markdown
+[*.{md,rmd,mkd,mkdn,mdwn,mdown,markdown,litcoffee}]
+tab_width = 4
+trim_trailing_whitespace = false

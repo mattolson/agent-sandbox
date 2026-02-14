@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+shopt -s inherit_errexit lastpipe
+
+# shellcheck source=../../lib/logging.bash
+source "$AGB_LIBDIR/logging.bash"
+# shellcheck source=../../lib/path.bash
+source "$AGB_LIBDIR/path.bash"
+
+clean() {
+	local repo_root
+	repo_root="$(find_repo_root)"
+
+	echo "Stopping containers" | warning
+	"$AGB_LIBEXECDIR/compose/compose" down --volumes
+
+	local project_dir="$repo_root/$AGB_PROJECT_DIR"
+	if [[ -d "$project_dir" ]]
+	then
+		echo "Removing $project_dir" | warning
+		rm -rf "$project_dir"
+	fi
+
+	local devcontainer_dir="$repo_root/.devcontainer"
+	if [[ -d "$devcontainer_dir" ]]
+	then
+		echo "Removing $devcontainer_dir" | warning
+		rm -rf "$devcontainer_dir"
+	fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
+then
+	clean "$@"
+fi

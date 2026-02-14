@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -euo pipefail
+shopt -s inherit_errexit lastpipe
+
+# shellcheck source=../../lib/logging.bash
+source "$AGB_LIBDIR/logging.bash"
+# shellcheck source=../../lib/select.bash
+source "$AGB_LIBDIR/select.bash"
+# shellcheck source=../../lib/path.bash
+source "$AGB_LIBDIR/path.bash"
+
+# Opens the network policy file in the default editor. If the file is modified,
+# automatically restarts the proxy service (only if docker compose is running).
+#
+# Arguments:
+#   --mode - mode filter (default: *)
+#   --agent - agent filter (default: *)
+#
+# Policy file pattern: $AGB_PROJECT_DIR/policy-$mode-$agent.yaml
+policy() {
+	local repo_root
+	repo_root="$(find_repo_root)"
+
+	local mode="*"
+	local agent="*"
+
+	while [[ $# -gt 0 ]]
+	do
+		case "$1" in
+		--mode)
+			mode="$2"
+			shift 2
+			;;
+		--agent)
+			agent="$2"
+			shift 2
+			;;
+		*)
+			echo "Unknown argument: $1" | error
+			return 1
+			;;
+		esac
+	done
+
+	local policy_files=()
+	if ! compgen -G "$repo_root/$AGB_PROJECT_DIR/policy-$mode-$agent.yaml" |
+		sort |
+		mapfile -t policy_files
+	then
+		echo "No policy file found matching pattern: $repo_root/$AGB_PROJECT_DIR/policy-$mode-$agent.yaml" | error
+		return 1
+	fi
+
+	if [[ ${#policy_files[@]} -gt 1 ]]
+	then
+		echo "Multiple policy files found matching pattern:" | warning
+		printf '  %s\n' "${policy_files[@]}" | warning
+		echo "Using: ${policy_files[0]}" | warning
+	fi
+
+	local mtime_before
+	mtime_before=$(stat -f %m "${policy_files[0]}" 2>/dev/null || stat -c %Y "${policy_files[0]}" 2>/dev/null)
+
+	open_editor "${policy_files[0]}"
+
+	local mtime_after
+	mtime_after=$(stat -f %m "${policy_files[0]}" 2>/dev/null || stat -c %Y "${policy_files[0]}" 2>/dev/null)
+
+	if [[ "$mtime_after" != "$mtime_before" ]]
+	then
+		local proxy_status
+		proxy_status=$("$AGB_LIBEXECDIR/compose/compose" ps proxy --status running --quiet 2>/dev/null) || true
+		if [[ -n "$proxy_status" ]]
+		then
+			echo "Policy file was modified. Restarting proxy service..." | info
+			exec "$AGB_LIBEXECDIR/compose/compose" restart proxy
+		else
+			echo "Policy file was modified, but proxy service is not running. Skipping restart." | warning
+		fi
+	else
+		echo "Policy file unchanged. Skipping restart." | warning
+	fi
+
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
+then
+	policy "$@"
+fi

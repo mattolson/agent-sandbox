@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+shopt -s inherit_errexit lastpipe
+
+# shellcheck source=../../lib/logging.bash
+source "$AGB_LIBDIR/logging.bash"
+# shellcheck source=../../lib/require.bash
+source "$AGB_LIBDIR/require.bash"
+# shellcheck source=../../lib/select.bash
+source "$AGB_LIBDIR/select.bash"
+
+# Creates a network policy file for the proxy.
+# Args:
+#   $1 - Path to the policy file
+#   $@ - Service names to include (e.g., claude, copilot, vscode, jetbrains, github)
+# Outputs:
+#   Creates a YAML policy file with services list
+policy() {
+	local policy_file=$1
+	shift
+	local services
+	services=$(printf '%s\n' "$@")
+
+	require yq
+
+	mkdir -p "$(dirname -- "$policy_file")"
+	cp \
+		"$AGB_TEMPLATEDIR/policy.yaml" \
+		"$policy_file"
+
+	services="$services" yq -i '.services = (strenv(services) | split("\n") )' "$policy_file"
+
+	echo "Policy file created at: $policy_file" | info
+
+	: "${edit_policy:=$(select_yes_no "Edit the policy file?")}"
+	if [[ $edit_policy == true  ]]
+	then
+		open_editor "$policy_file"
+	fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
+then
+	policy "$@"
+fi
