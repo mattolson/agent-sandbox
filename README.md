@@ -11,7 +11,7 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 
 ## What it does
 
-Creates a sandboxed environment for AI coding agents (Claude Code, GitHub Copilot CLI) that:
+Creates a sandboxed environment for AI coding agents (Claude Code, GitHub Copilot CLI, Pi) that:
 
 - Routes all HTTP/HTTPS traffic through an enforcing proxy sidecar
 - Blocks requests to domains not on the allowlist (403 with domain name in response)
@@ -25,6 +25,7 @@ Creates a sandboxed environment for AI coding agents (Claude Code, GitHub Copilo
 |-------|----------|--------|
 | [Claude Code](https://claude.ai/code) | `templates/claude/` | ✅ Stable |
 | [GitHub Copilot CLI](https://github.com/github/copilot-cli) | `templates/copilot/` | 🧪 Preview |
+| [Pi Coding Agent](https://pi.dev/) | `templates/pi/` | 🧪 Preview |
 
 ## Runtime modes
 

@@ -58,6 +58,16 @@ SERVICE_DOMAINS = {
        "plugins.jetbrains.com",
        "downloads.marketplace.jetbrains.com",
     ],
+    "codex": [
+        "api.openai.com",
+        "*.openai.com",
+        "chatgpt.com",
+        "*.chatgpt.com",
+    ],
+    "gemini": [
+        "generativelanguage.googleapis.com",
+        "*.googleapis.com",
+    ],
 }
 
 

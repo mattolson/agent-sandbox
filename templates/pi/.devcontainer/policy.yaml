@@ -1,0 +1,23 @@
+# Pi Coding Agent sandbox network policy
+#
+# Pi supports multiple AI providers. Choose which backend(s) to enable
+# by adding the appropriate services below:
+#
+# Available AI provider services:
+#   - claude    # Anthropic Claude API
+#   - codex     # OpenAI API (GPT models, ChatGPT)
+#   - copilot   # GitHub Copilot
+#   - gemini    # Google Gemini API
+#
+# See docs/policy/schema.md for the full format reference.
+
+services:
+  - github
+  - codex      # Default: OpenAI/Codex backend (change as needed)
+  - vscode
+  - jetbrains
+
+# Additional one-off domains can be added here as needed
+# (e.g., for Azure OpenAI or other providers)
+# domains:
+#   - myorg.openai.azure.com
