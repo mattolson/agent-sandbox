@@ -8,14 +8,13 @@
 # shellcheck disable=2292
 if [ -z "${BASH_VERSION-}" ] ||
 	[[ -z "${BASH_VERSINFO-}" ]] ||
-	((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 2)))
+	((BASH_VERSINFO[0] < 3 || (BASH_VERSINFO[0] == 3 && BASH_VERSINFO[1] < 2)))
 then
-	echo "$0: this program needs to be run by Bash >= 4.2" >&2
+	echo "$0: this program needs to be run by Bash >= 3.2" >&2
 	exit 1
 fi
 
 set -euo pipefail
-shopt -s inherit_errexit lastpipe
 
 main() {
 	AGB_ROOT="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.."
@@ -24,23 +23,27 @@ main() {
 	export AGB_LIBEXECDIR="$AGB_ROOT/libexec"
 	export AGB_TEMPLATEDIR="$AGB_ROOT/templates"
 
+	# shellcheck source=../lib/compat.bash
+	source "$AGB_LIBDIR/compat.bash"
+
 	# TODO move to lib
 	# shellcheck disable=SC2016
 	export AGB_HOME_PATTERN='${HOME}/.config/agent-sandbox'
 	export AGB_PROJECT_DIR='./.agent-sandbox'
 
 	local -a modules
-	find "$AGB_LIBEXECDIR" \
-		-mindepth 1 \
-		-maxdepth 1 \
-		-type d \
-		-print |
+	mapfile -t modules < <(
+		find "$AGB_LIBEXECDIR" \
+			-mindepth 1 \
+			-maxdepth 1 \
+			-type d \
+			-print |
 		while IFS= read -r
 		do
 			basename -- "$REPLY"
 		done |
-		sort |
-		readarray -t modules
+		sort
+	)
 
 	local -r usage="
 Usage: ${BASH_SOURCE[0]} <$(IFS='|'; echo "${modules[*]}")> [command] [args...]

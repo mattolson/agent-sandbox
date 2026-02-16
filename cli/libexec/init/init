@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-shopt -s inherit_errexit lastpipe
 
 # shellcheck source=../../lib/logging.bash
 source "$AGB_LIBDIR/logging.bash"

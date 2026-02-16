@@ -2,7 +2,8 @@
 
 bats_require_minimum_version 1.5.0
 
-shopt -s lastpipe
+shopt -s compat32
+export BASH_COMPAT=3.2
 set -uo pipefail
 export SHELLOPTS
 

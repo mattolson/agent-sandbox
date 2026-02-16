@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-shopt -s inherit_errexit lastpipe
 
+# shellcheck source=../../lib/compat.bash
+source "$AGB_LIBDIR/compat.bash"
 # shellcheck source=../../lib/logging.bash
 source "$AGB_LIBDIR/logging.bash"
 # shellcheck source=../../lib/select.bash
@@ -43,9 +44,8 @@ policy() {
 	done
 
 	local policy_files=()
-	if ! compgen -G "$repo_root/$AGB_PROJECT_DIR/policy-$mode-$agent.yaml" |
-		sort |
-		mapfile -t policy_files
+	mapfile -t policy_files < <(compgen -G "$repo_root/$AGB_PROJECT_DIR/policy-$mode-$agent.yaml" 2>/dev/null | sort)
+	if [[ ${#policy_files[@]} -eq 0 ]]
 	then
 		echo "No policy file found matching pattern: $repo_root/$AGB_PROJECT_DIR/policy-$mode-$agent.yaml" | error
 		return 1
