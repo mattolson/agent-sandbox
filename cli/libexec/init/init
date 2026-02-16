@@ -48,7 +48,17 @@ init() {
 		cli "$agent" "$project_path" "$policy_file"
 		;;
 	devcontainer)
-		policy "$project_path/$policy_file" "$agent" 'vscode' 'jetbrains'
+		local available_ides=(vscode jetbrains none)
+		local ide
+		ide=$(select_option "Select IDE:" "${available_ides[@]}")
+
+		local services=("$agent")
+		if [[ "$ide" != "none" ]]
+		then
+			services+=("$ide")
+		fi
+
+		policy "$project_path/$policy_file" "${services[@]}"
 		devcontainer "$agent" "$project_path" "$policy_file"
 		;;
 	*)
