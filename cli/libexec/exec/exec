@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-shopt -s inherit_errexit lastpipe
 
 # Execute a command in the agent container.
 # Ensures containers are running before executing the command.

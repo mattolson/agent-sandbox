@@ -1,6 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-shopt -s inherit_errexit lastpipe
 
 # Ensures a command is available, optionally shimming it via Docker if supported.
 # If the command is not found and a shim exists, creates a function that runs
@@ -11,14 +10,24 @@ shopt -s inherit_errexit lastpipe
 #   0 if command is available or successfully shimmed, non-zero otherwise
 require() {
 	local -r cmd="$1"
-	declare -A shims=([yq]=mikefarah/yq)
 
 	if ! command -v "$cmd" &>/dev/null
 	then
-		if [[ -v shims[$cmd] ]] && command -v docker &>/dev/null
+
+		local shim_image
+		case "$cmd" in
+		yq)
+			shim_image="mikefarah/yq"
+			;;
+		*)
+			shim_image=""
+			;;
+		esac
+
+		if [[ -n "$shim_image" ]] && command -v docker &>/dev/null
 		then
 			>&2 echo "$0: $cmd not found, using Docker cmd"
-			docker pull --quiet "${shims[$cmd]}"
+			docker pull --quiet "$shim_image"
 			eval "$cmd"'() {
 					docker run \
 						--rm \
@@ -27,7 +36,7 @@ require() {
 						--workdir "$PWD" \
 						--user "$(id -u):$(id -g)" \
 						--network=host \
-						'"${shims[$cmd]}"' "$@"
+						'"$shim_image"' "$@"
 				}'
 			local output
 			if ! output=$("$cmd" --version 2>&1)
