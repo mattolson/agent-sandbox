@@ -19,7 +19,7 @@ bump_service() {
 	local service=$2
 
 	local image
-	image=$(yq eval ".services.${service}.image" "$compose_file")
+	image=$(service="$service" yq eval '.services.[env(service)].image' "$compose_file")
 
 	if [[ "$image" == "null" ]] || [[ -z "$image" ]]
 	then
