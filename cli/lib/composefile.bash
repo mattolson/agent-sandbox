@@ -97,6 +97,18 @@ set_agent_image() {
 	image="$image" yq -i '.services.agent.image = env(image)' "$compose_file"
 }
 
+# Sets the project name in a Docker Compose file.
+# Args:
+#   $1 - Path to the Docker Compose file
+#   $2 - Project name
+set_project_name() {
+	require yq
+	local compose_file=$1
+	local project_name=$2
+
+	project_name="$project_name" yq -i '.name = env(project_name)' "$compose_file"
+}
+
 # Adds policy volume mount to the proxy service.
 # Args:
 #   $1 - Path to the Docker Compose file

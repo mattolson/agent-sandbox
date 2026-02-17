@@ -78,3 +78,18 @@ find_compose_file() {
 		return 1
 	fi
 }
+
+# Derives a project name from a project path and mode.
+# Args:
+#   $1 - The project path (absolute or relative)
+#   $2 - The mode (cli or devcontainer)
+# Returns the project name in the format: agent-sandbox-{mode}-{last-dir-name}
+derive_project_name() {
+	local project_path=$1
+	local mode=$2
+
+	local last_dir
+	last_dir=$(basename "$project_path")
+
+	echo "agent-sandbox-${mode}-${last_dir}"
+}
