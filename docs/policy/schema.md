@@ -79,5 +79,5 @@ The `.devcontainer/` directory is mounted read-only inside the agent container, 
 
 Each template ships a policy file at `.devcontainer/policy.yaml`. See the template directories for ready-to-use policies:
 
-- [Claude Code](../../templates/claude/.devcontainer/policy.yaml)
-- [GitHub Copilot CLI](../../templates/copilot/.devcontainer/policy.yaml)
+- [Claude Code](../claude/.devcontainer/policy.yaml)
+- [GitHub Copilot CLI](../copilot/.devcontainer/policy.yaml)

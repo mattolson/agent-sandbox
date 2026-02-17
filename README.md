@@ -93,8 +93,8 @@ agentbox exec
 ### 5. Agent-specific setup
 
 Follow the setup instructions specific to the agent image you are using:
-- [Claude Code](./templates/claude/README.md)
-- [GitHub Copilot](./templates/copilot/README.md)
+- [Claude Code](docs/claude/README.md)
+- [GitHub Copilot](docs/copilot/README.md)
 
 ## Network policy
 

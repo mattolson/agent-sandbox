@@ -14,7 +14,7 @@ In CLI mode you should be able to `/login` as usual.
 
 When using VS Code (devcontainer), you need to use the "URL handler" method.
 
-[<img src="../../docs/images/copilot-auth-vscode-ide.png" alt="Copilot authentication from VS Code IDE" width="200"/>](../../docs/images/copilot-auth-vscode-ide.png)
+[<img src="../../docs/images/copilot-auth-vscode-ide.png" alt="Copilot authentication from VS Code IDE" width="200"/>](../images/copilot-auth-vscode-ide.png)
 
 Note: even in Devcontainer mode, VS Code will store the credentials on the host (removing the containers and volumes preserves them).
 
