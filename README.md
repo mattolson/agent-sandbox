@@ -31,6 +31,7 @@ Creates a sandboxed environment for AI coding agents (Claude Code, GitHub Copilo
 The sandbox is implemented as a Docker Compose project with a two-container stack: a proxy sidecar (mitmproxy) and the agent container.
 
 **Devcontainer** mode stores the docker-compose project in the `.devcontainer` directory.
+
 **CLI** mode stores the docker-compose project in the `.agent-sandbox` directory.
 
 Both modes store the policy files in the `.agent-sandbox` directory.
@@ -142,7 +143,8 @@ domains:
   - pypi.org
 ```
 
-The `.devcontainer/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy, compose file, or devcontainer config. The proxy only reads the policy at startup, so changes require a human-initiated restart from the host.
+The containing directory is mounted read-only inside the agent container, preventing the agent from modifying the policy, compose file, or devcontainer config.
+The proxy only reads the policy at startup, so changes require a human-initiated restart from the host.
 
 See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format reference.
 
