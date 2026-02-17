@@ -51,6 +51,7 @@ teardown() {
 	assert_output "expected"
 }
 ```
+
 Don't add comments that restate what a command does.
 Use `touch` to create empty files if contents don't matter for the test.
 

@@ -14,4 +14,4 @@
 services:
 
 # Additional domains allowed through the proxy
-domains: []
+domains: [ ]

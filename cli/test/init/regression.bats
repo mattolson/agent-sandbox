@@ -4,11 +4,11 @@
 # This is a regression test verifying that docker-compose configuration is generated correctly.
 
 setup() {
-    load test_helper
-    # shellcheck source=../../libexec/init/cli
-    source "$AGB_LIBEXECDIR/init/cli"
-    # shellcheck source=../../libexec/init/devcontainer
-    source "$AGB_LIBEXECDIR/init/devcontainer"
+	load test_helper
+	# shellcheck source=../../libexec/init/cli
+	source "$AGB_LIBEXECDIR/init/cli"
+	# shellcheck source=../../libexec/init/devcontainer
+	source "$AGB_LIBEXECDIR/init/devcontainer"
 
 	PROJECT_DIR="$BATS_TEST_TMPDIR/project"
 	mkdir -p "$PROJECT_DIR/$AGB_PROJECT_DIR"
@@ -22,28 +22,28 @@ teardown() {
 }
 
 assert_proxy_service() {
-    local compose_file=$1
-    local expected_image=$2
+	local compose_file=$1
+	local expected_image=$2
 
-    run yq '.services.proxy.image' "$compose_file"
-    assert_output "$expected_image"
+	run yq '.services.proxy.image' "$compose_file"
+	assert_output "$expected_image"
 
-    yq -e '.services.proxy.cap_drop[] | select(. == "ALL")' "$compose_file"
+	yq -e '.services.proxy.cap_drop[] | select(. == "ALL")' "$compose_file"
 
-    yq -e '.services.proxy.environment[] | select(. == "PROXY_MODE=enforce")' "$compose_file"
+	yq -e '.services.proxy.environment[] | select(. == "PROXY_MODE=enforce")' "$compose_file"
 }
 
 assert_agent_service_base() {
-    local compose_file=$1
-    local expected_image=$2
+	local compose_file=$1
+	local expected_image=$2
 
-    run yq '.services.agent.image' "$compose_file"
-    assert_output "$expected_image"
+	run yq '.services.agent.image' "$compose_file"
+	assert_output "$expected_image"
 
-    run yq '.services.agent.working_dir' "$compose_file"
-    assert_output "/workspace"
+	run yq '.services.agent.working_dir' "$compose_file"
+	assert_output "/workspace"
 
-    yq -e '.services.agent.cap_drop[] | select(. == "ALL")' "$compose_file"
+	yq -e '.services.agent.cap_drop[] | select(. == "ALL")' "$compose_file"
 }
 
 assert_common_environment_vars() {

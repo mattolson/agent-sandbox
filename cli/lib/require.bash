@@ -11,8 +11,8 @@ require() {
 
 	if ! command -v "$cmd" &>/dev/null
 	then
-			>&2 echo "$0: $cmd required"
-			return "$exitcode_expectation_failed"
+		>&2 echo "$0: $cmd required"
+		return "$exitcode_expectation_failed"
 	fi
 }
 

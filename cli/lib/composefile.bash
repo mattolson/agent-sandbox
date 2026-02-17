@@ -122,7 +122,8 @@ add_volume_foot_comment() {
 	local volume_count
 	volume_count=$(yq '.services.agent.volumes | length' "$compose_file")
 
-	if [[ $volume_count -eq 0 ]]; then
+	if [[ $volume_count -eq 0 ]]
+	then
 		echo "${FUNCNAME[0]}: Cannot add foot comment to empty volumes array" >&2
 		return 1
 	fi
