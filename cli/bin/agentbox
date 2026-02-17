@@ -38,11 +38,11 @@ main() {
 			-maxdepth 1 \
 			-type d \
 			-print |
-		while IFS= read -r
-		do
-			basename -- "$REPLY"
-		done |
-		sort
+			while IFS= read -r
+			do
+				basename -- "$REPLY"
+			done |
+			sort
 	)
 
 	local -r usage="

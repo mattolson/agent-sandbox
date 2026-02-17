@@ -32,7 +32,7 @@ policy() {
 	echo "Policy file created at: $policy_file" | info
 
 	: "${edit_policy:=$(select_yes_no "Edit the policy file?")}"
-	if [[ $edit_policy == true  ]]
+	if [[ $edit_policy == true ]]
 	then
 		open_editor "$policy_file"
 	fi

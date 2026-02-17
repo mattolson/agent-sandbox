@@ -112,9 +112,10 @@ open_editor() {
 	fi
 
 	local -a editor_cmd
-	read -ra editor_cmd <<< "$editor"
+	read -ra editor_cmd <<<"$editor"
 
-	if [[ ${editor_cmd[0]} == */open ]]; then
+	if [[ ${editor_cmd[0]} == */open ]]
+	then
 		"${editor_cmd[@]}" --new --wait-apps "$file" </dev/tty >/dev/tty
 	else
 		"${editor_cmd[@]}" "$file" </dev/tty >/dev/tty

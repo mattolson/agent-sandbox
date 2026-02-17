@@ -32,7 +32,7 @@ cli() {
 	echo "Compose file created at $compose_file" | info
 
 	: "${edit_compose_file:=$(select_yes_no "Edit the compose file?")}"
-	if [[ $edit_compose_file == true  ]]
+	if [[ $edit_compose_file == true ]]
 	then
 		open_editor "$compose_file"
 	fi

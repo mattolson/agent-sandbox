@@ -38,8 +38,8 @@ find_repo_root() {
 	while [[ "$current_dir" != "/" ]]
 	do
 		if [[ -d "$current_dir/$AGB_PROJECT_DIR" ]] || \
-		   [[ -d "$current_dir/.git" ]] || \
-		   [[ -d "$current_dir/.devcontainer" ]]
+			[[ -d "$current_dir/.git" ]] || \
+			[[ -d "$current_dir/.devcontainer" ]]
 		then
 			echo "$current_dir"
 			return 0

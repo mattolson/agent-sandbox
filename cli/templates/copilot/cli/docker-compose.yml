@@ -13,7 +13,7 @@ services:
       - proxy-state:/home/mitmproxy/.mitmproxy
       - proxy-ca:/ca-export
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "8080"]
+      test: [ "CMD", "nc", "-z", "localhost", "8080" ]
       interval: 5s
       timeout: 3s
       retries: 3
