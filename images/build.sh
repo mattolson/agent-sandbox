@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Build agent-sandbox images locally
 #
-# Usage: ./build.sh [base|proxy|claude|copilot|all] [docker build options...]
+# Usage: ./build.sh [base|proxy|claude|copilot|cli|all] [docker build options...]
 #
 # Environment variables (all optional):
 #   TZ                      - Timezone (default: America/Los_Angeles)
@@ -29,7 +29,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Parse target and extra args
 # If first arg is a known target, use it; otherwise default to 'all'
 case "${1:-}" in
-  base|claude|proxy|copilot|all)
+  base|claude|proxy|copilot|cli|all)
     TARGET="$1"
     shift
     ;;
@@ -104,6 +104,16 @@ build_copilot() {
     "$SCRIPT_DIR/agents/copilot"
 }
 
+build_cli() {
+  echo "Building agent-sandbox-cli..."
+  [ "$TAG" != "local" ] && echo "  TAG=$TAG"
+  docker build \
+    ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \
+    -f "$SCRIPT_DIR/cli/Dockerfile" \
+    -t agent-sandbox-cli:$TAG \
+    "$SCRIPT_DIR/.."
+}
+
 case "$TARGET" in
   base)
     build_base
@@ -117,14 +127,18 @@ case "$TARGET" in
   copilot)
     build_copilot
     ;;
+  cli)
+    build_cli
+    ;;
   all)
     build_base
     build_proxy
     build_claude
     build_copilot
+    build_cli
     ;;
   *)
-    echo "Usage: $0 [base|proxy|claude|copilot|all] [docker build options...]"
+    echo "Usage: $0 [base|proxy|claude|copilot|cli|all] [docker build options...]"
     echo ""
     echo "Any additional arguments are passed to docker build."
     echo ""

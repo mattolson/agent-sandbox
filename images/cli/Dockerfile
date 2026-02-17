@@ -1,4 +1,4 @@
-# CLI image, needs to be in root to access .git from context
+# CLI image - build context should be project root to access .git
 
 FROM alpine:3 AS builder
 
