@@ -34,7 +34,7 @@ RUN if [ -n "$EXTRA_PACKAGES" ]; then \
 
 # Set up non-root user
 ARG USERNAME=dev
-RUN groupadd --system --gid 500 ${USERNAME} && useradd --system --create-home --uid 500 --gid 500 ${USERNAME}
+RUN groupadd --system --gid 500 ${USERNAME} && useradd --system --create-home --uid 500 --gid 500 --shell /bin/bash ${USERNAME}
 
 # Persist shell history (docker volume)
 RUN mkdir /commandhistory \
