@@ -5,6 +5,8 @@ set -euo pipefail
 source "$AGB_LIBDIR/compat.bash"
 # shellcheck source=../../lib/logging.bash
 source "$AGB_LIBDIR/logging.bash"
+# shellcheck source=../../lib/constants.bash
+source "$AGB_LIBDIR/constants.bash"
 # shellcheck source=../../lib/select.bash
 source "$AGB_LIBDIR/select.bash"
 # shellcheck source=../../lib/path.bash

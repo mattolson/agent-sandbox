@@ -100,4 +100,5 @@ cli/
 
 - `AGB_ROOT` - Root directory of agent-sandbox CLI
 - `AGB_LIBDIR` - Library directory (default: `$AGB_ROOT/lib`)
+- `AGB_LIBEXECDIR` - Directory for module implementations (default: `$AGB_ROOT/libexec`)
 - `AGB_TEMPLATEDIR` - Directory for templates (default: `$AGB_ROOT/templates`)

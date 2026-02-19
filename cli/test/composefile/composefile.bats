@@ -95,9 +95,6 @@ teardown() {
 }
 
 @test "add_shell_customizations_volume adds shell.d mount" {
-	# shellcheck disable=SC2016
-	export AGB_HOME_PATTERN='${HOME}/.config/agent-sandbox'
-
 	add_shell_customizations_volume "$COMPOSE_FILE"
 
 	# shellcheck disable=SC2016
@@ -218,8 +215,6 @@ EOF
 @test "customize_compose_file handles full workflow with all options enabled and jetbrains ide" {
 	POLICY_FILE="policy.yaml"
 	touch "$BATS_TEST_TMPDIR/$POLICY_FILE"
-	# shellcheck disable=SC2016
-	export AGB_HOME_PATTERN='${HOME}/.config/agent-sandbox'
 
 	export proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
 	export agent_image="ghcr.io/mattolson/agent-sandbox-claude:latest"
@@ -244,8 +239,6 @@ EOF
 @test "customize_compose_file handles full workflow with all options enabled and vscode ide" {
 	POLICY_FILE="policy.yaml"
 	touch "$BATS_TEST_TMPDIR/$POLICY_FILE"
-	# shellcheck disable=SC2016
-	export AGB_HOME_PATTERN='${HOME}/.config/agent-sandbox'
 
 	export proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
 	export agent_image="ghcr.io/mattolson/agent-sandbox-claude:latest"

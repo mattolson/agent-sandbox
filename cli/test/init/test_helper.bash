@@ -20,8 +20,3 @@ export AGB_ROOT
 export AGB_LIBDIR="$AGB_ROOT/lib"
 export AGB_TEMPLATEDIR="$AGB_ROOT/templates"
 export AGB_LIBEXECDIR="$AGB_ROOT/libexec"
-
-# TODO move to lib
-# shellcheck disable=SC2016
-export AGB_HOME_PATTERN='${HOME}/.config/agent-sandbox'
-export AGB_PROJECT_DIR='./.agent-sandbox'

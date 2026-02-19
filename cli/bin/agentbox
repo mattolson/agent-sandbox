@@ -26,11 +26,6 @@ main() {
 	# shellcheck source=../lib/compat.bash
 	source "$AGB_LIBDIR/compat.bash"
 
-	# TODO move to lib
-	# shellcheck disable=SC2016
-	export AGB_HOME_PATTERN='${HOME}/.config/agent-sandbox'
-	export AGB_PROJECT_DIR='./.agent-sandbox'
-
 	local -a modules
 	mapfile -t modules < <(
 		find "$AGB_LIBEXECDIR" \

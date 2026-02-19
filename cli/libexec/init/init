@@ -7,6 +7,8 @@ source "$AGB_LIBDIR/logging.bash"
 source "$AGB_LIBDIR/require.bash"
 # shellcheck source=../../lib/select.bash
 source "$AGB_LIBDIR/select.bash"
+# shellcheck source=../../lib/constants.bash
+source "$AGB_LIBDIR/constants.bash"
 
 # Initializes agent-sandbox for a project.
 #   - Prompts for project path (defaults to current directory)

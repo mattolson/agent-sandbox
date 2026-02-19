@@ -6,6 +6,8 @@ source "$AGB_LIBDIR/require.bash"
 source "$AGB_LIBDIR/select.bash"
 # shellcheck source=path.bash
 source "$AGB_LIBDIR/path.bash"
+# shellcheck source=constants.bash
+source "$AGB_LIBDIR/constants.bash"
 
 # Customizes a Docker Compose file with policy and optional user configurations.
 # Prompts the user for configuration options unless provided via environment variables:

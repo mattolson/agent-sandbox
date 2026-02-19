@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# shellcheck source=constants.bash
+source "$AGB_LIBDIR/constants.bash"
+
 # Verifies that a file exists in relative path from a directory file.
 # Args:
 #   $1 - The base directory

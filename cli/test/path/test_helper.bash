@@ -15,5 +15,3 @@ bats_load_library bats-assert
 bats_load_library bats-mock-ext
 
 export AGB_ROOT AGB_LIBDIR="$AGB_ROOT/lib"
-
-export AGB_PROJECT_DIR='./.agent-sandbox'
