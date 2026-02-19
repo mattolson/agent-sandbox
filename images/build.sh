@@ -3,15 +3,17 @@ set -euo pipefail
 
 # Build agent-sandbox images locally
 #
-# Usage: ./build.sh [base|proxy|claude|copilot|all] [docker build options...]
+# Usage: ./build.sh [base|proxy|claude|copilot|pi|all] [docker build options...]
 #
 # Environment variables (all optional):
 #   TZ                      - Timezone (default: America/Los_Angeles)
 #   CLAUDE_CODE_VERSION     - Claude Code version (default: latest)
 #   COPILOT_VERSION         - GitHub Copilot CLI version (default: latest)
+#   PI_VERSION              - Pi Coding Agent version (default: latest)
 #   EXTRA_PACKAGES          - Additional apt packages for the base image
 #   CLAUDE_EXTRA_PACKAGES   - Additional apt packages for the claude image
 #   COPILOT_EXTRA_PACKAGES  - Additional apt packages for the copilot image
+#   PI_EXTRA_PACKAGES       - Additional apt packages for the pi image
 #   PROXY_EXTRA_PACKAGES    - Additional apt packages for the proxy image
 #   STACKS                  - Comma-separated language stacks for the base image (e.g. "python,go:1.23")
 #   TAG                     - Image tag (default: local)
@@ -29,7 +31,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Parse target and extra args
 # If first arg is a known target, use it; otherwise default to 'all'
 case "${1:-}" in
-  base|claude|proxy|copilot|all)
+  base|claude|proxy|copilot|pi|all)
     TARGET="$1"
     shift
     ;;
@@ -43,9 +45,11 @@ DOCKER_BUILD_ARGS=("$@")
 : "${TZ:=America/Los_Angeles}"
 : "${CLAUDE_CODE_VERSION:=latest}"
 : "${COPILOT_VERSION:=latest}"
+: "${PI_VERSION:=latest}"
 : "${EXTRA_PACKAGES:=}"
 : "${CLAUDE_EXTRA_PACKAGES:=}"
 : "${COPILOT_EXTRA_PACKAGES:=}"
+: "${PI_EXTRA_PACKAGES:=}"
 : "${PROXY_EXTRA_PACKAGES:=}"
 : "${STACKS:=}"
 : "${TAG:=local}"
@@ -104,6 +108,20 @@ build_copilot() {
     "$SCRIPT_DIR/agents/copilot"
 }
 
+build_pi() {
+  echo "Building agent-sandbox-pi..."
+  echo "  PI_VERSION=$PI_VERSION"
+  [ -n "$PI_EXTRA_PACKAGES" ] && echo "  EXTRA_PACKAGES=$PI_EXTRA_PACKAGES"
+  [ "$TAG" != "local" ] && echo "  TAG=$TAG"
+  docker build \
+    --build-arg BASE_IMAGE=agent-sandbox-base:$TAG \
+    --build-arg PI_VERSION="$PI_VERSION" \
+    --build-arg PI_EXTRA_PACKAGES="$PI_EXTRA_PACKAGES" \
+    ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \
+    -t agent-sandbox-pi:$TAG \
+    "$SCRIPT_DIR/agents/pi"
+}
+
 case "$TARGET" in
   base)
     build_base
@@ -117,14 +135,18 @@ case "$TARGET" in
   copilot)
     build_copilot
     ;;
+  pi)
+    build_pi
+    ;;
   all)
     build_base
     build_proxy
     build_claude
     build_copilot
+    build_pi
     ;;
   *)
-    echo "Usage: $0 [base|proxy|claude|copilot|all] [docker build options...]"
+    echo "Usage: $0 [base|proxy|claude|copilot|pi|all] [docker build options...]"
     echo ""
     echo "Any additional arguments are passed to docker build."
     echo ""
@@ -132,9 +154,11 @@ case "$TARGET" in
     echo "  TZ                      Timezone (default: America/Los_Angeles)"
     echo "  CLAUDE_CODE_VERSION     Claude Code version (default: latest)"
     echo "  COPILOT_VERSION         GitHub Copilot CLI version (default: latest)"
+    echo "  PI_VERSION              Pi Coding Agent version (default: latest)"
     echo "  EXTRA_PACKAGES          Additional apt packages for base image"
     echo "  CLAUDE_EXTRA_PACKAGES   Additional apt packages for claude image"
     echo "  COPILOT_EXTRA_PACKAGES  Additional apt packages for copilot image"
+    echo "  PI_EXTRA_PACKAGES       Additional apt packages for pi image"
     echo "  PROXY_EXTRA_PACKAGES    Additional apt packages for proxy image"
     echo "  STACKS                  Language stacks for base image, comma-separated (e.g. python,go:1.23)"
     echo "  TAG                     Image tag (default: local)"
