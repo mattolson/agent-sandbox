@@ -9,15 +9,38 @@ source "$AGB_LIBDIR/composefile.bash"
 # Sets up CLI mode docker-compose configuration for an agent.
 # Copies the docker-compose.yml template and customizes it.
 # Args:
-#   $1 - Path to the policy file (relative to project directory)
-#   $2 - Path to the project directory
-#   $3 - The agent name (e.g., "claude")
-#   $4 - The IDE name (e.g., "vscode", "jetbrains", "none") (optional)
+#   --policy-file - Path to the policy file (relative to project directory)
+#   --project-path - Path to the project directory
+#   --agent - The agent name (e.g., "claude")
 cli() {
-	local policy_file=$1
-	local project_path=$2
-	local agent=$3
-	local ide=${4:-}
+	local policy_file=""
+	local project_path=""
+	local agent=""
+
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+			--policy-file)
+				policy_file="$2"
+				shift 2
+				;;
+			--project-path)
+				project_path="$2"
+				shift 2
+				;;
+			--agent)
+				agent="$2"
+				shift 2
+				;;
+			*)
+				echo "Unknown option: $1" | error
+				return 1
+				;;
+		esac
+	done
+
+	: "${policy_file?Missing required parameter: --policy-file}"
+	: "${project_path?Missing required parameter: --project-path}"
+	: "${agent?Missing required parameter: --agent}"
 
 	local compose_dir="$project_path/$AGB_PROJECT_DIR"
 	local compose_file="$compose_dir/docker-compose.yml"
@@ -29,7 +52,7 @@ cli() {
 
 	local rel_policy_file="../$policy_file"
 
-	customize_compose_file "$rel_policy_file" "$compose_file" "$agent" "$ide"
+	customize_compose_file "$rel_policy_file" "$compose_file" "$agent" ""
 
 	local project_name
 	project_name=$(derive_project_name "$project_path" "cli")

@@ -49,7 +49,10 @@ init() {
 	case "$mode" in
 	cli)
 		policy "$project_path/$policy_file" "$agent"
-		cli "$policy_file" "$project_path" "$agent"
+		cli \
+			--policy-file "$policy_file" \
+			--project-path "$project_path" \
+			--agent "$agent"
 		;;
 	devcontainer)
 		local available_ides=(vscode jetbrains none)
@@ -63,7 +66,11 @@ init() {
 		fi
 
 		policy "$project_path/$policy_file" "${services[@]}"
-		devcontainer "$policy_file" "$project_path" "$agent" "$ide"
+		devcontainer \
+			--policy-file "$policy_file" \
+			--project-path "$project_path" \
+			--agent "$agent" \
+			--ide "$ide"
 		;;
 	*)
 		echo "Invalid mode selected: $mode" | error

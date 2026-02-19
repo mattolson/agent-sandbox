@@ -11,6 +11,35 @@ Requires `docker` (and `docker compose`) and [`yq`](https://github.com/mikefarah
 Initializes agent-sandbox for a project. Prompts you to select the agent type and mode, then sets up the necessary
 configuration files and network policy.
 
+#### `agentbox init cli`
+
+Sets up CLI mode docker-compose configuration for an agent. Copies the docker-compose.yml template and customizes it
+based on the selected agent.
+
+Options:
+- `--policy-file` - Path to the policy file (relative to project directory)
+- `--project-path` - Path to the project directory
+- `--agent` - The agent name (e.g., `claude`)
+
+#### `agentbox init devcontainer`
+
+Sets up a devcontainer configuration for an agent. Copies devcontainer template files and customizes the
+docker-compose.yml.
+
+Options:
+- `--policy-file` - Path to the policy file (relative to project directory)
+- `--project-path` - Path to the project directory
+- `--agent` - The agent name (e.g., `claude`)
+- `--ide` - The IDE name (e.g., `vscode`, `jetbrains`, `none`) (optional)
+
+#### `agentbox init policy`
+
+Creates a network policy file for the proxy.
+
+Arguments:
+- First argument: Path to the policy file
+- Remaining arguments: Service names to include (e.g., `claude`, `copilot`, `vscode`, `jetbrains`)
+
 ### `agentbox clean`
 
 Removes all agent-sandbox configuration and containers from a project. Stops running containers, removes volumes, and

@@ -173,7 +173,10 @@ copilot_agent_compose_file_has_expected_content() {
 		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
 		"ghcr.io/mattolson/agent-sandbox-claude:latest : echo 'ghcr.io/mattolson/agent-sandbox-claude@sha256:def456'"
 
-	run cli "$POLICY_FILE" "$PROJECT_DIR" "claude"
+	run cli \
+		--policy-file "$POLICY_FILE" \
+		--project-path "$PROJECT_DIR" \
+		--agent "claude"
 	assert_success
 	assert_output --regexp ".*Compose file created at $PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
 
@@ -199,7 +202,11 @@ copilot_agent_compose_file_has_expected_content() {
 		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
 		"ghcr.io/mattolson/agent-sandbox-claude:latest : echo 'ghcr.io/mattolson/agent-sandbox-claude@sha256:def456'"
 
-	run devcontainer "$POLICY_FILE" "$PROJECT_DIR" "claude" "jetbrains"
+	run devcontainer \
+		--policy-file "$POLICY_FILE" \
+		--project-path "$PROJECT_DIR" \
+		--agent "claude" \
+		--ide "jetbrains"
 	assert_success
 	assert_output --regexp ".*Devcontainer dir created at $PROJECT_DIR/.devcontainer"
 
@@ -227,7 +234,10 @@ copilot_agent_compose_file_has_expected_content() {
 		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
 		"ghcr.io/mattolson/agent-sandbox-copilot:latest : echo 'ghcr.io/mattolson/agent-sandbox-copilot@sha256:ghi789'"
 
-	run cli "$POLICY_FILE" "$PROJECT_DIR" "copilot"
+	run cli \
+		--policy-file "$POLICY_FILE" \
+		--project-path "$PROJECT_DIR" \
+		--agent "copilot"
 	assert_success
 	assert_output --regexp ".*Compose file created at $PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
 
@@ -252,7 +262,11 @@ copilot_agent_compose_file_has_expected_content() {
 		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
 		"ghcr.io/mattolson/agent-sandbox-copilot:latest : echo 'ghcr.io/mattolson/agent-sandbox-copilot@sha256:ghi789'"
 
-	run devcontainer "$POLICY_FILE" "$PROJECT_DIR" "copilot" "vscode"
+	run devcontainer \
+		--policy-file "$POLICY_FILE" \
+		--project-path "$PROJECT_DIR" \
+		--agent "copilot" \
+		--ide "vscode"
 	assert_success
 	assert_output --regexp ".*Devcontainer dir created at $PROJECT_DIR/.devcontainer"
 
