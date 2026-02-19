@@ -29,3 +29,4 @@ jobs:
         env:
           LC_ALL: C
           TERM: xterm
+          BATS_OPTS: -F pretty
