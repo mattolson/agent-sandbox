@@ -170,7 +170,7 @@ copilot_agent_compose_file_has_expected_content() {
 	assert_output --regexp ".*Compose file created at $PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
 
 	run yq '.name' "$PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
-	assert_output "agent-sandbox-cli-project"
+	assert_output "project-sandbox-cli"
 
 	claude_agent_compose_file_has_expected_content "$PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
 }
@@ -196,7 +196,7 @@ copilot_agent_compose_file_has_expected_content() {
 	assert_output --regexp ".*Devcontainer dir created at $PROJECT_DIR/.devcontainer"
 
 	run yq '.name' "$PROJECT_DIR/.devcontainer/docker-compose.yml"
-	assert_output "agent-sandbox-devcontainer-project"
+	assert_output "project-sandbox-devcontainer"
 
 	claude_agent_compose_file_has_expected_content "$PROJECT_DIR/.devcontainer/docker-compose.yml"
 
@@ -223,7 +223,7 @@ copilot_agent_compose_file_has_expected_content() {
 	assert_output --regexp ".*Compose file created at $PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
 
 	run yq '.name' "$PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
-	assert_output "agent-sandbox-cli-project"
+	assert_output "project-sandbox-cli"
 
 	copilot_agent_compose_file_has_expected_content "$PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
 }
@@ -248,7 +248,7 @@ copilot_agent_compose_file_has_expected_content() {
 	assert_output --regexp ".*Devcontainer dir created at $PROJECT_DIR/.devcontainer"
 
 	run yq '.name' "$PROJECT_DIR/.devcontainer/docker-compose.yml"
-	assert_output "agent-sandbox-devcontainer-project"
+	assert_output "project-sandbox-devcontainer"
 
 	copilot_agent_compose_file_has_expected_content "$PROJECT_DIR/.devcontainer/docker-compose.yml"
 

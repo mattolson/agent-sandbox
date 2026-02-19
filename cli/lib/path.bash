@@ -91,5 +91,5 @@ derive_project_name() {
 	local last_dir
 	last_dir=$(basename "$project_path")
 
-	echo "agent-sandbox-${mode}-${last_dir}"
+	echo "${last_dir}-sandbox-${mode}"
 }
