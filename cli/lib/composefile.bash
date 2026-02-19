@@ -27,6 +27,8 @@ customize_compose_file() {
 	local policy_file=$2
 	local compose_file=$3
 
+	require yq
+
 	local default_proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
 	local default_agent_image="ghcr.io/mattolson/agent-sandbox-$agent:latest"
 
