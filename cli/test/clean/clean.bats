@@ -20,7 +20,7 @@ teardown() {
 		"compose -f $compose_file down --volumes : :"
 
 	cd "$test_root"
-	clean
+	clean -f
 
 	[[ ! -d "$test_root/$AGB_PROJECT_DIR" ]]
 }
@@ -36,7 +36,7 @@ teardown() {
 		"compose -f $compose_file down --volumes : :"
 
 	cd "$test_root"
-	clean
+	clean -f
 
 	[[ ! -d "$test_root/.devcontainer" ]]
 	[[ ! -d "$test_root/$AGB_PROJECT_DIR" ]]
@@ -52,7 +52,7 @@ teardown() {
 		"compose -f $compose_file down --volumes : :"
 
 	cd "$test_root"
-	clean
+	clean -f
 
 	[[ ! -d "$test_root/.devcontainer" ]]
 }
@@ -68,7 +68,20 @@ teardown() {
 		"compose -f $compose_file down --volumes : :"
 
 	cd "$test_root/nested/deep"
-	clean
+	clean -f
 
 	[[ ! -d "$test_root/$AGB_PROJECT_DIR" ]]
+}
+
+@test "clean aborts when user answers no" {
+	local test_root="$BATS_TEST_TMPDIR/repo"
+	local compose_file="$test_root/$AGB_PROJECT_DIR/docker-compose.yml"
+	mkdir -p "$test_root/$AGB_PROJECT_DIR"
+	touch "$compose_file"
+
+	cd "$test_root"
+	run clean <<<"n"
+
+	assert_output --partial "Aborting"
+	[[ -d "$test_root/$AGB_PROJECT_DIR" ]]
 }
