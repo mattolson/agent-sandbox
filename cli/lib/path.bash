@@ -96,3 +96,17 @@ derive_project_name() {
 
 	echo "${last_dir}-sandbox-${mode}"
 }
+
+# Gets the modification time of a file in a cross-platform way.
+# Args:
+#   $1 - The file path
+# Returns the modification time as a Unix timestamp
+get_file_mtime() {
+	local file=$1
+
+	if [[ "$OSTYPE" == "darwin"* ]]; then
+		stat -f "%m" "$file"
+	else
+		stat -c "%Y" "$file"
+	fi
+}

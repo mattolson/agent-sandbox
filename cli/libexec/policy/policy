@@ -61,12 +61,12 @@ policy() {
 	fi
 
 	local mtime_before
-	mtime_before=$(stat -f %m "${policy_files[0]}" 2>/dev/null || stat -c %Y "${policy_files[0]}" 2>/dev/null)
+	mtime_before=$(get_file_mtime "${policy_files[0]}")
 
 	open_editor "${policy_files[0]}"
 
 	local mtime_after
-	mtime_after=$(stat -f %m "${policy_files[0]}" 2>/dev/null || stat -c %Y "${policy_files[0]}" 2>/dev/null)
+	mtime_after=$(get_file_mtime "${policy_files[0]}")
 
 	if [[ "$mtime_after" != "$mtime_before" ]]
 	then
