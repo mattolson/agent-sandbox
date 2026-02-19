@@ -16,12 +16,12 @@ edit() {
 	compose_file="$(find_compose_file)"
 
 	local mtime_before
-	mtime_before=$(stat -f "%m" "$compose_file" 2>/dev/null || stat -c "%Y" "$compose_file" 2>/dev/null)
+	mtime_before=$(get_file_mtime "$compose_file")
 
 	open_editor "$compose_file"
 
 	local mtime_after
-	mtime_after=$(stat -f "%m" "$compose_file" 2>/dev/null || stat -c "%Y" "$compose_file" 2>/dev/null)
+	mtime_after=$(get_file_mtime "$compose_file")
 
 	if [[ "$mtime_before" != "$mtime_after" ]]
 	then
