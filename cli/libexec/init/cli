@@ -17,24 +17,25 @@ cli() {
 	local project_path=""
 	local agent=""
 
-	while [[ $# -gt 0 ]]; do
+	while [[ $# -gt 0 ]]
+	do
 		case $1 in
-			--policy-file)
-				policy_file="$2"
-				shift 2
-				;;
-			--project-path)
-				project_path="$2"
-				shift 2
-				;;
-			--agent)
-				agent="$2"
-				shift 2
-				;;
-			*)
-				echo "Unknown option: $1" | error
-				return 1
-				;;
+		--policy-file)
+			policy_file="$2"
+			shift 2
+			;;
+		--project-path)
+			project_path="$2"
+			shift 2
+			;;
+		--agent)
+			agent="$2"
+			shift 2
+			;;
+		*)
+			echo "Unknown option: $1" | error
+			return 1
+			;;
 		esac
 	done
 

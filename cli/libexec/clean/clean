@@ -13,20 +13,21 @@ clean() {
 	repo_root="$(find_repo_root)"
 
 	case "${1:-}" in
-		-f|--force)
-			;;
-		"")
-			echo "This will stop containers, remove volumes, and delete .devcontainer and $AGB_PROJECT_DIR directories." | warning
-			if [[ "$(select_yes_no "Continue?")" == "false" ]]
-			then
-				echo "Aborting" | warning
-				return 0
-			fi
-			;;
-		*)
-			echo "$0: unknown parameter: $1" >&2
-			return 1
-			;;
+	-f | --force)
+		;;
+	"")
+		echo "This will stop containers, remove volumes, and delete .devcontainer and $AGB_PROJECT_DIR directories." |
+			warning
+		if [[ "$(select_yes_no "Continue?")" == "false" ]]
+		then
+			echo "Aborting" | warning
+			return 0
+		fi
+		;;
+	*)
+		echo "$0: unknown parameter: $1" >&2
+		return 1
+		;;
 	esac
 
 	echo "Stopping containers" | warning
