@@ -83,7 +83,7 @@ To list available commands use: ${BASH_SOURCE[0]} <module> help
 		find "$AGB_LIBEXECDIR/$module" \
 			-maxdepth 1 \
 			-type f \
-			-executable \
+			-perm +0100 \
 			-print |
 			while IFS= read -r
 			do
