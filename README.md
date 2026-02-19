@@ -52,6 +52,7 @@ Set your Docker credential helper to `osxkeychain` (not `desktop`) in `~/.docker
 ### 2. Install agent-sandbox CLI
 
 The CLI is a thin wrapper around docker-compose that simplifies the process of initializing and starting the sandbox.
+See the full documentation [here](cli/README.md).
 
 #### Local install
 ```bash
@@ -68,6 +69,9 @@ alias agentbox='docker run --rm -it -v "/var/run/docker.sock:/var/run/docker.soc
 ```
 
 Using the Docker image disables the editor integration (`vi` installed in the image will be used instead of your host editor).
+
+The image runs as root, to avoid permission issues with the host Docker socket.
+On Colima file ownership is mapped automatically, on Linux you should add `--user` parameter accordingly.
 
 ### 3. Initialize the sandbox for your project
 
