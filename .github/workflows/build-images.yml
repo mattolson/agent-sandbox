@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'cli/**'
       - 'images/**'
       - '.github/workflows/build-images.yml'
   release:
