@@ -9,13 +9,15 @@ source "$AGB_LIBDIR/composefile.bash"
 # Sets up a Devcontainer configuration for an agent.
 # Copies devcontainer template files and customizes the docker-compose.yml.
 # Args:
-#   $1 - The agent name (e.g., "claude")
+#   $1 - Path to the policy file (relative to project directory)
 #   $2 - Path to the project directory
-#   $3 - Path to the policy file (relative to project directory)
+#   $3 - The agent name (e.g., "claude")
+#   $4 - The IDE name (e.g., "vscode", "jetbrains", "none") (optional)
 devcontainer() {
-	local agent=$1
+	local policy_file=$1
 	local project_path=$2
-	local policy_file=$3
+	local agent=$3
+	local ide=${4:-}
 
 	local devcontainer_dir="$project_path/.devcontainer"
 	local compose_file="$devcontainer_dir/docker-compose.yml"
@@ -27,7 +29,7 @@ devcontainer() {
 
 	local rel_policy_file="../$policy_file"
 
-	customize_compose_file "$agent" "$rel_policy_file" "$compose_file"
+	customize_compose_file "$rel_policy_file" "$compose_file" "$agent" "$ide"
 
 	local project_name
 	project_name=$(derive_project_name "$project_path" "devcontainer")

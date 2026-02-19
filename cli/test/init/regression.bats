@@ -101,6 +101,14 @@ assert_devcontainer_volume() {
 	yq -e '.services.agent.volumes[] | select(. == ".:/workspace/.devcontainer:ro")' "$compose_file"
 }
 
+assert_jetbrains_capabilities() {
+	local compose_file=$1
+
+	yq -e '.services.agent.cap_add[] | select(. == "DAC_OVERRIDE")' "$compose_file"
+	yq -e '.services.agent.cap_add[] | select(. == "CHOWN")' "$compose_file"
+	yq -e '.services.agent.cap_add[] | select(. == "FOWNER")' "$compose_file"
+}
+
 claude_agent_compose_file_has_expected_content() {
 	local compose_file=$1
 
@@ -165,7 +173,7 @@ copilot_agent_compose_file_has_expected_content() {
 		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
 		"ghcr.io/mattolson/agent-sandbox-claude:latest : echo 'ghcr.io/mattolson/agent-sandbox-claude@sha256:def456'"
 
-	run cli "claude" "$PROJECT_DIR" "$POLICY_FILE"
+	run cli "$POLICY_FILE" "$PROJECT_DIR" "claude"
 	assert_success
 	assert_output --regexp ".*Compose file created at $PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
 
@@ -191,7 +199,7 @@ copilot_agent_compose_file_has_expected_content() {
 		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
 		"ghcr.io/mattolson/agent-sandbox-claude:latest : echo 'ghcr.io/mattolson/agent-sandbox-claude@sha256:def456'"
 
-	run devcontainer "claude" "$PROJECT_DIR" "$POLICY_FILE"
+	run devcontainer "$POLICY_FILE" "$PROJECT_DIR" "claude" "jetbrains"
 	assert_success
 	assert_output --regexp ".*Devcontainer dir created at $PROJECT_DIR/.devcontainer"
 
@@ -201,6 +209,7 @@ copilot_agent_compose_file_has_expected_content() {
 	claude_agent_compose_file_has_expected_content "$PROJECT_DIR/.devcontainer/docker-compose.yml"
 
 	assert_devcontainer_volume "$PROJECT_DIR/.devcontainer/docker-compose.yml"
+	assert_jetbrains_capabilities "$PROJECT_DIR/.devcontainer/docker-compose.yml"
 }
 
 @test "cli creates docker-compose.yml for copilot agent with all options enabled" {
@@ -218,7 +227,7 @@ copilot_agent_compose_file_has_expected_content() {
 		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
 		"ghcr.io/mattolson/agent-sandbox-copilot:latest : echo 'ghcr.io/mattolson/agent-sandbox-copilot@sha256:ghi789'"
 
-	run cli "copilot" "$PROJECT_DIR" "$POLICY_FILE"
+	run cli "$POLICY_FILE" "$PROJECT_DIR" "copilot"
 	assert_success
 	assert_output --regexp ".*Compose file created at $PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
 
@@ -243,7 +252,7 @@ copilot_agent_compose_file_has_expected_content() {
 		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
 		"ghcr.io/mattolson/agent-sandbox-copilot:latest : echo 'ghcr.io/mattolson/agent-sandbox-copilot@sha256:ghi789'"
 
-	run devcontainer "copilot" "$PROJECT_DIR" "$POLICY_FILE"
+	run devcontainer "$POLICY_FILE" "$PROJECT_DIR" "copilot" "vscode"
 	assert_success
 	assert_output --regexp ".*Devcontainer dir created at $PROJECT_DIR/.devcontainer"
 
