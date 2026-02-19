@@ -13,6 +13,7 @@ source "$AGB_LIBDIR/select.bash"
 #   - Prompts for project name (defaults to directory name)
 #   - Prompts to select agent type (claude/copilot)
 #   - Prompts to select mode (cli/devcontainer)
+#   - Prompts to select IDE (code/jetbrains/none)
 #   - Creates a network policy file
 #   - Sets up the selected mode configuration files
 init() {
@@ -48,7 +49,7 @@ init() {
 	case "$mode" in
 	cli)
 		policy "$project_path/$policy_file" "$agent"
-		cli "$agent" "$project_path" "$policy_file"
+		cli "$policy_file" "$project_path" "$agent"
 		;;
 	devcontainer)
 		local available_ides=(vscode jetbrains none)
@@ -62,7 +63,7 @@ init() {
 		fi
 
 		policy "$project_path/$policy_file" "${services[@]}"
-		devcontainer "$agent" "$project_path" "$policy_file"
+		devcontainer "$policy_file" "$project_path" "$agent" "$ide"
 		;;
 	*)
 		echo "Invalid mode selected: $mode" | error

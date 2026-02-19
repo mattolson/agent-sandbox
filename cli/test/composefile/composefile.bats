@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# bashsupport disable=GrazieInspection
 # shellcheck disable=SC2030,SC2031
 
 setup() {
@@ -8,7 +9,7 @@ setup() {
 
 	COMPOSE_FILE="$BATS_TEST_TMPDIR/docker-compose.yml"
 
-	cat >"$COMPOSE_FILE" <<'EOF'
+	cat >"$COMPOSE_FILE" <<'YAML'
 services:
   proxy:
     image: placeholder
@@ -16,8 +17,10 @@ services:
   agent:
     image: placeholder
     volumes:
-      - ../:/workspace # need at least one volume so that we can add foot comments
-EOF
+      - ../:/workspace # need at least one entry so that we can add foot comments
+    cap_add:
+      - SOME_CAPABILITY # need at least one entry so that we can add foot comments
+YAML
 }
 
 teardown() {
@@ -126,6 +129,55 @@ teardown() {
 	yq -e '.services.agent.volumes[] | select(. == "../.vscode:/workspace/.vscode:ro")' "$COMPOSE_FILE"
 }
 
+assert_jetbrains_capabilities() {
+	local compose_file=$1
+
+	yq -e '.services.agent.cap_add[] | select(. == "DAC_OVERRIDE")' "$compose_file"
+	yq -e '.services.agent.cap_add[] | select(. == "CHOWN")' "$compose_file"
+	yq -e '.services.agent.cap_add[] | select(. == "FOWNER")' "$compose_file"
+
+	run yq '.services.agent.cap_add[0] | foot_comment' "$compose_file"
+	assert_output "following is required by JetBrains devcontainer"
+}
+
+assert_customize_compose_file_common() {
+	local compose_file=$1
+
+	# Verify images
+	run yq '.services.proxy.image' "$compose_file"
+	assert_output "ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
+
+	run yq '.services.agent.image' "$compose_file"
+	assert_output "ghcr.io/mattolson/agent-sandbox-claude@sha256:def456"
+
+	# Verify policy volume on proxy
+	yq -e '.services.proxy.volumes[] | select(. == "policy.yaml:/etc/mitmproxy/policy.yaml:ro")' "$compose_file"
+
+	# Verify all agent volumes count (initial + 2 Claude + shell.d + dotfiles + .git + IDE-specific = 7)
+	run yq '.services.agent.volumes | length' "$compose_file"
+	assert_output "7"
+
+	# shellcheck disable=SC2016
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro")' "$compose_file"
+
+	# shellcheck disable=SC2016
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro")' "$compose_file"
+
+	# shellcheck disable=SC2016
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro")' "$compose_file"
+
+	# shellcheck disable=SC2016
+	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro")' "$compose_file"
+
+	yq -e '.services.agent.volumes[] | select(. == "../.git:/workspace/.git:ro")' "$compose_file"
+}
+
+@test "add_jetbrains_capabilities adds JetBrains-specific capabilities" {
+	add_jetbrains_capabilities "$COMPOSE_FILE"
+
+	assert_jetbrains_capabilities "$COMPOSE_FILE"
+}
+
 @test "add_volume_entry adds volume when active is true" {
 	add_volume_entry "$COMPOSE_FILE" "../test:/workspace/test:ro" "true"
 
@@ -163,7 +215,7 @@ teardown() {
 EOF
 }
 
-@test "customize_compose_file handles full workflow with all options enabled" {
+@test "customize_compose_file handles full workflow with all options enabled and jetbrains ide" {
 	POLICY_FILE="policy.yaml"
 	touch "$BATS_TEST_TMPDIR/$POLICY_FILE"
 	# shellcheck disable=SC2016
@@ -176,6 +228,31 @@ EOF
 	export enable_dotfiles="true"
 	export mount_git_readonly="true"
 	export mount_idea_readonly="true"
+
+	unset -f pull_and_pin_image
+	stub pull_and_pin_image \
+		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
+		"ghcr.io/mattolson/agent-sandbox-claude:latest : echo 'ghcr.io/mattolson/agent-sandbox-claude@sha256:def456'"
+
+	customize_compose_file "$POLICY_FILE" "$COMPOSE_FILE" "claude" "jetbrains"
+
+	assert_customize_compose_file_common "$COMPOSE_FILE"
+	yq -e '.services.agent.volumes[] | select(. == "../.idea:/workspace/.idea:ro")' "$COMPOSE_FILE"
+	assert_jetbrains_capabilities "$COMPOSE_FILE"
+}
+
+@test "customize_compose_file handles full workflow with all options enabled and vscode ide" {
+	POLICY_FILE="policy.yaml"
+	touch "$BATS_TEST_TMPDIR/$POLICY_FILE"
+	# shellcheck disable=SC2016
+	export AGB_HOME_PATTERN='${HOME}/.config/agent-sandbox'
+
+	export proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
+	export agent_image="ghcr.io/mattolson/agent-sandbox-claude:latest"
+	export mount_claude_config="true"
+	export enable_shell_customizations="true"
+	export enable_dotfiles="true"
+	export mount_git_readonly="true"
 	export mount_vscode_readonly="true"
 
 	unset -f pull_and_pin_image
@@ -183,37 +260,8 @@ EOF
 		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
 		"ghcr.io/mattolson/agent-sandbox-claude:latest : echo 'ghcr.io/mattolson/agent-sandbox-claude@sha256:def456'"
 
-	customize_compose_file "claude" "$POLICY_FILE" "$COMPOSE_FILE"
+	customize_compose_file "$POLICY_FILE" "$COMPOSE_FILE" "claude" "vscode"
 
-	# Verify images
-	run yq '.services.proxy.image' "$COMPOSE_FILE"
-	assert_output "ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
-
-	run yq '.services.agent.image' "$COMPOSE_FILE"
-	assert_output "ghcr.io/mattolson/agent-sandbox-claude@sha256:def456"
-
-	# Verify policy volume on proxy
-	yq -e '.services.proxy.volumes[] | select(. == "policy.yaml:/etc/mitmproxy/policy.yaml:ro")' "$COMPOSE_FILE"
-
-	# Verify all agent volumes are present (initial + 2 Claude + shell.d + dotfiles + .git + .idea + .vscode = 7)
-	run yq '.services.agent.volumes | length' "$COMPOSE_FILE"
-	assert_output "8"
-
-	# shellcheck disable=SC2016
-	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro")' "$COMPOSE_FILE"
-
-	# shellcheck disable=SC2016
-	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro")' "$COMPOSE_FILE"
-
-	# shellcheck disable=SC2016
-	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro")' "$COMPOSE_FILE"
-
-	# shellcheck disable=SC2016
-	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro")' "$COMPOSE_FILE"
-
-	yq -e '.services.agent.volumes[] | select(. == "../.git:/workspace/.git:ro")' "$COMPOSE_FILE"
-
-	yq -e '.services.agent.volumes[] | select(. == "../.idea:/workspace/.idea:ro")' "$COMPOSE_FILE"
-
+	assert_customize_compose_file_common "$COMPOSE_FILE"
 	yq -e '.services.agent.volumes[] | select(. == "../.vscode:/workspace/.vscode:ro")' "$COMPOSE_FILE"
 }

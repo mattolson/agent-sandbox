@@ -18,14 +18,16 @@ source "$AGB_LIBDIR/path.bash"
 #   - mount_idea_readonly: "true" to mount .idea directory as read-only
 #   - mount_vscode_readonly: "true" to mount .vscode directory as read-only
 # Args:
-#   $1 - The agent name (e.g., "claude")
-#   $2 - Path to the policy file to mount, relative to the Docker Compose file directory
-#   $3 - Path to the Docker Compose file to modify
+#   $1 - Path to the policy file to mount, relative to the Docker Compose file directory
+#   $2 - Path to the Docker Compose file to modify
+#   $3 - The agent name (e.g., "claude")
+#   $4 - The IDE name (e.g., "vscode", "jetbrains", "none") (optional)
 #
 customize_compose_file() {
-	local agent=$1
-	local policy_file=$2
-	local compose_file=$3
+	local policy_file=$1
+	local compose_file=$2
+	local agent=$3
+	local ide=${4:-none}
 
 	require yq
 
@@ -49,10 +51,17 @@ customize_compose_file() {
 	: "${enable_shell_customizations:=$(select_yes_no "Enable shell customizations?")}"
 	: "${enable_dotfiles:=$(select_yes_no "Enable dotfiles?")}"
 	: "${mount_git_readonly:=$(select_yes_no "Mount .git/ directory as read-only?")}"
-	: "${mount_idea_readonly:=$(select_yes_no "Mount .idea/ directory as read-only?")}"
-	: "${mount_vscode_readonly:=$(select_yes_no "Mount .vscode/ directory as read-only?")}"
 
-	# Apply configuration based on collected input
+	if [[ $ide == "jetbrains" ]]
+	then
+		: "${mount_idea_readonly:=$(select_yes_no "Mount .idea/ directory as read-only?")}"
+	fi
+
+	if [[ $ide == "vscode" ]]
+	then
+		: "${mount_vscode_readonly:=$(select_yes_no "Mount .vscode/ directory as read-only?")}"
+	fi
+
 	local proxy_image_pinned
 	proxy_image_pinned=$(pull_and_pin_image "${proxy_image:-$default_proxy_image}")
 	set_proxy_image "$compose_file" "$proxy_image_pinned"
@@ -71,8 +80,13 @@ customize_compose_file() {
 	add_shell_customizations_volume "$compose_file" "$enable_shell_customizations"
 	add_dotfiles_volume "$compose_file" "$enable_dotfiles"
 	add_git_readonly_volume "$compose_file" "$mount_git_readonly"
-	add_idea_readonly_volume "$compose_file" "$mount_idea_readonly"
-	add_vscode_readonly_volume "$compose_file" "$mount_vscode_readonly"
+	add_idea_readonly_volume "$compose_file" "${mount_idea_readonly:-false}"
+	add_vscode_readonly_volume "$compose_file" "${mount_vscode_readonly:-false}"
+
+	if [[ $ide == "jetbrains" ]]
+	then
+		add_jetbrains_capabilities "$compose_file"
+	fi
 }
 
 # Sets the proxy service image in a Docker Compose file.
@@ -124,29 +138,42 @@ add_policy_volume() {
 		'.services.proxy.volumes += [env(policy_file) + ":/etc/mitmproxy/policy.yaml:ro"]' "$compose_file"
 }
 
+# Adds a foot comment to the last item in a YAML array.
+# Args:
+#   $1 - Path to the Docker Compose file
+#   $2 - YAML path to the array (e.g., ".services.agent.volumes")
+#   $3 - Comment text to add
+add_foot_comment() {
+	require yq
+	local compose_file=$1
+	local array_path=$2
+	local comment=$3
+
+	local item_count
+	item_count=$(yq "$array_path | length" "$compose_file")
+
+	if [[ $item_count -eq 0 ]]
+	then
+		echo "${FUNCNAME[0]}: Cannot add foot comment to empty array at $array_path" >&2
+		return 1
+	fi
+
+	array_path="$array_path" comment="$comment" yq -i '
+			(eval(env(array_path)) | .[-1]) foot_comment = (
+				((eval(env(array_path)) | .[-1] | foot_comment) // "") + "\n" + strenv(comment) | sub("^\n", "")
+			)
+		' "$compose_file"
+}
+
 # Adds a foot comment to the last volume entry in the agent service.
 # Args:
 #   $1 - Path to the Docker Compose file
 #   $2 - Comment text to add
 add_volume_foot_comment() {
-	require yq
 	local compose_file=$1
 	local comment=$2
 
-	local volume_count
-	volume_count=$(yq '.services.agent.volumes | length' "$compose_file")
-
-	if [[ $volume_count -eq 0 ]]
-	then
-		echo "${FUNCNAME[0]}: Cannot add foot comment to empty volumes array" >&2
-		return 1
-	fi
-
-	comment="$comment" yq -i '
-			.services.agent.volumes[-1] foot_comment = (
-				((.services.agent.volumes[-1] | foot_comment) // "") + "\n" + strenv(comment) | sub("^\n", "")
-			)
-		' "$compose_file"
+	add_foot_comment "$compose_file" ".services.agent.volumes" "$comment"
 }
 
 # Adds a volume entry to the agent service, either as active or commented.
@@ -250,6 +277,17 @@ add_vscode_readonly_volume() {
 	add_volume_foot_comment "$compose_file" 'Read-only VS Code project directory'
 
 	add_volume_entry "$compose_file" '../.vscode:/workspace/.vscode:ro' "$active"
+}
+
+# Adds JetBrains-specific capabilities to the agent service.
+# Args:
+#   $1 - Path to the Docker Compose file
+add_jetbrains_capabilities() {
+	require yq
+	local compose_file=$1
+
+	add_foot_comment "$compose_file" ".services.agent.cap_add" "following is required by JetBrains devcontainer"
+	yq -i '.services.agent.cap_add += ["DAC_OVERRIDE", "CHOWN", "FOWNER"]' "$compose_file"
 }
 
 # Pulls an image and returns its digest.
