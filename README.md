@@ -65,10 +65,13 @@ export PATH="$PWD/agent-sandbox/cli/bin:$PATH"
 #### Docker install
 ```bash
 docker pull ghcr.io/mattolson/agent-sandbox-cli
-alias agentbox='docker run --rm -it -v "/var/run/docker.sock:/var/run/docker.sock" -v"$PWD:$PWD" -w"$PWD" -e TERM="$TERM" --network none ghcr.io/mattolson/agent-sandbox-cli'
+alias agentbox='docker run --rm -it -v "/var/run/docker.sock:/var/run/docker.sock" -v"$PWD:$PWD" -w"$PWD" -e TERM -e HOME --network none ghcr.io/mattolson/agent-sandbox-cli'
 ```
 
 Using the Docker image disables the editor integration (`vi` installed in the image will be used instead of your host editor).
+
+The host environment variables will not be available inside the container, unless you forward them explicitly.
+This is important, because Docker Compose runs inside the container. `HOME` is already forwarded to handle common use cases.
 
 The image runs as root, to avoid permission issues with the host Docker socket.
 On Colima file ownership is mapped automatically, on Linux you should add `--user` parameter accordingly.
