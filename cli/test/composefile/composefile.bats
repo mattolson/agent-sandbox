@@ -133,7 +133,7 @@ assert_jetbrains_capabilities() {
 	yq -e '.services.agent.cap_add[] | select(. == "CHOWN")' "$compose_file"
 	yq -e '.services.agent.cap_add[] | select(. == "FOWNER")' "$compose_file"
 
-	run yq '.services.agent.cap_add[0] | foot_comment' "$compose_file"
+	run yq '(.services.agent.cap_add[] | select(. == "DAC_OVERRIDE")) | head_comment' "$compose_file"
 	assert_output "following is required by JetBrains devcontainer"
 }
 
@@ -181,8 +181,16 @@ assert_customize_compose_file_common() {
 	yq -e '.services.agent.volumes[] | select(. == "../test:/workspace/test:ro")' "$COMPOSE_FILE"
 }
 
-@test "add_volume_entry adds comment when active is false" {
+@test "add_volume_entry adds volume with head comment when active is true" {
+	add_volume_entry "$COMPOSE_FILE" "../test:/workspace/test:ro" "true" "Test volume"
 
+	yq -e '.services.agent.volumes[] | select(. == "../test:/workspace/test:ro")' "$COMPOSE_FILE"
+
+	run yq '.services.agent.volumes[-1] | head_comment' "$COMPOSE_FILE"
+	assert_output "Test volume"
+}
+
+@test "add_volume_entry adds comment when active is false" {
 	add_volume_entry "$COMPOSE_FILE" "../test:/workspace/test:ro" "false"
 
 	# Verify we have one active volume entry
@@ -192,6 +200,19 @@ assert_customize_compose_file_common() {
 	# Verify foot comment was added to the last entry
 	run yq '.services.agent.volumes[-1] | foot_comment' "$COMPOSE_FILE"
 	assert_output "- ../test:/workspace/test:ro"
+}
+
+@test "add_volume_entry adds description and entry as single foot comment when inactive" {
+	add_volume_entry "$COMPOSE_FILE" "../test:/workspace/test:ro" "false" "Test volume"
+
+	run yq '.services.agent.volumes | length' "$COMPOSE_FILE"
+	assert_output "1"
+
+	run yq '.services.agent.volumes[-1] | foot_comment' "$COMPOSE_FILE"
+	assert_output - <<EOF
+Test volume
+- ../test:/workspace/test:ro
+EOF
 }
 
 @test "add_volume_entry appends multiple comments" {
