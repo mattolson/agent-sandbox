@@ -16,16 +16,12 @@ If you want the agent to run git commands, some setup is required.
 git@github.com:user/repo.git -> https://github.com/user/repo.git
 ```
 
-**Credential setup.** To push or access private repos, authenticate with GitHub:
+**Credential setup.** To push or access private repos, create a [fine-grained personal access token](https://github.com/settings/tokens?type=beta) scoped to specific repositories. Then configure git to store it:
 
 ```bash
-gh auth login
+git config --global credential.helper store
 ```
 
-This stores a token in the container's Claude state volume (persists across rebuilds). The gh CLI configures git to use this token automatically.
+On the next `git push` or `git pull` against a private repo, git will prompt for your username and token. Enter your GitHub username and paste the PAT as the password. The credential is saved to `~/.git-credentials` and reused automatically from then on.
 
-**Alternative: Fine-grained PAT.** For tighter access control, create a [fine-grained personal access token](https://github.com/settings/tokens?type=beta) scoped to specific repositories, then:
-
-```bash
-gh auth login --with-token < token.txt
-```
+Credentials are stored in plaintext on disk inside the container. The file persists in the agent's Docker volume across rebuilds. See the [security section](../README.md#git-credentials) for ways to limit exposure.
