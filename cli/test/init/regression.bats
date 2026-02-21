@@ -59,9 +59,9 @@ assert_common_environment_vars() {
 assert_common_volumes() {
 	local compose_file=$1
 
-	yq -e '.services.agent.volumes[] | select(. == "../:/workspace")' "$compose_file"
+	yq -e '.services.agent.volumes[] | select(. == "..:/workspace")' "$compose_file"
 
-	yq -e '.services.agent.volumes[] | select(. == "../.agent-sandbox/:/workspace/.agent-sandbox/:ro")' "$compose_file"
+	yq -e '.services.agent.volumes[] | select(. == "../.agent-sandbox:/workspace/.agent-sandbox:ro")' "$compose_file"
 
 	yq -e '.services.agent.volumes[] | select(. == "proxy-ca:/etc/mitmproxy:ro")' "$compose_file"
 }

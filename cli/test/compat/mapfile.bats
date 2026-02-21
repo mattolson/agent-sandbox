@@ -117,13 +117,7 @@ line3"
 
 @test "mapfile handles long input" {
 	local -a result
-	mapfile -t result < <(
-		local i
-		for i in {1..100}
-		do
-			echo "line $i"
-		done
-	)
+	mapfile -t result < <(seq 1 100 | while read -r i; do echo "line $i"; done)
 
 	assert_equal "${#result[@]}" 100
 	assert_equal "${result[0]}" "line 1"
