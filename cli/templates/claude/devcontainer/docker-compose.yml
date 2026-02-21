@@ -1,5 +1,4 @@
 # Claude Code Sandbox
-
 services:
   proxy:
     image: ghcr.io/mattolson/agent-sandbox-proxy:latest
@@ -17,7 +16,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 3
-
   agent:
     image: ghcr.io/mattolson/agent-sandbox-claude:latest
     depends_on:
@@ -33,11 +31,12 @@ services:
       - SETUID
       - SETGID
     volumes:
+      # Paths are relative to this file's directory (.devcontainer/)
       # Project workspace
-      - ../:/workspace
+      - ..:/workspace
       # Read-only policy directory
-      - ../.agent-sandbox/:/workspace/.agent-sandbox/:ro
-      # Read-only devcontainer directory
+      - ../.agent-sandbox:/workspace/.agent-sandbox:ro
+      # Read-only devcontainer directory (. = .devcontainer/)
       - .:/workspace/.devcontainer:ro
       # Persist Claude credentials
       - claude-state:/home/dev/.claude
@@ -56,7 +55,6 @@ services:
       - NO_PROXY=localhost,127.0.0.1,proxy
       # Disable HTTP/2 in Go clients (gh CLI) to avoid header validation issues through proxy
       - GODEBUG=http2client=0
-
 volumes:
   claude-state:
   claude-history:

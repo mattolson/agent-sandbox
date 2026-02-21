@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Agent Sandbox creates locked-down local sandboxes for running AI coding agents (Claude Code, Codex, etc.) with minimal filesystem access and restricted outbound network. Enforcement uses two layers: an mitmproxy sidecar that enforces a domain allowlist at the HTTP/HTTPS level, and iptables rules that block all direct outbound to prevent bypassing the proxy.
+Agent Sandbox creates locked-down local sandboxes for running AI coding agents (Claude Code, Copilot, etc.) with minimal filesystem access and restricted outbound network. Enforcement uses two layers: an mitmproxy sidecar that enforces a domain allowlist at the HTTP/HTTPS level, and iptables rules that block all direct outbound to prevent bypassing the proxy.
 
 **Note**: During development of this project, Claude Code operates inside a locked-down container using the docker compose method. This means git push/pull and other network operations outside the allowlist will fail from within the container. Handle git operations from the host.
 
 ## Development Environment
 
-This project uses Docker Compose with a proxy sidecar. A single compose file at `.devcontainer/docker-compose.yml` works for both devcontainer (VS Code/JetBrains) and CLI usage. A `.env` file at the project root sets `COMPOSE_FILE` so that `docker compose` commands work from the project directory.
+This project uses Docker Compose with a proxy sidecar. The compose file lives at `.agent-sandbox/docker-compose.yml` and the network policy at `.agent-sandbox/policy-cli-claude.yaml`.
 
 The container runs Debian bookworm with:
 - Non-root `dev` user (uid/gid 500)
@@ -51,23 +51,29 @@ domains:
 ```
 
 Available services are hardcoded in `images/proxy/addons/enforcer.py`:
-- `github`: github.com, *.github.com, *.githubusercontent.com
-- `claude`: *.anthropic.com, *.claude.ai, *.sentry.io, *.datadoghq.com
-- `vscode`: VS Code marketplace and update infrastructure
+- `github`: github.com, *.github.com, githubusercontent.com, *.githubusercontent.com
+- `claude`: *.anthropic.com, *.claude.ai, *.claude.com, *.sentry.io, *.datadoghq.com
+- `copilot`: github.com, api.github.com, copilot-telemetry.githubusercontent.com, collector.github.com, default.exp-tas.com, copilot-proxy.githubusercontent.com, origin-tracker.githubusercontent.com, *.githubcopilot.com, *.individual.githubcopilot.com, *.business.githubcopilot.com, *.enterprise.githubcopilot.com, *.githubassets.com
+- `vscode`: update.code.visualstudio.com, marketplace.visualstudio.com, mobile.events.data.microsoft.com, main.vscode-cdn.net, *.vsassets.io
+- `jetbrains`: plugins.jetbrains.com, downloads.marketplace.jetbrains.com
+- `jetbrains-ai`: api.jetbrains.ai, api.app.prod.grazie.aws.intellij.net, www.jetbrains.com, account.jetbrains.com, oauth.account.jetbrains.com, frameworks.jetbrains.com, cloudconfig.jetbrains.com, download.jetbrains.com, download-cf.jetbrains.com, download-cdn.jetbrains.com, resources.jetbrains.com, cdn.agentclientprotocol.com
 
 Adding a new service requires modifying `enforcer.py`. For one-off domains, use the `domains:` list instead.
 
 ### Customizing the Policy
 
-The network policy lives in the project at `.devcontainer/policy.yaml`. The `.devcontainer/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy. The proxy only reads the policy at startup.
+For this project, the network policy lives at `.agent-sandbox/policy-cli-claude.yaml`. The `.agent-sandbox/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy. The proxy only reads the policy at startup.
+
+To edit the policy in a user project: `agentbox policy`.
 
 ## Architecture
 
-Three components:
+Four components:
 
-1. **Images** (`images/`) - Base image, agent-specific images, and proxy image
-2. **Templates** (`templates/`) - Ready-to-copy templates for each supported agent
-3. **Runtime** (`.devcontainer/docker-compose.yml`) - Docker Compose stack for developing this project
+1. **CLI** (`cli/`) - The `agentbox` command-line tool for initializing and managing sandboxed projects
+2. **Images** (`images/`) - Base image, agent-specific images, proxy image, and CLI image
+3. **Templates** (`cli/templates/`) - Per-agent, per-mode compose file and devcontainer templates
+4. **Runtime** (`.agent-sandbox/docker-compose.yml`) - Docker Compose stack for developing this project
 
 The base image contains the firewall script and common tools. Agent images extend it with agent-specific software. The proxy image runs mitmproxy with the policy enforcement addon.
 
@@ -98,19 +104,25 @@ After modifying a policy file or proxy addon:
 2. Restart: `docker compose up -d proxy`
 3. Check proxy logs: `docker compose logs proxy`
 
+CLI tests use BATS. Run from the repo root:
+```bash
+cli/run-tests.bash
+```
+
 ## Image Versioning
 
 GitHub Actions builds images on:
-- Push to main (when `images/**` changes)
-- Daily cron that checks for new Claude Code releases on npm
+- Push to main (when `images/**` or `cli/**` changes)
+- Daily cron that checks for new Claude Code releases on npm (`check-claude-version.yml`)
+- Daily cron that checks for new Copilot releases (`check-copilot-version.yml`)
 - Manual workflow dispatch
 
-Tags applied to `agent-sandbox-claude`:
+Tags applied to agent images (e.g. `agent-sandbox-claude`):
 - `latest`: Most recent build from main
 - `sha-<commit>`: Git commit that triggered the build
-- `claude-X.Y.Z`: Claude Code version installed in the image
+- `claude-X.Y.Z` / `copilot-X.Y.Z`: Agent version installed in the image
 
-The daily `check-claude-version.yml` workflow queries npm for the latest Claude Code version and triggers a rebuild if no image exists with that version tag.
+To update images in a user project: `agentbox compose bump`.
 
 ## Known Workarounds
 

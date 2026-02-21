@@ -21,10 +21,10 @@ Creates a sandboxed environment for AI coding agents (Claude Code, GitHub Copilo
 
 ## Supported agents
 
-| Agent | Template | Status |
-|-------|----------|--------|
-| [Claude Code](https://claude.ai/code) | `templates/claude/` | ✅ Stable |
-| [GitHub Copilot CLI](https://github.com/github/copilot-cli) | `templates/copilot/` | 🧪 Preview |
+| Agent | Status |
+|-------|--------|
+| [Claude Code](https://claude.ai/code) | ✅ Stable |
+| [GitHub Copilot CLI](https://github.com/github/copilot-cli) | 🧪 Preview |
 
 ## Runtime modes
 

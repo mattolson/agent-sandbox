@@ -23,7 +23,7 @@ A list of predefined service names. Each service expands to a set of domain patt
 |---------|---------|
 | `github` | `github.com`, `*.github.com`, `githubusercontent.com`, `*.githubusercontent.com` |
 | `claude` | `*.anthropic.com`, `*.claude.ai`, `*.claude.com`, `*.sentry.io`, `*.datadoghq.com` |
-| `copilot` | `api.githubcopilot.com`, `*.githubcopilot.com`, `copilot-proxy.githubusercontent.com`, `*.exp-tas.com`, `*.githubassets.com` |
+| `copilot` | `github.com`, `api.github.com`, `copilot-telemetry.githubusercontent.com`, `collector.github.com`, `default.exp-tas.com`, `copilot-proxy.githubusercontent.com`, `origin-tracker.githubusercontent.com`, `*.githubcopilot.com`, `*.individual.githubcopilot.com`, `*.business.githubcopilot.com`, `*.enterprise.githubcopilot.com`, `*.githubassets.com` |
 | `vscode` | `update.code.visualstudio.com`, `marketplace.visualstudio.com`, `mobile.events.data.microsoft.com`, `main.vscode-cdn.net`, `*.vsassets.io` |
 | `jetbrains` | `plugins.jetbrains.com`, `downloads.marketplace.jetbrains.com` |
 | `jetbrains-ai` | `api.jetbrains.ai`, `api.app.prod.grazie.aws.intellij.net`, `www.jetbrains.com`, `account.jetbrains.com`, `oauth.account.jetbrains.com`, `frameworks.jetbrains.com`, `cloudconfig.jetbrains.com`, `download.jetbrains.com`, `download-cf.jetbrains.com`, `download-cdn.jetbrains.com`, `resources.jetbrains.com`, `cdn.agentclientprotocol.com` |
@@ -35,7 +35,7 @@ Services are defined as a static mapping in the proxy enforcer addon (`images/pr
 A list of domain names to allow. Supports two formats:
 
 - **Exact match**: `api.anthropic.com` allows only that exact hostname
-- **Wildcard suffix**: `*.example.com` allows any subdomain of example.com (but not example.com itself)
+- **Wildcard prefix**: `*.example.com` allows any subdomain of example.com (but not example.com itself)
 
 Use this for:
 - Agent API endpoints (e.g., api.anthropic.com for Claude Code)
@@ -64,20 +64,17 @@ If `PROXY_MODE=enforce` and no policy file exists at `/etc/mitmproxy/policy.yaml
 There are two places a policy can come from:
 
 1. **Baked into the proxy image** at build time (`images/proxy/policy.yaml`). The default blocks all traffic.
-2. **Mounted at runtime** from the project's `.devcontainer/policy.yaml`, overriding the baked-in default.
+2. **Generated per-project** by `agentbox init`, which creates a policy file at `.agent-sandbox/policy-<mode>-<agent>.yaml` and mounts it into the proxy container.
 
-The template compose files mount the policy from `.devcontainer/policy.yaml`:
+The `agentbox init` command adds a volume mount to the proxy service in the generated compose file:
 
 ```yaml
-# Under proxy.volumes:
-- ./policy.yaml:/etc/mitmproxy/policy.yaml:ro
+# Under proxy.volumes (added by agentbox init):
+- <path-to-policy>:/etc/mitmproxy/policy.yaml:ro
 ```
 
-The `.devcontainer/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy. The proxy only reads the policy at startup, so changes require a human-initiated restart.
+The `.agent-sandbox/` directory (CLI mode) or `.devcontainer/` directory (devcontainer mode) is mounted read-only inside the agent container, preventing the agent from modifying the policy or compose file. The proxy only reads the policy at startup, so changes require a human-initiated restart.
 
 ## Examples
 
-Each template ships a policy file at `.devcontainer/policy.yaml`. See the template directories for ready-to-use policies:
-
-- [Claude Code](../claude/.devcontainer/policy.yaml)
-- [GitHub Copilot CLI](../copilot/.devcontainer/policy.yaml)
+The base policy template is at [cli/templates/policy.yaml](../../cli/templates/policy.yaml). The `agentbox init` command copies this template and populates it with the services appropriate for the selected agent and IDE.

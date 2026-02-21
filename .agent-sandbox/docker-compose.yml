@@ -34,9 +34,9 @@ services:
       - SETGID
     volumes:
       # Project workspace
-      - ../:/workspace
+      - ..:/workspace
       # Read-only policy directory
-      - ../.agent-sandbox/:/workspace/.agent-sandbox/:ro
+      - ../.agent-sandbox:/workspace/.agent-sandbox:ro
       # Persist Claude credentials
       - claude-state:/home/dev/.claude
       # Persist shell history
