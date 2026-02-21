@@ -1,0 +1,8 @@
+# Agent sandbox dev environment network policy
+# See docs/policy/schema.md for the full format reference.
+
+services:
+  - claude
+
+domains: []
+
