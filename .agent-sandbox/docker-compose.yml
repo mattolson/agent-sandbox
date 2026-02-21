@@ -23,11 +23,11 @@ services:
     depends_on:
       proxy:
         condition: service_healthy
-    # Required for iptables firewall setup. The agent runs as non-root and
-    # sudoers only permits specific scripts, so it cannot modify iptables directly.
     cap_drop:
       - ALL
     cap_add:
+      # Required for iptables firewall setup. The agent runs as non-root and
+      # sudoers only permits specific scripts, so it cannot modify iptables directly.
       - NET_ADMIN
       - NET_RAW
       - SETUID

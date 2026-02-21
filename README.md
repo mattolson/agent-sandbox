@@ -7,16 +7,16 @@ Run AI coding agents in a locked-down local sandbox with:
 - Iptables firewall preventing direct outbound (all traffic must go through the proxy)
 - Reproducible environments (Debian container with pinned dependencies)
 
-Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](https://docs.docker.com/engine/) on Apple Silicon. Should work on any Docker-compatible runtime.
+Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](https://docs.docker.com/engine/) on Apple Silicon. Should work with any Docker-compatible runtime.
 
 ## What it does
 
-Creates a sandboxed environment for AI coding agents (Claude Code, GitHub Copilot CLI) that:
+Creates a sandboxed environment for AI coding agents (currently Claude Code, GitHub Copilot CLI, but more to come) that:
 
 - Routes all HTTP/HTTPS traffic through an enforcing proxy sidecar
 - Blocks requests to domains not on the allowlist (403 with domain name in response)
 - Blocks all direct outbound via iptables (prevents bypassing the proxy)
-- Runs as non-root user with limited sudo for firewall initialization in entrypoint
+- Runs as non-root user with limited sudo only for firewall initialization in entrypoint
 - Persists agent credentials and configuration in a Docker volume across container rebuilds
 
 ## Supported agents
@@ -28,13 +28,13 @@ Creates a sandboxed environment for AI coding agents (Claude Code, GitHub Copilo
 
 ## Runtime modes
 
-The sandbox is implemented as a Docker Compose project with a two-container stack: a proxy sidecar (mitmproxy) and the agent container.
+The sandbox is implemented as a Docker Compose project with a two-container stack: the agent container and a sidecar proxy (mitmproxy). There are two main ways to run this stack:
 
-**Devcontainer** mode stores the docker-compose project in the `.devcontainer` directory.
+**CLI** mode (recommended) stores the docker-compose project in the `.agent-sandbox` directory.
 
-**CLI** mode stores the docker-compose project in the `.agent-sandbox` directory.
+**Devcontainer** mode stores the docker-compose project in the `.devcontainer` directory alongside the devcontainer.json configuration.
 
-Both modes store the policy files in the `.agent-sandbox` directory.
+Both modes store the network proxy policy file in the `.agent-sandbox` directory.
 
 ## Quick start (macOS + Colima)
 
@@ -43,38 +43,46 @@ Both modes store the policy files in the `.agent-sandbox` directory.
 You need docker and docker-compose installed. So far we've tested with Colima + Docker Engine, but this should work with Docker Desktop for Mac or Podman as well. Instructions that follow are for Colima.
 
 ```bash
-brew install colima docker docker-compose docker-buildx
+# colima for VM, docker packages for running containers in VM, yq is a dependency for agentbox cli
+brew install colima docker docker-compose docker-buildx yq
 colima start --cpu 4 --memory 8 --disk 60
 ```
 
-Set your Docker credential helper to `osxkeychain` (not `desktop`) in `~/.docker/config.json`.
+Set your [Docker credential helper](https://docs.docker.com/reference/cli/docker/login/#configure-the-credential-store) to `osxkeychain` (not `desktop`) in `~/.docker/config.json`.
 
 ### 2. Install agent-sandbox CLI
 
-The CLI is a thin wrapper around docker-compose that simplifies the process of initializing and starting the sandbox.
-See the full documentation [here](cli/README.md).
+The [CLI](cli/README.md) is a helper script and thin wrapper around docker-compose that simplifies the process of initializing and starting the sandbox.
 
-#### Local install
+#### Local install (recommended)
+
 ```bash
+# Clone the repo
 git clone https://github.com/mattolson/agent-sandbox.git
+
+# Add agenbox bin directory to your path (add this to your .bashrc or .zshrc)
 export PATH="$PWD/agent-sandbox/cli/bin:$PATH"
 ```
 
 `yq` is required to edit compose files. Install with `brew install yq`.
 
-#### Docker install
+#### Run through docker image
+
+You can also run the cli through a published docker image if you don't want to install anything locally:
+
 ```bash
+# Pull the image to local docker
 docker pull ghcr.io/mattolson/agent-sandbox-cli
+
+# Add to your .bashrc or .zshrc
 alias agentbox='docker run --rm -it -v "/var/run/docker.sock:/var/run/docker.sock" -v"$PWD:$PWD" -w"$PWD" -e TERM -e HOME --network none ghcr.io/mattolson/agent-sandbox-cli'
 ```
 
 Using the Docker image disables the editor integration (`vi` installed in the image will be used instead of your host editor).
 
-The host environment variables will not be available inside the container, unless you forward them explicitly.
-This is important, because Docker Compose runs inside the container. `HOME` is already forwarded to handle common use cases.
+The host environment variables will not be available inside the container, unless you forward them explicitly. This is important, because Docker Compose runs inside the container. `HOME` is already forwarded to handle common use cases.
 
-The image runs as root, to avoid permission issues with the host Docker socket.
-On Colima file ownership is mapped automatically, on Linux you should add `--user` parameter accordingly.
+The image runs as root, to avoid permission issues with the host Docker socket. On Colima file ownership is mapped automatically, on Linux you should add `--user` parameter accordingly.
 
 ### 3. Initialize the sandbox for your project
 
@@ -82,9 +90,15 @@ On Colima file ownership is mapped automatically, on Linux you should add `--use
 agentbox init
 ```
 
-This prompts you to select the agent type (Claude Code or GitHub Copilot) and mode (devcontainer or CLI), then sets up the necessary configuration files and network policy.
+This prompts you to select the agent type and mode (CLI or devcontainer), then sets up the necessary configuration files and network policy.
 
 ### 4. Start the sandbox
+
+**CLI:**
+
+```bash
+agentbox exec
+```
 
 **Devcontainer (VS Code / JetBrains):**
 
@@ -96,12 +110,6 @@ JetBrains (IntelliJ, PyCharm, WebStorm, etc.):
 1. Open your project
 2. From the Remote Development menu, select "Dev Containers"
 3. Select the devcontainer configuration
-
-**CLI (terminal):**
-
-```bash
-agentbox exec
-```
 
 ### 5. Agent-specific setup
 
@@ -116,7 +124,7 @@ Network enforcement has two layers:
 1. **Proxy** (mitmproxy sidecar) - Enforces a domain allowlist at the HTTP/HTTPS level. Blocks requests to non-allowed domains with 403.
 2. **Firewall** (iptables) - Blocks all direct outbound from the agent container. Only the Docker host network is reachable, which is where the proxy sidecar runs. This prevents applications from bypassing the proxy.
 
-The proxy image ships with a default policy that blocks all traffic. You must mount a policy file to allow any outbound requests.
+The proxy image ships with a default policy that blocks all traffic. You must mount a policy file to allow any outbound requests. `agentbox init` will set this up for you.
 
 ### How it works
 
@@ -128,7 +136,7 @@ The proxy's CA certificate is shared via a Docker volume and automatically insta
 
 ### Customizing the policy
 
-The network policy lives in your project. This file is checked into version control and shared with your team.
+The network policy lives in your project in the `.agent-sandbox` directory. This file can be checked into version control and shared with your team.
 
 To edit the policy file:
 
@@ -150,21 +158,20 @@ domains:
   - pypi.org
 ```
 
-The containing directory is mounted read-only inside the agent container, preventing the agent from modifying the policy, compose file, or devcontainer config.
-The proxy only reads the policy at startup, so changes require a human-initiated restart from the host.
+The `.agent-sandbox` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy. The proxy reads the policy at startup, so changes require a restart from the host.
 
 See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format reference.
 
-## Dotfiles
+## Dotfiles Support
 
-Mount your dotfiles directory to have them auto-linked into `$HOME` at container startup:
+You can optionally mount your dotfiles directory and have them auto-linked into `$HOME` at container startup:
 
 ```yaml
 volumes:
   - ${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro
 ```
 
-The entrypoint recursively walks `~/.dotfiles` and creates symlinks for each file at the corresponding `$HOME` path. Intermediate directories are created as needed.
+The entrypoint recursively walks `/home/dev/.dotfiles` and creates symlinks for each file at the corresponding `$HOME` path. Intermediate directories are created as needed.
 
 For example, if your dotfiles contain:
 ```
@@ -187,13 +194,11 @@ The container will have:
 - `~/.config/git/config` -> `~/.dotfiles/.config/git/config`
 - `~/.config/starship.toml` -> `~/.dotfiles/.config/starship.toml`
 
-Protected paths (`.config/agent-sandbox`) are never overwritten. Docker bind mounts (like individually mounted `CLAUDE.md`) take precedence over dotfile symlinks.
-
-Shell.d scripts are sourced from the system-level zshrc (`/etc/zsh/zshrc`), which runs before `~/.zshrc`. This means your dotfiles can include a custom `.zshrc` without breaking agent-sandbox functionality.
+Docker bind mounts (like individually mounted `CLAUDE.md`) take precedence over dotfile symlinks.
 
 ## Shell Customization
 
-Mount scripts into `~/.config/agent-sandbox/shell.d/` to customize your shell environment. Any `*.sh` files are sourced when zsh starts (before `~/.zshrc`).
+You can also optionally mount scripts from `~/.config/agent-sandbox/shell.d/` to customize your shell environment. Any `*.sh` files are sourced when zsh starts.
 
 ```bash
 mkdir -p ~/.config/agent-sandbox/shell.d
@@ -204,7 +209,9 @@ alias gs='git status'
 EOF
 ```
 
-The `agentbox init` command prompts whether to enable shell customizations when setting up your project.
+The `agentbox init` command prompts whether to enable shell customizations when setting up your project and will set up the volume mount.
+
+shell.d scripts are sourced from the system-level zshrc (`/etc/zsh/zshrc`), which runs before `~/.zshrc`. This means your dotfiles can include a custom `.zshrc` without breaking this integration.
 
 ## Git configuration
 
@@ -221,7 +228,7 @@ If you want the agent to run git commands, some setup is required.
 **SSH is blocked.** Port 22 is blocked to prevent SSH tunneling, which could bypass the proxy. The container automatically rewrites SSH URLs to HTTPS:
 
 ```
-git@github.com:user/repo.git  ->  https://github.com/user/repo.git
+git@github.com:user/repo.git -> https://github.com/user/repo.git
 ```
 
 **Credential setup.** To push or access private repos, authenticate with GitHub:
@@ -276,7 +283,7 @@ STACKS="python,go:1.23.6" ./images/build.sh all
 
 ## Image Versioning
 
-The `agentbox init` command automatically pulls the latest images and pins them to their digests for reproducibility.
+The `agentbox init` command automatically pulls the latest images and pins the compose file to sha digests for reproducibility.
 
 To update to newer image versions later:
 
@@ -284,12 +291,12 @@ To update to newer image versions later:
 agentbox compose bump
 ```
 
-This pulls the newest versions and updates the compose file with the new pinned digests.
+This pulls the newest versions and updates the compose file with the new sha digests.
 
 To use locally-built images instead:
 
 ```bash
-cd agent-sandbox && ./images/build.sh
+./images/build.sh
 agentbox compose edit
 # Update the images to use:
 #   agent service: agent-sandbox-claude:local
@@ -303,7 +310,7 @@ This project reduces risk but does not eliminate it. Local dev is inherently bes
 Key principles:
 
 - Minimal mounts: only the repo workspace + project-scoped agent state
-- Prefer short-lived credentials (SSO/STS) and read-only IAM roles
+- Network egress is tightly controlled through sidecar proxy with default deny policy
 - Firewall verification runs at every container start
 
 ### Git credentials
@@ -318,7 +325,7 @@ To limit exposure:
 
 ### IDE devcontainer
 
-Operating as a devcontainer (VS Code or JetBrains) opens a channel to the IDE. Installing extensions can introduce risk.
+Operating as a devcontainer (VS Code or JetBrains) opens a channel to the IDE. Installing IDE extensions can [introduce risk](https://blog.theredguild.org/leveraging-vscode-internals-to-escape-containers/). For tighter security, we recommend running in CLI mode (local docker compose and terminal operations, rather than IDE extensions).
 
 ### Security issues
 
