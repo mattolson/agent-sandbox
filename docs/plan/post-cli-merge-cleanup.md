@@ -34,11 +34,11 @@ These are not broken but describe the old architecture and will confuse anyone r
 
 Minor issues in the CLI codebase.
 
-- [ ] **Dead code in `cli/lib/select.bash`.** `select_multiple()` (line 52) and `read_multiline()` (line 84) are defined but never called.
+- [x] **Dead code in `cli/lib/select.bash`.** `select_multiple()` (line 52) and `read_multiline()` (line 84) are defined but never called.
 
-- [ ] **Variable ordering in `cli/lib/require.bash`.** `exitcode_expectation_failed` is defined at line 19, after the `require()` function that references it at line 18. Should be defined first.
+- [x] **Variable ordering in `cli/lib/require.bash`.** `exitcode_expectation_failed` is defined at line 19, after the `require()` function that references it at line 18. Should be defined first.
 
-- [ ] **Fallback scripts use `sh` instead of `bash`.** `cli/libexec/compose/_` and `cli/libexec/exec/_` use `#!/bin/sh` while everything else uses `#!/usr/bin/env bash`.
+- [x] **Fallback scripts use `sh` instead of `bash`.** `cli/libexec/compose/_` and `cli/libexec/exec/_` use `#!/bin/sh` while everything else uses `#!/usr/bin/env bash`.
 
 ## Worth Discussing
 

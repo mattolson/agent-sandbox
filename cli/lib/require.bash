@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+: "${exitcode_expectation_failed:=168}"
+
 # Ensures a command is available
 # Args:
 #   $1 - The command name to require
@@ -15,5 +17,3 @@ require() {
 		return "$exitcode_expectation_failed"
 	fi
 }
-
-: "${exitcode_expectation_failed:=168}"

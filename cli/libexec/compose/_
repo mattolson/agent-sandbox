@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 # this will catch unmatched commands, otherwise `agentbox compose foobar` would try
 # to execute `foobar` as a command in this module

@@ -51,26 +51,6 @@ select_option() {
 	done
 }
 
-# Prompts the user to select multiple options from a list.
-# Args:
-#   $1 - The prompt text to display
-#   $@ - The options to present (remaining arguments)
-# Outputs:
-#   Each selected option on a separate line to stdout
-select_multiple() {
-	printf '%s\n' "$1" >&2
-	shift
-
-	for opt in "$@"
-	do
-		read -rp "Select $opt? [y/N]: " answer >&2
-		if [[ $answer =~ ^[Yy]$ ]]
-		then
-			printf '%s\n' "$opt"
-		fi
-	done
-}
-
 # Prompts the user to enter a single line of text.
 # Args:
 #   $1 - The prompt text to display
@@ -82,24 +62,6 @@ read_line() {
 
 	read -rp "$prompt " input >&2
 	printf '%s\n' "$input"
-}
-
-# Prompts the user to enter multiple lines of text until an empty line is entered.
-# Args:
-#   $1 - The prompt text to display
-# Outputs:
-#   Each entered line to stdout (empty line terminates input)
-read_multiline() {
-	printf '%s\n' "$1" >&2
-	shift
-
-	local line
-	while true
-	do
-		read -r -p "> " line >&2 || break
-		[[ -z $line ]] && break
-		printf '%s\n' "$line"
-	done
 }
 
 # Opens a file in the user's preferred editor.
