@@ -130,7 +130,7 @@ set_project_name() {
 	local compose_file=$1
 	local project_name=$2
 
-	project_name="$project_name" yq -i '.name = env(project_name)' "$compose_file"
+	project_name="$project_name" yq -i '. = {"name": env(project_name)} * .' "$compose_file"
 }
 
 # Adds policy volume mount to the proxy service.
