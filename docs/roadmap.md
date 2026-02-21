@@ -49,3 +49,11 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - `agentbox version` - show version info
 - Docker-based CLI distribution (`ghcr.io/mattolson/agent-sandbox-cli`)
 - Bash 3.2 compatibility (macOS default shell)
+
+## m7: Host credential service (planned)
+
+- Host-side service bridging container to native credential store (macOS Keychain, Windows Credential Manager)
+- No secrets stored on disk inside the container
+- Container shim implements git credential helper protocol over HTTP to host service
+- Works with any credential-aware tool (git, gh, etc.)
+- Integrated into `agentbox exec` lifecycle

@@ -129,6 +129,18 @@ Extend the customization story to support dotfiles, custom zshrc, and language s
 
 **Dependencies:** m2.5 (shell customization established)
 
+### m7-host-credential-service
+
+Run a credential helper service on the host that bridges the container to the host's native credential store (macOS Keychain, etc.). No secrets stored inside the container.
+
+**Goals:**
+- Lightweight host-side service implementing git's credential helper protocol over HTTP
+- Container-side shim translates git credential requests into HTTP calls to the host service
+- Works with any program that supports git credential helpers (git, gh, etc.)
+- Agent can use credentials but cannot read raw tokens
+
+**Dependencies:** m5 (CLI manages service lifecycle via `agentbox exec`)
+
 ## Decisions
 
 1. **Policy format**: YAML with domain-only granularity for m1-m4. Path/method filtering deferred to future work.
