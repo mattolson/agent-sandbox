@@ -30,8 +30,6 @@ SERVICE_DOMAINS = {
         "*.anthropic.com",
         "*.claude.ai",
         "*.claude.com",
-        "*.sentry.io",
-        "*.datadoghq.com",
     ],
     "copilot": [
         "github.com",

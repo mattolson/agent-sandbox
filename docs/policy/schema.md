@@ -22,7 +22,7 @@ A list of predefined service names. Each service expands to a set of domain patt
 | Service | Domains |
 |---------|---------|
 | `github` | `github.com`, `*.github.com`, `githubusercontent.com`, `*.githubusercontent.com` |
-| `claude` | `*.anthropic.com`, `*.claude.ai`, `*.claude.com`, `*.sentry.io`, `*.datadoghq.com` |
+| `claude` | `*.anthropic.com`, `*.claude.ai`, `*.claude.com` |
 | `copilot` | `github.com`, `api.github.com`, `copilot-telemetry.githubusercontent.com`, `collector.github.com`, `default.exp-tas.com`, `copilot-proxy.githubusercontent.com`, `origin-tracker.githubusercontent.com`, `*.githubcopilot.com`, `*.individual.githubcopilot.com`, `*.business.githubcopilot.com`, `*.enterprise.githubcopilot.com`, `*.githubassets.com` |
 | `vscode` | `update.code.visualstudio.com`, `marketplace.visualstudio.com`, `mobile.events.data.microsoft.com`, `main.vscode-cdn.net`, `*.vsassets.io` |
 | `jetbrains` | `plugins.jetbrains.com`, `downloads.marketplace.jetbrains.com` |
