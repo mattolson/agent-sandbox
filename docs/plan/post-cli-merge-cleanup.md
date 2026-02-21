@@ -80,7 +80,7 @@ Design decisions that may or may not need action.
 
 - [ ] **Restructure proxy commands.** Move `agentbox policy` to `agentbox proxy policy` and add `agentbox proxy logs` (tail/follow proxy container logs). Groups proxy-related operations under a single subcommand.
 
-- [ ] **Reorganize README and extract optional feature docs.** The README is 350+ lines and mixes essential setup with optional features. Proposed structure:
+- [x] **Reorganize README and extract optional feature docs.** The README is 350+ lines and mixes essential setup with optional features. Proposed structure:
   - **README.md** (keep short): What it does, Supported agents, Quick start, Network policy overview, Security, Contributing, License
   - **docs/git.md**: Git configuration (git from host vs container, credential setup, SSH blocking)
   - **docs/dotfiles.md**: Dotfiles support and shell customization (merge the two sections)
