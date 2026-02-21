@@ -29,17 +29,25 @@ select_option() {
 	local prompt="$1"
 	shift
 	local options=("$@")
-	local PS3="$prompt "
+	local default="${options[0]}"
+	local i
 
-	local choice
-	select choice in "${options[@]}"; do
-		if [[ -n $choice ]]
-		then
-			printf '%s\n' "$choice"
-			break
-		else
-			echo "Invalid selection, try again." >&2
+	for i in "${!options[@]}"; do
+		echo "  $((i+1))) ${options[$i]}" >&2
+	done
+
+	local reply
+	while true; do
+		read -rp "$prompt [$default] " reply >&2
+		if [[ -z $reply ]]; then
+			printf '%s\n' "$default"
+			return
 		fi
+		if [[ $reply =~ ^[0-9]+$ ]] && (( reply >= 1 && reply <= ${#options[@]} )); then
+			printf '%s\n' "${options[$((reply-1))]}"
+			return
+		fi
+		echo "Invalid selection, try again." >&2
 	done
 }
 

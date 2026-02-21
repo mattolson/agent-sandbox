@@ -91,9 +91,9 @@ customize_compose_file() {
 	fi
 
 	# Remove blank lines between volume entries/comments.
-	# yq inserts blank lines between foot comments and the next sibling;
-	# this strips any blank line that sits between two indented lines.
-	# Uses D to delete only the blank line, keeping the appended line.
+	# yq inserts blank lines between foot comments and the next sibling.
+	# When a blank line is followed by an indented line, strip the blank line
+	# via substitution to keep the indented line intact.
 	sed '/^$/{ N; /^\n[[:space:]]/{ s/^\n//; }; }' "$compose_file" > "$compose_file.tmp" && mv "$compose_file.tmp" "$compose_file"
 }
 
