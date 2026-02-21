@@ -185,7 +185,7 @@ Key principles:
 
 ### Git credentials
 
-If you run `gh auth login` inside the container, the resulting OAuth token grants access to **all repositories** your GitHub account can access, not just the current project. The network allowlist limits where data can be sent, but an agent with this token could read or modify any of your repos on github.com.
+If you store git credentials inside the container (via `git credential-store` or any other method), the token grants access to whatever repositories it was scoped to. A classic personal access token or OAuth token grants access to **all repositories** your GitHub account can access, not just the current project. The network allowlist limits where data can be sent, but an agent with a broad token could read or modify any of your repos on github.com.
 
 To limit exposure:
 
