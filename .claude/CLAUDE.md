@@ -50,15 +50,7 @@ domains:
   - sentry.io
 ```
 
-Available services are hardcoded in `images/proxy/addons/enforcer.py`:
-- `github`: github.com, *.github.com, githubusercontent.com, *.githubusercontent.com
-- `claude`: *.anthropic.com, *.claude.ai, *.claude.com, *.sentry.io, *.datadoghq.com
-- `copilot`: github.com, api.github.com, copilot-telemetry.githubusercontent.com, collector.github.com, default.exp-tas.com, copilot-proxy.githubusercontent.com, origin-tracker.githubusercontent.com, *.githubcopilot.com, *.individual.githubcopilot.com, *.business.githubcopilot.com, *.enterprise.githubcopilot.com, *.githubassets.com
-- `vscode`: update.code.visualstudio.com, marketplace.visualstudio.com, mobile.events.data.microsoft.com, main.vscode-cdn.net, *.vsassets.io
-- `jetbrains`: plugins.jetbrains.com, downloads.marketplace.jetbrains.com
-- `jetbrains-ai`: api.jetbrains.ai, api.app.prod.grazie.aws.intellij.net, www.jetbrains.com, account.jetbrains.com, oauth.account.jetbrains.com, frameworks.jetbrains.com, cloudconfig.jetbrains.com, download.jetbrains.com, download-cf.jetbrains.com, download-cdn.jetbrains.com, resources.jetbrains.com, cdn.agentclientprotocol.com
-
-Adding a new service requires modifying `enforcer.py`. For one-off domains, use the `domains:` list instead.
+Available services and their domain allowlists are hardcoded in `images/proxy/addons/enforcer.py`. Adding a new service requires modifying `enforcer.py`. For one-off domains, use the `domains:` list instead.
 
 ### Customizing the Policy
 
