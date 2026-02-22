@@ -25,21 +25,37 @@ teardown() {
 	assert_success
 }
 
-@test "edit restarts docker compose when file modified" {
+@test "edit warns when file modified and containers running" {
 	unset -f open_editor
 	stub open_editor \
 		"$COMPOSE_FILE : sleep 1 && touch '$COMPOSE_FILE'"
 
 	stub docker \
-		"compose -f $COMPOSE_FILE up -d : :"
+		"compose -f $COMPOSE_FILE ps agent --status running --quiet : echo running"
 
 	cd "$BATS_TEST_TMPDIR"
 	run edit
 	assert_success
-	assert_output --partial "Compose file was modified. Restarting docker compose..."
+	assert_output --partial "Compose file was modified"
+	assert_output --partial "agentbox compose up -d"
 }
 
-@test "edit skips restart when file unchanged" {
+@test "edit confirms save when file modified and no containers running" {
+	unset -f open_editor
+	stub open_editor \
+		"$COMPOSE_FILE : sleep 1 && touch '$COMPOSE_FILE'"
+
+	stub docker \
+		"compose -f $COMPOSE_FILE ps agent --status running --quiet : :"
+
+	cd "$BATS_TEST_TMPDIR"
+	run edit
+	assert_success
+	assert_output --partial "Compose file was modified."
+	refute_output --partial "agentbox compose up -d"
+}
+
+@test "edit reports no changes when file unchanged" {
 	unset -f open_editor
 	stub open_editor \
 		"$COMPOSE_FILE : :"
@@ -47,5 +63,5 @@ teardown() {
 	cd "$BATS_TEST_TMPDIR"
 	run edit
 	assert_success
-	assert_output --partial "No changes detected. Skipping restart."
+	assert_output --partial "No changes detected."
 }
