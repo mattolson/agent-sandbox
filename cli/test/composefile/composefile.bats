@@ -134,7 +134,7 @@ assert_jetbrains_capabilities() {
 	yq -e '.services.agent.cap_add[] | select(. == "FOWNER")' "$compose_file"
 
 	run yq '(.services.agent.cap_add[] | select(. == "DAC_OVERRIDE")) | head_comment' "$compose_file"
-	assert_output "following is required by JetBrains devcontainer"
+	assert_output "JetBrains IDE: bypass file permission checks on mounted volumes"
 }
 
 assert_customize_compose_file_common() {
