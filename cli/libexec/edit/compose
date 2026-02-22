@@ -24,12 +24,12 @@ edit() {
 	if [[ "$mtime_before" != "$mtime_after" ]]
 	then
 		local running
-		running=$("$AGB_LIBEXECDIR/compose/compose" ps --status running --quiet 2>/dev/null) || true
+		running=$("$AGB_LIBDIR/run-compose" ps --status running --quiet 2>/dev/null) || true
 
 		if [[ -n "$running" ]]
 		then
 			echo "Compose file was modified, and you have containers running." | warning
-			echo "To pick up the changes and restart your containers, run: agentbox compose up -d" | warning
+			echo "To pick up the changes and restart your containers, run: agentbox up -d" | warning
 		else
 			echo "Compose file was modified." | info
 		fi

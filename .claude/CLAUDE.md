@@ -56,7 +56,7 @@ Available services and their domain allowlists are hardcoded in `images/proxy/ad
 
 For this project, the network policy lives at `.agent-sandbox/policy-cli-claude.yaml`. The `.agent-sandbox/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy. The proxy only reads the policy at startup.
 
-To edit the policy in a user project: `agentbox policy`.
+To edit the policy in a user project: `agentbox edit policy`.
 
 ## Architecture
 
@@ -114,7 +114,7 @@ Tags applied to agent images (e.g. `agent-sandbox-claude`):
 - `sha-<commit>`: Git commit that triggered the build
 - `claude-X.Y.Z` / `copilot-X.Y.Z`: Agent version installed in the image
 
-To update images in a user project: `agentbox compose bump`.
+To update images in a user project: `agentbox bump`.
 
 ## Known Workarounds
 

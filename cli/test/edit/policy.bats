@@ -3,8 +3,8 @@
 setup() {
 	load test_helper
 
-	# shellcheck source=../../libexec/policy/policy
-	source "$AGB_LIBEXECDIR/policy/policy"
+	# shellcheck source=../../libexec/edit/policy
+	source "$AGB_LIBEXECDIR/edit/policy"
 
 	mkdir -p "$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR"
 	POLICY_FILE="$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/policy-dev-claude.yaml"

@@ -1,6 +1,6 @@
-# Post-CLI Merge Cleanup
+# Cleanup Tasks
 
-Tracking issues identified after merging the `agentbox` CLI and related changes from jakub-bochenski. Items are grouped by priority and can be addressed across multiple PRs.
+Misc small issues to be tracked. Items are grouped by priority and can be addressed across multiple PRs.
 
 ## Broken
 
@@ -48,7 +48,7 @@ Design decisions that may or may not need action.
 
 - [x] **Devcontainer templates mount `.devcontainer` as read-only (line 41) but the directory only exists because init just created it.** Fix: added comments clarifying that paths are relative to the compose file's directory (`.devcontainer/`).
 
-- [x] **Copilot devcontainer.json has empty JetBrains plugins array.** Confirmed intentional: no Copilot JetBrains plugin exists.
+- [ ] **Copilot devcontainer.json has empty JetBrains plugins array.** Should look into installing the [copilot plugin](https://plugins.jetbrains.com/plugin/17718-github-copilot--your-ai-pair-programmer)
 
 ## Enhancements
 
@@ -71,14 +71,14 @@ Design decisions that may or may not need action.
   - `cli/lib/logging.bash` - no tests
   - `cli/lib/select.bash` - no tests for `select_option`, `select_yes_no`, `read_line`, `open_editor`
   - `cli/lib/composefile.bash` - `pull_and_pin_image` Docker error paths untested, `set_project_name` untested
-  - `cli/libexec/compose/bump` - `bump_service` tested but top-level `bump` command untested
-  - `cli/libexec/compose/edit` - editor integration untested beyond mtime check
-  - `cli/libexec/policy/policy` - proxy restart path only partially tested
+  - `cli/libexec/bump/bump` - `bump_service` tested but top-level `bump` command untested
+  - `cli/libexec/edit/compose` - editor integration untested beyond mtime check
+  - `cli/libexec/edit/policy` - proxy restart path only partially tested
   Run `cli/run-tests.bash --coverage` (requires kcov) to get a baseline coverage report, then fill gaps.
 
-- [ ] **Move `agentbox compose bump` to `agentbox bump`.** Bump is used frequently enough to warrant being a top-level command instead of nested under `compose`. The `compose` subcommand group should remain as a pass-through to `docker compose`, but `bump` should be promoted.
+- [x] **Move `agentbox compose bump` to `agentbox bump`.** Promoted to top-level command. Also reorganized `compose edit` to `edit compose`, `policy` to `edit policy`, and added docker compose fallthrough for unrecognized commands.
 
-- [ ] **Restructure proxy commands.** Move `agentbox policy` to `agentbox proxy policy` and add `agentbox proxy logs` (tail/follow proxy container logs). Groups proxy-related operations under a single subcommand.
+- [x] **Restructure proxy commands.** Moved `agentbox policy` to `agentbox edit policy`. Docker compose passthrough handles `agentbox logs proxy` directly.
 
 - [x] **Reorganize README and extract optional feature docs.** The README is 350+ lines and mixes essential setup with optional features. Proposed structure:
   - **README.md** (keep short): What it does, Supported agents, Quick start, Network policy overview, Security, Contributing, License

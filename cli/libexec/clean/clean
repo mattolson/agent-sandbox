@@ -33,7 +33,7 @@ clean() {
 	esac
 
 	echo "Stopping containers" | warning
-	"$AGB_LIBEXECDIR/compose/compose" down --volumes
+	"$AGB_LIBDIR/run-compose" down --volumes
 
 	local project_dir="$repo_root/$AGB_PROJECT_DIR"
 	if [[ -d "$project_dir" ]]

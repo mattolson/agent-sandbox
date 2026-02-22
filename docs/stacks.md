@@ -13,7 +13,7 @@ USER dev
 Build and use your custom image:
 ```bash
 docker build -t my-custom-sandbox .
-agentbox compose edit
+agentbox edit compose
 # Update the agent service image to: my-custom-sandbox
 ```
 

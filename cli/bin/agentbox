@@ -41,9 +41,9 @@ main() {
 	)
 
 	local -r usage="
-Usage: ${BASH_SOURCE[0]} <$(IFS='|'; echo "${modules[*]}")> [command] [args...]
+Usage: agentbox <$(IFS='|'; echo "${modules[*]}")> [command] [args...]
 
-To list available commands use: ${BASH_SOURCE[0]} <module> help
+Any other command is passed through to docker compose.
 "
 
 	if [[ $# -lt 1 ]]
@@ -55,21 +55,22 @@ To list available commands use: ${BASH_SOURCE[0]} <module> help
 	local -r module="$1"
 	shift 1
 
+	# Check if module is a known module directory. If not, fall through to
+	# docker compose with the original command as the first argument.
+	#shellcheck disable=SC2076
+	if [[ "$module" =~ [[:space:]] ]] ||
+		! [[ " ${modules[*]} " =~ " $module " ]]
+	then
+		"$AGB_LIBEXECDIR/version/version" "Agent Sandbox"
+		exec "$AGB_LIBDIR/run-compose" "$module" "$@"
+	fi
+
 	local command="${1:-}"
 	if [[ -z "$command" || "${command:0:1}" == "-" ]]
 	then
 		command="$module"
 	else
 		shift 1
-	fi
-
-	#shellcheck disable=SC2076
-	if [[ "$module" =~ [[:space:]] ]] ||
-		! [[ " ${modules[*]} " =~ " $module " ]]
-	then
-		echo "First parameter must be one of: ${modules[*]}" >&2
-		echo "$usage" >&2
-		exit 1
 	fi
 
 	if [[ "$command" == "help" ]]

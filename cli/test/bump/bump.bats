@@ -2,8 +2,8 @@
 
 setup() {
 	load test_helper
-	# shellcheck source=../../libexec/compose/bump
-	source "$AGB_LIBEXECDIR/compose/bump"
+	# shellcheck source=../../libexec/bump/bump
+	source "$AGB_LIBEXECDIR/bump/bump"
 
 	COMPOSE_FILE="$BATS_TEST_TMPDIR/docker-compose.yml"
 	cat >"$COMPOSE_FILE" <<'EOF'

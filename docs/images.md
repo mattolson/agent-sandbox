@@ -5,7 +5,7 @@ The `agentbox init` command automatically pulls the latest images and pins the c
 To update to newer image versions later:
 
 ```bash
-agentbox compose bump
+agentbox bump
 ```
 
 This pulls the newest versions and updates the compose file with the new sha digests.
@@ -14,7 +14,7 @@ To use locally-built images instead:
 
 ```bash
 ./images/build.sh
-agentbox compose edit
+agentbox edit compose
 # Update the images to use:
 #   agent service: agent-sandbox-claude:local
 #   proxy service: agent-sandbox-proxy:local

@@ -71,11 +71,11 @@ policy() {
 	if [[ "$mtime_after" != "$mtime_before" ]]
 	then
 		local proxy_status
-		proxy_status=$("$AGB_LIBEXECDIR/compose/compose" ps proxy --status running --quiet 2>/dev/null) || true
+		proxy_status=$("$AGB_LIBDIR/run-compose" ps proxy --status running --quiet 2>/dev/null) || true
 		if [[ -n "$proxy_status" ]]
 		then
 			echo "Policy file was modified. Restarting proxy service..." | info
-			exec "$AGB_LIBEXECDIR/compose/compose" restart proxy
+			exec "$AGB_LIBDIR/run-compose" restart proxy
 		else
 			echo "Policy file was modified, but proxy service is not running. Skipping restart." | warning
 		fi

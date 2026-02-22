@@ -3,8 +3,8 @@
 setup() {
 	load test_helper
 
-	# shellcheck source=../../libexec/compose/edit
-	source "$AGB_LIBEXECDIR/compose/edit"
+	# shellcheck source=../../libexec/edit/compose
+	source "$AGB_LIBEXECDIR/edit/compose"
 
 	mkdir -p "$BATS_TEST_TMPDIR/.devcontainer"
 	COMPOSE_FILE="$BATS_TEST_TMPDIR/.devcontainer/docker-compose.yml"
@@ -37,7 +37,7 @@ teardown() {
 	run edit
 	assert_success
 	assert_output --partial "Compose file was modified"
-	assert_output --partial "agentbox compose up -d"
+	assert_output --partial "agentbox up -d"
 }
 
 @test "edit confirms save when file modified and no containers running" {
@@ -52,7 +52,7 @@ teardown() {
 	run edit
 	assert_success
 	assert_output --partial "Compose file was modified."
-	refute_output --partial "agentbox compose up -d"
+	refute_output --partial "agentbox up -d"
 }
 
 @test "edit reports no changes when file unchanged" {

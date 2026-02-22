@@ -5,14 +5,14 @@ set -euo pipefail
 # Starts containers only if the agent is not already running.
 exec_function() { # don't redefine `exec`
 	local agent_running
-	agent_running=$("$AGB_LIBEXECDIR/compose/compose" ps agent --status running --quiet 2>/dev/null) || true
+	agent_running=$("$AGB_LIBDIR/run-compose" ps agent --status running --quiet 2>/dev/null) || true
 
 	if [[ -z "$agent_running" ]]
 	then
-		"$AGB_LIBEXECDIR/compose/compose" up -d
+		"$AGB_LIBDIR/run-compose" up -d
 	fi
 
-	exec "$AGB_LIBEXECDIR/compose/compose" exec agent "${1-zsh}" "${@:2}"
+	exec "$AGB_LIBDIR/run-compose" exec agent "${1-zsh}" "${@:2}"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]

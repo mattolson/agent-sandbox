@@ -49,25 +49,24 @@ deletes configuration directories.
 
 Displays the current version of agent-sandbox.
 
-### `agentbox compose`
+### `agentbox edit compose`
 
-Runs docker compose commands with the correct compose file automatically detected. Pass any docker compose arguments
-(e.g., `agentbox compose up -d` or `agentbox compose logs`).
+Opens the Docker Compose file in your editor. If you save changes and containers are running, warns you to restart.
 
-#### `agentbox compose edit`
+### `agentbox edit policy`
 
-Opens the Docker Compose file in your editor. If you save changes, the stack will automatically restart to apply the new
-configuration.
+Opens the network policy file in your editor. If you save changes, the proxy service will automatically restart to apply
+the new policy. Use `--mode` and `--agent` to select specific policy files.
 
-#### `agentbox compose bump`
+### `agentbox bump`
 
 Updates Docker images to their latest versions by pulling the newest digests and updating the compose file. Skips local
 images.
 
-### `agentbox policy`
+### Docker compose passthrough
 
-Opens the network policy file in your editor. If you save changes, the proxy service will automatically restart to apply
-the new policy. Use `--mode` and `--agent` to select specific policy files.
+Any unrecognized command is passed through to `docker compose` with the correct compose file automatically detected
+(e.g., `agentbox up -d` or `agentbox logs`).
 
 ### `agentbox exec`
 

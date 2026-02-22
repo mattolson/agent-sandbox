@@ -113,7 +113,7 @@ Create the `agentbox` CLI for managing sandbox configurations.
 **Goals:**
 - `agentbox init` - scaffold .devcontainer/ from template
 - `agentbox bump` - update image digests to latest
-- `agentbox policy` - manage allowlist domains
+- `agentbox edit policy` - manage allowlist domains
 
 **Dependencies:** m1 (templates exist), m2 (images to reference)
 

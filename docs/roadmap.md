@@ -41,10 +41,10 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 
 - `agentbox init` - interactive project setup (agent, mode, IDE, volumes, policy)
 - `agentbox exec` - start or attach to the agent container
-- `agentbox policy` - edit network policy, auto-restart proxy on save
-- `agentbox compose` - pass-through to docker compose
-- `agentbox compose bump` - pull latest images and pin to new digests
-- `agentbox compose edit` - open compose file in editor
+- `agentbox edit policy` - edit network policy, auto-restart proxy on save
+- `agentbox edit compose` - open compose file in editor
+- `agentbox bump` - pull latest images and pin to new digests
+- `agentbox <command>` - pass-through to docker compose
 - `agentbox clean` - remove containers, volumes, and config
 - `agentbox version` - show version info
 - Docker-based CLI distribution (`ghcr.io/mattolson/agent-sandbox-cli`)
