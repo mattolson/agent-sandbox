@@ -18,6 +18,7 @@ devcontainer() {
 	local project_path=""
 	local agent=""
 	local ide=""
+	local name=""
 
 	while [[ $# -gt 0 ]]
 	do
@@ -36,6 +37,10 @@ devcontainer() {
 			;;
 		--ide)
 			ide="$2"
+			shift 2
+			;;
+		--name)
+			name="$2"
 			shift 2
 			;;
 		*)
@@ -62,16 +67,10 @@ devcontainer() {
 	customize_compose_file "$rel_policy_file" "$compose_file" "$agent" "$ide"
 
 	local project_name
-	project_name=$(derive_project_name "$project_path" "devcontainer")
+	project_name="${name:-$(derive_project_name "$project_path" "devcontainer")}"
 	set_project_name "$compose_file" "$project_name"
 
 	echo "Devcontainer dir created at $devcontainer_dir" | info
-
-	: "${edit_compose_file:=$(select_yes_no "Edit the compose file?")}"
-	if [[ $edit_compose_file == true ]]
-	then
-		open_editor "$compose_file"
-	fi
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]

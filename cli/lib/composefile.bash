@@ -11,8 +11,8 @@ source "$AGB_LIBDIR/constants.bash"
 
 # Customizes a Docker Compose file with policy and optional user configurations.
 # Prompts the user for configuration options unless provided via environment variables:
-#   - proxy_image: Docker image for proxy service (pulls and pins to digest)
-#   - agent_image: Docker image for agent service (pulls and pins to digest)
+#   - proxy_image: Docker image for proxy service (default: latest proxy image)
+#   - agent_image: Docker image for agent service (default: latest agent image)
 #   - mount_claude_config: "true" to mount host Claude config (~/.claude)
 #   - enable_shell_customizations: "true" to enable shell customizations
 #   - enable_dotfiles: "true" to mount dotfiles
@@ -40,10 +40,6 @@ customize_compose_file() {
 	compose_dir=$(dirname "$compose_file")
 
 	verify_relative_path "$compose_dir" "$policy_file"
-
-	# Collect all user input at the top
-	: "${proxy_image:=$(read_line "Proxy image [$default_proxy_image]:")}"
-	: "${agent_image:=$(read_line "Agent image [$default_agent_image]:")}"
 
 	if [[ $agent == "claude" ]]
 	then

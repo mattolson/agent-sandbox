@@ -9,10 +9,10 @@ source "$AGB_LIBDIR/require.bash"
 source "$AGB_LIBDIR/select.bash"
 # shellcheck source=../../lib/constants.bash
 source "$AGB_LIBDIR/constants.bash"
+# shellcheck source=../../lib/path.bash
+source "$AGB_LIBDIR/path.bash"
 
 # Initializes agent-sandbox for a project.
-#   - Prompts for project path (defaults to current directory)
-#   - Prompts for project name (defaults to directory name)
 #   - Prompts to select agent type (claude/copilot)
 #   - Prompts to select mode (cli/devcontainer)
 #   - Prompts to select IDE (code/jetbrains/none)
@@ -21,8 +21,26 @@ source "$AGB_LIBDIR/constants.bash"
 init() {
 	require yq
 
-	local project_path
-	project_path=$(read_line "Enter project path (empty for current directory):")
+	local name=""
+	local project_path=""
+
+	while [[ $# -gt 0 ]]
+	do
+		case $1 in
+		--name)
+			name="$2"
+			shift 2
+			;;
+		--path)
+			project_path="$2"
+			shift 2
+			;;
+		*)
+			echo "Unknown option: $1" | error
+			return 1
+			;;
+		esac
+	done
 
 	if [[ -z "$project_path" ]]
 	then
@@ -46,6 +64,17 @@ init() {
 	local mode
 	mode=$(select_option "Select mode:" "${available_modes[@]}")
 
+	if [[ -z "$name" ]]
+	then
+		local default_name
+		default_name=$(derive_project_name "$project_path" "$mode")
+		name=$(read_line "Project name [$default_name]:")
+		if [[ -z "$name" ]]
+		then
+			name="$default_name"
+		fi
+	fi
+
 	local policy_file="$AGB_PROJECT_DIR/policy-$mode-$agent.yaml"
 
 	case "$mode" in
@@ -54,7 +83,8 @@ init() {
 		cli \
 			--policy-file "$policy_file" \
 			--project-path "$project_path" \
-			--agent "$agent"
+			--agent "$agent" \
+			--name "$name"
 		;;
 	devcontainer)
 		local available_ides=(vscode jetbrains none)
@@ -72,7 +102,8 @@ init() {
 			--policy-file "$policy_file" \
 			--project-path "$project_path" \
 			--agent "$agent" \
-			--ide "$ide"
+			--ide "$ide" \
+			--name "$name"
 		;;
 	*)
 		echo "Invalid mode selected: $mode" | error

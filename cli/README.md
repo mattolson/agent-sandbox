@@ -11,6 +11,10 @@ Requires `docker` (and `docker compose`) and [`yq`](https://github.com/mikefarah
 Initializes agent-sandbox for a project. Prompts you to select the agent type and mode, then sets up the necessary
 configuration files and network policy.
 
+Options:
+- `--path` - Project directory (default: current directory)
+- `--name` - Project name for Docker Compose (default: derived from directory name)
+
 #### `agentbox init cli`
 
 Sets up CLI mode docker-compose configuration for an agent. Copies the docker-compose.yml template and customizes it
@@ -20,6 +24,7 @@ Options:
 - `--policy-file` - Path to the policy file (relative to project directory)
 - `--project-path` - Path to the project directory
 - `--agent` - The agent name (e.g., `claude`)
+- `--name` - Project name for Docker Compose (default: `{dir}-sandbox`)
 
 #### `agentbox init devcontainer`
 
@@ -31,6 +36,7 @@ Options:
 - `--project-path` - Path to the project directory
 - `--agent` - The agent name (e.g., `claude`)
 - `--ide` - The IDE name (e.g., `vscode`, `jetbrains`, `none`) (optional)
+- `--name` - Project name for Docker Compose (default: `{dir}-sandbox-devcontainer`)
 
 #### `agentbox init policy`
 

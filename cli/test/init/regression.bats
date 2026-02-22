@@ -166,7 +166,6 @@ copilot_agent_compose_file_has_expected_content() {
 	export mount_git_readonly="true"
 	export mount_idea_readonly="true"
 	export mount_vscode_readonly="true"
-	export edit_compose_file="false"
 
 	unset -f pull_and_pin_image
 	stub pull_and_pin_image \
@@ -181,7 +180,7 @@ copilot_agent_compose_file_has_expected_content() {
 	assert_output --regexp ".*Compose file created at $PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
 
 	run yq '.name' "$PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
-	assert_output "project-sandbox-cli"
+	assert_output "project-sandbox"
 
 	claude_agent_compose_file_has_expected_content "$PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
 }
@@ -195,7 +194,6 @@ copilot_agent_compose_file_has_expected_content() {
 	export mount_git_readonly="true"
 	export mount_idea_readonly="true"
 	export mount_vscode_readonly="true"
-	export edit_compose_file="false"
 
 	unset -f pull_and_pin_image
 	stub pull_and_pin_image \
@@ -227,7 +225,6 @@ copilot_agent_compose_file_has_expected_content() {
 	export mount_git_readonly="true"
 	export mount_idea_readonly="true"
 	export mount_vscode_readonly="true"
-	export edit_compose_file="false"
 
 	unset -f pull_and_pin_image
 	stub pull_and_pin_image \
@@ -242,7 +239,7 @@ copilot_agent_compose_file_has_expected_content() {
 	assert_output --regexp ".*Compose file created at $PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
 
 	run yq '.name' "$PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
-	assert_output "project-sandbox-cli"
+	assert_output "project-sandbox"
 
 	copilot_agent_compose_file_has_expected_content "$PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
 }
@@ -255,7 +252,6 @@ copilot_agent_compose_file_has_expected_content() {
 	export mount_git_readonly="true"
 	export mount_idea_readonly="true"
 	export mount_vscode_readonly="true"
-	export edit_compose_file="false"
 
 	unset -f pull_and_pin_image
 	stub pull_and_pin_image \
