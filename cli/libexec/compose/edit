@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=../../lib/require.bash
-source "$AGB_LIBDIR/require.bash"
 # shellcheck source=../../lib/path.bash
 source "$AGB_LIBDIR/path.bash"
 # shellcheck source=../../lib/select.bash
@@ -10,7 +8,7 @@ source "$AGB_LIBDIR/select.bash"
 # shellcheck source=../../lib/logging.bash
 source "$AGB_LIBDIR/logging.bash"
 
-# Opens the compose file in an editor and restarts docker compose if changes were made
+# Opens the compose file in an editor. Warns if containers need restarting.
 edit() {
 	local compose_file
 	compose_file="$(find_compose_file)"
@@ -25,11 +23,18 @@ edit() {
 
 	if [[ "$mtime_before" != "$mtime_after" ]]
 	then
-		echo "Compose file was modified. Restarting docker compose..." | info
-		require docker
-		docker compose -f "$compose_file" up -d
+		local agent_running
+		agent_running=$("$AGB_LIBEXECDIR/compose/compose" ps agent --status running --quiet 2>/dev/null) || true
+
+		if [[ -n "$agent_running" ]]
+		then
+			echo "Compose file was modified, and you have containers running." | warning
+			echo "To pick up the changes and restart your containers, run: agentbox compose up -d" | warning
+		else
+			echo "Compose file was modified." | info
+		fi
 	else
-		echo "No changes detected. Skipping restart." | warning
+		echo "No changes detected." | info
 	fi
 }
 
