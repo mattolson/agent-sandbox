@@ -92,11 +92,7 @@ Design decisions that may or may not need action.
 
 - [x] **Make `agentbox exec` safe for multiple terminal sessions.** Currently runs `docker compose up -d` every time, which is a no-op when containers are already running with the same config. But if the compose file has changed (e.g., after `agentbox bump`), `up -d` will recreate containers and kill existing sessions. Fix: check if the agent container is already running first, only run `up -d` if it isn't. Something like `docker compose ps --status running --quiet agent` to detect a running container before deciding whether to start.
 
-- [ ] **Review container capability grants.** Audit the `cap_drop` / `cap_add` lists for both the proxy and agent containers. Current grants:
-  - Proxy: drops ALL, adds `DAC_OVERRIDE`
-  - Agent: drops ALL, adds `NET_ADMIN`, `NET_RAW`, `SETUID`, `SETGID`
-  - Agent (JetBrains devcontainer): additionally adds `DAC_OVERRIDE`, `CHOWN`, `FOWNER`
-  Verify each capability is still required, document why it's needed, and check if any can be narrowed or removed. `NET_ADMIN`/`NET_RAW` are for iptables setup in entrypoint; `SETUID`/`SETGID` are for sudo to run firewall init as root. Consider whether the firewall setup could run differently to reduce the grant.
+- [x] **Review container capability grants.** Audited all capabilities. All are justified and minimal. Added per-capability comments to all compose templates and the JetBrains capability function. Proxy `DAC_OVERRIDE` could be eliminated by switching to `USER mitmproxy` in the proxy Dockerfile (future improvement). Agent `SETUID`/`SETGID` could be eliminated by switching to a root entrypoint with gosu (marginal gain, current sudoers approach is standard).
 
 - [ ] **Auto-configure git identity from repo history.** Users with a global gitconfig on the host don't have it available inside the container, so commits fail until `user.name` and `user.email` are set. At container startup, if git identity isn't configured in the repo, extract the most recent commit's author name and email from the log and set them as repo-level config (`.git/config`). This is safe because `.git/config` isn't tracked and the values match what the user already committed with. Edge cases: last commit from a collaborator, multiple identities, empty repos. For those, the dotfiles mount (`.gitconfig`) is the escape hatch.
 

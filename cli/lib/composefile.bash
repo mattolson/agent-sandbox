@@ -293,7 +293,9 @@ add_jetbrains_capabilities() {
 	local compose_file=$1
 
 	yq -i '.services.agent.cap_add += ["DAC_OVERRIDE", "CHOWN", "FOWNER"]' "$compose_file"
-	yq -i '(.services.agent.cap_add[] | select(. == "DAC_OVERRIDE")) head_comment = "following is required by JetBrains devcontainer"' "$compose_file"
+	yq -i '(.services.agent.cap_add[] | select(. == "DAC_OVERRIDE")) head_comment = "JetBrains IDE: bypass file permission checks on mounted volumes"' "$compose_file"
+	yq -i '(.services.agent.cap_add[] | select(. == "CHOWN")) head_comment = "JetBrains IDE: change ownership of IDE cache and state files"' "$compose_file"
+	yq -i '(.services.agent.cap_add[] | select(. == "FOWNER")) head_comment = "JetBrains IDE: bypass ownership checks on IDE-managed files"' "$compose_file"
 }
 
 # Pulls an image and returns its digest.

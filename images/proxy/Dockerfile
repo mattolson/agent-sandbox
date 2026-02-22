@@ -21,6 +21,12 @@ COPY addons/ /home/mitmproxy/addons/
 COPY entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# Ensure mitmproxy user owns its home directory, confdir, and the CA export directory.
+RUN mkdir -p /home/mitmproxy/.mitmproxy /ca-export \
+  && chown -R mitmproxy:mitmproxy /home/mitmproxy /ca-export
+
+USER mitmproxy
+
 # mitmdump for headless operation with policy enforcement addon
 # --set stream_large_bodies=1 prevents buffering large responses
 # --set http2=false avoids HTTP/2 header validation issues (e.g., gh CLI trailing whitespace)

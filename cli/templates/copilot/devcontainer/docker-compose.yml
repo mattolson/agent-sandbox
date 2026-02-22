@@ -4,8 +4,6 @@ services:
     image: ghcr.io/mattolson/agent-sandbox-proxy:latest
     cap_drop:
       - ALL
-    cap_add:
-      - DAC_OVERRIDE
     environment:
       - PROXY_MODE=enforce
     volumes:
@@ -24,10 +22,11 @@ services:
     cap_drop:
       - ALL
     cap_add:
-      # Required for iptables firewall setup. The agent runs as non-root and
-      # sudoers only permits specific scripts, so it cannot modify iptables directly.
+      # iptables firewall rule management (init-firewall.sh)
       - NET_ADMIN
+      # Raw socket access for iptables (init-firewall.sh)
       - NET_RAW
+      # sudo to run init scripts as root (sudoers restricts to specific scripts)
       - SETUID
       - SETGID
     volumes:
