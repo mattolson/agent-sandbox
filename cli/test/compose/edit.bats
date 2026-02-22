@@ -31,7 +31,7 @@ teardown() {
 		"$COMPOSE_FILE : sleep 1 && touch '$COMPOSE_FILE'"
 
 	stub docker \
-		"compose -f $COMPOSE_FILE ps agent --status running --quiet : echo running"
+		"compose -f $COMPOSE_FILE ps --status running --quiet : echo running"
 
 	cd "$BATS_TEST_TMPDIR"
 	run edit
@@ -46,7 +46,7 @@ teardown() {
 		"$COMPOSE_FILE : sleep 1 && touch '$COMPOSE_FILE'"
 
 	stub docker \
-		"compose -f $COMPOSE_FILE ps agent --status running --quiet : :"
+		"compose -f $COMPOSE_FILE ps --status running --quiet : :"
 
 	cd "$BATS_TEST_TMPDIR"
 	run edit
