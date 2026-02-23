@@ -233,6 +233,47 @@ EOF
 EOF
 }
 
+@test "customize_compose_file defaults all optional volumes to commented-out entries" {
+	POLICY_FILE="policy.yaml"
+	touch "$BATS_TEST_TMPDIR/$POLICY_FILE"
+
+	export proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
+	export agent_image="ghcr.io/mattolson/agent-sandbox-claude:latest"
+
+	unset -f pull_and_pin_image
+	stub pull_and_pin_image \
+		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
+		"ghcr.io/mattolson/agent-sandbox-claude:latest : echo 'ghcr.io/mattolson/agent-sandbox-claude@sha256:def456'"
+
+	customize_compose_file "$POLICY_FILE" "$COMPOSE_FILE" "claude" "jetbrains"
+
+	# Verify images are set
+	run yq '.services.proxy.image' "$COMPOSE_FILE"
+	assert_output "ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
+
+	run yq '.services.agent.image' "$COMPOSE_FILE"
+	assert_output "ghcr.io/mattolson/agent-sandbox-claude@sha256:def456"
+
+	# Verify policy volume on proxy
+	yq -e '.services.proxy.volumes[] | select(. == "policy.yaml:/etc/mitmproxy/policy.yaml:ro")' "$COMPOSE_FILE"
+
+	# Only the initial workspace volume should be active
+	run yq '.services.agent.volumes | length' "$COMPOSE_FILE"
+	assert_output "1"
+
+	# All optional volumes should appear as foot comments
+	run yq '.services.agent.volumes[-1] | foot_comment' "$COMPOSE_FILE"
+	assert_line --partial '${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro'
+	assert_line --partial '${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro'
+	assert_line --partial 'shell.d:/home/dev/.config/agent-sandbox/shell.d:ro'
+	assert_line --partial 'dotfiles:/home/dev/.dotfiles:ro'
+	assert_line --partial '../.git:/workspace/.git:ro'
+	assert_line --partial '../.idea:/workspace/.idea:ro'
+
+	# JetBrains capabilities should still be added
+	assert_jetbrains_capabilities "$COMPOSE_FILE"
+}
+
 @test "customize_compose_file handles full workflow with all options enabled and jetbrains ide" {
 	POLICY_FILE="policy.yaml"
 	touch "$BATS_TEST_TMPDIR/$POLICY_FILE"

@@ -2,15 +2,14 @@
 
 # shellcheck source=require.bash
 source "$AGB_LIBDIR/require.bash"
-# shellcheck source=select.bash
-source "$AGB_LIBDIR/select.bash"
 # shellcheck source=path.bash
 source "$AGB_LIBDIR/path.bash"
 # shellcheck source=constants.bash
 source "$AGB_LIBDIR/constants.bash"
 
 # Customizes a Docker Compose file with policy and optional user configurations.
-# Prompts the user for configuration options unless provided via environment variables:
+# Optional volumes are added as commented-out entries by default. Set environment
+# variables to "true" before calling this function to add them as active mounts:
 #   - proxy_image: Docker image for proxy service (default: latest proxy image)
 #   - agent_image: Docker image for agent service (default: latest agent image)
 #   - mount_claude_config: "true" to mount host Claude config (~/.claude)
@@ -43,21 +42,21 @@ customize_compose_file() {
 
 	if [[ $agent == "claude" ]]
 	then
-		: "${mount_claude_config:=$(select_yes_no "Mount host Claude config (~/.claude)?")}"
+		: "${mount_claude_config:=false}"
 	fi
 
-	: "${enable_shell_customizations:=$(select_yes_no "Enable shell customizations?")}"
-	: "${enable_dotfiles:=$(select_yes_no "Enable dotfiles?")}"
-	: "${mount_git_readonly:=$(select_yes_no "Mount .git/ directory as read-only?")}"
+	: "${enable_shell_customizations:=false}"
+	: "${enable_dotfiles:=false}"
+	: "${mount_git_readonly:=false}"
 
 	if [[ $ide == "jetbrains" ]]
 	then
-		: "${mount_idea_readonly:=$(select_yes_no "Mount .idea/ directory as read-only?")}"
+		: "${mount_idea_readonly:=false}"
 	fi
 
 	if [[ $ide == "vscode" ]]
 	then
-		: "${mount_vscode_readonly:=$(select_yes_no "Mount .vscode/ directory as read-only?")}"
+		: "${mount_vscode_readonly:=false}"
 	fi
 
 	local proxy_image_pinned
