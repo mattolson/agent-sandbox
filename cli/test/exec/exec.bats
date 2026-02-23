@@ -21,8 +21,8 @@ teardown() {
 #!/usr/bin/env bash
 cmd="$1"; shift
 case "$cmd" in
-	ps)   echo "" ;;
-	up)   echo "started" >&2 ;;
+	ps)   [[ "$*" == "agent --status running --quiet" ]] || { echo "unexpected ps args: $*" >&2; exit 1; }; echo "" ;;
+	up)   [[ "$*" == "-d" ]] || { echo "unexpected up args: $*" >&2; exit 1; }; echo "started" >&2 ;;
 	exec) echo "run-compose exec $*" ;;
 esac
 SCRIPT
@@ -41,7 +41,7 @@ SCRIPT
 #!/usr/bin/env bash
 cmd="$1"; shift
 case "$cmd" in
-	ps)   echo "abc123def456" ;;
+	ps)   [[ "$*" == "agent --status running --quiet" ]] || { echo "unexpected ps args: $*" >&2; exit 1; }; echo "abc123def456" ;;
 	up)   echo "ERROR: up should not be called" >&2; exit 1 ;;
 	exec) echo "run-compose exec $*" ;;
 esac
@@ -61,7 +61,7 @@ SCRIPT
 #!/usr/bin/env bash
 cmd="$1"; shift
 case "$cmd" in
-	ps)   echo "abc123def456" ;;
+	ps)   [[ "$*" == "agent --status running --quiet" ]] || { echo "unexpected ps args: $*" >&2; exit 1; }; echo "abc123def456" ;;
 	exec) echo "run-compose exec $*" ;;
 esac
 SCRIPT
