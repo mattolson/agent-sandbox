@@ -7,7 +7,7 @@
 
 # Services allowed through the proxy.
 # See images/proxy/addons/enforcer.py for definitions.
-services:
+services: []
 
 # Additional domains allowed through the proxy
 domains: []
