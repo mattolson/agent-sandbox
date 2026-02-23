@@ -77,12 +77,20 @@ init() {
 	if [[ -z "$agent" ]]
 	then
 		agent=$(select_option "Select agent:" "${available_agents[@]}")
+	elif [[ ! " ${available_agents[*]} " =~ [[:space:]]${agent}[[:space:]] ]]
+	then
+		echo "Invalid agent: $agent (expected: ${available_agents[*]})" | error
+		return 1
 	fi
 
 	local available_modes=(cli devcontainer)
 	if [[ -z "$mode" ]]
 	then
 		mode=$(select_option "Select mode:" "${available_modes[@]}")
+	elif [[ ! " ${available_modes[*]} " =~ [[:space:]]${mode}[[:space:]] ]]
+	then
+		echo "Invalid mode: $mode (expected: ${available_modes[*]})" | error
+		return 1
 	fi
 
 	if [[ -z "$name" ]]
@@ -112,6 +120,10 @@ init() {
 		if [[ -z "$ide" ]]
 		then
 			ide=$(select_option "Select IDE:" "${available_ides[@]}")
+		elif [[ ! " ${available_ides[*]} " =~ [[:space:]]${ide}[[:space:]] ]]
+		then
+			echo "Invalid IDE: $ide (expected: ${available_ides[*]})" | error
+			return 1
 		fi
 
 		local services=("$agent")
