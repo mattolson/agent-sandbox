@@ -52,16 +52,15 @@ Design decisions that may or may not need action.
 
 ## Enhancements
 
-- [ ] **`agentbox init` should accept all defaults without prompting.** The default mode should run through the entire init process in one step using defaults (agent=claude, mode=cli) with no interactive prompts. Add `--interactive` flag to enable the current flow where each option is presented for selection. Also support passing options directly as flags so users can override specific defaults without going interactive. Proposed flags:
-  - `--agent <name>` (default: claude)
-  - `--mode <mode>` (default: cli)
-  - `--ide <ide>` (default: none for cli, vscode for devcontainer)
-  - `--path <dir>` (default: current directory)
-  - `--name <name>` (default: derived from directory name via `derive_project_name`)
-  - `--proxy-image <image>` (default: latest proxy)
-  - `--agent-image <image>` (default: latest agent image for selected agent)
-  - `--interactive` (enable interactive prompts for all options)
-  The `customize_compose_file` function already skips prompts when env vars are pre-set (`proxy_image`, `agent_image`, `mount_claude_config`, `enable_shell_customizations`, `enable_dotfiles`, `mount_git_readonly`, `mount_idea_readonly`, `mount_vscode_readonly`). The init function needs to parse flags, set defaults for everything, and only call interactive prompts when `--interactive` is passed.
+- [x] **`agentbox init` compose customization prompts removed.** The 4-6 yes/no questions about optional volume mounts (Claude config, shell customizations, dotfiles, .git, .idea, .vscode) are no longer asked. Volumes are always added as commented-out entries. Users uncomment them in the generated compose file or set `AGENTBOX_*` env vars to `"true"` for scripted usage.
+
+- [x] **`agentbox init` accepts --agent, --mode, and --ide flags.** Each skips the corresponding interactive prompt. Invalid values are rejected with an error listing accepted options. Fully non-interactive when all flags are passed: `agentbox init --agent claude --mode cli --name myproject --path /some/dir`.
+
+- [x] **Normalized env vars to uppercase `AGENTBOX_` prefix.** `proxy_image` -> `AGENTBOX_PROXY_IMAGE`, `agent_image` -> `AGENTBOX_AGENT_IMAGE`, `mount_claude_config` -> `AGENTBOX_MOUNT_CLAUDE_CONFIG`, `enable_shell_customizations` -> `AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS`, `enable_dotfiles` -> `AGENTBOX_ENABLE_DOTFILES`, `mount_git_readonly` -> `AGENTBOX_MOUNT_GIT_READONLY`, `mount_idea_readonly` -> `AGENTBOX_MOUNT_IDEA_READONLY`, `mount_vscode_readonly` -> `AGENTBOX_MOUNT_VSCODE_READONLY`.
+
+- [x] **Renamed `agentbox clean` to `agentbox destroy`.** Makes the destructive nature of the command more obvious.
+
+- [ ] **`agentbox init` fully non-interactive by default.** Remaining interactive prompts (agent, mode, name, IDE) still fire when flags are omitted. Consider defaulting to `--agent claude --mode cli` and deriving name automatically, with an `--interactive` flag to restore the current prompt-driven flow. Also consider `--proxy-image` and `--agent-image` flags as alternatives to the `AGENTBOX_PROXY_IMAGE` / `AGENTBOX_AGENT_IMAGE` env vars.
 
 - [ ] **Audit CLI test coverage.** Review every module and library file for test coverage gaps. Known gaps from initial review:
   - `cli/bin/agentbox` - main dispatcher has no tests (command resolution, PATH manipulation, fallback handling)
@@ -69,7 +68,7 @@ Design decisions that may or may not need action.
   - `cli/libexec/version/version` - no tests
   - `cli/libexec/init/policy` - no direct unit tests (only tested indirectly via init regression tests)
   - `cli/lib/logging.bash` - no tests
-  - `cli/lib/select.bash` - no tests for `select_option`, `select_yes_no`, `read_line`, `open_editor`
+  - `cli/lib/select.bash` - no tests for `select_option`, `read_line`, `open_editor`
   - `cli/lib/composefile.bash` - `pull_and_pin_image` Docker error paths untested, `set_project_name` untested
   - `cli/libexec/bump/bump` - `bump_service` tested but top-level `bump` command untested
   - `cli/libexec/edit/compose` - editor integration untested beyond mtime check
