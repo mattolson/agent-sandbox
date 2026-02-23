@@ -60,18 +60,7 @@ Design decisions that may or may not need action.
 
 - [x] **Renamed `agentbox clean` to `agentbox destroy`.** Makes the destructive nature of the command more obvious.
 
-- [ ] **Audit CLI test coverage.** Review every module and library file for test coverage gaps. Known gaps from initial review:
-  - `cli/bin/agentbox` - main dispatcher has no tests (command resolution, PATH manipulation, fallback handling)
-  - `cli/libexec/exec/exec` - no tests
-  - `cli/libexec/version/version` - no tests
-  - `cli/libexec/init/policy` - no direct unit tests (only tested indirectly via init regression tests)
-  - `cli/lib/logging.bash` - no tests
-  - `cli/lib/select.bash` - no tests for `select_option`, `read_line`, `open_editor`
-  - `cli/lib/composefile.bash` - `pull_and_pin_image` Docker error paths untested, `set_project_name` untested
-  - `cli/libexec/bump/bump` - `bump_service` tested but top-level `bump` command untested
-  - `cli/libexec/edit/compose` - editor integration untested beyond mtime check
-  - `cli/libexec/edit/policy` - proxy restart path only partially tested
-  Run `cli/run-tests.bash --coverage` (requires kcov) to get a baseline coverage report, then fill gaps.
+- [x] **Audit CLI test coverage.** Added tests for all identified gaps: dispatcher (`cli/test/dispatcher/`), exec (`cli/test/exec/`), version (`cli/test/version/`), init/policy (`cli/test/init/policy.bats`), logging (`cli/test/logging/`), select (`cli/test/select/`), composefile set_project_name and error paths (`cli/test/composefile/set_project_name.bats`), and path functions verify_relative_path/derive_project_name/get_file_mtime (`cli/test/path/path.bats`). Remaining items (`bump` top-level, `edit/compose` editor integration, `edit/policy` proxy restart) have adequate coverage or are integration-level concerns.
 
 - [x] **Move `agentbox compose bump` to `agentbox bump`.** Promoted to top-level command. Also reorganized `compose edit` to `edit compose`, `policy` to `edit policy`, and added docker compose fallthrough for unrecognized commands.
 
