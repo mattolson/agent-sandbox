@@ -60,8 +60,6 @@ Design decisions that may or may not need action.
 
 - [x] **Renamed `agentbox clean` to `agentbox destroy`.** Makes the destructive nature of the command more obvious.
 
-- [ ] **`agentbox init` fully non-interactive by default.** Remaining interactive prompts (agent, mode, name, IDE) still fire when flags are omitted. Consider defaulting to `--agent claude --mode cli` and deriving name automatically, with an `--interactive` flag to restore the current prompt-driven flow. Also consider `--proxy-image` and `--agent-image` flags as alternatives to the `AGENTBOX_PROXY_IMAGE` / `AGENTBOX_AGENT_IMAGE` env vars.
-
 - [ ] **Audit CLI test coverage.** Review every module and library file for test coverage gaps. Known gaps from initial review:
   - `cli/bin/agentbox` - main dispatcher has no tests (command resolution, PATH manipulation, fallback handling)
   - `cli/libexec/exec/exec` - no tests

@@ -90,7 +90,13 @@ The image runs as root, to avoid permission issues with the host Docker socket. 
 agentbox init
 ```
 
-This prompts you to select the agent type and mode (CLI or devcontainer), then sets up the necessary configuration files and network policy.
+This prompts you to select the agent type and mode (CLI or devcontainer), then sets up the necessary configuration files and network policy. You can also pass flags to skip prompts:
+
+```bash
+agentbox init --agent claude --mode cli
+```
+
+Optional volume mounts (dotfiles, shell customizations, .git read-only, etc.) are included as commented-out entries in the generated compose file. Uncomment them as needed, or set `AGENTBOX_*` environment variables for scripted usage. See the [CLI README](cli/README.md) for the full list of flags and environment variables.
 
 ### 4. Start the sandbox
 
@@ -145,7 +151,7 @@ The network policy lives in your project in the `.agent-sandbox` directory. This
 To edit the policy file:
 
 ```bash
-agentbox policy
+agentbox edit policy
 ```
 
 This opens the network policy file in your editor. If you save changes, the proxy service will automatically restart to apply the new policy.

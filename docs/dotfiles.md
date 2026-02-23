@@ -47,6 +47,6 @@ alias gs='git status'
 EOF
 ```
 
-The `agentbox init` command prompts whether to enable shell customizations when setting up your project and will set up the volume mount.
+`agentbox init` includes volume mounts for dotfiles and shell customizations as commented-out entries in the generated compose file. Uncomment them to enable, or set `AGENTBOX_ENABLE_DOTFILES=true` and `AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS=true` before running init.
 
 shell.d scripts are sourced from the system-level zshrc (`/etc/zsh/zshrc`), which runs before `~/.zshrc`. This means your dotfiles can include a custom `.zshrc` without breaking this integration.

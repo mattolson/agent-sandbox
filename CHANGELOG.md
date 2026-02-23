@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - **`agentbox` CLI.** New command-line tool for initializing and managing sandboxed projects. Commands:
-  - `agentbox init` - interactive setup: select agent (Claude Code / GitHub Copilot), mode (CLI / devcontainer), IDE (VS Code / JetBrains / none), and configure volumes
+  - `agentbox init` - set up a project with agent, mode, and IDE selection; accepts `--agent`, `--mode`, `--ide`, `--name`, `--path` flags for non-interactive usage; optional volume mounts included as commented-out entries
   - `agentbox exec` - start or attach to the agent container
   - `agentbox edit policy` - open the network policy in your editor, auto-restarts proxy on save
   - `agentbox edit compose` - open the compose file in your editor

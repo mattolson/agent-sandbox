@@ -8,12 +8,21 @@ Requires `docker` (and `docker compose`) and [`yq`](https://github.com/mikefarah
 
 ### `agentbox init`
 
-Initializes agent-sandbox for a project. Prompts you to select the agent type and mode, then sets up the necessary
-configuration files and network policy.
+Initializes agent-sandbox for a project. Prompts for any options not provided via flags, then sets up the necessary
+configuration files and network policy. Optional volume mounts (Claude config, shell customizations, dotfiles, .git,
+.idea, .vscode) are included as commented-out entries in the generated compose file.
 
 Options:
-- `--path` - Project directory (default: current directory)
+- `--agent` - Agent type: `claude`, `copilot` (skips prompt)
+- `--mode` - Setup mode: `cli`, `devcontainer` (skips prompt)
+- `--ide` - IDE for devcontainer mode: `vscode`, `jetbrains`, `none` (skips prompt)
 - `--name` - Project name for Docker Compose (default: derived from directory name)
+- `--path` - Project directory (default: current directory)
+
+Fully non-interactive example:
+```bash
+agentbox init --agent claude --mode cli --name myproject --path /some/dir
+```
 
 #### `agentbox init cli`
 
@@ -103,7 +112,22 @@ cli/
 
 ## Environment Variables
 
+### Internal (set by the CLI)
+
 - `AGB_ROOT` - Root directory of agent-sandbox CLI
 - `AGB_LIBDIR` - Library directory (default: `$AGB_ROOT/lib`)
 - `AGB_LIBEXECDIR` - Directory for module implementations (default: `$AGB_ROOT/libexec`)
 - `AGB_TEMPLATEDIR` - Directory for templates (default: `$AGB_ROOT/templates`)
+
+### Configuration (set before running `agentbox init`)
+
+These override defaults during compose file generation. Optional volumes default to `false` (commented out).
+
+- `AGENTBOX_PROXY_IMAGE` - Docker image for proxy service (default: latest published proxy image)
+- `AGENTBOX_AGENT_IMAGE` - Docker image for agent service (default: latest published agent image)
+- `AGENTBOX_MOUNT_CLAUDE_CONFIG` - `true` to mount host `~/.claude` config (Claude agent only)
+- `AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS` - `true` to mount `~/.config/agent-sandbox/shell.d`
+- `AGENTBOX_ENABLE_DOTFILES` - `true` to mount `~/.config/agent-sandbox/dotfiles`
+- `AGENTBOX_MOUNT_GIT_READONLY` - `true` to mount `.git/` directory as read-only
+- `AGENTBOX_MOUNT_IDEA_READONLY` - `true` to mount `.idea/` directory as read-only (JetBrains)
+- `AGENTBOX_MOUNT_VSCODE_READONLY` - `true` to mount `.vscode/` directory as read-only (VS Code)
