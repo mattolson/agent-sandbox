@@ -13,16 +13,21 @@ source "$AGB_LIBDIR/constants.bash"
 source "$AGB_LIBDIR/path.bash"
 
 # Initializes agent-sandbox for a project.
-#   - Prompts to select agent type (claude/copilot)
-#   - Prompts to select mode (cli/devcontainer)
-#   - Prompts to select IDE (code/jetbrains/none)
-#   - Creates a network policy file
-#   - Sets up the selected mode configuration files
+# Prompts for any options not provided via flags.
+# Args:
+#   --agent - Agent type (claude, copilot)
+#   --mode - Setup mode (cli, devcontainer)
+#   --ide - IDE for devcontainer mode (vscode, jetbrains, none)
+#   --name - Project name for Docker Compose
+#   --path - Project directory path
 init() {
 	require yq
 
 	local name=""
 	local project_path=""
+	local agent=""
+	local mode=""
+	local ide=""
 
 	while [[ $# -gt 0 ]]
 	do
@@ -33,6 +38,18 @@ init() {
 			;;
 		--path)
 			project_path="$2"
+			shift 2
+			;;
+		--agent)
+			agent="$2"
+			shift 2
+			;;
+		--mode)
+			mode="$2"
+			shift 2
+			;;
+		--ide)
+			ide="$2"
 			shift 2
 			;;
 		*)
@@ -57,12 +74,16 @@ init() {
 	echo "Configuring project at: $project_path" | info
 
 	local available_agents=(claude copilot)
-	local agent
-	agent=$(select_option "Select agent:" "${available_agents[@]}")
+	if [[ -z "$agent" ]]
+	then
+		agent=$(select_option "Select agent:" "${available_agents[@]}")
+	fi
 
 	local available_modes=(cli devcontainer)
-	local mode
-	mode=$(select_option "Select mode:" "${available_modes[@]}")
+	if [[ -z "$mode" ]]
+	then
+		mode=$(select_option "Select mode:" "${available_modes[@]}")
+	fi
 
 	if [[ -z "$name" ]]
 	then
@@ -88,8 +109,10 @@ init() {
 		;;
 	devcontainer)
 		local available_ides=(vscode jetbrains none)
-		local ide
-		ide=$(select_option "Select IDE:" "${available_ides[@]}")
+		if [[ -z "$ide" ]]
+		then
+			ide=$(select_option "Select IDE:" "${available_ides[@]}")
+		fi
 
 		local services=("$agent")
 		if [[ "$ide" != "none" ]]
