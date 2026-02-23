@@ -139,7 +139,7 @@ Extend the customization story to support dotfiles, custom zshrc, and language s
 
 ## Open Questions
 
-(None currently - proxy choice resolved as mitmproxy in m3)
+(None currently)
 
 ## Success Criteria
 

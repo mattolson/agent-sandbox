@@ -44,11 +44,11 @@ Minor issues in the CLI codebase.
 
 Design decisions that may or may not need action.
 
-- [ ] **Templates are non-functional without `agentbox init`.** Neither CLI nor devcontainer templates include a policy volume mount on the proxy service. `customize_compose_file()` adds it dynamically. If someone copies a template manually, the proxy starts in enforce mode with no policy and exits. Consider adding a placeholder mount or documenting this.
+- [x] **Templates are non-functional without `agentbox init`.** Neither CLI nor devcontainer templates include a policy volume mount on the proxy service. `customize_compose_file()` adds it dynamically. If someone copies a template manually, the proxy falls back to the empty policy baked into the image and blocks all traffic (deny-all). This is the correct secure default. No change needed.
 
 - [x] **Devcontainer templates mount `.devcontainer` as read-only (line 41) but the directory only exists because init just created it.** Fix: added comments clarifying that paths are relative to the compose file's directory (`.devcontainer/`).
 
-- [ ] **Copilot devcontainer.json has empty JetBrains plugins array.** Should look into installing the [copilot plugin](https://plugins.jetbrains.com/plugin/17718-github-copilot--your-ai-pair-programmer)
+- [x] **Copilot devcontainer.json has empty JetBrains plugins array.** Tracked in [#71](https://github.com/mattolson/agent-sandbox/issues/71).
 
 ## Enhancements
 
@@ -80,6 +80,6 @@ Design decisions that may or may not need action.
 
 - [x] **Review container capability grants.** Audited all capabilities. All are justified and minimal. Added per-capability comments to all compose templates and the JetBrains capability function. Proxy `DAC_OVERRIDE` could be eliminated by switching to `USER mitmproxy` in the proxy Dockerfile (future improvement). Agent `SETUID`/`SETGID` could be eliminated by switching to a root entrypoint with gosu (marginal gain, current sudoers approach is standard).
 
-- [ ] **Auto-configure git identity from repo history.** Users with a global gitconfig on the host don't have it available inside the container, so commits fail until `user.name` and `user.email` are set. At container startup, if git identity isn't configured in the repo, extract the most recent commit's author name and email from the log and set them as repo-level config (`.git/config`). This is safe because `.git/config` isn't tracked and the values match what the user already committed with. Edge cases: last commit from a collaborator, multiple identities, empty repos. For those, the dotfiles mount (`.gitconfig`) is the escape hatch.
-
 - [x] **Simplify compose project name for CLI mode.** `derive_project_name()` in `cli/lib/path.bash` currently produces `{dir}-sandbox-{mode}` for both modes. For CLI mode, drop the mode suffix so it's just `{dir}-sandbox`. Keep `{dir}-sandbox-devcontainer` for devcontainer mode to distinguish the two when both exist in the same project. The CLI init caller at `cli/libexec/init/cli:61` passes `"cli"` and devcontainer init at `cli/libexec/init/devcontainer:65` passes `"devcontainer"`.
+
+- [x] **Auto-configure git identity from repo history.** Documented the problem and two solutions in [docs/git.md](../git.md#git-identity): mount gitconfig via dotfiles, or run `git config` inside the container.
