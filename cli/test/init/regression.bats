@@ -158,14 +158,14 @@ copilot_agent_compose_file_has_expected_content() {
 }
 
 @test "cli creates docker-compose.yml for claude agent with all options enabled" {
-	export proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
-	export agent_image="ghcr.io/mattolson/agent-sandbox-claude:latest"
-	export mount_claude_config="true"
-	export enable_shell_customizations="true"
-	export enable_dotfiles="true"
-	export mount_git_readonly="true"
-	export mount_idea_readonly="true"
-	export mount_vscode_readonly="true"
+	export AGENTBOX_PROXY_IMAGE="ghcr.io/mattolson/agent-sandbox-proxy:latest"
+	export AGENTBOX_AGENT_IMAGE="ghcr.io/mattolson/agent-sandbox-claude:latest"
+	export AGENTBOX_MOUNT_CLAUDE_CONFIG="true"
+	export AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS="true"
+	export AGENTBOX_ENABLE_DOTFILES="true"
+	export AGENTBOX_MOUNT_GIT_READONLY="true"
+	export AGENTBOX_MOUNT_IDEA_READONLY="true"
+	export AGENTBOX_MOUNT_VSCODE_READONLY="true"
 
 	unset -f pull_and_pin_image
 	stub pull_and_pin_image \
@@ -186,14 +186,14 @@ copilot_agent_compose_file_has_expected_content() {
 }
 
 @test "devcontainer creates docker-compose.yml for claude agent with all options enabled" {
-	export proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
-	export agent_image="ghcr.io/mattolson/agent-sandbox-claude:latest"
-	export mount_claude_config="true"
-	export enable_shell_customizations="true"
-	export enable_dotfiles="true"
-	export mount_git_readonly="true"
-	export mount_idea_readonly="true"
-	export mount_vscode_readonly="true"
+	export AGENTBOX_PROXY_IMAGE="ghcr.io/mattolson/agent-sandbox-proxy:latest"
+	export AGENTBOX_AGENT_IMAGE="ghcr.io/mattolson/agent-sandbox-claude:latest"
+	export AGENTBOX_MOUNT_CLAUDE_CONFIG="true"
+	export AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS="true"
+	export AGENTBOX_ENABLE_DOTFILES="true"
+	export AGENTBOX_MOUNT_GIT_READONLY="true"
+	export AGENTBOX_MOUNT_IDEA_READONLY="true"
+	export AGENTBOX_MOUNT_VSCODE_READONLY="true"
 
 	unset -f pull_and_pin_image
 	stub pull_and_pin_image \
@@ -218,13 +218,13 @@ copilot_agent_compose_file_has_expected_content() {
 }
 
 @test "cli creates docker-compose.yml for copilot agent with all options enabled" {
-	export proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
-	export agent_image="ghcr.io/mattolson/agent-sandbox-copilot:latest"
-	export enable_shell_customizations="true"
-	export enable_dotfiles="true"
-	export mount_git_readonly="true"
-	export mount_idea_readonly="true"
-	export mount_vscode_readonly="true"
+	export AGENTBOX_PROXY_IMAGE="ghcr.io/mattolson/agent-sandbox-proxy:latest"
+	export AGENTBOX_AGENT_IMAGE="ghcr.io/mattolson/agent-sandbox-copilot:latest"
+	export AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS="true"
+	export AGENTBOX_ENABLE_DOTFILES="true"
+	export AGENTBOX_MOUNT_GIT_READONLY="true"
+	export AGENTBOX_MOUNT_IDEA_READONLY="true"
+	export AGENTBOX_MOUNT_VSCODE_READONLY="true"
 
 	unset -f pull_and_pin_image
 	stub pull_and_pin_image \
@@ -245,13 +245,13 @@ copilot_agent_compose_file_has_expected_content() {
 }
 
 @test "devcontainer creates docker-compose.yml for copilot agent with all options enabled" {
-	export proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
-	export agent_image="ghcr.io/mattolson/agent-sandbox-copilot:latest"
-	export enable_shell_customizations="true"
-	export enable_dotfiles="true"
-	export mount_git_readonly="true"
-	export mount_idea_readonly="true"
-	export mount_vscode_readonly="true"
+	export AGENTBOX_PROXY_IMAGE="ghcr.io/mattolson/agent-sandbox-proxy:latest"
+	export AGENTBOX_AGENT_IMAGE="ghcr.io/mattolson/agent-sandbox-copilot:latest"
+	export AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS="true"
+	export AGENTBOX_ENABLE_DOTFILES="true"
+	export AGENTBOX_MOUNT_GIT_READONLY="true"
+	export AGENTBOX_MOUNT_IDEA_READONLY="true"
+	export AGENTBOX_MOUNT_VSCODE_READONLY="true"
 
 	unset -f pull_and_pin_image
 	stub pull_and_pin_image \

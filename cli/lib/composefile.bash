@@ -10,14 +10,14 @@ source "$AGB_LIBDIR/constants.bash"
 # Customizes a Docker Compose file with policy and optional user configurations.
 # Optional volumes are added as commented-out entries by default. Set environment
 # variables to "true" before calling this function to add them as active mounts:
-#   - proxy_image: Docker image for proxy service (default: latest proxy image)
-#   - agent_image: Docker image for agent service (default: latest agent image)
-#   - mount_claude_config: "true" to mount host Claude config (~/.claude)
-#   - enable_shell_customizations: "true" to enable shell customizations
-#   - enable_dotfiles: "true" to mount dotfiles
-#   - mount_git_readonly: "true" to mount .git directory as read-only
-#   - mount_idea_readonly: "true" to mount .idea directory as read-only
-#   - mount_vscode_readonly: "true" to mount .vscode directory as read-only
+#   - AGENTBOX_PROXY_IMAGE: Docker image for proxy service (default: latest proxy image)
+#   - AGENTBOX_AGENT_IMAGE: Docker image for agent service (default: latest agent image)
+#   - AGENTBOX_MOUNT_CLAUDE_CONFIG: "true" to mount host Claude config (~/.claude)
+#   - AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS: "true" to enable shell customizations
+#   - AGENTBOX_ENABLE_DOTFILES: "true" to mount dotfiles
+#   - AGENTBOX_MOUNT_GIT_READONLY: "true" to mount .git directory as read-only
+#   - AGENTBOX_MOUNT_IDEA_READONLY: "true" to mount .idea directory as read-only
+#   - AGENTBOX_MOUNT_VSCODE_READONLY: "true" to mount .vscode directory as read-only
 # Args:
 #   $1 - Path to the policy file to mount, relative to the Docker Compose file directory
 #   $2 - Path to the Docker Compose file to modify
@@ -42,43 +42,43 @@ customize_compose_file() {
 
 	if [[ $agent == "claude" ]]
 	then
-		: "${mount_claude_config:=false}"
+		: "${AGENTBOX_MOUNT_CLAUDE_CONFIG:=false}"
 	fi
 
-	: "${enable_shell_customizations:=false}"
-	: "${enable_dotfiles:=false}"
-	: "${mount_git_readonly:=false}"
+	: "${AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS:=false}"
+	: "${AGENTBOX_ENABLE_DOTFILES:=false}"
+	: "${AGENTBOX_MOUNT_GIT_READONLY:=false}"
 
 	if [[ $ide == "jetbrains" ]]
 	then
-		: "${mount_idea_readonly:=false}"
+		: "${AGENTBOX_MOUNT_IDEA_READONLY:=false}"
 	fi
 
 	if [[ $ide == "vscode" ]]
 	then
-		: "${mount_vscode_readonly:=false}"
+		: "${AGENTBOX_MOUNT_VSCODE_READONLY:=false}"
 	fi
 
 	local proxy_image_pinned
-	proxy_image_pinned=$(pull_and_pin_image "${proxy_image:-$default_proxy_image}")
+	proxy_image_pinned=$(pull_and_pin_image "${AGENTBOX_PROXY_IMAGE:-$default_proxy_image}")
 	set_proxy_image "$compose_file" "$proxy_image_pinned"
 
 	local agent_image_pinned
-	agent_image_pinned=$(pull_and_pin_image "${agent_image:-$default_agent_image}")
+	agent_image_pinned=$(pull_and_pin_image "${AGENTBOX_AGENT_IMAGE:-$default_agent_image}")
 	set_agent_image "$compose_file" "$agent_image_pinned"
 
 	add_policy_volume "$compose_file" "$policy_file"
 
 	if [[ $agent == "claude" ]]
 	then
-		add_claude_config_volumes "$compose_file" "$mount_claude_config"
+		add_claude_config_volumes "$compose_file" "$AGENTBOX_MOUNT_CLAUDE_CONFIG"
 	fi
 
-	add_shell_customizations_volume "$compose_file" "$enable_shell_customizations"
-	add_dotfiles_volume "$compose_file" "$enable_dotfiles"
-	add_git_readonly_volume "$compose_file" "$mount_git_readonly"
-	add_idea_readonly_volume "$compose_file" "${mount_idea_readonly:-false}"
-	add_vscode_readonly_volume "$compose_file" "${mount_vscode_readonly:-false}"
+	add_shell_customizations_volume "$compose_file" "$AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS"
+	add_dotfiles_volume "$compose_file" "$AGENTBOX_ENABLE_DOTFILES"
+	add_git_readonly_volume "$compose_file" "$AGENTBOX_MOUNT_GIT_READONLY"
+	add_idea_readonly_volume "$compose_file" "${AGENTBOX_MOUNT_IDEA_READONLY:-false}"
+	add_vscode_readonly_volume "$compose_file" "${AGENTBOX_MOUNT_VSCODE_READONLY:-false}"
 
 	if [[ $ide == "jetbrains" ]]
 	then
