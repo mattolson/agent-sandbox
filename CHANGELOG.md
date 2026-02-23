@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
   - `agentbox edit compose` - open the compose file in your editor
   - `agentbox bump` - pull latest images and pin to new digests
   - `agentbox <command>` - pass-through to `docker compose` with the correct project file
-  - `agentbox clean` - remove containers, volumes, and config directories
+  - `agentbox destroy` - remove containers, volumes, and config directories
   - `agentbox version` - show version info
 
 - **Docker-based CLI distribution.** Run the CLI without a local install:

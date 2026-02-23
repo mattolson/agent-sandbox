@@ -2,15 +2,15 @@
 
 setup() {
 	load test_helper
-	# shellcheck source=../../libexec/clean/clean
-	source "$AGB_LIBEXECDIR/clean/clean"
+	# shellcheck source=../../libexec/destroy/destroy
+	source "$AGB_LIBEXECDIR/destroy/destroy"
 }
 
 teardown() {
 	unstub_all
 }
 
-@test "clean removes project directory from repo root" {
+@test "destroy removes project directory from repo root" {
 	local test_root="$BATS_TEST_TMPDIR/repo"
 	local compose_file="$test_root/$AGB_PROJECT_DIR/docker-compose.yml"
 	mkdir -p "$test_root/$AGB_PROJECT_DIR"
@@ -20,12 +20,12 @@ teardown() {
 		"compose -f $compose_file down --volumes : :"
 
 	cd "$test_root"
-	clean -f
+	destroy -f
 
 	[[ ! -d "$test_root/$AGB_PROJECT_DIR" ]]
 }
 
-@test "clean removes devcontainer directory if present" {
+@test "destroy removes devcontainer directory if present" {
 	local test_root="$BATS_TEST_TMPDIR/repo"
 	local compose_file="$test_root/$AGB_PROJECT_DIR/docker-compose.yml"
 	mkdir -p "$test_root/$AGB_PROJECT_DIR"
@@ -36,13 +36,13 @@ teardown() {
 		"compose -f $compose_file down --volumes : :"
 
 	cd "$test_root"
-	clean -f
+	destroy -f
 
 	[[ ! -d "$test_root/.devcontainer" ]]
 	[[ ! -d "$test_root/$AGB_PROJECT_DIR" ]]
 }
 
-@test "clean works when only devcontainer exists" {
+@test "destroy works when only devcontainer exists" {
 	local test_root="$BATS_TEST_TMPDIR/repo"
 	local compose_file="$test_root/.devcontainer/docker-compose.yml"
 	mkdir -p "$test_root/.devcontainer"
@@ -52,12 +52,12 @@ teardown() {
 		"compose -f $compose_file down --volumes : :"
 
 	cd "$test_root"
-	clean -f
+	destroy -f
 
 	[[ ! -d "$test_root/.devcontainer" ]]
 }
 
-@test "clean works from nested directory" {
+@test "destroy works from nested directory" {
 	local test_root="$BATS_TEST_TMPDIR/repo"
 	local compose_file="$test_root/$AGB_PROJECT_DIR/docker-compose.yml"
 	mkdir -p "$test_root/$AGB_PROJECT_DIR"
@@ -68,19 +68,19 @@ teardown() {
 		"compose -f $compose_file down --volumes : :"
 
 	cd "$test_root/nested/deep"
-	clean -f
+	destroy -f
 
 	[[ ! -d "$test_root/$AGB_PROJECT_DIR" ]]
 }
 
-@test "clean aborts when user answers no" {
+@test "destroy aborts when user answers no" {
 	local test_root="$BATS_TEST_TMPDIR/repo"
 	local compose_file="$test_root/$AGB_PROJECT_DIR/docker-compose.yml"
 	mkdir -p "$test_root/$AGB_PROJECT_DIR"
 	touch "$compose_file"
 
 	cd "$test_root"
-	run clean <<<"n"
+	run destroy <<<"n"
 
 	assert_output --partial "Aborting"
 	[[ -d "$test_root/$AGB_PROJECT_DIR" ]]

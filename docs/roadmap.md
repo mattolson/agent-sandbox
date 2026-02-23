@@ -45,7 +45,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - `agentbox edit compose` - open compose file in editor
 - `agentbox bump` - pull latest images and pin to new digests
 - `agentbox <command>` - pass-through to docker compose
-- `agentbox clean` - remove containers, volumes, and config
+- `agentbox destroy` - remove containers, volumes, and config
 - `agentbox version` - show version info
 - Docker-based CLI distribution (`ghcr.io/mattolson/agent-sandbox-cli`)
 - Bash 3.2 compatibility (macOS default shell)

@@ -10,7 +10,7 @@ source "$AGB_LIBDIR/path.bash"
 # shellcheck source=../../lib/select.bash
 source "$AGB_LIBDIR/select.bash"
 
-clean() {
+destroy() {
 	local repo_root
 	repo_root="$(find_repo_root)"
 
@@ -52,5 +52,5 @@ clean() {
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
 then
-	clean "$@"
+	destroy "$@"
 fi

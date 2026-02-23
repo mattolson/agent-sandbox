@@ -46,7 +46,7 @@ Arguments:
 - First argument: Path to the policy file
 - Remaining arguments: Service names to include (e.g., `claude`, `copilot`, `vscode`, `jetbrains`)
 
-### `agentbox clean`
+### `agentbox destroy`
 
 Removes all agent-sandbox configuration and containers from a project. Stops running containers, removes volumes, and
 deletes configuration directories.
@@ -93,7 +93,7 @@ cli/
 │   └── agentbox           # Main CLI entry point
 ├── lib/                   # Shared library functions
 ├── libexec/               # Module implementations
-│   ├── clean/             #    Each module can contain multiple commands
+│   ├── destroy/           #    Each module can contain multiple commands
 │   ├── init/
 │   └── version/
 ├── support/               # BATS and it's extensions
