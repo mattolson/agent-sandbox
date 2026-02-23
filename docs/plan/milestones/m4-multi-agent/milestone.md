@@ -1,8 +1,8 @@
 # m4-multi-agent
 
-**Status: In Progress**
+**Status: Done**
 
-Add support for multiple AI coding agents beyond Claude Code. Each agent gets its own image extending a shared base, per [Decision 003](../../decisions/003-separate-images-per-agent.md).
+Initial multi-agent support complete. Claude Code and GitHub Copilot shipped. Remaining agents (Codex, Gemini, Factory, OpenCode, Pi) promoted to individual milestones m7-m11.
 
 ## Motivation
 
@@ -49,25 +49,9 @@ Add GitHub Copilot CLI support.
 - [x] Update root README with multi-agent support
 - [x] Update ROADMAP.md to reflect progress
 
-### m4.2-codex-support (PLANNED)
+### m4.2-codex-support (moved to m7)
 
-Add OpenAI Codex CLI support.
-
-- [ ] Research Codex CLI requirements and API domains
-- [ ] Create `images/agents/codex/` Dockerfile
-- [ ] Add `codex` service to proxy enforcer
-- [ ] Create policy examples and templates
-- [ ] Add CI workflows
-
-### m4.3-opencode-support (PLANNED)
-
-Add OpenCode support.
-
-- [ ] Research OpenCode requirements
-- [ ] Create `images/agents/opencode/` Dockerfile
-- [ ] Add service to proxy enforcer
-- [ ] Create policy examples and templates
-- [ ] Add CI workflows
+### m4.3-opencode-support (moved to m10)
 
 ## Design Decisions
 
@@ -92,6 +76,6 @@ Policies are baked into agent images with a sensible default, but users can moun
 ## Definition of Done
 
 - [x] At least one additional agent supported (Copilot)
-- [ ] All supported agents have: image, policy, template, CI workflows
-- [ ] Documentation covers multi-agent usage
-- [ ] ROADMAP updated to reflect supported agents
+- [x] All shipped agents have: image, policy, template, CI workflows
+- [x] Documentation covers multi-agent usage
+- [x] Roadmap updated to reflect supported agents
