@@ -94,13 +94,13 @@ Replace iptables-based domain enforcement with proxy-based enforcement.
 
 **Rationale:** Proxy-based enforcement provides better observability, handles dynamic IPs, and offers a simpler mental model than IP-based iptables rules. iptables ensures the proxy cannot be bypassed.
 
-### m4-multi-agent
+### m4-multi-agent (done)
 
-Support additional coding agents beyond Claude Code.
+Initial multi-agent support. Claude Code and GitHub Copilot shipped. Remaining agents promoted to individual milestones (m7-m11).
 
-**Goals:**
-- agent-sandbox-opencode image
-- agent-sandbox-codex image
+**Delivered:**
+- agent-sandbox-claude image and templates
+- agent-sandbox-copilot image and templates
 - Agent-specific configuration in templates
 - Documentation for adding new agents
 
@@ -129,7 +129,50 @@ Extend the customization story to support dotfiles, custom zshrc, and language s
 
 **Dependencies:** m2.5 (shell customization established)
 
-### m7-host-credential-service
+### m7-codex
+
+Add OpenAI Codex CLI agent support.
+
+**Dependencies:** m5 (CLI and templates established)
+
+### m8-gemini
+
+Add Google Gemini CLI agent support.
+
+**Dependencies:** m5 (CLI and templates established)
+
+### m9-factory
+
+Add Factory agent support.
+
+**Dependencies:** m5 (CLI and templates established)
+
+### m10-opencode
+
+Add OpenCode agent support.
+
+**Dependencies:** m5 (CLI and templates established)
+
+### m11-pi
+
+Add Pi agent support.
+
+**Dependencies:** m5 (CLI and templates established)
+
+### m12-go-cli-rewrite
+
+Rewrite the `agentbox` CLI in Go using Cobra. Single static binary for easier distribution, testing, and feature development.
+
+**Goals:**
+- Port all existing commands (init, exec, edit, bump, destroy, version)
+- Cobra-based command structure with proper argument parsing
+- Native YAML handling (replace yq dependency)
+- Cross-compile for macOS (arm64, amd64) and Linux
+- Replace Docker CLI image distribution with binary releases
+
+**Dependencies:** m5 (existing CLI defines the feature set to port)
+
+### m13-host-credential-service
 
 Run a credential helper service on the host that bridges the container to the host's native credential store (macOS Keychain, etc.). No secrets stored inside the container.
 
@@ -139,7 +182,32 @@ Run a credential helper service on the host that bridges the container to the ho
 - Works with any program that supports git credential helpers (git, gh, etc.)
 - Agent can use credentials but cannot read raw tokens
 
-**Dependencies:** m5 (CLI manages service lifecycle via `agentbox exec`)
+**Dependencies:** m12 (Go CLI manages service lifecycle)
+
+### m14-fine-grained-proxy
+
+Extend proxy enforcement beyond domain-level rules to support path, method, and query parameter filtering.
+
+**Goals:**
+- Move HTTPS blocking decision from CONNECT to request handler (full MITM inspection)
+- Policy format supports nested path rules under domain entries
+- Service definitions support semantic groupings (e.g., GitHub repo restrictions)
+- Backward-compatible: domain-only rules still work at CONNECT level as fast path
+- SIGHUP-based hot reload for policy changes without dropping connections
+
+**Dependencies:** m3 (proxy established)
+
+### m15-cli-monitoring
+
+CLI tools for monitoring proxy activity and managing policy interactively.
+
+**Goals:**
+- Filtered log view showing only blocked requests
+- Interactive unblock workflow (detect blocked request, generate rule, apply)
+- Integration with hot-reload (m14) for immediate policy updates
+- UI approach TBD during milestone planning (options: filtered log stream with prompts, TUI, or hybrid)
+
+**Dependencies:** m12 (Go CLI), m14 (fine-grained proxy and hot reload)
 
 ## Decisions
 

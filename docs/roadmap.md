@@ -29,13 +29,11 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Two-layer enforcement: proxy allowlist + iptables to prevent bypass
 - SSH blocked, git over HTTPS only
 
-## m4: Multi-agent support (in progress)
+## m4: Multi-agent support (done)
 
-- [x] Claude Code support (`cli/templates/claude/`)
-- [x] GitHub Copilot CLI support (`cli/templates/copilot/`)
-- [ ] Gemini support
-- [ ] Codex support
-- [ ] OpenCode support
+- Claude Code support (`cli/templates/claude/`)
+- GitHub Copilot CLI support (`cli/templates/copilot/`)
+- Remaining agents promoted to individual milestones (m7-m11)
 
 ## m5: CLI (done)
 
@@ -50,10 +48,70 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Docker-based CLI distribution (`ghcr.io/mattolson/agent-sandbox-cli`)
 - Bash 3.2 compatibility (macOS default shell)
 
-## m7: Host credential service (planned)
+## m6: Deep customization (done)
+
+- Shell-init hooks survive user .zshrc replacement
+- Dotfiles support with recursive auto-symlinking
+- Language stack installer scripts (python, node, go, rust)
+- STACKS build arg for one-liner installation
+
+## m7: [Codex](https://github.com/openai/codex) support (planned)
+
+- agent-sandbox-codex image and templates
+- OpenAI Codex CLI installation and configuration
+- Network policy with Codex API domains
+
+## m8: [Gemini CLI](https://github.com/google-gemini/gemini-cli) support (planned)
+
+- agent-sandbox-gemini image and templates
+- Google Gemini CLI installation and configuration
+- Network policy with Gemini API domains
+
+## m9: [Factory](https://github.com/Factory-AI/factory) support (planned)
+
+- agent-sandbox-factory image and templates
+- Factory agent installation and configuration
+- Network policy with Factory API domains
+
+## m10: [OpenCode](https://github.com/anomalyco/opencode) support (planned)
+
+- agent-sandbox-opencode image and templates
+- OpenCode installation and configuration
+- Network policy with required API domains
+
+## m11: [Pi](https://github.com/badlogic/pi-mono) support (planned)
+
+- agent-sandbox-pi image and templates
+- Pi agent installation and configuration
+- Network policy with required API domains
+
+## m12: Go CLI rewrite (planned)
+
+- Rewrite agentbox CLI in Go using Cobra
+- Single static binary distribution (replace Docker CLI image)
+- Native YAML handling (drop yq dependency)
+- Cross-compile for macOS (arm64, amd64) and Linux
+- Port all existing commands with improved testing
+
+## m13: Host credential service (planned)
 
 - Host-side service bridging container to native credential store (macOS Keychain, Windows Credential Manager)
 - No secrets stored on disk inside the container
 - Container shim implements git credential helper protocol over HTTP to host service
 - Works with any credential-aware tool (git, gh, etc.)
-- Integrated into `agentbox exec` lifecycle
+- Integrated into agentbox CLI lifecycle
+
+## m14: Fine-grained proxy rules (planned)
+
+- MITM inspection for HTTPS requests (path, method, query params visible)
+- Nested path rules under domain entries in policy YAML
+- Semantic service groupings (e.g., GitHub repo restrictions)
+- Domain-only rules remain as fast-path (block at CONNECT)
+- SIGHUP-based hot reload for policy changes
+
+## m15: CLI monitoring and policy management (planned)
+
+- Filtered log view for blocked requests
+- Interactive unblock workflow
+- Integration with hot reload for immediate policy updates
+- UI approach TBD (filtered stream, TUI, or hybrid)

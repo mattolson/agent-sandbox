@@ -1,4 +1,4 @@
-# m7: Host Credential Service
+# m13: Host Credential Service
 
 Run a lightweight credential helper service on the host that bridges the container to the host's native credential store (macOS Keychain, Windows Credential Manager, etc.). No secrets are stored inside the container.
 
