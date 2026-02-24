@@ -13,7 +13,7 @@ setup() {
 @test "init rejects invalid --agent value" {
 	run init --agent "invalid" --path "$PROJECT_DIR"
 	assert_failure
-	assert_output --partial "Invalid agent: invalid (expected: claude copilot)"
+	assert_output --partial "Invalid agent: invalid (expected: claude copilot codex)"
 }
 
 @test "init rejects invalid --mode value" {

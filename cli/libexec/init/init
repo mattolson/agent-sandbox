@@ -15,7 +15,7 @@ source "$AGB_LIBDIR/path.bash"
 # Initializes agent-sandbox for a project.
 # Prompts for any options not provided via flags.
 # Args:
-#   --agent - Agent type (claude, copilot)
+#   --agent - Agent type (claude, copilot, codex)
 #   --mode - Setup mode (cli, devcontainer)
 #   --ide - IDE for devcontainer mode (vscode, jetbrains, none)
 #   --name - Project name for Docker Compose
@@ -73,7 +73,7 @@ init() {
 
 	echo "Configuring project at: $project_path" | info
 
-	local available_agents=(claude copilot)
+	local available_agents=(claude copilot codex)
 	if [[ -z "$agent" ]]
 	then
 		agent=$(select_option "Select agent:" "${available_agents[@]}")

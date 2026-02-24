@@ -3,20 +3,23 @@ set -euo pipefail
 
 # Build agent-sandbox images locally
 #
-# Usage: ./build.sh [base|proxy|claude|copilot|cli|all] [docker build options...]
+# Usage: ./build.sh [base|proxy|claude|copilot|codex|cli|all] [docker build options...]
 #
 # Environment variables (all optional):
 #   TZ                      - Timezone (default: America/Los_Angeles)
 #   CLAUDE_CODE_VERSION     - Claude Code version (default: latest)
 #   COPILOT_VERSION         - GitHub Copilot CLI version (default: latest)
+#   CODEX_VERSION           - OpenAI Codex CLI version (default: latest)
 #   EXTRA_PACKAGES          - Additional apt packages for the base image
 #   CLAUDE_EXTRA_PACKAGES   - Additional apt packages for the claude image
 #   COPILOT_EXTRA_PACKAGES  - Additional apt packages for the copilot image
+#   CODEX_EXTRA_PACKAGES    - Additional apt packages for the codex image
 #   PROXY_EXTRA_PACKAGES    - Additional apt packages for the proxy image
 #   STACKS                  - Comma-separated language stacks for the base image (e.g. "python,go:1.23")
 #   TAG                     - Image tag (default: local)
 #
 # Examples:
+#   CODEX_VERSION=0.104.0 ./build.sh codex
 #   CLAUDE_CODE_VERSION=1.0.0 ./build.sh claude
 #   EXTRA_PACKAGES="jq gh" ./build.sh base
 #   STACKS="python,go:1.23" ./build.sh base
@@ -29,7 +32,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Parse target and extra args
 # If first arg is a known target, use it; otherwise default to 'all'
 case "${1:-}" in
-  base|claude|proxy|copilot|cli|all)
+  base|claude|proxy|copilot|codex|cli|all)
     TARGET="$1"
     shift
     ;;
@@ -43,9 +46,11 @@ DOCKER_BUILD_ARGS=("$@")
 : "${TZ:=America/Los_Angeles}"
 : "${CLAUDE_CODE_VERSION:=latest}"
 : "${COPILOT_VERSION:=latest}"
+: "${CODEX_VERSION:=latest}"
 : "${EXTRA_PACKAGES:=}"
 : "${CLAUDE_EXTRA_PACKAGES:=}"
 : "${COPILOT_EXTRA_PACKAGES:=}"
+: "${CODEX_EXTRA_PACKAGES:=}"
 : "${PROXY_EXTRA_PACKAGES:=}"
 : "${STACKS:=}"
 : "${TAG:=local}"
@@ -104,6 +109,20 @@ build_copilot() {
     "$SCRIPT_DIR/agents/copilot"
 }
 
+build_codex() {
+  echo "Building agent-sandbox-codex..."
+  echo "  CODEX_VERSION=$CODEX_VERSION"
+  [ -n "$CODEX_EXTRA_PACKAGES" ] && echo "  EXTRA_PACKAGES=$CODEX_EXTRA_PACKAGES"
+  [ "$TAG" != "local" ] && echo "  TAG=$TAG"
+  docker build \
+    --build-arg BASE_IMAGE=agent-sandbox-base:$TAG \
+    --build-arg CODEX_VERSION="$CODEX_VERSION" \
+    --build-arg EXTRA_PACKAGES="$CODEX_EXTRA_PACKAGES" \
+    ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \
+    -t agent-sandbox-codex:$TAG \
+    "$SCRIPT_DIR/agents/codex"
+}
+
 build_cli() {
   echo "Building agent-sandbox-cli..."
   [ "$TAG" != "local" ] && echo "  TAG=$TAG"
@@ -127,6 +146,9 @@ case "$TARGET" in
   copilot)
     build_copilot
     ;;
+  codex)
+    build_codex
+    ;;
   cli)
     build_cli
     ;;
@@ -135,10 +157,11 @@ case "$TARGET" in
     build_proxy
     build_claude
     build_copilot
+    build_codex
     build_cli
     ;;
   *)
-    echo "Usage: $0 [base|proxy|claude|copilot|cli|all] [docker build options...]"
+    echo "Usage: $0 [base|proxy|claude|copilot|codex|cli|all] [docker build options...]"
     echo ""
     echo "Any additional arguments are passed to docker build."
     echo ""
@@ -146,9 +169,11 @@ case "$TARGET" in
     echo "  TZ                      Timezone (default: America/Los_Angeles)"
     echo "  CLAUDE_CODE_VERSION     Claude Code version (default: latest)"
     echo "  COPILOT_VERSION         GitHub Copilot CLI version (default: latest)"
+    echo "  CODEX_VERSION           OpenAI Codex CLI version (default: latest)"
     echo "  EXTRA_PACKAGES          Additional apt packages for base image"
     echo "  CLAUDE_EXTRA_PACKAGES   Additional apt packages for claude image"
     echo "  COPILOT_EXTRA_PACKAGES  Additional apt packages for copilot image"
+    echo "  CODEX_EXTRA_PACKAGES    Additional apt packages for codex image"
     echo "  PROXY_EXTRA_PACKAGES    Additional apt packages for proxy image"
     echo "  STACKS                  Language stacks for base image, comma-separated (e.g. python,go:1.23)"
     echo "  TAG                     Image tag (default: local)"
