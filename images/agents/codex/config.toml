@@ -1,0 +1,3 @@
+# Disable Codex's internal Landlock/seccomp sandbox.
+# Container-level sandboxing (iptables + proxy) handles isolation.
+sandbox_mode = "danger-full-access"
