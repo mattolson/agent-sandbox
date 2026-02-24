@@ -73,6 +73,17 @@ init() {
 
 	echo "Configuring project at: $project_path" | info
 
+	if [[ -z "$name" ]]
+	then
+		local default_name
+		default_name=$(derive_project_name "$project_path" "$mode")
+		name=$(read_line "Project name [$default_name]:")
+		if [[ -z "$name" ]]
+		then
+			name="$default_name"
+		fi
+	fi
+
 	local available_agents=(claude copilot codex)
 	if [[ -z "$agent" ]]
 	then
@@ -91,17 +102,6 @@ init() {
 	then
 		echo "Invalid mode: $mode (expected: ${available_modes[*]})" | error
 		return 1
-	fi
-
-	if [[ -z "$name" ]]
-	then
-		local default_name
-		default_name=$(derive_project_name "$project_path" "$mode")
-		name=$(read_line "Project name [$default_name]:")
-		if [[ -z "$name" ]]
-		then
-			name="$default_name"
-		fi
 	fi
 
 	local policy_file="$AGB_PROJECT_DIR/policy-$mode-$agent.yaml"
