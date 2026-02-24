@@ -26,7 +26,7 @@ setup() {
 	policy() { :; }
 	devcontainer() { :; }
 
-	run init --name my-project --agent claude --mode devcontainer --ide "invalid" --name test --path "$PROJECT_DIR"
+	run init --name my-project --agent claude --mode devcontainer --ide "invalid" --path "$PROJECT_DIR"
 	assert_failure
 	assert_output --partial "Invalid IDE: invalid (expected: vscode jetbrains none)"
 }
