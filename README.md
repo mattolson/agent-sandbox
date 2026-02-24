@@ -25,6 +25,7 @@ Creates a sandboxed environment for AI coding agents (currently Claude Code, Git
 |-------|--------|
 | [Claude Code](https://claude.ai/code) | ✅ Stable |
 | [GitHub Copilot CLI](https://github.com/github/copilot-cli) | 🧪 Preview |
+| [OpenAI Codex CLI](https://github.com/openai/codex) | 🧪 Preview |
 
 ## Runtime modes
 
@@ -126,6 +127,7 @@ JetBrains (IntelliJ, PyCharm, WebStorm, etc.):
 Follow the setup instructions specific to the agent image you are using:
 - [Claude Code](docs/claude/README.md)
 - [GitHub Copilot](docs/copilot/README.md)
+- [OpenAI Codex CLI](docs/codex/README.md)
 
 ## Network policy
 

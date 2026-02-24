@@ -31,6 +31,11 @@ SERVICE_DOMAINS = {
         "*.claude.ai",
         "*.claude.com",
     ],
+    "codex": [
+        "*.openai.com",
+        "chatgpt.com",
+        "*.chatgpt.com",
+    ],
     "copilot": [
         "github.com",
         "api.github.com",
@@ -51,11 +56,6 @@ SERVICE_DOMAINS = {
         "mobile.events.data.microsoft.com",
         "main.vscode-cdn.net",
         "*.vsassets.io",
-    ],
-    "codex": [
-        "*.openai.com",
-        "chatgpt.com",
-        "*.chatgpt.com",
     ],
     "jetbrains": [
        "plugins.jetbrains.com",
