@@ -1,0 +1,75 @@
+name: Check Codex CLI Version
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Daily at 8am UTC (offset from Claude at 6am, Copilot at 7am)
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-codex
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      actions: write  # Needed to trigger workflows
+
+    steps:
+      - name: Get latest Codex CLI version from GitHub releases
+        id: github
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=$(gh api repos/openai/codex/releases/latest --jq .tag_name 2>/dev/null || echo "")
+          if [ -z "$TAG" ]; then
+            echo "Failed to fetch version from GitHub releases"
+            exit 1
+          fi
+          VERSION=$(echo "$TAG" | sed 's/^rust-v//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Latest GitHub release: $VERSION (tag: $TAG)"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if version tag exists in registry
+        id: check
+        run: |
+          TAG="codex-${{ steps.github.outputs.version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
+
+          # Use docker manifest inspect to check if tag exists (no pull required)
+          if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "Tag $TAG already exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Tag $TAG does not exist"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          DOCKER_CLI_EXPERIMENTAL: enabled
+
+      - name: Trigger image rebuild
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Triggering build-images workflow for Codex CLI ${{ steps.github.outputs.version }}..."
+          gh workflow run build-images.yml --repo ${{ github.repository }}
+
+      - name: Summary
+        run: |
+          echo "## Codex CLI Version Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| GitHub release latest | ${{ steps.github.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag exists | ${{ steps.check.outputs.exists }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Rebuild triggered | ${{ steps.check.outputs.exists == 'false' }} |" >> $GITHUB_STEP_SUMMARY
