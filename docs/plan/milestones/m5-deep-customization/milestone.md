@@ -1,4 +1,4 @@
-# m6: Deep Customization
+# m5: Deep Customization
 
 Extend the customization story from m2.5 to support dotfiles, custom zshrc, and language stacks without forking Dockerfiles.
 
@@ -48,7 +48,7 @@ Shipped at `/etc/agent-sandbox/stacks/` in the base image. Each accepts an optio
 
 ## Tasks
 
-### m6.1 - System-level shell-init sourcing
+### m5.1 - System-level shell-init sourcing
 
 Move `source shell-init.sh` from `~/.zshrc` to `/etc/zsh/zshrc`.
 
@@ -57,7 +57,7 @@ Move `source shell-init.sh` from `~/.zshrc` to `/etc/zsh/zshrc`.
 - Modify `images/base/shell-init.sh` (update comment)
 - Modify `images/base/Dockerfile` (COPY system-zshrc)
 
-### m6.2 - First-class dotfiles support
+### m5.2 - First-class dotfiles support
 
 Recursive auto-symlink from `~/.dotfiles` at container startup.
 
@@ -66,7 +66,7 @@ Recursive auto-symlink from `~/.dotfiles` at container startup.
 - Modify `images/base/Dockerfile` (COPY link-dotfiles.sh)
 - Update all 6 compose files (present dotfiles and individual file mounts as two options)
 
-### m6.3 - Language stack scripts
+### m5.3 - Language stack scripts
 
 Ship installer scripts in base image.
 
@@ -76,14 +76,14 @@ Ship installer scripts in base image.
 - Create `images/base/stacks/rust.sh`
 - Modify `images/base/Dockerfile` (COPY stacks/, create zshenv.d/)
 
-### m6.4 - STACKS build arg
+### m5.4 - STACKS build arg
 
 Convenience wrapper in build.sh and base Dockerfile.
 
 - Modify `images/build.sh` (STACKS and TAG env vars, pass STACKS to base build)
 - Modify `images/base/Dockerfile` (STACKS ARG + RUN after zshenv.d setup)
 
-### m6.5 - Documentation
+### m5.5 - Documentation
 
 - Update `templates/claude/README.md`
 - Update `templates/copilot/README.md`

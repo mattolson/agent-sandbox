@@ -35,7 +35,14 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - GitHub Copilot CLI support (`cli/templates/copilot/`)
 - Remaining agents promoted to individual milestones (m7-m11)
 
-## m5: CLI (done)
+## m5: Deep customization (done)
+
+- Shell-init hooks survive user .zshrc replacement
+- Dotfiles support with recursive auto-symlinking
+- Language stack installer scripts (python, node, go, rust)
+- STACKS build arg for one-liner installation
+
+## m6: CLI (done)
 
 - `agentbox init` - interactive project setup (agent, mode, IDE, volumes, policy)
 - `agentbox exec` - start or attach to the agent container
@@ -47,13 +54,6 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - `agentbox version` - show version info
 - Docker-based CLI distribution (`ghcr.io/mattolson/agent-sandbox-cli`)
 - Bash 3.2 compatibility (macOS default shell)
-
-## m6: Deep customization (done)
-
-- Shell-init hooks survive user .zshrc replacement
-- Dotfiles support with recursive auto-symlinking
-- Language stack installer scripts (python, node, go, rust)
-- STACKS build arg for one-liner installation
 
 ## m7: [Codex](https://github.com/openai/codex) support (planned)
 

@@ -51,7 +51,7 @@ egress:
 ## Out of Scope
 
 - Firewall script changes (m1.4)
-- Path/method filtering (m5)
+- Path/method filtering (m14)
 - JSON Schema for IDE validation
 
 ## Status

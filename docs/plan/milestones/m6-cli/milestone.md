@@ -1,4 +1,4 @@
-# m5-cli
+# m6-cli
 
 **Status: Complete**
 
@@ -89,7 +89,7 @@ The CLI is distributed as both a git clone (add `cli/bin` to PATH) and a Docker 
 
 ## Tasks
 
-### m5.1-dispatcher-and-libraries (DONE)
+### m6.1-dispatcher-and-libraries (DONE)
 
 Build the CLI entry point and shared library layer.
 
@@ -101,7 +101,7 @@ Build the CLI entry point and shared library layer.
 - [x] ShellCheck configuration
 - [x] BATS test infrastructure and conventions
 
-### m5.2-init-command (DONE)
+### m6.2-init-command (DONE)
 
 Scaffold sandbox configuration for a project.
 
@@ -115,7 +115,7 @@ Scaffold sandbox configuration for a project.
 - [x] Per-agent templates for Claude and Copilot, both CLI and devcontainer modes
 - [x] JetBrains-specific capabilities (DAC_OVERRIDE, CHOWN, FOWNER)
 
-### m5.3-edit-command (DONE)
+### m6.3-edit-command (DONE)
 
 Edit policy and compose files with operational awareness.
 
@@ -128,7 +128,7 @@ Edit policy and compose files with operational awareness.
 - [x] `--mode` and `--agent` flags to filter when multiple policy files exist
 - [x] Editor resolution: `$VISUAL` > `$EDITOR` > `open` (macOS) > `vi`
 
-### m5.4-bump-command (DONE)
+### m6.4-bump-command (DONE)
 
 Update pinned image digests to latest.
 
@@ -139,7 +139,7 @@ Update pinned image digests to latest.
 - [x] Compare old vs new digest, update only if changed
 - [x] Logging of what was pulled and whether digest changed
 
-### m5.5-exec-command (DONE)
+### m6.5-exec-command (DONE)
 
 Run commands inside the agent container.
 
@@ -149,7 +149,7 @@ Run commands inside the agent container.
 - [x] Default to interactive zsh shell when no command given
 - [x] Fallback handler for unmatched subcommands
 
-### m5.6-destroy-command (DONE)
+### m6.6-destroy-command (DONE)
 
 Clean up sandbox configuration and resources.
 
@@ -159,7 +159,7 @@ Clean up sandbox configuration and resources.
 - [x] Remove `.agent-sandbox/` directory
 - [x] Remove `.devcontainer/` directory
 
-### m5.7-version-command (DONE)
+### m6.7-version-command (DONE)
 
 Report CLI version.
 
@@ -167,7 +167,7 @@ Report CLI version.
 - [x] Fall back to git-based version (date + short SHA)
 - [x] Handle missing git gracefully
 
-### m5.8-distribution (DONE)
+### m6.8-distribution (DONE)
 
 Package the CLI for users.
 
@@ -180,16 +180,16 @@ Package the CLI for users.
 
 The tasks were sequenced to build foundation first, then commands in dependency order:
 
-1. **m5.1** - Dispatcher and libraries (everything depends on this)
-2. **m5.2** - Init (creates the config files other commands operate on)
-3. **m5.3** - Edit (modifies files created by init)
-4. **m5.4** - Bump (updates images referenced in compose files)
-5. **m5.5** - Exec (runs containers defined by compose files)
-6. **m5.6** - Destroy (tears down what init created)
-7. **m5.7** - Version (standalone, no ordering constraint)
-8. **m5.8** - Distribution (requires all commands to exist)
+1. **m6.1** - Dispatcher and libraries (everything depends on this)
+2. **m6.2** - Init (creates the config files other commands operate on)
+3. **m6.3** - Edit (modifies files created by init)
+4. **m6.4** - Bump (updates images referenced in compose files)
+5. **m6.5** - Exec (runs containers defined by compose files)
+6. **m6.6** - Destroy (tears down what init created)
+7. **m6.7** - Version (standalone, no ordering constraint)
+8. **m6.8** - Distribution (requires all commands to exist)
 
-m5.5 through m5.7 had no hard dependencies on each other and could have been parallelized.
+m6.5 through m6.7 had no hard dependencies on each other and could have been parallelized.
 
 ## Risks
 

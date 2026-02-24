@@ -62,7 +62,7 @@ Extract the current `.devcontainer/` into a reusable template that other project
 - Test on a fresh project
 
 **Out of scope:**
-- Proxy-based template (m5)
+- Proxy-based template (m3)
 - Pre-built images (m2)
 
 ### m2-images
@@ -106,18 +106,7 @@ Initial multi-agent support. Claude Code and GitHub Copilot shipped. Remaining a
 
 **Dependencies:** m2 (image hierarchy established), m3 (proxy for endpoint discovery)
 
-### m5-cli
-
-Create the `agentbox` CLI for managing sandbox configurations.
-
-**Goals:**
-- `agentbox init` - scaffold .devcontainer/ from template
-- `agentbox bump` - update image digests to latest
-- `agentbox edit policy` - manage allowlist domains
-
-**Dependencies:** m1 (templates exist), m2 (images to reference)
-
-### m6-deep-customization
+### m5-deep-customization (done)
 
 Extend the customization story to support dotfiles, custom zshrc, and language stacks without forking Dockerfiles.
 
@@ -129,35 +118,46 @@ Extend the customization story to support dotfiles, custom zshrc, and language s
 
 **Dependencies:** m2.5 (shell customization established)
 
+### m6-cli (done)
+
+Create the `agentbox` CLI for managing sandbox configurations.
+
+**Goals:**
+- `agentbox init` - scaffold .devcontainer/ from template
+- `agentbox bump` - update image digests to latest
+- `agentbox edit policy` - manage allowlist domains
+
+**Dependencies:** m1 (templates exist), m2 (images to reference)
+
 ### m7-codex
 
 Add OpenAI Codex CLI agent support.
 
-**Dependencies:** m5 (CLI and templates established)
+**Dependencies:** m6 (CLI and templates established)
 
 ### m8-gemini
 
 Add Google Gemini CLI agent support.
 
-**Dependencies:** m5 (CLI and templates established)
+**Dependencies:** m6 (CLI and templates established)
 
 ### m9-factory
 
 Add Factory agent support.
 
-**Dependencies:** m5 (CLI and templates established)
+**Dependencies:** m6 (CLI and templates established)
 
 ### m10-opencode
 
 Add OpenCode agent support.
 
-**Dependencies:** m5 (CLI and templates established)
+**Dependencies:** m6 (CLI and templates established)
 
 ### m11-pi
 
 Add Pi agent support.
 
-**Dependencies:** m5 (CLI and templates established)
+**Dependencies:** m6 (CLI and templates established)
 
 ### m12-go-cli-rewrite
 
@@ -170,7 +170,7 @@ Rewrite the `agentbox` CLI in Go using Cobra. Single static binary for easier di
 - Cross-compile for macOS (arm64, amd64) and Linux
 - Replace Docker CLI image distribution with binary releases
 
-**Dependencies:** m5 (existing CLI defines the feature set to port)
+**Dependencies:** m6 (existing CLI defines the feature set to port)
 
 ### m13-host-credential-service
 

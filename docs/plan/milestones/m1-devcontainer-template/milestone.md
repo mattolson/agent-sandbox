@@ -15,8 +15,8 @@ Extract the current `.devcontainer/` into a reusable template that other project
 ## Out of Scope
 
 - Publishing images to GHCR (m2)
-- CLI tooling (m3)
-- Proxy-based network control (m5)
+- CLI tooling (m6)
+- Proxy-based network control (m3)
 
 ## Policy Schema
 
@@ -76,7 +76,7 @@ devcontainer/templates/
 │       ├── docker-compose.yml  # Standalone mode
 │       ├── policy.yaml         # User-customizable allowlist
 │       └── README.md           # Claude-specific notes
-└── proxy-locked/               # m5: proxy-based network control
+└── proxy-locked/               # m3: proxy-based network control
     └── claude/
         └── ...
 ```

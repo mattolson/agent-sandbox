@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+No user-facing changes. Internal updates: milestone plans, roadmap updates, scaffold-agent skill.
+
+## [0.6.0] - 2026-02-22 (141b04d)
+
+The `agentbox` CLI. A single command-line tool for the full sandbox lifecycle: init, exec, edit, bump, destroy.
+
 ### Added
 
 - **`agentbox` CLI.** New command-line tool for initializing and managing sandboxed projects. Commands:
@@ -22,19 +28,31 @@ All notable changes to this project will be documented in this file.
   alias agentbox='docker run --rm -it -v "/var/run/docker.sock:/var/run/docker.sock" -v"$PWD:$PWD" -w"$PWD" -e TERM -e HOME --network none ghcr.io/mattolson/agent-sandbox-cli'
   ```
 
-- **GitHub Copilot agent support.** New `agent-sandbox-copilot` image and templates for running GitHub Copilot CLI in a sandbox.
-
-- **JetBrains IDE support.** Devcontainer mode supports JetBrains IDEs with appropriate capabilities and plugin configuration.
-
 - **Image pinning during init.** `agentbox init` pulls images and pins them to their digest in the generated compose file for reproducibility.
 
 - **Bash 3.2 compatibility.** The CLI works with the default Bash shipped on macOS.
 
 ### Changed
 
-- **Default proxy policy now blocks all traffic.** The baked-in proxy policy no longer allows GitHub by default. You must mount a policy file to allow any outbound requests.
-
 - **Policy files generated per-project.** `agentbox init` creates the policy at `.agent-sandbox/policy-<mode>-<agent>.yaml` inside your project. This replaces the previous approach of copying policy examples to `~/.config/agent-sandbox/policies/`.
+
+## [0.5.0] - 2026-02-08 (37be5a3)
+
+Deep customization. Dotfiles, shell-init hooks, and language stacks without forking Dockerfiles.
+
+### Added
+
+- **Dotfiles auto-linking.** Mount `~/.config/agent-sandbox/dotfiles` and files are recursively symlinked into `$HOME` at container startup. Protected paths (`.config/agent-sandbox`) are skipped.
+
+- **System-level shell initialization.** Shell-init hooks now run from `/etc/zsh/zshrc` (system-level) before `~/.zshrc`. Drop scripts in `~/.config/agent-sandbox/shell.d/*.sh` on the host. They survive custom `.zshrc` replacements via dotfiles.
+
+- **Language stack installer scripts.** Scripts for python, node, go, and rust shipped at `/etc/agent-sandbox/stacks/` in the base image. Each handles multi-arch (amd64/arm64) and accepts an optional version argument.
+
+- **`STACKS` build arg.** One-liner stack installation when building custom images: `STACKS="python,go:1.23" ./images/build.sh base`.
+
+- **`EXTRA_PACKAGES` build arg.** Extend the base image with additional apt packages at build time, validated against an allowlist.
+
+### Changed
 
 - **Simplified base image.** Removed optional packages to reduce image size and build time:
   - `yq` (YAML processor)
@@ -54,6 +72,20 @@ All notable changes to this project will be documented in this file.
 
   # Or mount your own dotfiles for shell customization
   ```
+
+## [0.4.0] - 2026-02-04 (c778f0f)
+
+Multi-agent support. Claude Code and GitHub Copilot, with JetBrains IDE integration.
+
+### Added
+
+- **GitHub Copilot agent support.** New `agent-sandbox-copilot` image and templates for running GitHub Copilot CLI in a sandbox.
+
+- **JetBrains IDE support.** Devcontainer mode supports JetBrains IDEs with appropriate capabilities and plugin configuration.
+
+### Changed
+
+- **Default proxy policy now blocks all traffic.** The baked-in proxy policy no longer allows GitHub by default. You must mount a policy file to allow any outbound requests.
 
 ## [0.3.0] - 2026-01-25 (1a9103d)
 
