@@ -52,6 +52,11 @@ SERVICE_DOMAINS = {
         "main.vscode-cdn.net",
         "*.vsassets.io",
     ],
+    "codex": [
+        "*.openai.com",
+        "chatgpt.com",
+        "*.chatgpt.com",
+    ],
     "jetbrains": [
        "plugins.jetbrains.com",
        "downloads.marketplace.jetbrains.com",
