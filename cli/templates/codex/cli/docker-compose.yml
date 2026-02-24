@@ -1,0 +1,58 @@
+# Codex CLI Sandbox
+services:
+  proxy:
+    image: ghcr.io/mattolson/agent-sandbox-proxy:latest
+    cap_drop:
+      - ALL
+    environment:
+      - PROXY_MODE=enforce
+    volumes:
+      - proxy-state:/home/mitmproxy/.mitmproxy
+      - proxy-ca:/ca-export
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "localhost", "8080" ]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+  agent:
+    image: ghcr.io/mattolson/agent-sandbox-codex:latest
+    depends_on:
+      proxy:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    cap_add:
+      # iptables firewall rule management (init-firewall.sh)
+      - NET_ADMIN
+      # Raw socket access for iptables (init-firewall.sh)
+      - NET_RAW
+      # sudo to run init scripts as root (sudoers restricts to specific scripts)
+      - SETUID
+      - SETGID
+    volumes:
+      # Project workspace
+      - ..:/workspace
+      # Read-only policy directory
+      - ../.agent-sandbox:/workspace/.agent-sandbox:ro
+      # Persist Codex config and credentials
+      - codex-state:/home/dev/.codex
+      # Persist shell history
+      - codex-history:/commandhistory
+      # Proxy CA certificate (public cert only, no private key)
+      - proxy-ca:/etc/mitmproxy:ro
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      - TZ=${TZ:-America/Los_Angeles}
+      - CODEX_HOME=/home/dev/.codex
+      - HTTP_PROXY=http://proxy:8080
+      - HTTPS_PROXY=http://proxy:8080
+      - NO_PROXY=localhost,127.0.0.1,proxy
+      # Disable HTTP/2 in Go clients (gh CLI) to avoid header validation issues through proxy
+      - GODEBUG=http2client=0
+volumes:
+  codex-state:
+  codex-history:
+  proxy-state:
+  proxy-ca:
