@@ -1,5 +1,8 @@
 # Agent Sandbox
 
+> [!WARNING]
+> This project is still in early-stage development. You can expect breaking changes between releases.
+
 Run AI coding agents in a locked-down local sandbox with:
 
 - Minimal filesystem access (only your repo + project-scoped agent state)
