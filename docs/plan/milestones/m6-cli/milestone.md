@@ -23,9 +23,9 @@ Give developers a single command-line tool that handles the full lifecycle of an
 - BATS test suite covering all modules and shared libraries
 
 **Excluded:**
-- Go rewrite (m12)
-- Fine-grained proxy rules (m14)
-- Interactive monitoring/unblocking (m15)
+- Go rewrite (m13)
+- Fine-grained proxy rules (m15)
+- Interactive monitoring/unblocking (m16)
 
 ## Applicable Learnings
 
@@ -69,7 +69,7 @@ The dispatcher scans `libexec/` for modules. First argument selects the module, 
 
 ### Bash over compiled language
 
-The CLI is pure Bash. This matches the host environment (macOS / Linux), keeps the dependency list short (`docker`, `yq`), and avoids a build step. The tradeoff is limited data structure support and test tooling. The Go rewrite (m12) addresses this for longer-term development.
+The CLI is pure Bash. This matches the host environment (macOS / Linux), keeps the dependency list short (`docker`, `yq`), and avoids a build step. The tradeoff is limited data structure support and test tooling. The Go rewrite (m13) addresses this for longer-term development.
 
 ### Modular dispatch
 
@@ -196,7 +196,7 @@ m6.5 through m6.7 had no hard dependencies on each other and could have been par
 No significant risks materialized. The main concerns going in were:
 
 - **Bash compatibility across macOS/Linux**: Mitigated by the Bash 3.2 compat shim and strict ShellCheck enforcement.
-- **yq as a dependency**: Acceptable tradeoff for YAML manipulation. The Docker image distribution eliminates this for users who don't want to install yq locally. Resolved long-term by the Go rewrite (m12).
+- **yq as a dependency**: Acceptable tradeoff for YAML manipulation. The Docker image distribution eliminates this for users who don't want to install yq locally. Resolved long-term by the Go rewrite (m13).
 - **Template maintenance burden**: Two agents x two modes = four compose templates. Manageable at current scale; would need a generation approach if agent count grows significantly.
 
 ## Definition of Done

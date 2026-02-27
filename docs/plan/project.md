@@ -96,7 +96,7 @@ Replace iptables-based domain enforcement with proxy-based enforcement.
 
 ### m4-multi-agent (done)
 
-Initial multi-agent support. Claude Code and GitHub Copilot shipped. Remaining agents promoted to individual milestones (m7-m11).
+Initial multi-agent support. Claude Code and GitHub Copilot shipped. Remaining agents promoted to individual milestones (m7, m9-m12).
 
 **Delivered:**
 - agent-sandbox-claude image and templates
@@ -135,31 +135,44 @@ Add OpenAI Codex CLI agent support.
 
 **Dependencies:** m6 (CLI and templates established)
 
-### m8-gemini
+### m8-agent-switching
+
+Add first-class, non-destructive agent switching so users can move between Claude, Codex, and Copilot without losing state or customizations.
+
+**Goals:**
+- Add `agentbox switch --agent <name>`
+- Preserve per-agent Docker volumes across switches
+- Preserve user compose/policy customizations with managed vs user-owned file boundaries
+- Reduce policy duplication with shared project policy override + optional agent-specific overrides
+- Use explicit breaking-change upgrade guidance instead of automatic migration tooling
+
+**Dependencies:** m6 (CLI), m7 (Codex), m4 (multi-agent foundations)
+
+### m9-gemini
 
 Add Google Gemini CLI agent support.
 
 **Dependencies:** m6 (CLI and templates established)
 
-### m9-factory
+### m10-factory
 
 Add Factory agent support.
 
 **Dependencies:** m6 (CLI and templates established)
 
-### m10-opencode
+### m11-opencode
 
 Add OpenCode agent support.
 
 **Dependencies:** m6 (CLI and templates established)
 
-### m11-pi
+### m12-pi
 
 Add Pi agent support.
 
 **Dependencies:** m6 (CLI and templates established)
 
-### m12-go-cli-rewrite
+### m13-go-cli-rewrite
 
 Rewrite the `agentbox` CLI in Go using Cobra. Single static binary for easier distribution, testing, and feature development.
 
@@ -172,7 +185,7 @@ Rewrite the `agentbox` CLI in Go using Cobra. Single static binary for easier di
 
 **Dependencies:** m6 (existing CLI defines the feature set to port)
 
-### m13-host-credential-service
+### m14-host-credential-service
 
 Run a credential helper service on the host that bridges the container to the host's native credential store (macOS Keychain, etc.). No secrets stored inside the container.
 
@@ -182,9 +195,9 @@ Run a credential helper service on the host that bridges the container to the ho
 - Works with any program that supports git credential helpers (git, gh, etc.)
 - Agent can use credentials but cannot read raw tokens
 
-**Dependencies:** m12 (Go CLI manages service lifecycle)
+**Dependencies:** m13 (Go CLI manages service lifecycle)
 
-### m14-fine-grained-proxy
+### m15-fine-grained-proxy
 
 Extend proxy enforcement beyond domain-level rules to support path, method, and query parameter filtering.
 
@@ -197,17 +210,17 @@ Extend proxy enforcement beyond domain-level rules to support path, method, and 
 
 **Dependencies:** m3 (proxy established)
 
-### m15-cli-monitoring
+### m16-cli-monitoring
 
 CLI tools for monitoring proxy activity and managing policy interactively.
 
 **Goals:**
 - Filtered log view showing only blocked requests
 - Interactive unblock workflow (detect blocked request, generate rule, apply)
-- Integration with hot-reload (m14) for immediate policy updates
+- Integration with hot-reload (m15) for immediate policy updates
 - UI approach TBD during milestone planning (options: filtered log stream with prompts, TUI, or hybrid)
 
-**Dependencies:** m12 (Go CLI), m14 (fine-grained proxy and hot reload)
+**Dependencies:** m13 (Go CLI), m15 (fine-grained proxy and hot reload)
 
 ## Decisions
 
