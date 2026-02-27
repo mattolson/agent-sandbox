@@ -1,16 +1,16 @@
-# CLAUDE.md
+# Agent Instructions
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to agents when working with code in this repository.
 
 ## Project Overview
 
-Agent Sandbox creates locked-down local sandboxes for running AI coding agents (Claude Code, Copilot, etc.) with minimal filesystem access and restricted outbound network. Enforcement uses two layers: an mitmproxy sidecar that enforces a domain allowlist at the HTTP/HTTPS level, and iptables rules that block all direct outbound to prevent bypassing the proxy.
+Agent Sandbox creates locked-down local sandboxes for running AI coding agents (Claude Code, Codex, etc.) with minimal filesystem access and restricted outbound network. Enforcement uses two layers: an mitmproxy sidecar that enforces a domain allowlist at the HTTP/HTTPS level, and iptables rules that block all direct outbound to prevent bypassing the proxy.
 
-**Note**: During development of this project, Claude Code operates inside a locked-down container using the docker compose method. This means git push/pull and other network operations outside the allowlist will fail from within the container. Handle git operations from the host.
+**Note**: During development of this project, the agent operates inside a locked-down container using the docker compose method. This means git push/pull and other network operations outside the allowlist will fail from within the container. Handle git operations from the host.
 
 ## Development Environment
 
-This project uses Docker Compose with a proxy sidecar. The compose file lives at `.agent-sandbox/docker-compose.yml` and the network policy at `.agent-sandbox/policy-cli-claude.yaml`.
+This project uses Docker Compose with a proxy sidecar. The compose file lives at `.agent-sandbox/docker-compose.yml` and the network policy at `.agent-sandbox/policy-cli-codex.yaml`.
 
 The container runs Debian bookworm with:
 - Non-root `dev` user (uid/gid 500)
@@ -27,7 +27,7 @@ Build local images:
 
 ### Key Paths Inside Container
 - `/workspace` - Your repo (bind mount)
-- `/home/dev/.claude` - Claude Code state (named volume, persists per-project)
+- `/home/dev/.codex` - Codex state (named volume, persists per-project)
 - `/commandhistory` - Bash/zsh history (named volume)
 
 ## Network Policy
@@ -54,7 +54,7 @@ Available services and their domain allowlists are hardcoded in `images/proxy/ad
 
 ### Customizing the Policy
 
-For this project, the network policy lives at `.agent-sandbox/policy-cli-claude.yaml`. The `.agent-sandbox/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy. The proxy only reads the policy at startup.
+For this project, the network policy lives at `.agent-sandbox/policy-cli-codex.yaml`. The `.agent-sandbox/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy. The proxy only reads the policy at startup.
 
 To edit the policy in a user project: `agentbox edit policy`.
 
@@ -107,12 +107,13 @@ GitHub Actions builds images on:
 - Push to main (when `images/**` or `cli/**` changes)
 - Daily cron that checks for new Claude Code releases on npm (`check-claude-version.yml`)
 - Daily cron that checks for new Copilot releases (`check-copilot-version.yml`)
+- Daily cron that checks for new Codex releases (`check-codex-version.yml`)
 - Manual workflow dispatch
 
 Tags applied to agent images (e.g. `agent-sandbox-claude`):
 - `latest`: Most recent build from main
 - `sha-<commit>`: Git commit that triggered the build
-- `claude-X.Y.Z` / `copilot-X.Y.Z`: Agent version installed in the image
+- `claude-X.Y.Z` / `copilot-X.Y.Z` / `codex-X.Y.Z`: Agent version installed in the image
 
 To update images in a user project: `agentbox bump`.
 
