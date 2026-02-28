@@ -63,9 +63,11 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 
 ## m8: Agent switching (planned)
 
-- Add `agentbox switch --agent <name>` for Claude/Codex/Copilot
+- Add `agentbox switch --agent <name> --mode <cli|devcontainer>`
 - Preserve per-agent state volumes when switching
-- Preserve user compose/policy customizations (non-destructive workflow)
+- Preserve layered user compose/policy customizations (shared + optional mode/agent overrides)
+- Merge policy layers at proxy runtime
+- Clarify runtime ownership split (CLI mode agentbox-managed, devcontainer mode IDE-managed)
 - Use explicit upgrade guidance for legacy single-file setups (no automatic migration tooling)
 
 ## m9: [Gemini CLI](https://github.com/google-gemini/gemini-cli) support (planned)
