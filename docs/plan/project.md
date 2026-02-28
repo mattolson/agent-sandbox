@@ -140,10 +140,12 @@ Add OpenAI Codex CLI agent support.
 Add first-class, non-destructive agent switching so users can move between Claude, Codex, and Copilot without losing state or customizations.
 
 **Goals:**
-- Add `agentbox switch --agent <name>`
+- Add `agentbox switch --agent <name> --mode <cli|devcontainer>` with interactive prompts for missing values
 - Preserve per-agent Docker volumes across switches
-- Preserve user compose/policy customizations with managed vs user-owned file boundaries
-- Reduce policy duplication with shared project policy override + optional agent-specific overrides
+- Preserve user compose/policy customizations with managed vs user-owned layered boundaries
+- Reduce policy duplication with shared project policy override plus optional mode/agent-specific overrides
+- Merge layered policy at proxy runtime (single merge path), not via pre-generated artifacts
+- Clarify runtime ownership split: CLI mode agentbox-managed, devcontainer mode IDE-managed
 - Use explicit breaking-change upgrade guidance instead of automatic migration tooling
 
 **Dependencies:** m6 (CLI), m7 (Codex), m4 (multi-agent foundations)

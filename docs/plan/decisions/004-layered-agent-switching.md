@@ -18,17 +18,19 @@ We need a switching model that preserves:
 
 Adopt a layered config model and add `agentbox switch --agent <name>`.
 
-- Agentbox-managed files hold base and agent-specific defaults.
-- A dedicated user-owned compose override file is never overwritten.
-- Policy is layered: shared project override + optional per-agent override + generated effective policy.
-- Switching changes only the active agent layer/policy reference and restarts services if needed.
+- Target identity is `{mode, agent}` with a single-active UX by default.
+- Agentbox-managed files hold base/mode/agent defaults.
+- User-owned overrides are layered: shared + optional mode + optional agent.
+- Policy is layered similarly and merged at proxy runtime (single merge path).
+- Runtime ownership is split by mode: CLI mode is agentbox-managed; devcontainer mode remains IDE-managed.
 
 ## Rationale
 
 - Strong ownership boundaries are more reliable than patching arbitrary user-edited YAML in place.
 - Layered compose aligns with Docker Compose merge semantics and keeps customization stable.
-- A shared policy override minimizes duplication for project-level allowlist changes.
-- Optional per-agent policy overrides retain flexibility for agent-specific auth/provider quirks.
+- Shared policy/compose overrides minimize duplication for project-level settings.
+- Optional mode/agent overrides retain flexibility for specific integrations and auth/provider quirks.
+- Target identity model keeps room for future concurrent targets without changing core data structures.
 
 ## Consequences
 
@@ -37,8 +39,9 @@ Adopt a layered config model and add `agentbox switch --agent <name>`.
 - Reversible switching with persistent state.
 - Clear contract about which files agentbox owns vs user owns.
 - Lower policy duplication across agents in the same project.
+- Better alignment with devcontainer reality (IDE controls runtime lifecycle).
 
 **Negative:**
 - More files in `.agent-sandbox/` to understand.
 - Legacy layouts will require explicit re-init/manual carry-forward during this early phase.
-- Additional CLI complexity (`switch`, policy rendering, validation).
+- Additional CLI complexity (`switch`, layered backends, policy rendering, validation).
