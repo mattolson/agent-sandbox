@@ -1,6 +1,6 @@
-# m8: Agent/Mode Switching Without Data Loss
+# m8: Agent Switching Without Data Loss
 
-Make it easy to switch between supported targets (`agent + mode`) without losing:
+Make it easy to switch between supported agents without losing:
 
 - Agent state volumes (credentials, history, tool state)
 - Project policy customizations
@@ -12,17 +12,17 @@ Current workflow is destructive for users who customize their setup:
 
 - `agentbox init` recopies templates and overwrites compose/policy files.
 - Users can keep only one active generated setup at a time.
-- Trying another agent or mode often means re-running init and manually re-applying edits.
+- Trying another agent often means re-running init and manually re-applying edits.
 
 This creates friction for experimentation and increases risk of accidental config loss.
 
 ## Goals
 
-- Add a first-class `agentbox switch --agent <name> --mode <name>` workflow.
+- Add a first-class `agentbox switch --agent <name>` workflow.
 - Preserve all existing agent volumes when switching.
 - Preserve user customizations across switches by separating managed files from user-owned files.
-- Support both `cli` and `devcontainer` modes.
-- Define a data model that is concurrency-ready (can support multiple running targets later) while keeping a simple single-active UX now.
+- Keep devcontainer support additive via sidecar files in `.devcontainer/`, but sync them to the active agent by default.
+- Define a data model that is concurrency-ready (can support multiple running agents later) while keeping a simple single-active UX now.
 
 ## Non-Goals
 
@@ -35,27 +35,28 @@ This creates friction for experimentation and increases risk of accidental confi
 
 ### 1) Target identity and UX model
 
-Define runtime target as `{mode, agent}`.
+Define runtime target as `{agent}`.
 
-- Examples: `cli:codex`, `devcontainer:claude`
-- `switch` sets the active target used by default command paths.
+- Examples: `codex`, `claude`
+- `switch` sets the active agent used by default command paths.
 
 UX in m8:
 
-- Single-active target is the default mental model.
-- Internally store target identity in a way that can support concurrent targets later.
+- Single-active agent is the default mental model.
+- Internally store agent identity in a way that can support concurrent targets later.
 
 ### 2) Runtime ownership split
 
-Treat runtime control differently by mode:
+Treat runtime control consistently for CLI workflows, and keep devcontainer support as additive files that track the active agent:
 
-- `cli` mode: agentbox-managed runtime (`up`, `down`, `exec`, `logs` supported via compose backend).
-- `devcontainer` mode: IDE/devcontainer-managed runtime.
+- CLI runtime: agentbox-managed runtime (`up`, `down`, `exec`, `logs` supported via compose backend).
+- Devcontainer runtime: IDE/devcontainer-managed, configured through sidecar files.
 
 Implication:
 
-- `agentbox switch --mode devcontainer ...` updates desired target/config and provides clear "reopen/rebuild container" guidance.
-- Do not promise full parity of runtime commands (`logs`, `exec`) in devcontainer mode unless container discovery is reliable.
+- `agentbox switch` does not toggle CLI vs devcontainer.
+- `agentbox switch` updates `.devcontainer` sidecar files to match the selected agent by default.
+- Users who want devcontainer workflow use IDE reopen/rebuild flow after a switch when needed.
 
 ### 3) Compose file ownership and layering
 
@@ -63,26 +64,25 @@ Introduce explicit ownership boundaries:
 
 - Managed files (agentbox-owned):
   - `.agent-sandbox/compose/base.yml`
-  - `.agent-sandbox/compose/mode.cli.yml`
-  - `.agent-sandbox/compose/mode.devcontainer.yml`
   - `.agent-sandbox/compose/agent.<agent>.yml`
 - User-owned files (never overwritten):
   - `.agent-sandbox/compose/user.override.yml` (project-wide)
-  - `.agent-sandbox/compose/user.mode.<mode>.override.yml` (optional)
   - `.agent-sandbox/compose/user.agent.<agent>.override.yml` (optional)
+- Devcontainer sidecar files (agentbox-managed unless explicitly marked user-owned):
+  - `.devcontainer/devcontainer.json`
+  - `.devcontainer/docker-compose.override.yml`
+  - `.devcontainer/policy.override.yaml`
 
-Why this split: preserving arbitrary user edits in one generated file is brittle. Layered ownership keeps upgrades safe while allowing shared, mode-specific, and agent-specific customization.
+Why this split: preserving arbitrary user edits in one generated file is brittle. Layered ownership keeps upgrades safe while allowing shared and agent-specific customization.
 
-### 4) Compose execution model (CLI mode)
+### 4) Compose execution model (CLI workflow)
 
-For CLI mode, compose merge order should be deterministic:
+For CLI workflow, compose merge order should be deterministic:
 
 1. base
-2. mode
-3. agent
-4. user.shared
-5. user.mode (if present)
-6. user.agent (if present)
+2. agent
+3. user.shared
+4. user.agent (if present)
 
 This supports agent-specific customizations (e.g. `CLAUDE.md` mounts) without polluting global overrides.
 
@@ -91,8 +91,8 @@ This supports agent-specific customizations (e.g. `CLAUDE.md` mounts) without po
 Use layered policy inputs, merged at proxy startup/runtime (not pre-generated by agentbox):
 
 - `.agent-sandbox/policy.shared.yaml` (user-owned)
-- `.agent-sandbox/policy.mode.<mode>.yaml` (optional, user-owned)
 - `.agent-sandbox/policy.agent.<agent>.yaml` (optional, user-owned)
+- `.devcontainer/policy.override.yaml` (agentbox-managed sidecar; applied when running via devcontainer)
 
 Baseline agent policy remains agent-managed (template/image default).
 
@@ -110,23 +110,22 @@ Rationale:
 
 ### 6) `agentbox switch` behavior
 
-`agentbox switch --agent <claude|codex|copilot> [--mode cli|devcontainer]`:
+`agentbox switch --agent <claude|codex|copilot>`:
 
-- Validate requested agent/mode.
+- Validate requested agent.
 - Interactive mode:
-  - If no flags: prompt exactly two questions (agent, mode).
-  - If one flag: prompt only for the missing value.
-  - If both flags: do not prompt.
+  - If no flag: prompt exactly one question (agent).
+  - If flag is present: do not prompt.
   - Do not ask unrelated questions (project name, IDE, etc.).
-- Update active target pointer.
+- Update active agent pointer.
 - Ensure required user-owned override files exist (create scaffold only if missing).
-- CLI mode: apply config and reconcile running services safely (`up -d`), never `down --volumes`.
-- Devcontainer mode: write target/config state and emit next-step guidance for IDE rebuild/reopen.
+- Reconcile running services safely (`up -d`), never `down --volumes`.
+- Update `.devcontainer` sidecar files to match the selected agent by default.
 
 ### 7) Volume preservation guarantees
 
 - Keep agent-specific named volumes (`claude-state`, `codex-state`, `copilot-state`).
-- Switching changes target selection and mounted config, not volume lifecycle.
+- Switching changes selected agent and mounted config, not volume lifecycle.
 - Existing volumes remain intact and reusable when switching back.
 
 ### 8) Breaking-change rollout (existing installs)
@@ -149,21 +148,21 @@ Use explicit breaking-change upgrade guidance:
 
 ### B) Full unification on devcontainer CLI
 
-- Pros: devcontainer-mode lifecycle could be more explicit.
-- Cons: poor fit for pure CLI mode, added dependency/complexity, uncertain parity for compose-style operations.
+- Pros: one orchestration backend for both CLI and devcontainer flows.
+- Cons: added dependency/complexity, weak fit for current CLI-first workflows, and limited benefit if devcontainer remains optional sidecar config.
 - Deferred to a scoped spike.
 
 ## Risks
 
 - User confusion about which files are safe to edit.
-- Confusion about command parity differences between CLI and devcontainer mode.
+- Confusion about which `.devcontainer` fields are managed vs user-owned.
 - Policy merge surprises (expecting replacement semantics vs union).
 - Future concurrent-target rollout may expose naming/identity assumptions if not designed now.
 
 ## Mitigations
 
 - Strong file headers (`managed` vs `user-owned`).
-- Explicit mode capability docs (what commands are guaranteed in each mode).
+- Explicit docs for `.devcontainer` managed fields and user extension points.
 - `agentbox doctor` checks for missing/inconsistent target files.
 - `agentbox policy render` should reuse the same merge path as proxy runtime.
 - BATS coverage for switching, guardrails, and non-destructive behavior.
@@ -172,9 +171,9 @@ Use explicit breaking-change upgrade guidance:
 
 ### m8.1: Target model + switch CLI
 
-- Add target identity model (`mode + agent`) and active-target state.
+- Add target identity model (`agent`) and active-target state.
 - Add `agentbox switch` with validation.
-- Add interactive prompt flow for missing `--agent`/`--mode` values.
+- Add interactive prompt flow for missing `--agent` values.
 
 ### m8.2: Layered compose layout
 
@@ -184,34 +183,36 @@ Use explicit breaking-change upgrade guidance:
 
 ### m8.3: Layered policy model
 
-- Add shared/mode/agent policy files.
+- Add shared/agent policy files.
 - Implement merge at proxy startup/runtime.
 - Ensure `policy render` and runtime use the same merge implementation.
 
-### m8.4: Mode ownership behavior
+### m8.4: Devcontainer sidecar files
 
-- CLI mode: maintain full runtime command support.
-- Devcontainer mode: define explicit limited support and clear user guidance.
-- Add a small feasibility spike for using devcontainer CLI as an optional backend for devcontainer mode.
+- Keep CLI runtime commands fully supported.
+- Add optional `.devcontainer` sidecar files (`devcontainer.json`, compose override, policy override).
+- Sync `.devcontainer` sidecar files on `switch` by default.
+- Document managed vs user-owned fields and expected workflow when using devcontainer reopen/rebuild.
 
 ### m8.5: Legacy guardrails + docs/tests
 
 - Detect legacy single-file layout and fail fast with upgrade guidance.
 - Add BATS for:
   - switch preserves custom compose edits
-  - switch preserves shared/mode/agent policy overrides
+  - switch preserves shared/agent policy overrides
   - switch preserves volumes (no `down --volumes`)
-  - switch prompt behavior (0/1/2 prompts based on flags)
-  - invalid `--agent`/`--mode` errors
+  - switch prompt behavior (0/1 prompts based on flags)
+  - invalid `--agent` errors
   - legacy-layout detection guidance
-- Update README and agent docs with switching workflow and mode capability matrix.
+- Update README and agent docs with switching workflow and `.devcontainer` sync behavior.
 
 ## Success Criteria
 
-- User can switch `cli:codex` -> `cli:claude` without losing prior auth/state.
+- User can switch `codex` -> `claude` without losing prior auth/state.
 - User customizations in user-owned override files survive `init`, `switch`, and `bump`.
 - Shared policy edits are not duplicated per agent by default.
-- Agent-specific and mode-specific overrides are possible when needed.
+- Agent-specific overrides are possible when needed.
+- `.devcontainer` sidecar files stay in sync with the active agent after `switch`.
 - Legacy layout is detected with clear upgrade instructions.
 
 ## Open Questions
