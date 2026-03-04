@@ -82,6 +82,34 @@ find_compose_file() {
 	fi
 }
 
+# Derives a base project name from a project path (without mode suffix).
+# Args:
+#   $1 - The project path (absolute or relative)
+# Returns {dir}-sandbox
+derive_base_project_name() {
+	local project_path=$1
+	local last_dir
+	last_dir=$(basename "$project_path")
+	echo "${last_dir}-sandbox"
+}
+
+# Applies mode suffix to a project name.
+# Args:
+#   $1 - The base project name
+#   $2 - The mode (cli or devcontainer)
+# Returns the name as-is for cli mode, {name}-{mode} for other modes.
+apply_mode_suffix() {
+	local name=$1
+	local mode=$2
+
+	if [[ "$mode" == "cli" ]]
+	then
+		echo "$name"
+	else
+		echo "${name}-${mode}"
+	fi
+}
+
 # Derives a project name from a project path and mode.
 # Args:
 #   $1 - The project path (absolute or relative)
@@ -91,15 +119,9 @@ derive_project_name() {
 	local project_path=$1
 	local mode=$2
 
-	local last_dir
-	last_dir=$(basename "$project_path")
-
-	if [[ "$mode" == "cli" ]]
-	then
-		echo "${last_dir}-sandbox"
-	else
-		echo "${last_dir}-sandbox-${mode}"
-	fi
+	local base_name
+	base_name=$(derive_base_project_name "$project_path")
+	apply_mode_suffix "$base_name" "$mode"
 }
 
 # Gets the modification time of a file in a cross-platform way.

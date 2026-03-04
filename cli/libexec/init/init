@@ -28,12 +28,14 @@ init() {
 	local agent=""
 	local mode=""
 	local ide=""
+	local name_provided_via_flag=false
 
 	while [[ $# -gt 0 ]]
 	do
 		case $1 in
 		--name)
 			name="$2"
+			name_provided_via_flag=true
 			shift 2
 			;;
 		--path)
@@ -73,9 +75,19 @@ init() {
 
 	echo "Configuring project at: $project_path" | info
 
+	# Calculate the default base name to display (without mode suffix)
+	local default_base_name
+	default_base_name=$(derive_base_project_name "$project_path")
+
 	if [[ -z "$name" ]]
 	then
-		name=$(read_line "Project name [empty for default]:")
+		name=$(read_line "Project name [$default_base_name]:")
+	fi
+
+	# If user didn't provide a name, use the default
+	if [[ -z "$name" ]]
+	then
+		name="$default_base_name"
 	fi
 
 	local available_agents=(claude copilot codex)
@@ -98,9 +110,10 @@ init() {
 		return 1
 	fi
 
-	if [[ -z "$name" ]]
+	# Apply mode suffix to the name (only if name wasn't provided via --name flag)
+	if [[ "$name_provided_via_flag" == false ]]
 	then
-		name="$(derive_project_name "$project_path" "$mode")"
+		name=$(apply_mode_suffix "$name" "$mode")
 	fi
 
 	local policy_file="$AGB_PROJECT_DIR/policy-$mode-$agent.yaml"
