@@ -117,3 +117,26 @@ teardown() {
 
 	assert_success
 }
+
+@test "init with --mode flag applies suffix to interactive name" {
+	unset -f read_line
+	unset -f select_option
+
+	local expected_default
+	expected_default=$(basename "$PROJECT_DIR")-sandbox
+
+	stub read_line "'Project name [$expected_default]:' : echo baz"
+	stub select_option \
+		"'Select agent:' claude copilot codex : echo copilot" \
+		"'Select IDE:' vscode jetbrains none : echo vscode"
+
+	local expected_name="baz-devcontainer"
+	local policy_file=".agent-sandbox/policy-devcontainer-copilot.yaml"
+
+	stub policy "$PROJECT_DIR/$policy_file copilot vscode : :"
+	stub devcontainer "--policy-file $policy_file --project-path $PROJECT_DIR --agent copilot --ide vscode --name $expected_name : :"
+
+	run init --mode devcontainer --path "$PROJECT_DIR"
+
+	assert_success
+}
