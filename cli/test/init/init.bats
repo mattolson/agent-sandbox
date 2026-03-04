@@ -52,7 +52,10 @@ teardown() {
 	unset -f read_line
 	unset -f select_option
 
-	stub read_line "'Project name [empty for default]:' : echo my-interactive-project"
+	local expected_default
+	expected_default=$(basename "$PROJECT_DIR")-sandbox
+
+	stub read_line "'Project name [$expected_default]:' : echo my-interactive-project"
 	stub select_option \
 		"'Select agent:' claude copilot codex : echo claude" \
 		"'Select mode:' cli devcontainer : echo cli"
@@ -66,11 +69,14 @@ teardown() {
 	assert_success
 }
 
-@test "init interactive flow (devcontainer mode)" {
+@test "init interactive flow (devcontainer mode, default name)" {
 	unset -f read_line
 	unset -f select_option
 
-	stub read_line "'Project name [empty for default]:' : echo ''"
+	local expected_default
+	expected_default=$(basename "$PROJECT_DIR")-sandbox
+
+	stub read_line "'Project name [$expected_default]:' : echo ''"
 	stub select_option \
 		"'Select agent:' claude copilot codex : echo copilot" \
 		"'Select mode:' cli devcontainer : echo devcontainer" \
@@ -78,6 +84,30 @@ teardown() {
 
 	local expected_name
 	expected_name=$(basename "$PROJECT_DIR")-sandbox-devcontainer
+	local policy_file=".agent-sandbox/policy-devcontainer-copilot.yaml"
+
+	stub policy "$PROJECT_DIR/$policy_file copilot vscode : :"
+	stub devcontainer "--policy-file $policy_file --project-path $PROJECT_DIR --agent copilot --ide vscode --name $expected_name : :"
+
+	run init --path "$PROJECT_DIR"
+
+	assert_success
+}
+
+@test "init interactive flow (devcontainer mode, custom name)" {
+	unset -f read_line
+	unset -f select_option
+
+	local expected_default
+	expected_default=$(basename "$PROJECT_DIR")-sandbox
+
+	stub read_line "'Project name [$expected_default]:' : echo foo"
+	stub select_option \
+		"'Select agent:' claude copilot codex : echo copilot" \
+		"'Select mode:' cli devcontainer : echo devcontainer" \
+		"'Select IDE:' vscode jetbrains none : echo vscode"
+
+	local expected_name="foo-devcontainer"
 	local policy_file=".agent-sandbox/policy-devcontainer-copilot.yaml"
 
 	stub policy "$PROJECT_DIR/$policy_file copilot vscode : :"
