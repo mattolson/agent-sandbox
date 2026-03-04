@@ -14,11 +14,13 @@ RUN if [ -n "$EXTRA_PACKAGES" ]; then \
       && apt-get clean && rm -rf /var/lib/apt/lists/*; \
     fi
 
-# Create codex config directory, bake default config, ensure ~/.local/bin exists
+# Bake in the system codex config (can be overridden at user or project level)
+RUN mkdir -p /etc/codex
+COPY config.toml /etc/codex/config.toml
+
+# Create codex config directory and ensure ~/.local/bin exists (default destination for codex binary)
 RUN mkdir -p /home/dev/.codex /home/dev/.local/bin \
-    && chown -R dev:dev /home/dev/.codex /home/dev/.local/bin
-COPY config.toml /home/dev/.codex/config.toml
-RUN chown dev:dev /home/dev/.codex/config.toml
+    && chown -R dev:dev /home/dev/.codex /home/dev/.local
 
 USER dev
 

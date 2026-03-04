@@ -33,7 +33,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 
 - Claude Code support (`cli/templates/claude/`)
 - GitHub Copilot CLI support (`cli/templates/copilot/`)
-- Remaining agents promoted to individual milestones (m7-m11)
+- Remaining agents promoted to individual milestones (m7, m9-m12)
 
 ## m5: Deep customization (done)
 
@@ -61,31 +61,40 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - OpenAI Codex CLI installation and configuration
 - Network policy with Codex API domains
 
-## m8: [Gemini CLI](https://github.com/google-gemini/gemini-cli) support (planned)
+## m8: Agent switching (planned)
+
+- Add `agentbox switch --agent <name> --mode <cli|devcontainer>`
+- Preserve per-agent state volumes when switching
+- Preserve layered user compose/policy customizations (shared + optional mode/agent overrides)
+- Merge policy layers at proxy runtime
+- Clarify runtime ownership split (CLI mode agentbox-managed, devcontainer mode IDE-managed)
+- Use explicit upgrade guidance for legacy single-file setups (no automatic migration tooling)
+
+## m9: [Gemini CLI](https://github.com/google-gemini/gemini-cli) support (planned)
 
 - agent-sandbox-gemini image and templates
 - Google Gemini CLI installation and configuration
 - Network policy with Gemini API domains
 
-## m9: [Factory](https://github.com/Factory-AI/factory) support (planned)
+## m10: [Factory](https://github.com/Factory-AI/factory) support (planned)
 
 - agent-sandbox-factory image and templates
 - Factory agent installation and configuration
 - Network policy with Factory API domains
 
-## m10: [OpenCode](https://github.com/anomalyco/opencode) support (planned)
+## m11: [OpenCode](https://github.com/anomalyco/opencode) support (planned)
 
 - agent-sandbox-opencode image and templates
 - OpenCode installation and configuration
 - Network policy with required API domains
 
-## m11: [Pi](https://github.com/badlogic/pi-mono) support (planned)
+## m12: [Pi](https://github.com/badlogic/pi-mono) support (planned)
 
 - agent-sandbox-pi image and templates
 - Pi agent installation and configuration
 - Network policy with required API domains
 
-## m12: Go CLI rewrite (planned)
+## m13: Go CLI rewrite (planned)
 
 - Rewrite agentbox CLI in Go using Cobra
 - Single static binary distribution (replace Docker CLI image)
@@ -93,7 +102,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Cross-compile for macOS (arm64, amd64) and Linux
 - Port all existing commands with improved testing
 
-## m13: Host credential service (planned)
+## m14: Host credential service (planned)
 
 - Host-side service bridging container to native credential store (macOS Keychain, Windows Credential Manager)
 - No secrets stored on disk inside the container
@@ -101,7 +110,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Works with any credential-aware tool (git, gh, etc.)
 - Integrated into agentbox CLI lifecycle
 
-## m14: Fine-grained proxy rules (planned)
+## m15: Fine-grained proxy rules (planned)
 
 - MITM inspection for HTTPS requests (path, method, query params visible)
 - Nested path rules under domain entries in policy YAML
@@ -109,7 +118,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Domain-only rules remain as fast-path (block at CONNECT)
 - SIGHUP-based hot reload for policy changes
 
-## m15: CLI monitoring and policy management (planned)
+## m16: CLI monitoring and policy management (planned)
 
 - Filtered log view for blocked requests
 - Interactive unblock workflow

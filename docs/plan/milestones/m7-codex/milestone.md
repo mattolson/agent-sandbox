@@ -23,7 +23,7 @@ A user can run `agentbox init --agent codex` and get a working sandbox with Code
 **Excluded:**
 - Host config mounting (no equivalent of Claude's CLAUDE.md pattern needed yet)
 - Codex VS Code extension support (Codex is CLI-only as of Feb 2026)
-- Fine-grained proxy rules for OpenAI API paths (m14)
+- Fine-grained proxy rules for OpenAI API paths (m15)
 
 ## Applicable Learnings
 

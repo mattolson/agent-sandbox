@@ -2,7 +2,7 @@
 
 **Status: Done**
 
-Initial multi-agent support complete. Claude Code and GitHub Copilot shipped. Remaining agents (Codex, Gemini, Factory, OpenCode, Pi) promoted to individual milestones m7-m11.
+Initial multi-agent support complete. Claude Code and GitHub Copilot shipped. Remaining agents (Codex, Gemini, Factory, OpenCode, Pi) promoted to individual milestones m7 and m9-m12.
 
 ## Motivation
 
@@ -51,7 +51,7 @@ Add GitHub Copilot CLI support.
 
 ### m4.2-codex-support (moved to m7)
 
-### m4.3-opencode-support (moved to m10)
+### m4.3-opencode-support (moved to m11)
 
 ## Design Decisions
 
