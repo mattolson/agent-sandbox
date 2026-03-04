@@ -68,10 +68,14 @@ Introduce explicit ownership boundaries:
 - User-owned files (never overwritten):
   - `.agent-sandbox/compose/user.override.yml` (project-wide)
   - `.agent-sandbox/compose/user.agent.<agent>.override.yml` (optional)
-- Devcontainer sidecar files (agentbox-managed unless explicitly marked user-owned):
+- Devcontainer sidecar files (agentbox-managed):
   - `.devcontainer/devcontainer.json`
   - `.devcontainer/docker-compose.override.yml`
   - `.devcontainer/policy.override.yaml`
+- Devcontainer user override files (never overwritten):
+  - `.devcontainer/devcontainer.user.json` (optional)
+  - `.devcontainer/docker-compose.user.override.yml` (optional)
+  - `.devcontainer/policy.user.override.yaml` (optional)
 
 Why this split: preserving arbitrary user edits in one generated file is brittle. Layered ownership keeps upgrades safe while allowing shared and agent-specific customization.
 
@@ -121,6 +125,7 @@ Rationale:
 - Ensure required user-owned override files exist (create scaffold only if missing).
 - Reconcile running services safely (`up -d`), never `down --volumes`.
 - Update `.devcontainer` sidecar files to match the selected agent by default.
+- Never rewrite `.devcontainer/*user*` override files.
 
 ### 7) Volume preservation guarantees
 
@@ -155,7 +160,7 @@ Use explicit breaking-change upgrade guidance:
 ## Risks
 
 - User confusion about which files are safe to edit.
-- Confusion about which `.devcontainer` fields are managed vs user-owned.
+- Confusion about which `.devcontainer` files are managed vs user-owned.
 - Policy merge surprises (expecting replacement semantics vs union).
 - Future concurrent-target rollout may expose naming/identity assumptions if not designed now.
 
@@ -166,6 +171,7 @@ Use explicit breaking-change upgrade guidance:
 - `agentbox doctor` checks for missing/inconsistent target files.
 - `agentbox policy render` should reuse the same merge path as proxy runtime.
 - BATS coverage for switching, guardrails, and non-destructive behavior.
+- Regression assertions should target effective config via `docker compose config --no-interpolate` to be layout-agnostic.
 
 ## Implementation Plan
 
@@ -190,7 +196,8 @@ Use explicit breaking-change upgrade guidance:
 ### m8.4: Devcontainer sidecar files
 
 - Keep CLI runtime commands fully supported.
-- Add optional `.devcontainer` sidecar files (`devcontainer.json`, compose override, policy override).
+- Add managed `.devcontainer` sidecar files (`devcontainer.json`, compose override, policy override).
+- Add optional user-owned `.devcontainer` override files (`*.user.*`) as extension points.
 - Sync `.devcontainer` sidecar files on `switch` by default.
 - Document managed vs user-owned fields and expected workflow when using devcontainer reopen/rebuild.
 
@@ -204,6 +211,8 @@ Use explicit breaking-change upgrade guidance:
   - switch prompt behavior (0/1 prompts based on flags)
   - invalid `--agent` errors
   - legacy-layout detection guidance
+- Convert `init/regression.bats` assertions to validate effective compose output via `docker compose config --no-interpolate`.
+- Keep a minimal set of raw-file assertions for ownership/scaffolding behavior that rendered config cannot verify.
 - Update README and agent docs with switching workflow and `.devcontainer` sync behavior.
 
 ## Success Criteria
@@ -213,6 +222,7 @@ Use explicit breaking-change upgrade guidance:
 - Shared policy edits are not duplicated per agent by default.
 - Agent-specific overrides are possible when needed.
 - `.devcontainer` sidecar files stay in sync with the active agent after `switch`.
+- `.devcontainer` user override files are preserved across `init`, `switch`, and `bump`.
 - Legacy layout is detected with clear upgrade instructions.
 
 ## Open Questions
