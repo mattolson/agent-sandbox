@@ -32,7 +32,7 @@ services:
     volumes:
       # Paths are relative to this file's directory (.devcontainer/)
       # Project workspace
-      - ..:/workspace
+      - ..:/workspace:cached
       # Read-only policy directory
       - ../.agent-sandbox:/workspace/.agent-sandbox:ro
       # Read-only devcontainer directory (. = .devcontainer/)

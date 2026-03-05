@@ -31,7 +31,7 @@ services:
       - SETGID
     volumes:
       # Project workspace
-      - ..:/workspace
+      - ..:/workspace:cached
       # Read-only policy directory
       - ../.agent-sandbox:/workspace/.agent-sandbox:ro
       # Persist Copilot credentials
