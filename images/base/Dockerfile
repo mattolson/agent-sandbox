@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   jq \
   less \
   procps \
+  ripgrep \
   sudo \
   tmux \
   unzip \
