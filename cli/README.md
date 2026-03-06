@@ -81,10 +81,22 @@ the new policy. Use `--mode` and `--agent` to select specific policy files.
 Updates Docker images to their latest versions by pulling the newest digests and updating the compose file. Skips local
 images.
 
-### Docker compose passthrough
+### `agentbox up`
 
-Any unrecognized command is passed through to `docker compose` with the correct compose file automatically detected
-(e.g., `agentbox up -d` or `agentbox logs`).
+Runs `docker compose up` with the correct compose file automatically detected.
+
+### `agentbox down`
+
+Runs `docker compose down` with the correct compose file automatically detected.
+
+### `agentbox logs`
+
+Runs `docker compose logs` with the correct compose file automatically detected.
+
+### `agentbox compose`
+
+Runs arbitrary `docker compose` commands with the correct compose file automatically detected
+(for example `agentbox compose ps`).
 
 ### `agentbox exec`
 

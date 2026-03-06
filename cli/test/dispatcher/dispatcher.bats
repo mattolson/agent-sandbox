@@ -75,8 +75,8 @@ module="\$1"; shift
 
 # Check if module is a known module
 if ! printf '%s\n' "\${local_modules[@]}" | grep -qx "\$module"; then
-	"\$AGB_LIBEXECDIR/version/version" "Agent Sandbox"
-	exec "\$AGB_LIBDIR/run-compose" "\$module" "\$@"
+	echo "Command '\$module' not found" >&2
+	exit 127
 fi
 
 command="\${1:-}"
@@ -141,10 +141,9 @@ teardown() {
 	assert_output --partial "not found"
 }
 
-@test "unknown command falls through to docker compose" {
-	run "$WRAPPER" ps
-	assert_success
-	assert_output "run-compose ps"
+@test "unknown top-level command exits 127" {
+	run -127 "$WRAPPER" ps
+	assert_output --partial "Command 'ps' not found"
 }
 
 @test "module help lists commands" {
