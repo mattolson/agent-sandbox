@@ -42,8 +42,6 @@ main() {
 
 	local -r usage="
 Usage: agentbox <$(IFS='|'; echo "${modules[*]}")> [command] [args...]
-
-Any other command is passed through to docker compose.
 "
 
 	if [[ $# -lt 1 ]]
@@ -55,14 +53,14 @@ Any other command is passed through to docker compose.
 	local -r module="$1"
 	shift 1
 
-	# Check if module is a known module directory. If not, fall through to
-	# docker compose with the original command as the first argument.
+	# Check if module is a known module directory.
 	#shellcheck disable=SC2076
 	if [[ "$module" =~ [[:space:]] ]] ||
 		! [[ " ${modules[*]} " =~ " $module " ]]
 	then
-		"$AGB_LIBEXECDIR/version/version" "Agent Sandbox"
-		exec "$AGB_LIBDIR/run-compose" "$module" "$@"
+		echo "Command '$module' not found" >&2
+		echo "$usage" >&2
+		exit 127
 	fi
 
 	local command="${1:-}"
