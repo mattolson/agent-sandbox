@@ -12,6 +12,7 @@ setup() {
 
 	mkdir -p "$MOCK_LIBEXECDIR/alpha"
 	mkdir -p "$MOCK_LIBEXECDIR/beta"
+	mkdir -p "$MOCK_LIBEXECDIR/gamma"
 	mkdir -p "$MOCK_LIBDIR"
 
 	# Create mock executables
@@ -30,6 +31,18 @@ else
 fi
 SCRIPT
 	chmod +x "$MOCK_LIBEXECDIR/alpha/alpha"
+
+	cat > "$MOCK_LIBEXECDIR/gamma/gamma" <<'SCRIPT'
+#!/usr/bin/env bash
+echo "gamma default called with: $*"
+SCRIPT
+	chmod +x "$MOCK_LIBEXECDIR/gamma/gamma"
+
+	cat > "$MOCK_LIBEXECDIR/gamma/_" <<'SCRIPT'
+#!/usr/bin/env bash
+echo "gamma catchall called with: $*"
+SCRIPT
+	chmod +x "$MOCK_LIBEXECDIR/gamma/_"
 
 	# Version mock (called before most dispatches)
 	mkdir -p "$MOCK_LIBEXECDIR/version"
@@ -151,4 +164,10 @@ teardown() {
 	assert_success
 	assert_output --partial "Commands in alpha:"
 	assert_output --partial "start"
+}
+
+@test "module catch-all receives first positional argument" {
+	run "$WRAPPER" gamma myservice
+	assert_success
+	assert_output "gamma catchall called with: myservice"
 }
