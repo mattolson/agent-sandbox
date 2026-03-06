@@ -31,14 +31,32 @@ SCRIPT
 	assert_output "run-compose up -d"
 }
 
+@test "up catch-all forwards positional args to docker compose up" {
+	run "$AGB_LIBEXECDIR/up/_" myservice
+	assert_success
+	assert_output "run-compose up myservice"
+}
+
 @test "down command forwards args to docker compose down" {
 	run "$AGB_LIBEXECDIR/down/down" --volumes
 	assert_success
 	assert_output "run-compose down --volumes"
 }
 
+@test "down catch-all forwards positional args to docker compose down" {
+	run "$AGB_LIBEXECDIR/down/_" myservice
+	assert_success
+	assert_output "run-compose down myservice"
+}
+
 @test "logs command forwards args to docker compose logs" {
 	run "$AGB_LIBEXECDIR/logs/logs" --tail 10
 	assert_success
 	assert_output "run-compose logs --tail 10"
+}
+
+@test "logs catch-all forwards positional args to docker compose logs" {
+	run "$AGB_LIBEXECDIR/logs/_" myservice
+	assert_success
+	assert_output "run-compose logs myservice"
 }
