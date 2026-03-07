@@ -69,8 +69,6 @@ devcontainer() {
 	local project_name
 	project_name="${name:-$(derive_project_name "$project_path" "devcontainer")}"
 	set_project_name "$compose_file" "$project_name"
-
-	echo "Devcontainer dir created at $devcontainer_dir" | info
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]

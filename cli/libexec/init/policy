@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=../../lib/logging.bash
-source "$AGB_LIBDIR/logging.bash"
 # shellcheck source=../../lib/require.bash
 source "$AGB_LIBDIR/require.bash"
 
@@ -26,8 +24,6 @@ policy() {
 		"$policy_file"
 
 	services="$services" yq -i '.services = (strenv(services) | split("\n") )' "$policy_file"
-
-	echo "Policy file created at: $policy_file" | info
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]

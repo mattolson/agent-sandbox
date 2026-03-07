@@ -65,8 +65,6 @@ cli() {
 	local project_name
 	project_name="${name:-$(derive_project_name "$project_path" "cli")}"
 	set_project_name "$compose_file" "$project_name"
-
-	echo "Compose file created at $compose_file" | info
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]

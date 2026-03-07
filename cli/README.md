@@ -10,18 +10,21 @@ Requires `docker` (and `docker compose`) and [`yq`](https://github.com/mikefarah
 
 Initializes agent-sandbox for a project. Prompts for any options not provided via flags, then sets up the necessary
 configuration files and network policy. Optional volume mounts (Claude config, shell customizations, dotfiles, .git,
-.idea, .vscode) are included as commented-out entries in the generated compose file.
+.idea, .vscode) are included as commented-out entries in the generated compose file. After generation, `init` offers to
+open the generated policy and compose files in your editor, showing the full path to each file. These review prompts
+default to `no`.
 
 Options:
-- `--agent` - Agent type: `claude`, `copilot` (skips prompt)
+- `--agent` - Agent type: `claude`, `copilot`, `codex` (skips prompt)
 - `--mode` - Setup mode: `cli`, `devcontainer` (skips prompt)
 - `--ide` - IDE for devcontainer mode: `vscode`, `jetbrains`, `none` (skips prompt)
 - `--name` - Project name for Docker Compose (default: derived from directory name)
 - `--path` - Project directory (default: current directory)
+- `--batch` - Disable prompts, including generated-file review prompts. Requires `--agent` and `--mode`, plus `--ide` for `devcontainer`.
 
 Fully non-interactive example:
 ```bash
-agentbox init --agent claude --mode cli --name myproject --path /some/dir
+agentbox init --batch --agent claude --mode cli --name myproject --path /some/dir
 ```
 
 #### `agentbox init cli`

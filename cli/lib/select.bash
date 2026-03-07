@@ -4,19 +4,49 @@
 # Prompts the user for a yes/no answer.
 # Args:
 #   $1 - The prompt text to display
+#   $2 - Default answer ("true" or "false", default: "false")
 # Outputs:
 #   "true" if the user answered "yes", "false" otherwise
 select_yes_no() {
 	local prompt="$1"
+	local default="${2:-false}"
 	local answer
+	local prompt_suffix
 
-	read -rp "$prompt [y/N]: " answer >&2
-	if [[ $answer =~ ^[Yy]$ ]]
-	then
-		echo "true"
-	else
-		echo "false"
-	fi
+	case "$default" in
+	true)
+		prompt_suffix="[Y/n]: "
+		;;
+	false)
+		prompt_suffix="[y/N]: "
+		;;
+	*)
+		echo "$0: invalid default for select_yes_no: $default" >&2
+		return 1
+		;;
+	esac
+
+	while true
+	do
+		read -rp "$prompt $prompt_suffix" answer >&2
+		case "$answer" in
+		[Yy])
+			echo "true"
+			return 0
+			;;
+		[Nn])
+			echo "false"
+			return 0
+			;;
+		"")
+			echo "$default"
+			return 0
+			;;
+		*)
+			echo "Invalid selection, try again." >&2
+			;;
+		esac
+	done
 }
 
 # Prompts the user to select one option from a list.

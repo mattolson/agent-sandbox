@@ -102,11 +102,6 @@ Usage: agentbox <$(IFS='|'; echo "${modules[*]}")> [command] [args...]
 		fi
 	fi
 
-	if [[ $module != "version" ]]
-	then
-		"$AGB_LIBEXECDIR/version/version" "Agent Sandbox"
-	fi
-
 	export PATH="$AGB_LIBEXECDIR/$module:$PATH"
 
 	exec "$exec" "$@"
