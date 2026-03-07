@@ -109,9 +109,6 @@ fi
 
 exec_path="\$AGB_LIBEXECDIR/\$module/\$command"
 if [[ -x "\$exec_path" ]]; then
-	if [[ "\$module" != "version" ]]; then
-		"\$AGB_LIBEXECDIR/version/version" "Agent Sandbox"
-	fi
 	exec "\$exec_path" "\$@"
 fi
 

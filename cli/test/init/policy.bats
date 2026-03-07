@@ -62,11 +62,10 @@ teardown() {
 	assert_output "0"
 }
 
-@test "policy outputs info message" {
+@test "policy creates file without output" {
 	local policy_file="$BATS_TEST_TMPDIR/policy.yaml"
 
 	run policy "$policy_file" "github"
 	assert_success
-	assert_output --partial "Policy file created at:"
-	assert_output --partial "$policy_file"
+	assert_output ""
 }

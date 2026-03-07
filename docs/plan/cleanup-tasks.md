@@ -54,7 +54,7 @@ Design decisions that may or may not need action.
 
 - [x] **`agentbox init` compose customization prompts removed.** The 4-6 yes/no questions about optional volume mounts (Claude config, shell customizations, dotfiles, .git, .idea, .vscode) are no longer asked. Volumes are always added as commented-out entries. Users uncomment them in the generated compose file or set `AGENTBOX_*` env vars to `"true"` for scripted usage.
 
-- [x] **`agentbox init` accepts --agent, --mode, and --ide flags.** Each skips the corresponding interactive prompt. Invalid values are rejected with an error listing accepted options. Fully non-interactive when all flags are passed: `agentbox init --agent claude --mode cli --name myproject --path /some/dir`.
+- [x] **`agentbox init` accepts --agent, --mode, and --ide flags.** Each skips the corresponding interactive prompt. Invalid values are rejected with an error listing accepted options. Fully non-interactive in batch mode: `agentbox init --batch --agent claude --mode cli --name myproject --path /some/dir`.
 
 - [x] **Normalized env vars to uppercase `AGENTBOX_` prefix.** `proxy_image` -> `AGENTBOX_PROXY_IMAGE`, `agent_image` -> `AGENTBOX_AGENT_IMAGE`, `mount_claude_config` -> `AGENTBOX_MOUNT_CLAUDE_CONFIG`, `enable_shell_customizations` -> `AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS`, `enable_dotfiles` -> `AGENTBOX_ENABLE_DOTFILES`, `mount_git_readonly` -> `AGENTBOX_MOUNT_GIT_READONLY`, `mount_idea_readonly` -> `AGENTBOX_MOUNT_IDEA_READONLY`, `mount_vscode_readonly` -> `AGENTBOX_MOUNT_VSCODE_READONLY`.
 

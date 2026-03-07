@@ -94,10 +94,12 @@ The image runs as root, to avoid permission issues with the host Docker socket. 
 agentbox init
 ```
 
-This prompts you to select the agent type and mode (CLI or devcontainer), then sets up the necessary configuration files and network policy. You can also pass flags to skip prompts:
+This prompts for the project name, agent, mode, and IDE when needed, then generates the policy and compose files for the sandbox.
+
+You can pass flags to skip the selection prompts. Use `--batch` to disable all prompts, including the final file-review prompts:
 
 ```bash
-agentbox init --agent claude --mode cli
+agentbox init --batch --agent claude --mode cli
 ```
 
 Optional volume mounts (dotfiles, shell customizations, .git read-only, etc.) are included as commented-out entries in the generated compose file. Uncomment them as needed, or set `AGENTBOX_*` environment variables for scripted usage. See the [CLI README](cli/README.md) for the full list of flags and environment variables.

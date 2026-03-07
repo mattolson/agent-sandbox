@@ -67,6 +67,20 @@ teardown() {
 	assert_output "false"
 }
 
+@test "select_yes_no returns true on empty input when default is true" {
+	run select_yes_no "Continue?" "true" <<< ""
+	assert_success
+	assert_output "true"
+}
+
+@test "select_yes_no retries on invalid input" {
+	local input=$'maybe\ny\n'
+	run select_yes_no "Continue?" <<< "$input"
+	assert_success
+	assert_output --partial "Invalid selection"
+	assert_line "true"
+}
+
 @test "open_editor returns 1 when editor not found" {
 	unset VISUAL
 
