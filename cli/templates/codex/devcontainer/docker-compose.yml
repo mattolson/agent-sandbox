@@ -48,7 +48,6 @@ services:
     tty: true
     environment:
       - TZ=${TZ:-America/Los_Angeles}
-      - CODEX_HOME=/home/dev/.codex
       - HTTP_PROXY=http://proxy:8080
       - HTTPS_PROXY=http://proxy:8080
       - NO_PROXY=localhost,127.0.0.1,proxy

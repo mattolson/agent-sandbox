@@ -32,11 +32,11 @@ Create CLI and devcontainer compose templates and devcontainer.json for Codex.
 
 ### Approach
 
-Copy the copilot templates as a starting point (copilot is the closer match since it has no agent-specific env vars like Claude's `CLAUDE_CONFIG_DIR` and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`). Then adjust:
+Copy the copilot templates as a starting point (copilot is the closer match since it has no agent-specific env vars like Claude's `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`). Then adjust:
 
 1. **Image name**: `ghcr.io/mattolson/agent-sandbox-codex:latest`
 2. **Volume names**: `codex-state` (mounted at `/home/dev/.codex`), `codex-history`
-3. **Environment**: Add `CODEX_HOME=/home/dev/.codex`. Keep proxy settings and `GODEBUG=http2client=0`.
+3. **Environment**: Keep proxy settings and `GODEBUG=http2client=0`.
 4. **devcontainer.json**: Name "Codex CLI Sandbox", no extensions (Codex is CLI-only, no VS Code or JetBrains plugin). Keep JetBrains proxy settings (useful if someone opens the devcontainer in a JetBrains IDE for other reasons).
 5. **Comment**: "Codex CLI Sandbox" header
 
@@ -63,7 +63,7 @@ None. This is a mechanical adaptation of existing templates.
 
 ### Learnings
 
-- Codex templates are nearly identical to Copilot. The only substantive differences are image name, volume names, state directory path, and `CODEX_HOME` env var. Copilot has no agent-specific env vars either, making it the cleanest base to adapt from.
+- Codex templates are nearly identical to Copilot. The substantive differences are image name, volume names, and state directory path. Copilot has no agent-specific env vars either, making it the cleanest base to adapt from.
 
 ### Follow-up Items
 
