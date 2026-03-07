@@ -95,6 +95,26 @@ teardown() {
 	assert_success
 }
 
+@test "init warns and continues when editor cannot be opened" {
+	unset -f select_yes_no
+	unset -f open_editor
+
+	local policy_path="$PROJECT_DIR/.agent-sandbox/policy-cli-claude.yaml"
+	local compose_path="$PROJECT_DIR/.agent-sandbox/docker-compose.yml"
+
+	stub select_yes_no \
+		"'Review the generated policy file at $policy_path?' : echo true" \
+		"'Review the generated compose file at $compose_path?' : echo false"
+	stub open_editor \
+		"$policy_path : exit 1"
+	stub policy "$policy_path claude : :"
+	stub cli "--policy-file .agent-sandbox/policy-cli-claude.yaml --project-path $PROJECT_DIR --agent claude --name test : :"
+
+	run init --agent claude --mode cli --name test --path "$PROJECT_DIR"
+	assert_success
+	assert_output --partial "Could not open editor for $policy_path. Review it manually."
+}
+
 @test "init skips review prompts in batch mode" {
 	unset -f select_yes_no
 	unset -f open_editor

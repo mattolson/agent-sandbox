@@ -35,7 +35,10 @@ review_generated_file() {
 	should_review=$(select_yes_no "Review the generated $label file at $file?")
 	if [[ "$should_review" == "true" ]]
 	then
-		open_editor "$file"
+		if ! open_editor "$file"
+		then
+			echo "Could not open editor for $file. Review it manually." | warning
+		fi
 	fi
 }
 
