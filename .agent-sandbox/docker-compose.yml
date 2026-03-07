@@ -2,7 +2,7 @@
 name: agent-sandbox
 services:
   proxy:
-    image: ghcr.io/mattolson/agent-sandbox-proxy@sha256:c16136b53ee9ad9e638a09bbd45c5e4473790d5ab436eddd30dc62574c6da8ce
+    image: ghcr.io/mattolson/agent-sandbox-proxy@sha256:37adc675abea828fb061ba183d898d6781f560da85d74327405a9bd7711b0720
     #image: agent-sandbox-proxy:local
     cap_drop:
       - ALL
@@ -18,7 +18,7 @@ services:
       timeout: 3s
       retries: 3
   agent:
-    image: ghcr.io/mattolson/agent-sandbox-codex@sha256:1d6cd167c7d66e32fd684b48a8a4107b5f10a47d79e68f269653bca5548ee4ee
+    image: ghcr.io/mattolson/agent-sandbox-codex@sha256:017d175e811e1e8f1e4609e11d320b9bdc2483015b6880509f997aa5077d9cbd
     #image: agent-sandbox-codex:local
     depends_on:
       proxy:

@@ -10,4 +10,5 @@
 services:
   - codex
 # Additional domains allowed through the proxy
-domains: []
+domains:
+  - "mcp.linear.app"
