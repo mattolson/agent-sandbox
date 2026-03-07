@@ -109,7 +109,7 @@ The proxy domain allowlist includes both OpenAI API domains and OAuth domains (`
 - `cli/templates/codex/devcontainer/docker-compose.yml`
 - `cli/templates/codex/devcontainer/devcontainer.json`
 - Named volumes: `codex-state` (for `~/.codex/`), `codex-history` (shell history)
-- Environment: `CODEX_HOME=/home/dev/.codex`, proxy settings, `GODEBUG=http2client=0`
+- Environment: proxy settings and `GODEBUG=http2client=0`
 - No agent-specific VS Code extension (Codex is CLI-only)
 - devcontainer.json name: "Codex CLI Sandbox"
 

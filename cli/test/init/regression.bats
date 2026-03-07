@@ -116,8 +116,9 @@ claude_agent_compose_file_has_expected_content() {
 
 	assert_proxy_service "$compose_file" "ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
 	assert_agent_service_base "$compose_file" "ghcr.io/mattolson/agent-sandbox-claude@sha256:def456"
-
-	yq -e '.services.agent.environment[] | select(. == "CLAUDE_CONFIG_DIR=/home/dev/.claude")' "$compose_file"
+	yq -e '.services.agent.environment[] | select(. == "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1")' "$compose_file"
+	run yq '.services.agent.environment[] | select(. == "CLAUDE_CONFIG_DIR=/home/dev/.claude")' "$compose_file"
+	assert_output ""
 
 	assert_common_environment_vars "$compose_file"
 	assert_common_volumes "$compose_file"
@@ -152,6 +153,31 @@ copilot_agent_compose_file_has_expected_content() {
 
 	assert_named_volumes "$compose_file" "copilot-state" "copilot-history" "proxy-state" "proxy-ca"
 	assert_customization_volumes "$compose_file"
+	# shellcheck disable=SC2016
+	run yq '.services.agent.volumes[] | select(. == "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro")' "$compose_file"
+	assert_output ""
+}
+
+codex_agent_compose_file_has_expected_content() {
+	local compose_file=$1
+
+	assert [ -f "$compose_file" ]
+
+	assert_proxy_service "$compose_file" "ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
+	assert_agent_service_base "$compose_file" "ghcr.io/mattolson/agent-sandbox-codex@sha256:jkl012"
+	run yq '.services.agent.environment[] | select(. == "CODEX_HOME=/home/dev/.codex")' "$compose_file"
+	assert_output ""
+
+	assert_common_environment_vars "$compose_file"
+	assert_common_volumes "$compose_file"
+
+	yq -e '.services.agent.volumes[] | select(. == "codex-state:/home/dev/.codex")' "$compose_file"
+
+	yq -e '.services.agent.volumes[] | select(. == "codex-history:/commandhistory")' "$compose_file"
+
+	assert_named_volumes "$compose_file" "codex-state" "codex-history" "proxy-state" "proxy-ca"
+	assert_customization_volumes "$compose_file"
+
 	# shellcheck disable=SC2016
 	run yq '.services.agent.volumes[] | select(. == "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro")' "$compose_file"
 	assert_output ""
@@ -266,6 +292,61 @@ copilot_agent_compose_file_has_expected_content() {
 	assert_output "project-sandbox-devcontainer"
 
 	copilot_agent_compose_file_has_expected_content "$PROJECT_DIR/.devcontainer/docker-compose.yml"
+
+	assert_devcontainer_volume "$PROJECT_DIR/.devcontainer/docker-compose.yml"
+}
+
+@test "cli creates docker-compose.yml for codex agent with all standard options enabled" {
+	export AGENTBOX_PROXY_IMAGE="ghcr.io/mattolson/agent-sandbox-proxy:latest"
+	export AGENTBOX_AGENT_IMAGE="ghcr.io/mattolson/agent-sandbox-codex:latest"
+	export AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS="true"
+	export AGENTBOX_ENABLE_DOTFILES="true"
+	export AGENTBOX_MOUNT_GIT_READONLY="true"
+	export AGENTBOX_MOUNT_IDEA_READONLY="true"
+	export AGENTBOX_MOUNT_VSCODE_READONLY="true"
+
+	unset -f pull_and_pin_image
+	stub pull_and_pin_image \
+		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
+		"ghcr.io/mattolson/agent-sandbox-codex:latest : echo 'ghcr.io/mattolson/agent-sandbox-codex@sha256:jkl012'"
+
+	run cli \
+		--policy-file "$POLICY_FILE" \
+		--project-path "$PROJECT_DIR" \
+		--agent "codex"
+	assert_success
+
+	run yq '.name' "$PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
+	assert_output "project-sandbox"
+
+	codex_agent_compose_file_has_expected_content "$PROJECT_DIR/$AGB_PROJECT_DIR/docker-compose.yml"
+}
+
+@test "devcontainer creates docker-compose.yml for codex agent with all standard options enabled" {
+	export AGENTBOX_PROXY_IMAGE="ghcr.io/mattolson/agent-sandbox-proxy:latest"
+	export AGENTBOX_AGENT_IMAGE="ghcr.io/mattolson/agent-sandbox-codex:latest"
+	export AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS="true"
+	export AGENTBOX_ENABLE_DOTFILES="true"
+	export AGENTBOX_MOUNT_GIT_READONLY="true"
+	export AGENTBOX_MOUNT_IDEA_READONLY="true"
+	export AGENTBOX_MOUNT_VSCODE_READONLY="true"
+
+	unset -f pull_and_pin_image
+	stub pull_and_pin_image \
+		"ghcr.io/mattolson/agent-sandbox-proxy:latest : echo 'ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123'" \
+		"ghcr.io/mattolson/agent-sandbox-codex:latest : echo 'ghcr.io/mattolson/agent-sandbox-codex@sha256:jkl012'"
+
+	run devcontainer \
+		--policy-file "$POLICY_FILE" \
+		--project-path "$PROJECT_DIR" \
+		--agent "codex" \
+		--ide "vscode"
+	assert_success
+
+	run yq '.name' "$PROJECT_DIR/.devcontainer/docker-compose.yml"
+	assert_output "project-sandbox-devcontainer"
+
+	codex_agent_compose_file_has_expected_content "$PROJECT_DIR/.devcontainer/docker-compose.yml"
 
 	assert_devcontainer_volume "$PROJECT_DIR/.devcontainer/docker-compose.yml"
 }
