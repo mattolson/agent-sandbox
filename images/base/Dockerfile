@@ -1,3 +1,27 @@
+FROM debian:bookworm-slim AS git-builder
+
+ARG GIT_VERSION=2.50.1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  build-essential \
+  ca-certificates \
+  curl \
+  libcurl4-openssl-dev \
+  libexpat1-dev \
+  libpcre2-dev \
+  libssl-dev \
+  perl \
+  zlib1g-dev \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /tmp
+
+RUN curl -fsSL "https://github.com/git/git/archive/refs/tags/v${GIT_VERSION}.tar.gz" -o git.tar.gz && \
+  tar -xzf git.tar.gz && \
+  cd "git-${GIT_VERSION}" && \
+  make prefix=/usr/local NO_GETTEXT=YesPlease NO_TCLTK=YesPlease -j"$(nproc)" all && \
+  make prefix=/usr/local NO_GETTEXT=YesPlease NO_TCLTK=YesPlease install
+
 FROM debian:bookworm-slim
 
 ARG TZ
@@ -8,13 +32,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   curl \
   fzf \
-  git \
   gnupg2 \
   iptables \
   ipset \
   iproute2 \
   jq \
   less \
+  perl \
   procps \
   ripgrep \
   sudo \
@@ -50,6 +74,10 @@ RUN mkdir -p /workspace && chown -R ${USERNAME}:${USERNAME} /workspace
 
 WORKDIR /workspace
 
+# Debian bookworm ships Git 2.39.5, which cannot create relative worktree
+# metadata even if worktree.useRelativePaths is configured.
+COPY --from=git-builder /usr/local/ /usr/local/
+
 USER ${USERNAME}
 
 # Set default shell and editor
@@ -66,7 +94,8 @@ COPY --chown=${USERNAME}:${USERNAME} tmux.conf /home/${USERNAME}/.tmux.conf
 
 # Configure git to use HTTPS instead of SSH (port 22 is blocked to prevent tunneling)
 RUN git config --global url."https://github.com/".insteadOf git@github.com: && \
-  git config --global --add url."https://github.com/".insteadOf ssh://git@github.com/
+  git config --global --add url."https://github.com/".insteadOf ssh://git@github.com/ && \
+  git config --global worktree.useRelativePaths true
 
 # Copy firewall script, shell init, and utilities
 # Files in /etc/agent-sandbox are root-owned to prevent agent tampering
