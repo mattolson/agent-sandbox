@@ -198,7 +198,18 @@ To limit exposure:
 
 ### IDE devcontainer
 
-Operating as a devcontainer (VS Code or JetBrains) opens a channel to the IDE. Installing IDE extensions can [introduce risk](https://blog.theredguild.org/leveraging-vscode-internals-to-escape-containers/). For tighter security, we recommend running in CLI mode (local docker compose and terminal operations, rather than IDE extensions).
+Operating as a devcontainer (VS Code or JetBrains) opens a management channel between the IDE and the container. This channel is separate from the agent's normal network data plane.
+
+What this means in practice:
+
+- The proxy and iptables firewall still constrain ordinary outbound traffic from processes in the container
+- IDE-managed features such as port forwarding, localhost callbacks, opening browser URLs on the host, and extension RPC are part of a separate control plane
+- Blocking the container's bridge-network traffic does not fully remove that IDE control plane
+- Installing IDE extensions can [introduce additional risk](https://blog.theredguild.org/leveraging-vscode-internals-to-escape-containers/)
+
+Treat the IDE and its extensions as trusted host-side code. If you want the tightest boundary, use CLI mode instead of devcontainer mode.
+
+For Codex specifically, prefer [device code OAuth](./docs/codex/README.md) in sandboxed environments. It avoids localhost callback flows entirely.
 
 ### Security issues
 
