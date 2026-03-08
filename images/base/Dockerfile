@@ -1,6 +1,7 @@
 FROM debian:bookworm-slim AS git-builder
 
 ARG GIT_VERSION=2.50.1
+ARG GIT_TARBALL_SHA256=4932f262b88b7f4f8402e331a7ee8d0a98ba350aa2269ce3a00eeda18cb4fe43
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   build-essential \
@@ -17,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /tmp
 
 RUN curl -fsSL "https://github.com/git/git/archive/refs/tags/v${GIT_VERSION}.tar.gz" -o git.tar.gz && \
+  echo "${GIT_TARBALL_SHA256}  git.tar.gz" | sha256sum -c - && \
   tar -xzf git.tar.gz && \
   cd "git-${GIT_VERSION}" && \
   make prefix=/usr/local NO_GETTEXT=YesPlease NO_TCLTK=YesPlease -j"$(nproc)" all && \
