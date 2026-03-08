@@ -54,6 +54,7 @@ For each item under review:
 - Kata Containers
 - Docker Sandboxes
 - OpenSandbox
+- Matchlock
 - `kubernetes-sigs/agent-sandbox`
 - CodeSandbox SDK
 - E2B
@@ -1036,6 +1037,10 @@ For each project, review:
   - General-purpose sandbox platform with multi-language SDKs, unified sandbox APIs, Docker and Kubernetes runtimes, ingress and egress components, and optional secure runtimes including gVisor, Kata, and Firecracker
   - Review focus: protocol and API design, lifecycle server model, runtime abstraction, secure-runtime pluggability, ingress and egress primitives, and how local Docker mode differs from Kubernetes mode
 
+- [jingkaihe/matchlock](https://github.com/jingkaihe/matchlock)
+  - Experimental CLI and SDK for running AI agents in ephemeral microVMs with host-managed network allowlisting, MITM-based secret injection, and isolated overlay-backed filesystem snapshots
+  - Review focus: microVM lifecycle and startup model, host-side secret boundary, allowlist and interception design, volume snapshot semantics, and Linux versus Apple Silicon portability
+
 - [agent-infra/sandbox](https://github.com/agent-infra/sandbox)
   - All-in-one Docker sandbox with browser, shell, file, MCP, VS Code Server, and Jupyter in one container
   - Review focus: single-container unified environment, browser and MCP primitives, API surface, and what security guarantees are actually enforced versus claimed
@@ -1138,6 +1143,203 @@ When reviewing an item, capture whether it implements any of these primitives:
 - Command hooks or deny rules
 - Multi-agent abstraction
 - Remote execution or gateway fleet support
+
+## Research notes
+
+### VirtusLab/sandcat
+
+- Item name: `VirtusLab/sandcat`
+- Category:
+  - proxy or policy layer
+  - tooling layer
+- Research priority: `P2`
+- Claimed runtime boundary:
+  - `documented`: Docker and devcontainer setup with transparent mitmproxy, host-mounted settings, and proxy-side secret substitution
+- Verified runtime boundary:
+  - `documented`: plain Docker containers, not a VM, microVM, or alternate kernel boundary
+  - `documented`: the `app` container shares the `wg-client` container's network namespace via `network_mode: "service:wg-client"`
+  - `documented`: `wg-client` owns `NET_ADMIN`, creates the WireGuard tunnel, and installs iptables kill-switch rules
+  - `documented`: mitmproxy runs in WireGuard mode via `mitmweb --mode wireguard`
+- Workspace model:
+  - `documented`: bind-mounted project workspace
+  - `documented`: `.devcontainer` is overlaid read-only so the agent cannot rewrite its own compose files, Dockerfile, or devcontainer config
+- Persistence model:
+  - `documented`: named `app-home` volume persists the devcontainer user's home and agent state across rebuilds
+- Network control model:
+  - `documented`: all app traffic is routed through the `wg-client` namespace and WireGuard tunnel, so tools do not need explicit proxy environment variables
+  - `documented`: network rules are ordered, first-match-wins, default deny, and match `host` plus optional HTTP `method`
+  - `documented`: direct `eth0` egress, direct host access, and direct access to the mitmproxy container are intentionally blocked by the kill switch
+  - `inferred`: actual policy enforcement is implemented in the mitmproxy addon's `request(self, flow: http.HTTPFlow)` hook, so the repo shows HTTP(S) policy decisions clearly but does not show an equivalent policy engine for DNS or arbitrary raw TCP or UDP
+- Runtime control model:
+  - `documented`: capability separation is thoughtful but limited; only the networking container gets `NET_ADMIN`, while app containers inherit its namespace without that capability
+  - `unknown`: no documented seccomp, AppArmor, SELinux, gVisor, or similar stronger runtime boundary
+- Secrets model:
+  - `documented`: real secrets live only in host-side settings mounted into mitmproxy
+  - `documented`: the app container receives deterministic placeholders through `sandcat.env`
+  - `documented`: the addon replaces placeholders in request URL, headers, and body only for allowed hosts and blocks mismatches as secret leaks
+- Observability model:
+  - `documented`: mitmweb UI plus addon warning logs
+  - `unknown`: no structured audit event schema or external policy-decision stream is documented
+- Local platform support:
+  - `documented`: Docker Compose plus VS Code devcontainer workflow
+  - `inferred`: should work anywhere Docker-based devcontainers work
+  - `unknown`: no explicit support matrix for macOS, Linux, or Apple Silicon
+- Multi-agent compatibility:
+  - `documented`: packaged workflow is Claude-centric
+  - `inferred`: network and secret primitives are generic enough to reuse for other agents, but that is not the repo's primary surface
+- Primitive checklist:
+  - Shared workspace mount: yes
+  - Copy-on-write workspace: no
+  - Patch-only or branch-only writeback: no
+  - Read-only parent or host mounts: yes
+  - Home-directory shadowing: partial
+  - Scratch or temp volume isolation: no explicit model
+  - Domain allowlist proxy: yes
+  - Path and method policy: method only, no path support
+  - Transparent versus explicit proxying: transparent
+  - DNS allowlist or DNS interception: interception is documented, policy model is unknown
+  - Non-HTTP TCP policy: tunnel path is documented, policy model is unknown
+  - SSH handling: effectively disabled; GitHub SSH remotes are rewritten to HTTPS
+  - Secret brokering: yes
+  - Proxy-side secret substitution: yes
+  - Output validation and quarantine: no
+  - Audit logs: partial
+  - Command hooks or deny rules: no
+  - Multi-agent abstraction: no
+  - Remote execution or gateway fleet support: no
+- Key strengths:
+  - Transparent capture avoids the "`HTTP_PROXY` is advisory" problem and works for tools that ignore explicit proxy settings
+  - Proxy-side secret substitution is one of the strongest ideas here; the agent sees placeholders, not raw API keys
+  - Devcontainer hardening is concrete and useful: cleared forwarded credential env vars, post-start socket cleanup, copied git config disabled, workspace trust enabled, and local terminal disabled
+- Key limits:
+  - This is not a new runtime substrate. It is still a standard Docker container boundary with better network plumbing
+  - Policy expressiveness is still narrow: host plus optional method, no path rules, no backend-agnostic policy IR, no explicit non-HTTP policy model
+  - The WireGuard plus shared-namespace design adds startup ordering and networking complexity without solving the separate IDE control plane that the repo itself documents
+  - The packaged workflow is devcontainer- and Claude-shaped, not a neutral multi-agent control plane
+- Open questions:
+  - Could proxy-side secret substitution cover enough of `m14-host-credential-service` to move that idea earlier, or is it only a complement for HTTP-native credentials?
+  - Do we need transparent capture enough to justify the added WireGuard complexity, given the current explicit proxy plus firewall design already blocks direct egress?
+  - Should any sandcat-inspired work land as devcontainer-only hardening rather than as part of the core backend contract?
+- Verdict: `useful supporting reference`
+
+### Sandcat implications for this project
+
+- Worth bringing into the vision:
+  - proxy-side secret substitution and leak detection as an optional credential mode
+  - devcontainer hardening defaults: clear forwarded credential env vars, disable copied git config, disable local terminal, and remove forwarded sockets after VS Code attaches
+  - read-only overlay of sandbox control files where the IDE workflow allows it
+- Probably not worth bringing in as-is:
+  - WireGuard transparent proxying as the default local path
+  - Claude-specific host customization mounts
+  - liberal "`allow GET *`" policy templates, which are directly at odds with prompt-injection resistance
+- Research consequence:
+  - Keep `sandcat` as a supporting reference for proxy-side secrets and devcontainer escape reduction, not as a candidate default backend
+
+### jingkaihe/matchlock
+
+- Item name: `jingkaihe/matchlock`
+- Category:
+  - runtime substrate
+  - control plane
+  - proxy or policy layer
+- Research priority: `P0`
+- Claimed runtime boundary:
+  - `documented`: ephemeral microVMs with VM-level isolation, network allowlisting, MITM-based secret injection, and host-side policy controls
+- Verified runtime boundary:
+  - `documented`: Linux backend uses Firecracker
+  - `documented`: macOS backend uses Virtualization.framework and supports Apple Silicon, not Intel
+  - `documented`: host-side components include a policy engine, transparent proxy plus TLS MITM, VFS server, and JSON-RPC control surface
+  - `documented`: host-guest communication uses vsock for exec, VFS, and readiness signaling
+- Workspace model:
+  - `documented`: `/workspace` is exposed through a guest FUSE mount backed by a host VFS server over vsock
+  - `documented`: volume overlay mounts are isolated snapshots intended to disappear when the VM is torn down
+  - `documented`: named disk volumes can persist across runs via `matchlock volume create` and `--disk @name:/mount`
+- Persistence model:
+  - `documented`: lifecycle and runtime metadata live in `~/.matchlock/state.db`
+  - `documented`: image metadata lives in `~/.cache/matchlock/images/metadata.db`
+  - `documented`: current runtime creates per-VM rootfs copies; an OCI layer-aware overlay-root redesign is proposed but not yet the baseline
+- Network control model:
+  - `documented`: Linux uses transparent interception with nftables DNAT on ports 80 and 443
+  - `documented`: macOS defaults to Virtualization.framework NAT and switches to a gVisor userspace TCP/IP path when interception features are required
+  - `documented`: interception is activated by allow-list rules, secrets, hook rules, or explicit `--network-intercept`
+  - `documented`: the host-side interception plane supports allow-list enforcement, runtime allow-list mutation, and hook rules over host, method, and path
+  - `documented`: hook rules can mutate requests and responses, including SSE `data:` lines, and can block traffic in `before` or `after` phases
+  - `documented`: `--no-network` provides a fully offline mode
+  - `documented`: empty allow-list means "allow all hosts" when interception is enabled
+  - `documented`: non-HTTP protocols are not mutated by hook rules
+- Runtime control model:
+  - `documented`: the microVM is the primary isolation boundary
+  - `documented`: guest exec adds defense in depth with PID and mount namespaces, selected capability drops, `no_new_privs`, and a seccomp filter that blocks ptrace and process-memory syscalls plus kexec
+  - `documented`: a privileged mode exists and explicitly skips capability drops, seccomp, and `no_new_privs`
+- Secrets model:
+  - `documented`: real secrets never enter the VM; the sandbox sees placeholders and the host MITM path substitutes the real values
+  - `documented`: secret replacement scope is request headers plus URL or query string
+  - `documented`: request body replacement is intentionally not performed for secrets
+- Observability model:
+  - `documented`: lifecycle phases, cleanup state, runtime metadata, and resource identifiers are persisted in SQLite and exposed through `list`, `gc`, `rm`, and `prune` workflows
+  - `documented`: leaked host resources can be reconciled after crashes with `matchlock gc`
+  - `unknown`: public docs do not clearly describe a structured per-request audit log or exportable event stream comparable to a policy decision log
+- Local platform support:
+  - `documented`: Linux with KVM support
+  - `documented`: macOS on Apple Silicon
+  - `documented`: macOS Intel is not supported
+  - `unknown`: no Windows path is documented
+- Multi-agent compatibility:
+  - `documented`: examples exist for Claude Code, Codex, MCP-style workloads, browser automation, and generic Go, Python, and TypeScript SDK usage
+  - `documented`: JSON-RPC methods cover create, exec, file I/O, allow-list updates, port forwarding, cancellation, and close
+- Primitive checklist:
+  - Shared workspace mount: yes
+  - Copy-on-write workspace: partial
+  - Patch-only or branch-only writeback: no
+  - Read-only parent or host mounts: partial
+  - Home-directory shadowing: no explicit model
+  - Scratch or temp volume isolation: yes
+  - Domain allowlist proxy: yes
+  - Path and method policy: yes
+  - Transparent versus explicit proxying: transparent on Linux, mixed on macOS
+  - DNS allowlist or DNS interception: unknown
+  - Non-HTTP TCP policy: partial
+  - SSH handling: unknown
+  - Secret brokering: yes
+  - Proxy-side secret substitution: yes
+  - Output validation and quarantine: no
+  - Audit logs: partial
+  - Command hooks or deny rules: no
+  - Multi-agent abstraction: yes
+  - Remote execution or gateway fleet support: no
+- Key strengths:
+  - This is a genuine stronger-isolation reference, not just a container-plus-proxy variant
+  - The split between host policy engine, host VFS service, and microVM runtime is directly relevant to `m18-backend-interface`
+  - Network policy is materially richer than our current baseline: host allow-listing, path and method matching, request or response mutation, runtime allow-list edits, and offline mode
+  - The VFS layer is more interesting than it first appears; it creates a host-side place to enforce or observe filesystem operations without bind-mounting the host repo directly into the guest
+  - Lifecycle persistence and reconciliation are stronger than most research repos in this space
+- Key limits:
+  - Default network posture is weaker than our target model: interception is feature-triggered, and an empty allow-list in interception mode still means allow-all
+  - Some of the most powerful controls are SDK-local callbacks and even `dangerous_hook` callbacks, which expand the trusted host-side execution surface and are a poor fit for a portable policy IR
+  - The current image and rootfs model still relies on per-VM rootfs copies; the more compelling OCI layer-aware overlay-root design is still an ADR, not the shipped default
+  - Cross-platform parity is real but not symmetrical: Linux gets Firecracker plus nftables transparency, while macOS falls back to Virtualization.framework NAT or gVisor-based interception
+  - Privileged mode is useful, but it weakens in-guest defense in depth and should not be normalized as a default developer path
+- Open questions:
+  - Should our backend interface borrow Matchlock's split between host VFS and exec control planes, while explicitly refusing SDK-local callback policies as a first-class authoring model?
+  - Is a FUSE-backed workspace better than a direct shared mount for our local Git-centric workflow, or does it introduce too much complexity and UX risk?
+  - Could a stronger-isolation backend use Matchlock-like microVM and vsock primitives while still keeping our stricter default-deny policy semantics?
+  - How much of Matchlock's lifecycle and GC model is worth copying into local agent-sandbox state management even for non-VM backends?
+- Verdict: `likely core reference`
+
+### Matchlock implications for this project
+
+- Worth bringing into the vision:
+  - a real microVM-backed stronger-isolation backend candidate
+  - host-side VFS and exec control-plane separation as input to `m18-backend-interface`
+  - richer HTTP policy concepts for `m15`, especially method and path matching plus response shaping
+  - lifecycle persistence and explicit garbage-collection or reconcile workflows for leaked sandbox resources
+- Probably not worth bringing in as-is:
+  - feature-triggered interception with allow-all semantics when the allow-list is empty
+  - SDK-local callback hooks and especially `dangerous_hook` as primary policy authoring primitives
+  - assuming a FUSE or VFS workspace model is the right default for local developer ergonomics before measuring it against a shared mount model
+- Research consequence:
+  - Treat `matchlock` as a leading reference for the optional stronger-isolation backend and for backend-interface design, not as an argument to replace the current local default before we have comparative measurements
+  - It should directly inform `m18-backend-interface` and `m20-runtime-spikes-vm`
 
 ## Research backlog: commercial products
 
@@ -1487,6 +1689,14 @@ Choose:
 - [kubernetes-sigs/agent-sandbox](https://github.com/kubernetes-sigs/agent-sandbox): Kubernetes CRD and controller for isolated, stateful, singleton sandboxes with stable identity and pluggable runtimes
 - [agent-infra/sandbox](https://github.com/agent-infra/sandbox): all-in-one agent sandbox container with browser, files, shell, MCP, VS Code Server, and Jupyter
 - [alibaba/OpenSandbox](https://github.com/alibaba/OpenSandbox): general-purpose sandbox platform with multi-language SDKs, unified APIs, Docker and Kubernetes runtimes, ingress and egress components, and secure runtime support
+- [jingkaihe/matchlock](https://github.com/jingkaihe/matchlock): experimental microVM sandbox for AI agents with host-side policy and secret injection
+- [jingkaihe/matchlock AGENTS guide](https://raw.githubusercontent.com/jingkaihe/matchlock/main/AGENTS.md): concrete backend split, vsock ports, and Linux versus macOS runtime details
+- [jingkaihe/matchlock network interception](https://raw.githubusercontent.com/jingkaihe/matchlock/main/docs/network-interception.md): allow-list mutation, hook rules, method and path matching, and secret replacement scope
+- [jingkaihe/matchlock VFS interception](https://raw.githubusercontent.com/jingkaihe/matchlock/main/docs/vfs-interception.md): host-side filesystem hook model and SDK-local callback tradeoffs
+- [jingkaihe/matchlock lifecycle](https://raw.githubusercontent.com/jingkaihe/matchlock/main/docs/lifecycle.md): SQLite-backed lifecycle state, reconciliation, and cleanup semantics
+- [jingkaihe/matchlock ADR-001 local image build](https://raw.githubusercontent.com/jingkaihe/matchlock/main/adrs/001-local-image-build.md): guest defense-in-depth details and privileged-mode consequences
+- [jingkaihe/matchlock ADR-003 overlay root](https://raw.githubusercontent.com/jingkaihe/matchlock/main/adrs/003-oci-layer-store-overlay-root.md): proposed OCI layer-aware storage and per-VM writable upper design
+- [jingkaihe/matchlock guest sandbox process](https://raw.githubusercontent.com/jingkaihe/matchlock/main/internal/guestruntime/agent/sandbox_proc.go): in-guest namespace, capability-drop, seccomp, and `no_new_privs` implementation
 - [release-engineers/agent-sandbox](https://github.com/release-engineers/agent-sandbox): container-per-agent sandbox with network proxying and patch-based writeback
 - [craigbalding/safeyolo](https://github.com/craigbalding/safeyolo): sandbox for Claude Code and Codex with network isolation, credential protection, and audit logging
 - [numtide/claudebox](https://github.com/numtide/claudebox): lightweight Claude Code sandbox with Nix integration and shadowed home
@@ -1495,3 +1705,7 @@ Choose:
 - [schmitthub/openclaw-deploy](https://github.com/schmitthub/openclaw-deploy): hosted OpenClaw gateway deployment with egress filtering and DNS controls
 - [dtormoen/tsk](https://github.com/dtormoen/tsk): multi-agent task runner over sandbox containers with branch handoff
 - [VirtusLab/sandcat](https://github.com/VirtusLab/sandcat): transparent-proxy and devcontainer based sandbox with secret substitution
+- [VirtusLab/sandcat `compose-all.yml`](https://github.com/VirtusLab/sandcat/blob/master/compose-all.yml): app container shares `wg-client` network namespace and mounts workspace plus read-only control files
+- [VirtusLab/sandcat `compose-proxy.yml`](https://github.com/VirtusLab/sandcat/blob/master/compose-proxy.yml): dedicated networking container, WireGuard setup, and mitmproxy WireGuard mode
+- [VirtusLab/sandcat `mitmproxy_addon.py`](https://github.com/VirtusLab/sandcat/blob/master/scripts/mitmproxy_addon.py): first-match host or method policy plus proxy-side secret substitution and leak blocking
+- [VirtusLab/sandcat `.devcontainer/devcontainer.json`](https://github.com/VirtusLab/sandcat/blob/master/.devcontainer/devcontainer.json): concrete VS Code hardening settings and post-start cleanup hook
