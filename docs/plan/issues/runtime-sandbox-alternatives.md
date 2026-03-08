@@ -96,7 +96,7 @@ For each item under review:
 - `agent-embassy`
 - `sandcat`
 - `claude-code-safety-net`
-- `tsk-tsk`
+- `tsk`
 
 ## Problem
 
@@ -975,7 +975,7 @@ This is a separate but closely related control-plane problem.
 
 See:
 
-- [mcp-gateway.md](/workspace/docs/plan/issues/mcp-gateway.md)
+- [mcp-gateway.md](./mcp-gateway.md)
 
 Why it matters:
 
@@ -1070,7 +1070,7 @@ For each project, review:
   - Remote deployment of OpenClaw gateway fleets with Envoy egress filtering, Tailscale networking, and CoreDNS allowlist proxying
   - Review focus: remote gateway architecture, structured egress policy, DNS exfiltration prevention, SSH and raw TCP handling, and hosted deployment tradeoffs
 
-- [dtormoen/tsk-tsk](https://github.com/dtormoen/tsk)
+- [dtormoen/tsk](https://github.com/dtormoen/tsk)
   - Task orchestration tool that runs Claude and Codex in parallel sandbox containers, auto-builds toolchain images, and fetches branches back for review
   - Review focus: task queueing, multi-agent abstraction, branch-based handoff, automatic image construction, and Docker versus Podman runtime support
 
@@ -1493,5 +1493,5 @@ Choose:
 - [kenryu42/claude-code-safety-net](https://github.com/kenryu42/claude-code-safety-net): hook and plugin based safety guardrails for Claude Code
 - [AshitaOrbis/agent-embassy](https://github.com/AshitaOrbis/agent-embassy): Docker Compose embassy pattern with egress control and output validation
 - [schmitthub/openclaw-deploy](https://github.com/schmitthub/openclaw-deploy): hosted OpenClaw gateway deployment with egress filtering and DNS controls
-- [dtormoen/tsk-tsk](https://github.com/dtormoen/tsk): multi-agent task runner over sandbox containers with branch handoff
+- [dtormoen/tsk](https://github.com/dtormoen/tsk): multi-agent task runner over sandbox containers with branch handoff
 - [VirtusLab/sandcat](https://github.com/VirtusLab/sandcat): transparent-proxy and devcontainer based sandbox with secret substitution
