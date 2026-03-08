@@ -6,29 +6,19 @@
 Run AI coding agents in a locked-down local sandbox with:
 
 - Minimal filesystem access (only your repo + project-scoped agent state)
-- Proxy-enforced domain allowlist (mitmproxy sidecar blocks non-allowed domains)
+- Configurable egress policy enforced by sidecar proxy (mitmproxy sidecar blocks non-allowed domains)
 - Iptables firewall preventing direct outbound (all traffic must go through the proxy)
 - Reproducible environments (Debian container with pinned dependencies)
 
 Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](https://docs.docker.com/engine/) on Apple Silicon. Should work with any Docker-compatible runtime.
-
-## What it does
-
-Creates a sandboxed environment for AI coding agents (currently Claude Code, GitHub Copilot CLI, but more to come) that:
-
-- Routes all HTTP/HTTPS traffic through an enforcing proxy sidecar
-- Blocks requests to domains not on the allowlist (403 with domain name in response)
-- Blocks all direct outbound via iptables (prevents bypassing the proxy)
-- Runs as non-root user with limited sudo only for firewall initialization in entrypoint
-- Persists agent credentials and configuration in a Docker volume across container rebuilds
 
 ## Supported agents
 
 | Agent | Status |
 |-------|--------|
 | [Claude Code](https://claude.ai/code) | ✅ Stable |
+| [Codex CLI](https://github.com/openai/codex) | ✅ Stable |
 | [GitHub Copilot CLI](https://github.com/github/copilot-cli) | 🧪 Preview |
-| [OpenAI Codex CLI](https://github.com/openai/codex) | 🧪 Preview |
 
 ## Runtime modes
 
