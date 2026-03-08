@@ -14,19 +14,20 @@ Git stores absolute paths in two places:
 
 ## Proposed solution
 
-Git 2.38+ supports relative paths in worktree metadata via `worktree.useRelativePaths` config or the `--relative-paths` flag on `git worktree add`.
+Git 2.48+ supports relative paths in worktree metadata via `worktree.useRelativePaths` config or the `--relative-paths` flag on `git worktree add`.
 
 With relative paths, the pointer files resolve correctly regardless of where the repo root is mounted.
 
 **Implementation:**
-- Set `worktree.useRelativePaths = true` in the container's git config (via base image or shell-init)
+- Upgrade the base image's Git to 2.48+ (Debian bookworm's Git 2.39.5 cannot create relative worktree metadata)
+- Set `worktree.useRelativePaths = true` in the container's git config
 - Ensure worktrees are created under the repo root (e.g., `.worktrees/`) so they're visible through the bind mount
-- Document the requirement that the host's git must be 2.38+ (macOS ships older Apple Git; Homebrew git is current)
-- Container already has git 2.39.5, which supports this feature
+- Document the requirement that the host's git must be 2.48+ (macOS ships older Apple Git; Homebrew git is current)
+- Container currently has git 2.39.5, so the fix is not a config-only change
 
 ## Scope
 
-Small, self-contained change. Likely a single config line in the base image or shell-init, plus documentation.
+Small, self-contained base image change. Requires a Git upgrade, one config line, and documentation.
 
 ## Labels
 

@@ -6,6 +6,25 @@ Git operations can be run from the host or from inside the container.
 
 Run git commands (clone, commit, push) from your host terminal. The agent writes code, you handle version control. No credential setup needed inside the container.
 
+## Worktrees across host and container
+
+Git worktree metadata breaks if it stores container-only absolute paths such as `/workspace/.worktrees/feature` and the host sees the same repo at a different path.
+
+The base image avoids that by:
+
+- Shipping Git 2.50.1 by default
+- Setting `worktree.useRelativePaths=true` in the container's global git config
+
+Practical guidance:
+
+- Create shared worktrees under the repo root, for example `.worktrees/feature`
+- Use Git 2.48 or newer on the host as well when working with repos that use relative worktree metadata
+- On macOS, prefer Homebrew Git over the older Apple-provided Git when using this workflow
+
+Why this is necessary: Debian bookworm's packaged Git is 2.39.5, and that version cannot create relative worktree metadata with config alone.
+
+If you already created worktrees with older container images, recreate them or repair them from a Git 2.48+ environment before expecting host/container path portability.
+
 ## Git from container
 
 If you want the agent to run git commands, some setup is required.
