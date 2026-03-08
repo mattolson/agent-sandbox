@@ -1,5 +1,103 @@
 # Runtime sandbox alternatives
 
+## How to use this document
+
+This document should work as a research workbook, not just a dump of findings.
+
+Use it in this order:
+
+1. Read `Decisions to make` to stay anchored on what this research is supposed to decide.
+2. Use `Prioritized research queue` to decide what to investigate next.
+3. Use `Research worksheet` when reviewing any backend, product, or repo.
+4. Use the `Landscape reference` sections for taxonomy and background.
+5. Record conclusions in milestone plans or decision records once a question is settled.
+
+This keeps the document useful even as the source list grows.
+
+## Decisions to make
+
+This research should drive a small number of concrete decisions:
+
+- What should be the default local backend?
+- What should be the optional stronger-isolation backend?
+- What should be the common policy model across backends?
+- Which capabilities can degrade by backend, and which are mandatory?
+- Which deployment targets are first-class:
+  - local single-user
+  - hosted multi-tenant
+  - Kubernetes-managed
+
+## Research workflow
+
+For each item under review:
+
+1. Classify the item by layer:
+   - runtime substrate
+   - control plane
+   - proxy or policy layer
+   - tooling or environment-definition layer
+2. Verify the actual substrate from primary docs.
+3. Mark every important claim as either:
+   - `documented`
+   - `inferred`
+   - `unknown`
+4. Fill out the `Research worksheet`.
+5. Score the item against `Evaluation criteria`.
+6. Promote only the high-signal findings into milestones or decision records.
+
+## Prioritized research queue
+
+### P0: likely to affect architecture decisions
+
+- Current container plus proxy baseline
+- gVisor
+- Kata Containers
+- Docker Sandboxes
+- OpenSandbox
+- `kubernetes-sigs/agent-sandbox`
+- CodeSandbox SDK
+- E2B
+- Runloop
+- GKE Agent Sandbox
+- Vercel Sandbox
+- MCP gateway and host-side registry
+- Policy IR direction:
+  - Kubernetes `NetworkPolicy`
+  - Cilium policy
+  - Cedar
+  - OPA
+
+### P1: likely to affect packaging, portability, or UX
+
+- Podman rootless
+- Colima
+- Finch
+- Rancher Desktop
+- Modal
+- Daytona
+- Blaxel
+- Cloudflare Sandbox
+- Sandbox0
+- Nix
+- NixOS
+- Devbox
+- devcontainer
+
+### P2: useful adjacent references and edge cases
+
+- Ona
+- AgentSandbox.co
+- Warden
+- Traefik
+- Varnish
+- Unikraft
+- `claudebox`
+- `safeyolo`
+- `agent-embassy`
+- `sandcat`
+- `claude-code-safety-net`
+- `tsk-tsk`
+
 ## Problem
 
 The current project uses a Docker-based sandbox with a proxy sidecar and firewall rules.
@@ -239,7 +337,7 @@ Every candidate backend should be scored against the same criteria:
 - Operational complexity
 - Implementation complexity
 
-## Stack taxonomy
+## Landscape reference: stack taxonomy
 
 One source of confusion in this space is that many popular tools span different layers.
 
@@ -267,7 +365,7 @@ Examples:
 
 The same product can touch more than one layer, but this separation prevents category errors.
 
-## Candidate backend families
+## Landscape reference: runtime substrate families
 
 ### 1. OS-native sandbox wrapper
 
@@ -427,7 +525,7 @@ Notes:
 - KubeVirt documents a Minikube quickstart, but also documents nested virtualization and emulation concerns
 - This should be a later-stage exploration unless cluster deployment is a near-term product requirement
 
-## Where common tools fit
+## Landscape reference: supporting layers and tools
 
 ### Colima
 
@@ -774,7 +872,7 @@ Practical use here:
 - Useful as one frontend onto the backend abstraction, especially for IDE-based workflows
 - The real security boundary still comes from the runtime and policy layers underneath
 
-## Nix and NixOS
+## Landscape reference: Nix and NixOS
 
 Nix and NixOS fit best as an orthogonal layer, not as a primary sandbox category.
 
@@ -844,7 +942,7 @@ Practical use here:
 - Strong choice for a dedicated sandbox appliance on Linux
 - Useful for expressing the entire sandbox stack as code, even if the runtime remains Docker, Kata, or Firecracker
 
-## Additional ideas worth exploring
+## Potential architecture directions
 
 ### Backend abstraction layer
 
@@ -871,7 +969,49 @@ Define one high-level policy model and compile it to backend-specific controls:
 
 This is likely the most important architecture move if multi-agent portability is the real goal.
 
-## Similar projects to review
+### MCP gateway and host-side registry
+
+This is a separate but closely related control-plane problem.
+
+See:
+
+- [mcp-gateway.md](/workspace/docs/plan/issues/mcp-gateway.md)
+
+Why it matters:
+
+- it lets MCP auth outlive ephemeral agent containers
+- it creates a separate network-policy surface for OAuth-heavy MCP flows
+- it provides a path to host-managed local MCP server lifecycle
+
+### Split trusted controller from untrusted worker
+
+The controller should live outside the sandbox and own:
+
+- Policy loading
+- Approval handling
+- Event logging
+- Credential brokering
+- Runtime lifecycle
+
+The worker should only run agent commands.
+
+### Ephemeral execution with durable workspace
+
+Use ephemeral runtime instances per task or session, but keep durable state only in:
+
+- The shared workspace
+- Explicit per-agent state volumes
+- External credential brokers
+
+This lowers persistence risk and makes stronger backends easier to adopt.
+
+### High-assurance writeback mode
+
+For sensitive repos, consider a mode where the agent does not get direct write access to the workspace mount. Instead it writes patches or a shadow worktree, and a trusted controller applies the changes.
+
+This is higher friction, but it creates a much stronger security boundary than direct bind mounts.
+
+## Research backlog: open-source comparables
 
 These should be treated as adjacent or comparable systems when building the backend matrix and feature inventory.
 
@@ -934,9 +1074,50 @@ For each project, review:
   - Task orchestration tool that runs Claude and Codex in parallel sandbox containers, auto-builds toolchain images, and fetches branches back for review
   - Review focus: task queueing, multi-agent abstraction, branch-based handoff, automatic image construction, and Docker versus Podman runtime support
 
-## Primitive checklist for repo review
+## Research worksheet
 
-When reviewing the projects above, capture whether they implement any of these primitives:
+Use this worksheet for every repo, product, or runtime under review.
+
+### Evidence standard
+
+- Prefer primary docs over blog posts and secondary summaries.
+- Mark every claim as `documented`, `inferred`, or `unknown`.
+- If the runtime boundary is not explicit, do not guess silently.
+- Capture one or two source links for every non-obvious claim.
+
+### Worksheet fields
+
+- Item name
+- Category:
+  - runtime substrate
+  - control plane
+  - proxy or policy layer
+  - tooling layer
+- Research priority:
+  - P0
+  - P1
+  - P2
+- Claimed runtime boundary
+- Verified runtime boundary
+- Workspace model
+- Persistence model
+- Network control model
+- Runtime control model
+- Secrets model
+- Observability model
+- Local platform support
+- Multi-agent compatibility
+- Key strengths
+- Key limits
+- Open questions
+- Verdict:
+  - likely core reference
+  - useful supporting reference
+  - low relevance
+
+### Primitive checklist
+
+When reviewing an item, capture whether it implements any of these primitives:
 
 - Shared workspace mount
 - Copy-on-write workspace
@@ -958,7 +1139,7 @@ When reviewing the projects above, capture whether they implement any of these p
 - Multi-agent abstraction
 - Remote execution or gateway fleet support
 
-## Commercial products to research
+## Research backlog: commercial products
 
 These are worth a separate commercial landscape pass. The goal is not just feature comparison. It is to identify the actual substrate each product uses and where its control planes live.
 
@@ -1064,35 +1245,7 @@ For each commercial product, capture:
 - Fit: Cloudflare-managed sandbox service that exposes durable identities and orchestration through Workers and Durable Objects, with container-like UX over an isolated runtime
 - Open question: map the exact boundary between “Containers” marketing, VM isolation claims, and the worker-orchestrated control plane
 
-### Split trusted controller from untrusted worker
-
-The controller should live outside the sandbox and own:
-
-- Policy loading
-- Approval handling
-- Event logging
-- Credential brokering
-- Runtime lifecycle
-
-The worker should only run agent commands.
-
-### Ephemeral execution with durable workspace
-
-Use ephemeral runtime instances per task or session, but keep durable state only in:
-
-- The shared workspace
-- Explicit per-agent state volumes
-- External credential brokers
-
-This lowers persistence risk and makes stronger backends easier to adopt.
-
-### High-assurance writeback mode
-
-For sensitive repos, consider a mode where the agent does not get direct write access to the workspace mount. Instead it writes patches or a shadow worktree, and a trusted controller applies the changes.
-
-This is higher friction, but it creates a much stronger security boundary than direct bind mounts.
-
-## Recommended exploration order
+## Execution plan
 
 ### Phase 1. Threat model and normalized capability model
 
@@ -1240,7 +1393,7 @@ Choose:
 - Is URL path and method enforcement required for arbitrary external HTTPS, or only for approved internal APIs routed through a trusted proxy?
 - Is Kubernetes a real target environment, or only a research vehicle for VM-backed runtimes and L7 policy tooling?
 
-## Literature review
+## Source index
 
 - [OpenAI Codex sandboxing docs](https://developers.openai.com/codex/sandboxing): platform-native sandboxing, writable roots, and local execution modes
 - [OpenAI Codex agent approvals and security docs](https://developers.openai.com/codex/agent-approvals-security): `read-only`, `workspace-write`, and `danger-full-access` modes plus network access controls
