@@ -70,8 +70,7 @@ body:
     id: logs
     attributes:
       label: Logs and screenshots
-      description: Paste relevant logs, command output, or screenshots.
-      render: shell
+      description: Paste relevant logs, command output, or attach screenshots. Wrap log output in a code block using triple backticks.
   - type: checkboxes
     id: checks
     attributes:

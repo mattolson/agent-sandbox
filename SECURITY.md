@@ -6,7 +6,7 @@ Use a private report for security issues.
 
 Preferred path:
 
-- Open a GitHub Security Advisory for this repository
+- [Open a GitHub Security Advisory](https://github.com/mattolson/agent-sandbox/security/advisories/new) for this repository
 
 If you cannot use GitHub Security Advisories:
 
