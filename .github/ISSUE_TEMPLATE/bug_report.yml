@@ -1,0 +1,83 @@
+name: Bug report
+description: Report a reproducible, non-security bug
+title: "[Bug]: "
+labels:
+  - "type:bug"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for public, non-security bugs.
+
+        Do not use this form for sandbox escapes, proxy or firewall bypasses, credential exposure, privilege escalation, or similar security issues. Follow [`SECURITY.md`](https://github.com/mattolson/agent-sandbox/blob/main/SECURITY.md) instead.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the bug in one or two sentences.
+      placeholder: The proxy does not restart after policy changes in CLI mode.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal reproduction.
+      placeholder: |
+        1. Run ...
+        2. Edit ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: The proxy restarts and applies the updated policy.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: The proxy keeps the old policy until the container is recreated.
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Runtime mode
+      options:
+        - CLI
+        - Devcontainer
+        - Both
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: agent
+    attributes:
+      label: Agent
+      description: Claude, Codex, Copilot, or another agent if relevant.
+      placeholder: Codex
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Host OS, container runtime, and any other relevant setup details.
+      placeholder: macOS 15, Colima 1.8, Docker Engine 27
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and screenshots
+      description: Paste relevant logs, command output, or screenshots.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues before filing this report.
+          required: true
+        - label: This is not a security-sensitive issue covered by SECURITY.md.
+          required: true
