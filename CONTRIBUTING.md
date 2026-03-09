@@ -53,9 +53,9 @@ Examples:
 
 After maintainer review, accepted feature issues may move through these stages:
 
-- `stage: proposal` - initial idea under discussion
-- `stage: needs-plan` - direction looks good and a planning doc is requested
-- `stage: planned` - planning doc is accepted and implementation can proceed
+- `stage:proposal` - initial idea under discussion
+- `stage:needs-plan` - direction looks good and a planning doc is requested
+- `stage:planned` - planning doc is accepted and implementation can proceed
 
 Do not open a substantive implementation PR before the feature issue has maintainer buy-in.
 
@@ -106,19 +106,19 @@ Issue labels are intentionally small and orthogonal.
 
 Type labels:
 
-- `type: bug`
-- `type: feature`
+- `type:bug`
+- `type:feature`
 
 Feature stage labels:
 
-- `stage: proposal`
-- `stage: needs-plan`
-- `stage: planned`
+- `stage:proposal`
+- `stage:needs-plan`
+- `stage:planned`
 
 General status labels:
 
-- `status: needs-info`
-- `status: blocked`
+- `status:needs-info`
+- `status:blocked`
 
 Contribution visibility labels:
 
