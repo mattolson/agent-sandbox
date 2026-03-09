@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security issue or sandbox bypass
+    url: https://github.com/mattolson/agent-sandbox/security/advisories/new
+    about: Report sandbox escapes, proxy or firewall bypasses, credential exposure, privilege escalation, and similar issues privately.

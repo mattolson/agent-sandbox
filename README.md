@@ -213,10 +213,7 @@ For Codex specifically, prefer [device code OAuth](./docs/codex/README.md) in sa
 
 ### Security issues
 
-If you find a sandbox escape or bypass:
-
-- Open a GitHub Security Advisory (preferred), or
-- Open an issue with minimal reproduction details
+See [SECURITY.md](./SECURITY.md) for the reporting process. Do not post full reproduction details for sandbox escapes, proxy or firewall bypasses, credential exposure, or similar security issues in a public issue.
 
 ## Roadmap
 
@@ -224,13 +221,7 @@ See [docs/roadmap.md](./docs/roadmap.md) for planned features and milestones.
 
 ## Contributing
 
-PRs welcome for:
-
-- New agent support
-- Improved network policies
-- Documentation and examples
-
-Please keep changes agent-agnostic where possible and compatible with Colima on macOS.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution paths, issue labels, planning requirements, and PR expectations.
 
 ## License
 

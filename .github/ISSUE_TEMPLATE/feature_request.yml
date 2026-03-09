@@ -1,0 +1,79 @@
+name: Feature request
+description: Propose a feature, workflow change, or new agent support
+title: "[Feature]: "
+labels:
+  - "type:feature"
+  - "stage:proposal"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Start substantive feature work here.
+
+        Do not open a code PR for larger feature work before maintainer review. If the direction is accepted, maintainers may ask for a planning document in `docs/plan/issues/` or `docs/plan/milestones/`.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the proposal in one sentence.
+      placeholder: Add first-class support for Agent X.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What user problem or project need does this address?
+      placeholder: Users cannot ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the idea at a high level.
+      placeholder: Add ...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you consider?
+      placeholder: We could also ...
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Small targeted improvement
+        - Substantive feature
+        - New agent support
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: roadmap
+    attributes:
+      label: Roadmap alignment
+      description: Explain how this fits the project goals, roadmap, or security model.
+      placeholder: This aligns with ...
+    validations:
+      required: true
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Willingness to implement
+      description: Say whether you want to write the planning doc and implementation PR if maintainers agree.
+      placeholder: I can draft the plan and open the implementation PR.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and planning docs before filing this request.
+          required: true
+        - label: I reviewed README.md, docs/roadmap.md, and docs/plan/project.md.
+          required: true
+        - label: I understand that accepted features may still require a planning document before code review.
+          required: true
