@@ -102,15 +102,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Cross-compile for macOS (arm64, amd64) and Linux
 - Port all existing commands with improved testing
 
-## m14: Host credential service (planned)
-
-- Host-side service bridging container to native credential store (macOS Keychain, Windows Credential Manager)
-- No secrets stored on disk inside the container
-- Container shim implements git credential helper protocol over HTTP to host service
-- Works with any credential-aware tool (git, gh, etc.)
-- Integrated into agentbox CLI lifecycle
-
-## m15: Fine-grained proxy rules (planned)
+## m14: Fine-grained proxy rules (planned)
 
 - MITM inspection for HTTPS requests (path, method, query params visible)
 - Nested path rules under domain entries in policy YAML
@@ -118,9 +110,25 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Domain-only rules remain as fast-path (block at CONNECT)
 - SIGHUP-based hot reload for policy changes
 
+## m15: Proxy-side secret injection (planned)
+
+- Make proxy injection the primary mechanism for HTTP-native credentials
+- Store raw secret values in a host-only source and mount them into the proxy only
+- Inject headers on matched outbound requests with leak-detection guardrails
+- First rollout: git over HTTPS with repo-level scoping
+- Evaluate env-token clients such as `gh` where placeholder substitution is sufficient
+
 ## m16: CLI monitoring and policy management (planned)
 
 - Filtered log view for blocked requests
 - Interactive unblock workflow
 - Integration with hot reload for immediate policy updates
 - UI approach TBD (filtered stream, TUI, or hybrid)
+
+## m17: Host credential service (planned)
+
+- Secondary credential path for flows that cannot be handled by proxy injection
+- Host-side service bridging container to native credential store or helper backend
+- Container shim implements a helper protocol for clients that must receive credentials locally
+- Keep credentials off disk inside the container even when direct injection is not viable
+- Integrated into agentbox CLI lifecycle
