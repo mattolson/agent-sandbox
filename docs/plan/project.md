@@ -51,7 +51,7 @@ Both modes use the same images; they differ only in how firewall initialization 
 
 ## Milestones
 
-### m1-devcontainer-template
+### m1-devcontainer-template (done)
 
 Extract the current `.devcontainer/` into a reusable template that other projects can copy and configure.
 
@@ -65,7 +65,7 @@ Extract the current `.devcontainer/` into a reusable template that other project
 - Proxy-based template (m3)
 - Pre-built images (m2)
 
-### m2-images
+### m2-images (done)
 
 Build the image hierarchy so devcontainers use pre-built images instead of building from scratch.
 
@@ -78,7 +78,7 @@ Build the image hierarchy so devcontainers use pre-built images instead of build
 
 **Dependencies:** m1 (template exists to update)
 
-### m3-proxy
+### m3-proxy (done)
 
 Replace iptables-based domain enforcement with proxy-based enforcement.
 
