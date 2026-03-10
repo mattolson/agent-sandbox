@@ -1217,7 +1217,7 @@ When reviewing an item, capture whether it implements any of these primitives:
   - The WireGuard plus shared-namespace design adds startup ordering and networking complexity without solving the separate IDE control plane that the repo itself documents
   - The packaged workflow is devcontainer- and Claude-shaped, not a neutral multi-agent control plane
 - Open questions:
-  - Could proxy-side secret substitution cover enough of `m14-host-credential-service` to move that idea earlier, or is it only a complement for HTTP-native credentials?
+  - Could proxy-side secret substitution cover enough of `m17-host-credential-service` to make the helper path strictly secondary, or are there still important workflows that require local credential delivery?
   - Do we need transparent capture enough to justify the added WireGuard complexity, given the current explicit proxy plus firewall design already blocks direct egress?
   - Should any sandcat-inspired work land as devcontainer-only hardening rather than as part of the core backend contract?
 - Verdict: `useful supporting reference`
