@@ -1,6 +1,6 @@
 name: Bug report
 description: Report a reproducible, non-security bug
-title: "[Bug]: "
+title: "Bug: "
 labels:
   - "type:bug"
 body:

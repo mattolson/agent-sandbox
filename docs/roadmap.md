@@ -55,7 +55,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Docker-based CLI distribution (`ghcr.io/mattolson/agent-sandbox-cli`)
 - Bash 3.2 compatibility (macOS default shell)
 
-## m7: [Codex](https://github.com/openai/codex) support (planned)
+## m7: [Codex](https://github.com/openai/codex) support (done)
 
 - agent-sandbox-codex image and templates
 - OpenAI Codex CLI installation and configuration

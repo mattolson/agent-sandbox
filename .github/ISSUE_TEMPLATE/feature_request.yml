@@ -1,6 +1,6 @@
 name: Feature request
 description: Propose a feature, workflow change, or new agent support
-title: "[Feature]: "
+title: "Proposal: "
 labels:
   - "type:feature"
   - "stage:proposal"
