@@ -1,0 +1,9 @@
+# Agent Sandbox system-level git configuration
+# Loaded before user dotfile configs so base defaults survive custom ~/.gitconfig mounts.
+
+[url "https://github.com/"]
+	insteadOf = git@github.com:
+	insteadOf = ssh://git@github.com/
+
+[worktree]
+	useRelativePaths = true
