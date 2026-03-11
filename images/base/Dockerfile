@@ -107,13 +107,17 @@ COPY entrypoint.sh /usr/local/bin/
 # System-level zshrc: sources shell-init.sh before ~/.zshrc so hooks survive
 # custom dotfile mounts
 COPY system-zshrc /etc/zsh/zshrc
-COPY system-gitconfig /etc/gitconfig
 
 USER root
-RUN chmod 644 /etc/agent-sandbox/shell-init.sh /etc/zsh/zshrc /etc/gitconfig && \
+
+# Git is built with prefix=/usr/local, so its system config lives here.
+RUN mkdir -p /usr/local/etc
+COPY system-gitconfig /usr/local/etc/gitconfig
+
+RUN chmod 644 /etc/agent-sandbox/shell-init.sh /etc/zsh/zshrc /usr/local/etc/gitconfig && \
   chown root:root /etc/agent-sandbox/shell-init.sh && \
   chown root:root /etc/zsh/zshrc && \
-  chown root:root /etc/gitconfig && \
+  chown root:root /usr/local/etc/gitconfig && \
   chmod -R 755 /etc/agent-sandbox/stacks && \
   chown -R root:root /etc/agent-sandbox/stacks && \
   chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/install-proxy-ca.sh /usr/local/bin/configure-apt-proxy.sh /usr/local/bin/link-dotfiles.sh /usr/local/bin/entrypoint.sh && \

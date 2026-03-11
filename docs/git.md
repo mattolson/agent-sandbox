@@ -13,7 +13,7 @@ Git worktree metadata breaks if it stores container-only absolute paths such as 
 The base image avoids that by:
 
 - Shipping Git 2.50.1 by default
-- Setting `worktree.useRelativePaths=true` in the container's system git config (`/etc/gitconfig`)
+- Setting `worktree.useRelativePaths=true` in the container's system git config (`/usr/local/etc/gitconfig`)
 
 Practical guidance:
 
@@ -35,7 +35,7 @@ If you want the agent to run git commands, some setup is required.
 git@github.com:user/repo.git -> https://github.com/user/repo.git
 ```
 
-Those defaults live in the container's system git config (`/etc/gitconfig`), so mounting your own `~/.gitconfig` via dotfiles does not replace them.
+Those defaults live in the container's system git config (`/usr/local/etc/gitconfig`), so mounting your own `~/.gitconfig` via dotfiles does not replace them.
 
 **Credential setup.** To push or access private repos, create a [fine-grained personal access token](https://github.com/settings/tokens?type=beta) scoped to specific repositories. Then configure git to store it:
 
