@@ -13,7 +13,7 @@ Git worktree metadata breaks if it stores container-only absolute paths such as 
 The base image avoids that by:
 
 - Shipping Git 2.50.1 by default
-- Setting `worktree.useRelativePaths=true` in the container's global git config
+- Setting `worktree.useRelativePaths=true` in the container's system git config (`/etc/gitconfig`)
 
 Practical guidance:
 
@@ -34,6 +34,8 @@ If you want the agent to run git commands, some setup is required.
 ```
 git@github.com:user/repo.git -> https://github.com/user/repo.git
 ```
+
+Those defaults live in the container's system git config (`/etc/gitconfig`), so mounting your own `~/.gitconfig` via dotfiles does not replace them.
 
 **Credential setup.** To push or access private repos, create a [fine-grained personal access token](https://github.com/settings/tokens?type=beta) scoped to specific repositories. Then configure git to store it:
 
@@ -56,7 +58,7 @@ Author identity unknown
 
 Two ways to fix this:
 
-**Mount your gitconfig via dotfiles.** Place your `.gitconfig` in `~/.config/agent-sandbox/dotfiles/.gitconfig` on the host and enable the dotfiles volume mount. See [dotfiles.md](dotfiles.md) for setup details. Your gitconfig will be symlinked into `$HOME` at container startup.
+**Mount your gitconfig via dotfiles.** Place your `.gitconfig` in `~/.config/agent-sandbox/dotfiles/.gitconfig` on the host and enable the dotfiles volume mount. See [dotfiles.md](dotfiles.md) for setup details. Your gitconfig will be symlinked into `$HOME` at container startup and will layer on top of the container's system git defaults.
 
 **Set git identity inside the container.** Run these commands before your first commit:
 

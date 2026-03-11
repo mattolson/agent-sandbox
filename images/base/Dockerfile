@@ -94,11 +94,6 @@ ENV LANG=C.utf8
 COPY --chown=${USERNAME}:${USERNAME} zshrc /home/${USERNAME}/.zshrc
 COPY --chown=${USERNAME}:${USERNAME} tmux.conf /home/${USERNAME}/.tmux.conf
 
-# Configure git to use HTTPS instead of SSH (port 22 is blocked to prevent tunneling)
-RUN git config --global url."https://github.com/".insteadOf git@github.com: && \
-  git config --global --add url."https://github.com/".insteadOf ssh://git@github.com/ && \
-  git config --global worktree.useRelativePaths true
-
 # Copy firewall script, shell init, and utilities
 # Files in /etc/agent-sandbox are root-owned to prevent agent tampering
 COPY shell-init.sh /etc/agent-sandbox/shell-init.sh
@@ -112,12 +107,13 @@ COPY entrypoint.sh /usr/local/bin/
 # System-level zshrc: sources shell-init.sh before ~/.zshrc so hooks survive
 # custom dotfile mounts
 COPY system-zshrc /etc/zsh/zshrc
+COPY system-gitconfig /etc/gitconfig
 
 USER root
-RUN chmod 644 /etc/agent-sandbox/shell-init.sh && \
+RUN chmod 644 /etc/agent-sandbox/shell-init.sh /etc/zsh/zshrc /etc/gitconfig && \
   chown root:root /etc/agent-sandbox/shell-init.sh && \
-  chmod 644 /etc/zsh/zshrc && \
   chown root:root /etc/zsh/zshrc && \
+  chown root:root /etc/gitconfig && \
   chmod -R 755 /etc/agent-sandbox/stacks && \
   chown -R root:root /etc/agent-sandbox/stacks && \
   chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/install-proxy-ca.sh /usr/local/bin/configure-apt-proxy.sh /usr/local/bin/link-dotfiles.sh /usr/local/bin/entrypoint.sh && \

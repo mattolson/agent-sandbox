@@ -34,6 +34,8 @@ The container will have:
 
 Docker bind mounts (like individually mounted `CLAUDE.md`) take precedence over dotfile symlinks.
 
+If you mount `~/.gitconfig` this way, it augments the base image's system git config in `/etc/gitconfig` rather than replacing it. That preserves built-in settings such as SSH-to-HTTPS rewriting and `worktree.useRelativePaths=true`.
+
 ## Shell Customization
 
 You can also optionally mount scripts from `~/.config/agent-sandbox/shell.d/` to customize your shell environment. Any `*.sh` files are sourced when zsh starts.
