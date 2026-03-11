@@ -27,6 +27,14 @@ Fully non-interactive example:
 agentbox init --batch --agent claude --mode cli --name myproject --path /some/dir
 ```
 
+### `agentbox switch`
+
+Updates the active agent for an initialized project without rewriting compose or policy files. If `--agent` is
+omitted, prompts once for the new active agent.
+
+Options:
+- `--agent` - Agent type: `claude`, `copilot`, `codex` (skips prompt)
+
 #### `agentbox init cli`
 
 Sets up CLI mode docker-compose configuration for an agent. Copies the docker-compose.yml template and customizes it
