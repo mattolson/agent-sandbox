@@ -11,6 +11,8 @@ source "$AGB_LIBDIR/select.bash"
 source "$AGB_LIBDIR/constants.bash"
 # shellcheck source=../../lib/path.bash
 source "$AGB_LIBDIR/path.bash"
+# shellcheck source=../../lib/agent.bash
+source "$AGB_LIBDIR/agent.bash"
 
 # Initializes agent-sandbox for a project.
 # Prompts for any options not provided via flags.
@@ -120,18 +122,16 @@ init() {
 		name="$default_base_name"
 	fi
 
-	local available_agents=(claude copilot codex)
 	if [[ -z "$agent" ]]
 	then
 		if [[ "$batch" == "true" ]]
 		then
-			echo "Missing required option in batch mode: --agent (expected: ${available_agents[*]})" | error
+			echo "Missing required option in batch mode: --agent (expected: $(supported_agents_display))" | error
 			return 1
 		fi
-		agent=$(select_option "Select agent:" "${available_agents[@]}")
-	elif [[ ! " ${available_agents[*]} " =~ [[:space:]]${agent}[[:space:]] ]]
+		agent=$(select_agent)
+	elif ! validate_agent "$agent"
 	then
-		echo "Invalid agent: $agent (expected: ${available_agents[*]})" | error
 		return 1
 	fi
 
@@ -208,6 +208,8 @@ init() {
 		return 1
 		;;
 	esac
+
+	write_active_agent "$project_path" "$agent"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]

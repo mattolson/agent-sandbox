@@ -18,7 +18,8 @@ We need a switching model that preserves:
 
 Adopt a layered config model and add `agentbox switch --agent <name>`.
 
-- Target identity is `{mode, agent}` with a single-active UX by default.
+- Active target identity is `agent` with a single-active UX by default.
+- Runtime mode remains separate runtime context, not part of active-target identity.
 - Agentbox-managed files hold base/mode/agent defaults.
 - User-owned overrides are layered: shared + optional mode + optional agent.
 - Policy is layered similarly and merged at proxy runtime (single merge path).
@@ -30,7 +31,7 @@ Adopt a layered config model and add `agentbox switch --agent <name>`.
 - Layered compose aligns with Docker Compose merge semantics and keeps customization stable.
 - Shared policy/compose overrides minimize duplication for project-level settings.
 - Optional mode/agent overrides retain flexibility for specific integrations and auth/provider quirks.
-- Target identity model keeps room for future concurrent targets without changing core data structures.
+- Separating active agent from runtime mode keeps the switching UX simple while leaving room for future runtime workflows.
 
 ## Consequences
 

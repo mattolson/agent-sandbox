@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# shellcheck source=../../lib/logging.bash
+source "$AGB_LIBDIR/logging.bash"
+# shellcheck source=../../lib/path.bash
+source "$AGB_LIBDIR/path.bash"
+# shellcheck source=../../lib/agent.bash
+source "$AGB_LIBDIR/agent.bash"
+
+switch() {
+	local agent=""
+
+	while [[ $# -gt 0 ]]
+	do
+		case "$1" in
+		--agent)
+			agent="$2"
+			shift 2
+			;;
+		*)
+			echo "Unknown option: $1" | error
+			return 1
+			;;
+		esac
+	done
+
+	local repo_root
+	repo_root="$(find_repo_root)"
+
+	if ! agent_sandbox_initialized "$repo_root"
+	then
+		echo "agent-sandbox is not initialized at $repo_root. Run 'agentbox init' first." | error
+		return 1
+	fi
+
+	if [[ -z "$agent" ]]
+	then
+		agent="$(select_agent)"
+	else
+		validate_agent "$agent"
+	fi
+
+	local current_agent=""
+	if current_agent="$(read_active_agent "$repo_root" 2>/dev/null)" &&
+		[[ "$current_agent" == "$agent" ]]
+	then
+		echo "Active agent is already '$agent'. No changes made." | info
+		return 0
+	fi
+
+	write_active_agent "$repo_root" "$agent"
+	echo "Active agent set to '$agent'." | info
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
+then
+	switch "$@"
+fi

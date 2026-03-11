@@ -47,6 +47,9 @@ teardown() {
 
 	run init --batch --agent claude --mode cli --name test --path "$PROJECT_DIR"
 	assert_success
+	run cat "$PROJECT_DIR/.agent-sandbox/active-target.env"
+	assert_success
+	assert_line --index 1 "ACTIVE_AGENT=claude"
 }
 
 @test "init accepts valid --ide value for devcontainer mode" {
@@ -55,6 +58,9 @@ teardown() {
 
 	run init --batch --agent copilot --mode devcontainer --ide jetbrains --name test --path "$PROJECT_DIR"
 	assert_success
+	run cat "$PROJECT_DIR/.agent-sandbox/active-target.env"
+	assert_success
+	assert_line --index 1 "ACTIVE_AGENT=copilot"
 }
 
 @test "init requires --agent in batch mode" {

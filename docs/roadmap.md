@@ -63,7 +63,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 
 ## m8: Agent switching (planned)
 
-- Add `agentbox switch --agent <name> --mode <cli|devcontainer>`
+- Add `agentbox switch --agent <name>`
 - Preserve per-agent state volumes when switching
 - Preserve layered user compose/policy customizations (shared + optional mode/agent overrides)
 - Merge policy layers at proxy runtime
