@@ -3,6 +3,10 @@ set -euo pipefail
 
 # shellcheck source=../../lib/require.bash
 source "$AGB_LIBDIR/require.bash"
+# shellcheck source=../../lib/agent.bash
+source "$AGB_LIBDIR/agent.bash"
+# shellcheck source=../../lib/cli-compose.bash
+source "$AGB_LIBDIR/cli-compose.bash"
 # shellcheck source=../../lib/path.bash
 source "$AGB_LIBDIR/path.bash"
 # shellcheck source=../../lib/composefile.bash
@@ -68,20 +72,49 @@ bump() {
 	require docker
 	require yq
 
-	local compose_file
-	compose_file="$(find_compose_file)"
+	local repo_root
+	repo_root="$(find_repo_root)"
 
-	echo "Found compose file: $compose_file" | info
+	if cli_layered_compose_initialized "$repo_root"
+	then
+		local base_file
+		base_file="$(cli_base_compose_file "$repo_root")"
 
-	local services=("proxy" "agent")
+		echo "Found layered CLI compose files under $(cli_compose_dir "$repo_root")" | info
+		echo "Checking images for managed CLI layers" | info
 
-	echo "Checking images for services: ${services[*]}" | info
+		bump_service "$base_file" "proxy"
 
-	local service
-	for service in "${services[@]}"
-	do
-		bump_service "$compose_file" "$service"
-	done
+		local agent
+		while IFS= read -r agent
+		do
+			local agent_file
+			agent_file="$(cli_agent_compose_file "$repo_root" "$agent")"
+
+			if [[ -f "$agent_file" ]]
+			then
+				echo "  $agent layer: $agent_file" | info
+				bump_service "$agent_file" "agent"
+			else
+				echo "  $agent layer: not initialized, skipping" | info
+			fi
+		done < <(supported_agents)
+	else
+		local compose_file
+		compose_file="$(find_compose_file)"
+
+		echo "Found compose file: $compose_file" | info
+
+		local services=("proxy" "agent")
+
+		echo "Checking images for services: ${services[*]}" | info
+
+		local service
+		for service in "${services[@]}"
+		do
+			bump_service "$compose_file" "$service"
+		done
+	fi
 
 	echo "Bump complete" | info
 }

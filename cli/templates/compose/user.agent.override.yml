@@ -1,0 +1,9 @@
+# User-owned compose overrides applied only to one CLI agent layer.
+# Safe to edit. agentbox will not overwrite this file.
+# Paths are resolved relative to .agent-sandbox/compose/.
+# Claude examples:
+#   - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
+#   - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
+services:
+  agent:
+    volumes: []

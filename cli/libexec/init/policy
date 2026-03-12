@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=../../lib/require.bash
-source "$AGB_LIBDIR/require.bash"
+# shellcheck source=../../lib/policyfile.bash
+source "$AGB_LIBDIR/policyfile.bash"
 
 # Creates a network policy file for the proxy.
 # Args:
@@ -11,19 +11,7 @@ source "$AGB_LIBDIR/require.bash"
 # Outputs:
 #   Creates a YAML policy file with services list
 policy() {
-	local policy_file=$1
-	shift
-	local services
-	services=$(printf '%s\n' "$@")
-
-	require yq
-
-	mkdir -p "$(dirname -- "$policy_file")"
-	cp \
-		"$AGB_TEMPLATEDIR/policy.yaml" \
-		"$policy_file"
-
-	services="$services" yq -i '.services = (strenv(services) | split("\n") )' "$policy_file"
+	write_policy_file "$@"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]

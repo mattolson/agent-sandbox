@@ -4,6 +4,8 @@ setup() {
 	load test_helper
 	# shellcheck source=../../lib/path.bash
 	source "$AGB_LIBDIR/path.bash"
+	# shellcheck source=../../lib/cli-compose.bash
+	source "$AGB_LIBDIR/cli-compose.bash"
 }
 
 teardown() {
@@ -66,4 +68,37 @@ teardown() {
 	run get_file_mtime "$testfile"
 	assert_success
 	assert_output --regexp '^[0-9]+$'
+}
+
+@test "cli_layered_compose_initialized detects layered CLI base file" {
+	local test_root="$BATS_TEST_TMPDIR/repo"
+
+	mkdir -p "$test_root/$AGB_PROJECT_DIR/compose"
+	refute cli_layered_compose_initialized "$test_root"
+
+	touch "$test_root/$AGB_PROJECT_DIR/compose/base.yml"
+	run cli_layered_compose_initialized "$test_root"
+	assert_success
+}
+
+@test "emit_cli_compose_files returns layered CLI files in deterministic order" {
+	local test_root="$BATS_TEST_TMPDIR/repo"
+	local compose_dir="$test_root/$AGB_PROJECT_DIR/compose"
+
+	mkdir -p "$compose_dir"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent for this project." \
+		"ACTIVE_AGENT=codex" > "$test_root/$AGB_PROJECT_DIR/active-target.env"
+
+	touch "$compose_dir/base.yml"
+	touch "$compose_dir/agent.codex.yml"
+	touch "$compose_dir/user.override.yml"
+	touch "$compose_dir/user.agent.codex.override.yml"
+
+	run emit_cli_compose_files "$test_root"
+	assert_success
+	assert_line --index 0 "$compose_dir/base.yml"
+	assert_line --index 1 "$compose_dir/agent.codex.yml"
+	assert_line --index 2 "$compose_dir/user.override.yml"
+	assert_line --index 3 "$compose_dir/user.agent.codex.override.yml"
 }
