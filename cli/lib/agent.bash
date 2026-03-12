@@ -13,6 +13,10 @@ supported_agents_display() {
 	echo "claude copilot codex"
 }
 
+supported_agents() {
+	printf '%s\n' claude copilot codex
+}
+
 select_agent() {
 	select_option "Select agent:" claude copilot codex
 }

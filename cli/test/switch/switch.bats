@@ -64,6 +64,26 @@ teardown() {
 	assert_line --index 1 "ACTIVE_AGENT=claude"
 }
 
+@test "switch scaffolds target runtime files for layered CLI projects" {
+	mkdir -p "$PROJECT_DIR/.agent-sandbox/compose"
+	touch "$PROJECT_DIR/.agent-sandbox/compose/base.yml"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent for this project." \
+		"ACTIVE_AGENT=claude" > "$PROJECT_DIR/.agent-sandbox/active-target.env"
+
+	unset -f ensure_cli_agent_runtime_files
+	ensure_cli_agent_runtime_files() {
+		printf '%s\n' "$*" > "$BATS_TEST_TMPDIR/ensure-cli-agent-runtime-files.args"
+	}
+
+	run switch --agent codex
+
+	assert_success
+	run cat "$BATS_TEST_TMPDIR/ensure-cli-agent-runtime-files.args"
+	assert_success
+	assert_output "$PROJECT_DIR codex"
+}
+
 @test "switch fails when agent-sandbox is not initialized" {
 	run switch --agent claude
 

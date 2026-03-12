@@ -3,18 +3,40 @@ set -euo pipefail
 
 # shellcheck source=../../lib/require.bash
 source "$AGB_LIBDIR/require.bash"
+# shellcheck source=../../lib/cli-compose.bash
+source "$AGB_LIBDIR/cli-compose.bash"
 # shellcheck source=../../lib/path.bash
 source "$AGB_LIBDIR/path.bash"
 
-# Helper that automatically locates the docker compose file
+# Helper that automatically locates the docker compose files
 # All arguments are passed to docker compose
 compose() {
 	require docker
 
-	local compose_file
-	compose_file="$(find_compose_file)"
+	local repo_root
+	repo_root="$(find_repo_root)"
 
-	exec docker compose -f "$compose_file" "$@"
+	local compose_files=()
+
+	if cli_layered_compose_initialized "$repo_root"
+	then
+		local compose_file
+		while IFS= read -r compose_file
+		do
+			compose_files+=("$compose_file")
+		done < <(emit_cli_compose_files "$repo_root")
+	else
+		compose_files+=("$(find_compose_file)")
+	fi
+
+	local compose_args=()
+	local compose_file
+	for compose_file in "${compose_files[@]}"
+	do
+		compose_args+=(-f "$compose_file")
+	done
+
+	exec docker compose "${compose_args[@]}" "$@"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]

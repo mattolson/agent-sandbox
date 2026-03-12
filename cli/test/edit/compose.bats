@@ -25,6 +25,22 @@ teardown() {
 	assert_success
 }
 
+@test "edit opens shared user override for layered CLI projects" {
+	local compose_dir="$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/compose"
+	local override_file="$compose_dir/user.override.yml"
+
+	mkdir -p "$compose_dir" "$BATS_TEST_TMPDIR/.git"
+	touch "$compose_dir/base.yml" "$override_file"
+
+	unset -f open_editor
+	stub open_editor \
+		"$override_file : :"
+
+	cd "$BATS_TEST_TMPDIR"
+	run edit
+	assert_success
+}
+
 @test "edit restarts containers when file modified and containers running (default)" {
 	unset -f open_editor
 	stub open_editor \

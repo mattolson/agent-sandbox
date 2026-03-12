@@ -9,10 +9,12 @@ Requires `docker` (and `docker compose`) and [`yq`](https://github.com/mikefarah
 ### `agentbox init`
 
 Initializes agent-sandbox for a project. Prompts for any options not provided via flags, then sets up the necessary
-configuration files and network policy. Optional volume mounts (Claude config, shell customizations, dotfiles, .git,
-.idea, .vscode) are included as commented-out entries in the generated compose file. After generation, `init` offers to
-open the generated policy and compose files in your editor, showing the full path to each file. These review prompts
-default to `no`.
+configuration files and network policy. In CLI mode, agentbox writes managed compose layers under
+`.agent-sandbox/compose/`, creates a shared user-owned override at `.agent-sandbox/compose/user.override.yml`, and
+creates the active agent's policy and managed agent layer. Optional mounts (Claude config, shell customizations,
+dotfiles, `.git`, `.idea`, `.vscode`) are scaffolded into user-owned override files instead of managed files. After
+generation, `init` offers to open the generated policy file and shared compose override in your editor. These review
+prompts default to `no`.
 
 Options:
 - `--agent` - Agent type: `claude`, `copilot`, `codex` (skips prompt)
@@ -29,19 +31,18 @@ agentbox init --batch --agent claude --mode cli --name myproject --path /some/di
 
 ### `agentbox switch`
 
-Updates the active agent for an initialized project without rewriting compose or policy files. If `--agent` is
-omitted, prompts once for the new active agent.
+Updates the active agent for an initialized project. For layered CLI projects, switching lazily creates the target
+agent's managed compose layer, baseline CLI policy file, and agent-specific override scaffold the first time that agent
+is selected. If `--agent` is omitted, prompts once for the new active agent.
 
 Options:
 - `--agent` - Agent type: `claude`, `copilot`, `codex` (skips prompt)
 
 #### `agentbox init cli`
 
-Sets up CLI mode docker-compose configuration for an agent. Copies the docker-compose.yml template and customizes it
-based on the selected agent.
+Sets up CLI mode layered Docker Compose configuration for an agent.
 
 Options:
-- `--policy-file` - Path to the policy file (relative to project directory)
 - `--project-path` - Path to the project directory
 - `--agent` - The agent name (e.g., `claude`)
 - `--name` - Project name for Docker Compose (default: `{dir}-sandbox`)
@@ -77,7 +78,9 @@ Displays the current version of agent-sandbox.
 
 ### `agentbox edit compose`
 
-Opens the Docker Compose file in your editor. If you save changes and containers are running, it will restart containers by default to apply the changes.
+Opens the user-editable Docker Compose surface in your editor. For layered CLI projects this is
+`.agent-sandbox/compose/user.override.yml`; otherwise it falls back to the single compose file. If you save changes and
+containers are running, it will restart containers by default to apply the changes.
 
 Options:
 - `--no-restart` — Do not automatically restart containers after changes. When set (or when `AGENTBOX_NO_RESTART=true`), a warning is shown instead with instructions to run `agentbox up -d` manually.
@@ -89,24 +92,24 @@ the new policy. Use `--mode` and `--agent` to select specific policy files.
 
 ### `agentbox bump`
 
-Updates Docker images to their latest versions by pulling the newest digests and updating the compose file. Skips local
-images.
+Updates Docker images to their latest digests. For layered CLI projects, this updates the managed base layer plus any
+initialized agent layers without touching user-owned override files. Skips local images.
 
 ### `agentbox up`
 
-Runs `docker compose up` with the correct compose file automatically detected.
+Runs `docker compose up` with the correct compose stack automatically detected.
 
 ### `agentbox down`
 
-Runs `docker compose down` with the correct compose file automatically detected.
+Runs `docker compose down` with the correct compose stack automatically detected.
 
 ### `agentbox logs`
 
-Runs `docker compose logs` with the correct compose file automatically detected.
+Runs `docker compose logs` with the correct compose stack automatically detected.
 
 ### `agentbox compose`
 
-Runs arbitrary `docker compose` commands with the correct compose file automatically detected
+Runs arbitrary `docker compose` commands with the correct compose stack automatically detected
 (for example `agentbox compose ps`).
 
 ### `agentbox exec`
@@ -147,10 +150,11 @@ cli/
 
 ### Configuration (set before running `agentbox init`)
 
-These override defaults during compose file generation. Optional volumes default to `false` (commented out).
+These override defaults during compose generation. Optional mounts default to `false`. In layered CLI mode they are
+written into user-owned override scaffolds instead of managed files.
 
 - `AGENTBOX_PROXY_IMAGE` - Docker image for proxy service (default: latest published proxy image)
-- `AGENTBOX_AGENT_IMAGE` - Docker image for agent service (default: latest published agent image)
+- `AGENTBOX_AGENT_IMAGE` - Docker image for the active agent service during CLI init (default: latest published image for that agent)
 - `AGENTBOX_MOUNT_CLAUDE_CONFIG` - `true` to mount host `~/.claude` config (Claude agent only)
 - `AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS` - `true` to mount `~/.config/agent-sandbox/shell.d`
 - `AGENTBOX_ENABLE_DOTFILES` - `true` to mount `~/.config/agent-sandbox/dotfiles`

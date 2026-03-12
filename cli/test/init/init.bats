@@ -42,8 +42,7 @@ teardown() {
 }
 
 @test "init accepts valid --agent and --mode values" {
-	stub policy "$PROJECT_DIR/.agent-sandbox/policy-cli-claude.yaml claude : :"
-	stub cli "--policy-file .agent-sandbox/policy-cli-claude.yaml --project-path $PROJECT_DIR --agent claude --name test : :"
+	stub cli "--project-path $PROJECT_DIR --agent claude --name test : :"
 
 	run init --batch --agent claude --mode cli --name test --path "$PROJECT_DIR"
 	assert_success
@@ -86,16 +85,15 @@ teardown() {
 	unset -f open_editor
 
 	local policy_path="$PROJECT_DIR/.agent-sandbox/policy-cli-claude.yaml"
-	local compose_path="$PROJECT_DIR/.agent-sandbox/docker-compose.yml"
+	local compose_path="$PROJECT_DIR/.agent-sandbox/compose/user.override.yml"
 
 	stub select_yes_no \
 		"'Review the generated policy file at $policy_path?' : echo true" \
-		"'Review the generated compose file at $compose_path?' : echo true"
+		"'Review the generated compose override file at $compose_path?' : echo true"
 	stub open_editor \
 		"$policy_path : :" \
 		"$compose_path : :"
-	stub policy "$policy_path claude : :"
-	stub cli "--policy-file .agent-sandbox/policy-cli-claude.yaml --project-path $PROJECT_DIR --agent claude --name test : :"
+	stub cli "--project-path $PROJECT_DIR --agent claude --name test : :"
 
 	run init --agent claude --mode cli --name test --path "$PROJECT_DIR"
 	assert_success
@@ -106,15 +104,14 @@ teardown() {
 	unset -f open_editor
 
 	local policy_path="$PROJECT_DIR/.agent-sandbox/policy-cli-claude.yaml"
-	local compose_path="$PROJECT_DIR/.agent-sandbox/docker-compose.yml"
+	local compose_path="$PROJECT_DIR/.agent-sandbox/compose/user.override.yml"
 
 	stub select_yes_no \
 		"'Review the generated policy file at $policy_path?' : echo true" \
-		"'Review the generated compose file at $compose_path?' : echo false"
+		"'Review the generated compose override file at $compose_path?' : echo false"
 	stub open_editor \
 		"$policy_path : exit 1"
-	stub policy "$policy_path claude : :"
-	stub cli "--policy-file .agent-sandbox/policy-cli-claude.yaml --project-path $PROJECT_DIR --agent claude --name test : :"
+	stub cli "--project-path $PROJECT_DIR --agent claude --name test : :"
 
 	run init --agent claude --mode cli --name test --path "$PROJECT_DIR"
 	assert_success
@@ -125,8 +122,7 @@ teardown() {
 	unset -f select_yes_no
 	unset -f open_editor
 
-	stub policy "$PROJECT_DIR/.agent-sandbox/policy-cli-claude.yaml claude : :"
-	stub cli "--policy-file .agent-sandbox/policy-cli-claude.yaml --project-path $PROJECT_DIR --agent claude --name test : :"
+	stub cli "--project-path $PROJECT_DIR --agent claude --name test : :"
 
 	run init --batch --agent claude --mode cli --name test --path "$PROJECT_DIR"
 	assert_success
@@ -147,10 +143,9 @@ teardown() {
 		"'Select mode:' cli devcontainer : echo cli"
 	stub select_yes_no \
 		"'Review the generated policy file at $PROJECT_DIR/$policy_file?' : echo false" \
-		"'Review the generated compose file at $PROJECT_DIR/.agent-sandbox/docker-compose.yml?' : echo false"
+		"'Review the generated compose override file at $PROJECT_DIR/.agent-sandbox/compose/user.override.yml?' : echo false"
 
-	stub policy "$PROJECT_DIR/$policy_file claude : :"
-	stub cli "--policy-file $policy_file --project-path $PROJECT_DIR --agent claude --name my-interactive-project : :"
+	stub cli "--project-path $PROJECT_DIR --agent claude --name my-interactive-project : :"
 
 	run init --path "$PROJECT_DIR"
 

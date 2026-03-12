@@ -7,6 +7,8 @@ source "$AGB_LIBDIR/logging.bash"
 source "$AGB_LIBDIR/path.bash"
 # shellcheck source=../../lib/agent.bash
 source "$AGB_LIBDIR/agent.bash"
+# shellcheck source=../../lib/cli-compose.bash
+source "$AGB_LIBDIR/cli-compose.bash"
 
 switch() {
 	local agent=""
@@ -47,6 +49,11 @@ switch() {
 	then
 		echo "Active agent is already '$agent'. No changes made." | info
 		return 0
+	fi
+
+	if cli_layered_compose_initialized "$repo_root"
+	then
+		ensure_cli_agent_runtime_files "$repo_root" "$agent"
 	fi
 
 	write_active_agent "$repo_root" "$agent"
