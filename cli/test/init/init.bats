@@ -84,11 +84,11 @@ teardown() {
 	unset -f select_yes_no
 	unset -f open_editor
 
-	local policy_path="$PROJECT_DIR/.agent-sandbox/policy-cli-claude.yaml"
+	local policy_path="$PROJECT_DIR/.agent-sandbox/user.policy.yaml"
 	local compose_path="$PROJECT_DIR/.agent-sandbox/compose/user.override.yml"
 
 	stub select_yes_no \
-		"'Review the generated policy file at $policy_path?' : echo true" \
+		"'Review the generated shared policy file at $policy_path?' : echo true" \
 		"'Review the generated compose override file at $compose_path?' : echo true"
 	stub open_editor \
 		"$policy_path : :" \
@@ -103,11 +103,11 @@ teardown() {
 	unset -f select_yes_no
 	unset -f open_editor
 
-	local policy_path="$PROJECT_DIR/.agent-sandbox/policy-cli-claude.yaml"
+	local policy_path="$PROJECT_DIR/.agent-sandbox/user.policy.yaml"
 	local compose_path="$PROJECT_DIR/.agent-sandbox/compose/user.override.yml"
 
 	stub select_yes_no \
-		"'Review the generated policy file at $policy_path?' : echo true" \
+		"'Review the generated shared policy file at $policy_path?' : echo true" \
 		"'Review the generated compose override file at $compose_path?' : echo false"
 	stub open_editor \
 		"$policy_path : exit 1"
@@ -135,14 +135,14 @@ teardown() {
 
 	local expected_default
 	expected_default=$(basename "$PROJECT_DIR")-sandbox
-	local policy_file=".agent-sandbox/policy-cli-claude.yaml"
+	local policy_file=".agent-sandbox/user.policy.yaml"
 
 	stub read_line "'Project name [$expected_default]:' : echo my-interactive-project"
 	stub select_option \
 		"'Select agent:' claude copilot codex : echo claude" \
 		"'Select mode:' cli devcontainer : echo cli"
 	stub select_yes_no \
-		"'Review the generated policy file at $PROJECT_DIR/$policy_file?' : echo false" \
+		"'Review the generated shared policy file at $PROJECT_DIR/$policy_file?' : echo false" \
 		"'Review the generated compose override file at $PROJECT_DIR/.agent-sandbox/compose/user.override.yml?' : echo false"
 
 	stub cli "--project-path $PROJECT_DIR --agent claude --name my-interactive-project : :"

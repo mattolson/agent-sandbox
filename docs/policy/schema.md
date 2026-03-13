@@ -1,8 +1,10 @@
 # Policy Schema
 
-Policy files configure which domains the sandbox can reach. The proxy enforcer reads this file at startup and blocks requests to any domain not on the allowlist.
+Policy files configure which domains the sandbox can reach. The proxy enforcer reads the rendered effective policy at
+startup and blocks requests to any domain not on the allowlist.
 
-Policy file location: `/etc/mitmproxy/policy.yaml` (inside the proxy container).
+Effective policy location inside the proxy container: `POLICY_PATH` (defaults to `/etc/mitmproxy/policy.yaml` for
+single-file setups).
 
 ## Format
 
@@ -57,24 +59,53 @@ When a request arrives:
 
 All requests are logged to stdout as JSON with an `"action"` field of `"allowed"` or `"blocked"`.
 
-If `PROXY_MODE=enforce` and no policy file exists at `/etc/mitmproxy/policy.yaml`, the proxy refuses to start.
+If `PROXY_MODE=enforce` and no effective policy file exists at `POLICY_PATH`, the proxy refuses to start.
 
 ## Where policy files live
 
-There are two places a policy can come from:
+There are three ways a policy can be sourced:
 
 1. **Baked into the proxy image** at build time (`images/proxy/policy.yaml`). The default blocks all traffic.
-2. **Generated per-project** by `agentbox init`, which creates a policy file at `.agent-sandbox/policy-<mode>-<agent>.yaml` and mounts it into the proxy container.
+2. **Single-file project policy** for devcontainer and legacy layouts. `agentbox init` creates `.agent-sandbox/policy-<mode>-<agent>.yaml` and mounts it into the proxy container at `/etc/mitmproxy/policy.yaml`.
+3. **Layered CLI policy inputs** for current CLI layouts:
+   - `.agent-sandbox/user.policy.yaml`
+   - `.agent-sandbox/user.agent.<agent>.policy.yaml`
 
-The `agentbox init` command adds a volume mount to the proxy service in the generated compose file:
+For layered CLI projects, proxy startup renders the effective policy from:
+
+1. the active agent baseline (`services: [<active-agent>]`)
+2. `.agent-sandbox/user.policy.yaml`
+3. `.agent-sandbox/user.agent.<active-agent>.policy.yaml`
+
+The layered merge semantics are intentionally narrow:
+
+- `services`: union with stable order and de-duplication
+- `domains`: union with stable order and de-duplication
+- other mapping keys: deep-merged when both sides are maps
+- other lists and scalars: later layers replace earlier ones
+
+The rendered result is then used for enforcement. You can inspect that rendered output with:
+
+```bash
+agentbox policy render
+```
+
+Single-file layouts still mount the policy directly into the proxy service:
 
 ```yaml
 # Under proxy.volumes (added by agentbox init):
 - <path-to-policy>:/etc/mitmproxy/policy.yaml:ro
 ```
 
-The `.agent-sandbox/` directory (CLI mode) or `.devcontainer/` directory (devcontainer mode) is mounted read-only inside the agent container, preventing the agent from modifying the policy or compose file. The proxy only reads the policy at startup, so changes require a human-initiated restart.
+Layered CLI layouts mount the two user-owned input files into fixed proxy paths instead of replacing
+`/etc/mitmproxy/policy.yaml` directly.
+
+The `.agent-sandbox/` directory (CLI mode) or `.devcontainer/` directory (devcontainer mode) is mounted read-only
+inside the agent container, preventing the agent from modifying the policy or compose file. The proxy only reads the
+effective policy at startup, so changes require a human-initiated restart.
 
 ## Examples
 
-The base policy template is at [cli/templates/policy.yaml](../../cli/templates/policy.yaml). The `agentbox init` command copies this template and populates it with the services appropriate for the selected agent and IDE.
+The single-file base policy template is at [cli/templates/policy.yaml](../../cli/templates/policy.yaml). Layered CLI
+user-owned scaffolds are at [cli/templates/user.policy.yaml](../../cli/templates/user.policy.yaml) and
+[cli/templates/user.agent.policy.yaml](../../cli/templates/user.agent.policy.yaml).

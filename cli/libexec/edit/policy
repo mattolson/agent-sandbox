@@ -7,6 +7,10 @@ source "$AGB_LIBDIR/compat.bash"
 source "$AGB_LIBDIR/logging.bash"
 # shellcheck source=../../lib/constants.bash
 source "$AGB_LIBDIR/constants.bash"
+# shellcheck source=../../lib/agent.bash
+source "$AGB_LIBDIR/agent.bash"
+# shellcheck source=../../lib/cli-compose.bash
+source "$AGB_LIBDIR/cli-compose.bash"
 # shellcheck source=../../lib/select.bash
 source "$AGB_LIBDIR/select.bash"
 # shellcheck source=../../lib/path.bash
@@ -15,17 +19,29 @@ source "$AGB_LIBDIR/path.bash"
 # Opens the network policy file in the default editor. If the file is modified,
 # automatically restarts the proxy service (only if docker compose is running).
 #
-# Arguments:
-#   --mode - mode filter (default: *)
-#   --agent - agent filter (default: *)
-#
-# Policy file pattern: $AGB_PROJECT_DIR/policy-$mode-$agent.yaml
+legacy_policy_file_matches() {
+	local repo_root=$1
+	local mode=$2
+	local agent=$3
+	local mode_pattern="${mode:-*}"
+	local agent_pattern="${agent:-*}"
+	local policy_files=()
+
+	mapfile -t policy_files < <(compgen -G "$repo_root/$AGB_PROJECT_DIR/policy-$mode_pattern-$agent_pattern.yaml" 2>/dev/null | sort)
+	if [[ ${#policy_files[@]} -gt 0 ]]
+	then
+		printf '%s\n' "${policy_files[@]}"
+	fi
+}
+
 policy() {
 	local repo_root
 	repo_root="$(find_repo_root)"
 
-	local mode="*"
-	local agent="*"
+	local mode=""
+	local agent=""
+	local policy_file=""
+	local restart_scope="active"
 
 	while [[ $# -gt 0 ]]
 	do
@@ -45,31 +61,63 @@ policy() {
 		esac
 	done
 
-	local policy_files=()
-	mapfile -t policy_files < <(compgen -G "$repo_root/$AGB_PROJECT_DIR/policy-$mode-$agent.yaml" 2>/dev/null | sort)
-	if [[ ${#policy_files[@]} -eq 0 ]]
+	if cli_layered_compose_initialized "$repo_root" && [[ -z "$mode" || "$mode" == "cli" ]]
 	then
-		echo "No policy file found matching pattern: $repo_root/$AGB_PROJECT_DIR/policy-$mode-$agent.yaml" | error
-		return 1
-	fi
+		scaffold_cli_shared_policy_if_missing "$repo_root"
 
-	if [[ ${#policy_files[@]} -gt 1 ]]
-	then
-		echo "Multiple policy files found matching pattern:" | warning
-		printf '  %s\n' "${policy_files[@]}" | warning
-		echo "Using: ${policy_files[0]}" | warning
+		if [[ -n "$agent" ]]
+		then
+			validate_agent "$agent" || return 1
+			migrate_cli_legacy_policy_file "$repo_root" "$agent"
+			ensure_cli_policy_file "$repo_root" "$agent"
+			policy_file="$(cli_user_agent_policy_file "$repo_root" "$agent")"
+
+			local active_agent=""
+			active_agent="$(read_active_agent "$repo_root" 2>/dev/null)" || true
+			if [[ -n "$active_agent" ]] && [[ "$active_agent" != "$agent" ]]
+			then
+				restart_scope="inactive-agent"
+			fi
+		else
+			policy_file="$(cli_shared_policy_file "$repo_root")"
+		fi
+	else
+		local policy_files=()
+		mapfile -t policy_files < <(legacy_policy_file_matches "$repo_root" "$mode" "$agent")
+		if [[ ${#policy_files[@]} -eq 0 ]]
+		then
+			local mode_pattern="${mode:-*}"
+			local agent_pattern="${agent:-*}"
+			echo "No policy file found matching pattern: $repo_root/$AGB_PROJECT_DIR/policy-$mode_pattern-$agent_pattern.yaml" | error
+			return 1
+		fi
+
+		if [[ ${#policy_files[@]} -gt 1 ]]
+		then
+			echo "Multiple policy files found matching pattern:" | warning
+			printf '  %s\n' "${policy_files[@]}" | warning
+			echo "Using: ${policy_files[0]}" | warning
+		fi
+
+		policy_file="${policy_files[0]}"
 	fi
 
 	local mtime_before
-	mtime_before=$(get_file_mtime "${policy_files[0]}")
+	mtime_before=$(get_file_mtime "$policy_file")
 
-	open_editor "${policy_files[0]}"
+	open_editor "$policy_file"
 
 	local mtime_after
-	mtime_after=$(get_file_mtime "${policy_files[0]}")
+	mtime_after=$(get_file_mtime "$policy_file")
 
 	if [[ "$mtime_after" != "$mtime_before" ]]
 	then
+		if [[ "$restart_scope" == "inactive-agent" ]]
+		then
+			echo "Policy file was modified for inactive agent '$agent'. Changes apply after 'agentbox switch --agent $agent'." | warning
+			return 0
+		fi
+
 		local proxy_status
 		proxy_status=$("$AGB_LIBDIR/run-compose" ps proxy --status running --quiet 2>/dev/null) || true
 		if [[ -n "$proxy_status" ]]
@@ -82,7 +130,6 @@ policy() {
 	else
 		echo "Policy file unchanged. Skipping restart." | warning
 	fi
-
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]

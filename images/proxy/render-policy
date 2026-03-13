@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import sys
+
+import yaml
+
+DEFAULT_SINGLE_POLICY_PATH = "/etc/mitmproxy/policy.yaml"
+DEFAULT_SHARED_POLICY_PATH = "/etc/agent-sandbox/policy/user.policy.yaml"
+DEFAULT_AGENT_POLICY_PATH = "/etc/agent-sandbox/policy/user.agent.policy.yaml"
+
+
+def fail(message):
+    print(message, file=sys.stderr)
+    sys.exit(1)
+
+
+def normalize_list(values):
+    items = []
+    seen = set()
+
+    for value in values or []:
+        if value is None:
+            continue
+        item = str(value)
+        if item in seen:
+            continue
+        seen.add(item)
+        items.append(item)
+
+    return items
+
+
+def load_policy_file(path, required=False):
+    if not path or not os.path.exists(path):
+        if required:
+            fail(f"Policy file not found: {path}")
+        return {}
+
+    with open(path, encoding="utf-8") as handle:
+        data = yaml.safe_load(handle) or {}
+
+    if not isinstance(data, dict):
+        fail(f"Policy file must contain a YAML mapping: {path}")
+
+    return data
+
+
+def merge_policy(base, overlay):
+    merged = dict(base)
+
+    for key, value in overlay.items():
+        if key in ("services", "domains"):
+            merged[key] = normalize_list((merged.get(key) or []) + (value or []))
+        elif isinstance(merged.get(key), dict) and isinstance(value, dict):
+            merged[key] = merge_policy(merged[key], value)
+        elif isinstance(value, list):
+            merged[key] = list(value)
+        else:
+            merged[key] = value
+
+    return merged
+
+
+def normalize_policy(policy):
+    normalized = dict(policy)
+    normalized["services"] = normalize_list(normalized.get("services") or [])
+    normalized["domains"] = normalize_list(normalized.get("domains") or [])
+    return normalized
+
+
+def render_layered_policy(active_agent):
+    shared_policy_path = os.getenv("AGENTBOX_SHARED_POLICY_PATH", DEFAULT_SHARED_POLICY_PATH)
+    agent_policy_path = os.getenv("AGENTBOX_AGENT_POLICY_PATH", DEFAULT_AGENT_POLICY_PATH)
+
+    merged = {
+        "services": [active_agent],
+        "domains": [],
+    }
+    merged = merge_policy(merged, load_policy_file(shared_policy_path))
+    merged = merge_policy(merged, load_policy_file(agent_policy_path))
+    return normalize_policy(merged)
+
+
+def render_single_policy():
+    policy_source_path = os.getenv("AGENTBOX_POLICY_SOURCE_PATH", DEFAULT_SINGLE_POLICY_PATH)
+    return normalize_policy(load_policy_file(policy_source_path, required=True))
+
+
+def render_policy():
+    active_agent = os.getenv("AGENTBOX_ACTIVE_AGENT", "").strip()
+    if active_agent:
+        return render_layered_policy(active_agent)
+    return render_single_policy()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Render the effective proxy policy")
+    parser.add_argument("--output", help="Write rendered YAML to this path instead of stdout")
+    args = parser.parse_args()
+
+    rendered_policy = render_policy()
+    rendered_yaml = yaml.safe_dump(rendered_policy, sort_keys=False)
+
+    if args.output:
+        output_dir = os.path.dirname(args.output)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+        with open(args.output, "w", encoding="utf-8") as handle:
+            handle.write(rendered_yaml)
+        return
+
+    sys.stdout.write(rendered_yaml)
+
+
+if __name__ == "__main__":
+    main()

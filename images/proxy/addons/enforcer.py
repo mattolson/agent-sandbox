@@ -17,8 +17,6 @@ from datetime import datetime, timezone
 import yaml
 from mitmproxy import http
 
-POLICY_PATH = "/etc/mitmproxy/policy.yaml"
-
 SERVICE_DOMAINS = {
     "github": [
         "github.com",
@@ -94,11 +92,13 @@ class PolicyEnforcer:
             sys.exit(1)
 
     def _load_policy(self):
-        if not os.path.exists(POLICY_PATH):
-            self._log_info(f"PROXY_MODE=enforce but no policy file at {POLICY_PATH}")
+        policy_path = os.getenv("POLICY_PATH", "/etc/mitmproxy/policy.yaml")
+
+        if not os.path.exists(policy_path):
+            self._log_info(f"PROXY_MODE=enforce but no policy file at {policy_path}")
             sys.exit(1)
 
-        with open(POLICY_PATH) as f:
+        with open(policy_path) as f:
             policy = yaml.safe_load(f) or {}
 
         for svc in policy.get("services") or []:
@@ -113,7 +113,7 @@ class PolicyEnforcer:
             self._add_domain(domain)
 
         self._log_info(
-            f"Policy loaded: {len(self.allowed_exact)} exact, "
+            f"Policy loaded from {policy_path}: {len(self.allowed_exact)} exact, "
             f"{len(self.allowed_wildcards)} wildcard"
         )
 

@@ -27,6 +27,7 @@ teardown() {
 	stub docker \
 		"compose -f $base_file -f $agent_file -f $shared_override -f $agent_override ps : :"
 
+	ensure_cli_agent_runtime_files() { :; }
 	exec() { "$@"; }
 
 	cd "$test_root"

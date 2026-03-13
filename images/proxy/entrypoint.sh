@@ -6,6 +6,7 @@ set -e
 
 CA_DIR="/home/mitmproxy/.mitmproxy"
 EXPORT_DIR="/ca-export"
+RENDERED_POLICY_PATH="${AGENTBOX_RENDERED_POLICY_PATH:-/tmp/agent-sandbox-policy.yaml}"
 
 # Generate the CA if it doesn't exist yet
 if [ ! -f "$CA_DIR/mitmproxy-ca-cert.pem" ]; then
@@ -17,6 +18,9 @@ fi
 if [ -f "$CA_DIR/mitmproxy-ca-cert.pem" ] && [ -d "$EXPORT_DIR" ]; then
   cp "$CA_DIR/mitmproxy-ca-cert.pem" "$EXPORT_DIR/ca.crt"
 fi
+
+/usr/local/bin/render-policy --output "$RENDERED_POLICY_PATH"
+export POLICY_PATH="$RENDERED_POLICY_PATH"
 
 # Run mitmdump with all passed arguments, using the same confdir
 # --quiet suppresses mitmproxy's built-in logging (we use our own JSON logs)

@@ -52,7 +52,26 @@ cli_user_agent_override_file() {
 	echo "$(cli_compose_dir "$repo_root")/user.agent.$agent.override.yml"
 }
 
-cli_policy_file() {
+cli_shared_policy_file() {
+	local repo_root="${1:-}"
+
+	if [[ -z "$repo_root" ]]
+	then
+		repo_root="$(find_repo_root)"
+	fi
+
+	echo "$repo_root/$AGB_PROJECT_DIR/user.policy.yaml"
+}
+
+cli_user_agent_policy_file() {
+	local repo_root=$1
+	local agent=$2
+
+	validate_agent "$agent" >/dev/null
+	echo "$repo_root/$AGB_PROJECT_DIR/user.agent.$agent.policy.yaml"
+}
+
+cli_legacy_policy_file() {
 	local repo_root=$1
 	local agent=$2
 
@@ -134,6 +153,7 @@ scaffold_cli_base_compose() {
 	proxy_image_pinned=$(pull_and_pin_image "${AGENTBOX_PROXY_IMAGE:-$default_proxy_image}")
 	set_proxy_image "$base_file" "$proxy_image_pinned"
 	set_project_name "$base_file" "$project_name"
+	ensure_cli_base_policy_runtime_config "$repo_root"
 }
 
 scaffold_cli_agent_compose() {
@@ -144,8 +164,6 @@ scaffold_cli_agent_compose() {
 	local compose_dir
 	local agent_file
 	local template_file
-	local policy_file
-	local policy_relative
 	local default_agent_image
 	local agent_image
 	local agent_image_pinned
@@ -155,11 +173,10 @@ scaffold_cli_agent_compose() {
 	compose_dir="$(cli_compose_dir "$repo_root")"
 	agent_file="$(cli_agent_compose_file "$repo_root" "$agent")"
 	template_file="$AGB_TEMPLATEDIR/$agent/cli/agent.yml"
-	policy_file="$(cli_policy_file "$repo_root" "$agent")"
-	policy_relative="../$(basename "$policy_file")"
 
 	if [[ "$overwrite" != "true" ]] && [[ -f "$agent_file" ]]
 	then
+		ensure_cli_agent_policy_runtime_config "$repo_root" "$agent"
 		return 0
 	fi
 
@@ -177,7 +194,7 @@ scaffold_cli_agent_compose() {
 
 	agent_image_pinned=$(pull_and_pin_image "$agent_image")
 	set_agent_image "$agent_file" "$agent_image_pinned"
-	add_policy_volume "$agent_file" "$policy_relative"
+	ensure_cli_agent_policy_runtime_config "$repo_root" "$agent"
 }
 
 scaffold_cli_shared_override_if_missing() {
@@ -202,7 +219,7 @@ scaffold_cli_shared_override_if_missing() {
 
 	if [[ "$AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS" == "true" ]]
 	then
-		add_volume_entry "$override_file" "${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro" "true"
+		add_volume_entry "$override_file" '${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro' "true"
 	fi
 
 	if [[ "$AGENTBOX_ENABLE_DOTFILES" == "true" ]]
@@ -262,14 +279,101 @@ ensure_cli_policy_file() {
 	local policy_file
 
 	validate_agent "$agent" >/dev/null
-	policy_file="$(cli_policy_file "$repo_root" "$agent")"
+	policy_file="$(cli_user_agent_policy_file "$repo_root" "$agent")"
 
 	if [[ -f "$policy_file" ]]
 	then
 		return 0
 	fi
 
-	write_policy_file "$policy_file" "$agent"
+	scaffold_user_policy_file_if_missing "$policy_file" "user.agent.policy.yaml"
+}
+
+ensure_cli_base_policy_runtime_config() {
+	local repo_root=$1
+	local base_file
+	local shared_relative
+
+	base_file="$(cli_base_compose_file "$repo_root")"
+	shared_relative="../$(basename "$(cli_shared_policy_file "$repo_root")")"
+
+	if [[ ! -f "$base_file" ]]
+	then
+		return 1
+	fi
+
+	ensure_proxy_volume "$base_file" "$shared_relative:/etc/agent-sandbox/policy/user.policy.yaml:ro"
+}
+
+ensure_cli_agent_policy_runtime_config() {
+	local repo_root=$1
+	local agent=$2
+	local agent_file
+	local legacy_volume
+	local policy_relative
+
+	validate_agent "$agent" >/dev/null
+	agent_file="$(cli_agent_compose_file "$repo_root" "$agent")"
+	legacy_volume="../$(basename "$(cli_legacy_policy_file "$repo_root" "$agent")"):/etc/mitmproxy/policy.yaml:ro"
+	policy_relative="../$(basename "$(cli_user_agent_policy_file "$repo_root" "$agent")")"
+
+	if [[ ! -f "$agent_file" ]]
+	then
+		return 1
+	fi
+
+	remove_proxy_volume "$agent_file" "$legacy_volume"
+	ensure_proxy_volume "$agent_file" "$policy_relative:/etc/agent-sandbox/policy/user.agent.policy.yaml:ro"
+	set_proxy_environment_var "$agent_file" "AGENTBOX_ACTIVE_AGENT" "$agent"
+}
+
+scaffold_cli_shared_policy_if_missing() {
+	local repo_root=$1
+	local policy_file
+
+	policy_file="$(cli_shared_policy_file "$repo_root")"
+	scaffold_user_policy_file_if_missing "$policy_file" "user.policy.yaml"
+}
+
+migrate_cli_legacy_policy_file() {
+	local repo_root=$1
+	local agent=$2
+	local legacy_policy_file
+	local shared_policy_file
+	local agent_policy_file
+
+	validate_agent "$agent" >/dev/null
+	legacy_policy_file="$(cli_legacy_policy_file "$repo_root" "$agent")"
+	shared_policy_file="$(cli_shared_policy_file "$repo_root")"
+	agent_policy_file="$(cli_user_agent_policy_file "$repo_root" "$agent")"
+
+	if [[ ! -f "$legacy_policy_file" ]]
+	then
+		return 0
+	fi
+
+	if [[ -f "$agent_policy_file" ]]
+	then
+		echo "Retiring legacy flat policy file: $legacy_policy_file" | warning
+	else
+		echo "Carrying forward legacy flat policy into $agent_policy_file" | info
+	fi
+
+	carry_forward_legacy_cli_policy_file \
+		"$legacy_policy_file" \
+		"$agent_policy_file" \
+		"$agent" \
+		"$shared_policy_file"
+}
+
+migrate_all_cli_legacy_policy_files() {
+	local repo_root=$1
+	local agent
+
+	while IFS= read -r agent
+	do
+		migrate_cli_legacy_policy_file "$repo_root" "$agent"
+	done < <(supported_agents)
 }
 
 initialize_cli_layered_layout() {
@@ -281,6 +385,8 @@ initialize_cli_layered_layout() {
 
 	scaffold_cli_base_compose "$repo_root" "$project_name"
 	scaffold_cli_shared_override_if_missing "$repo_root"
+	scaffold_cli_shared_policy_if_missing "$repo_root"
+	migrate_all_cli_legacy_policy_files "$repo_root"
 	ensure_cli_policy_file "$repo_root" "$agent"
 	scaffold_cli_agent_compose "$repo_root" "$agent" "true" "true"
 	scaffold_cli_agent_override_if_missing "$repo_root" "$agent"
@@ -292,7 +398,10 @@ ensure_cli_agent_runtime_files() {
 
 	validate_agent "$agent" >/dev/null
 
+	ensure_cli_base_policy_runtime_config "$repo_root" || true
 	scaffold_cli_shared_override_if_missing "$repo_root"
+	scaffold_cli_shared_policy_if_missing "$repo_root"
+	migrate_all_cli_legacy_policy_files "$repo_root"
 	ensure_cli_policy_file "$repo_root" "$agent"
 	scaffold_cli_agent_compose "$repo_root" "$agent" "false" "false"
 	scaffold_cli_agent_override_if_missing "$repo_root" "$agent"

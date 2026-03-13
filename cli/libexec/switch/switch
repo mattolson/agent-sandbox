@@ -47,7 +47,13 @@ switch() {
 	if current_agent="$(read_active_agent "$repo_root" 2>/dev/null)" &&
 		[[ "$current_agent" == "$agent" ]]
 	then
-		echo "Active agent is already '$agent'. No changes made." | info
+		if cli_layered_compose_initialized "$repo_root"
+		then
+			ensure_cli_agent_runtime_files "$repo_root" "$agent"
+			echo "Active agent is already '$agent'. Refreshed layered runtime files." | info
+		else
+			echo "Active agent is already '$agent'. No changes made." | info
+		fi
 		return 0
 	fi
 

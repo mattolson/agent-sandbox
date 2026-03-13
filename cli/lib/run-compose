@@ -20,11 +20,19 @@ compose() {
 
 	if cli_layered_compose_initialized "$repo_root"
 	then
+		local active_agent
+		active_agent="$(read_active_agent "$repo_root")" || {
+			echo "Active agent state missing for layered CLI compose at $repo_root. Run 'agentbox switch --agent <name>'." >&2
+			return 1
+		}
+
+		ensure_cli_agent_runtime_files "$repo_root" "$active_agent"
+
 		local compose_file
 		while IFS= read -r compose_file
 		do
 			compose_files+=("$compose_file")
-		done < <(emit_cli_compose_files "$repo_root")
+		done < <(emit_cli_compose_files "$repo_root" "$active_agent")
 	else
 		compose_files+=("$(find_compose_file)")
 	fi

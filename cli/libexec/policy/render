@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -gt 0 ]]
+then
+	echo "agentbox policy render does not accept arguments" >&2
+	exit 1
+fi
+
+exec "$AGB_LIBDIR/run-compose" run --rm --no-deps -T --entrypoint /usr/local/bin/render-policy proxy
