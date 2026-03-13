@@ -128,17 +128,130 @@ set_project_name() {
 	project_name="$project_name" yq -i '. = {"name": env(project_name)} * .' "$compose_file"
 }
 
+add_service_volume() {
+	require yq
+	local compose_file=$1
+	local service=$2
+	local volume_entry=$3
+
+	service="$service" volume_entry="$volume_entry" yq -i \
+		'.services.[env(service)].volumes = ((.services.[env(service)].volumes // []) + [env(volume_entry)])' "$compose_file"
+}
+
+ensure_service_volume() {
+	require yq
+	local compose_file=$1
+	local service=$2
+	local volume_entry=$3
+	local existing_count
+
+	existing_count=$(
+		service="$service" volume_entry="$volume_entry" yq -r \
+			'(.services.[env(service)].volumes // []) | map(select(. == env(volume_entry))) | length' \
+			"$compose_file"
+	)
+	existing_count="${existing_count:-0}"
+
+	if [[ "$existing_count" != "0" ]]
+	then
+		return 0
+	fi
+
+	add_service_volume "$compose_file" "$service" "$volume_entry"
+}
+
+remove_service_volume() {
+	require yq
+	local compose_file=$1
+	local service=$2
+	local volume_entry=$3
+
+	service="$service" volume_entry="$volume_entry" yq -i \
+		'.services.[env(service)].volumes = ((.services.[env(service)].volumes // []) | map(select(. != env(volume_entry))))' "$compose_file"
+}
+
+set_service_environment_var() {
+	require yq
+	local compose_file=$1
+	local service=$2
+	local name=$3
+	local value=$4
+	local env_entry
+	local preserved_entries=()
+	local preserved_entry_count=0
+
+	while IFS= read -r env_entry
+	do
+		case "$env_entry" in
+		"$name="*)
+			;;
+		*)
+			preserved_entries+=("$env_entry")
+			preserved_entry_count=$((preserved_entry_count + 1))
+			;;
+		esac
+	done < <(
+		service="$service" yq -r \
+			'.services.[env(service)].environment[]?' \
+			"$compose_file"
+	)
+
+	service="$service" yq -i '.services.[env(service)].environment = []' "$compose_file"
+
+	if [[ "$preserved_entry_count" -gt 0 ]]
+	then
+		for env_entry in "${preserved_entries[@]}"
+		do
+			service="$service" env_entry="$env_entry" yq -i \
+				'.services.[env(service)].environment += [env(env_entry)]' \
+				"$compose_file"
+		done
+	fi
+
+	env_entry="$name=$value"
+	service="$service" env_entry="$env_entry" yq -i \
+		'.services.[env(service)].environment += [env(env_entry)]' \
+		"$compose_file"
+}
+
+add_proxy_volume() {
+	local compose_file=$1
+	local volume_entry=$2
+
+	add_service_volume "$compose_file" "proxy" "$volume_entry"
+}
+
+ensure_proxy_volume() {
+	local compose_file=$1
+	local volume_entry=$2
+
+	ensure_service_volume "$compose_file" "proxy" "$volume_entry"
+}
+
+remove_proxy_volume() {
+	local compose_file=$1
+	local volume_entry=$2
+
+	remove_service_volume "$compose_file" "proxy" "$volume_entry"
+}
+
+set_proxy_environment_var() {
+	local compose_file=$1
+	local name=$2
+	local value=$3
+
+	set_service_environment_var "$compose_file" "proxy" "$name" "$value"
+}
+
 # Adds policy volume mount to the proxy service.
 # Args:
 #   $1 - Path to the Docker Compose file
 #   $2 - Path to the policy file (relative to compose file)
 add_policy_volume() {
-	require yq
 	local compose_file=$1
 	local policy_file=$2
 
-	policy_file="$policy_file" yq -i \
-		'.services.proxy.volumes += [env(policy_file) + ":/etc/mitmproxy/policy.yaml:ro"]' "$compose_file"
+	add_proxy_volume "$compose_file" "$policy_file:/etc/mitmproxy/policy.yaml:ro"
 }
 
 # Adds a foot comment to the last item in a YAML array.

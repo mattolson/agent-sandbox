@@ -6,127 +6,103 @@ setup() {
 	# shellcheck source=../../libexec/edit/policy
 	source "$AGB_LIBEXECDIR/edit/policy"
 
-	mkdir -p "$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR"
-	POLICY_FILE="$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/policy-dev-claude.yaml"
-	touch "$POLICY_FILE"
+	PROJECT_DIR="$BATS_TEST_TMPDIR/project"
+	COMPOSE_DIR="$PROJECT_DIR/$AGB_PROJECT_DIR/compose"
+	SHARED_POLICY_FILE="$PROJECT_DIR/$AGB_PROJECT_DIR/user.policy.yaml"
+	ACTIVE_AGENT_POLICY_FILE="$PROJECT_DIR/$AGB_PROJECT_DIR/user.agent.claude.policy.yaml"
+	INACTIVE_AGENT_POLICY_FILE="$PROJECT_DIR/$AGB_PROJECT_DIR/user.agent.codex.policy.yaml"
+	SHARED_OVERRIDE_FILE="$COMPOSE_DIR/user.override.yml"
+	ACTIVE_AGENT_OVERRIDE_FILE="$COMPOSE_DIR/user.agent.claude.override.yml"
+
+	mkdir -p "$PROJECT_DIR/.git" "$COMPOSE_DIR" "$PROJECT_DIR/$AGB_PROJECT_DIR"
+	touch \
+		"$COMPOSE_DIR/base.yml" \
+		"$COMPOSE_DIR/agent.claude.yml" \
+		"$COMPOSE_DIR/agent.codex.yml" \
+		"$SHARED_OVERRIDE_FILE" \
+		"$ACTIVE_AGENT_OVERRIDE_FILE"
+	touch "$SHARED_POLICY_FILE" "$ACTIVE_AGENT_POLICY_FILE"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent for this project." \
+		"ACTIVE_AGENT=claude" > "$PROJECT_DIR/$AGB_PROJECT_DIR/active-target.env"
+
+	local bin_dir="$BATS_TEST_TMPDIR/bin"
+	mkdir -p "$bin_dir"
+	cat > "$bin_dir/yq" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+	chmod +x "$bin_dir/yq"
+	PATH="$bin_dir:$PATH"
 }
 
 teardown() {
 	unstub_all
 }
 
-@test "policy opens editor for default pattern" {
+@test "policy opens shared layered CLI policy by default" {
 	unset -f open_editor
 	stub open_editor \
-		"$POLICY_FILE : :"
+		"$SHARED_POLICY_FILE : :"
 
-	cd "$BATS_TEST_TMPDIR"
+	cd "$PROJECT_DIR"
 	run policy
 	assert_success
 }
 
-@test "policy filters by mode" {
-	POLICY_FILE_CLI="$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/policy-cli-claude.yaml"
-	POLICY_FILE_DEV="$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/policy-dev-claude.yaml"
-	touch "$POLICY_FILE_CLI" "$POLICY_FILE_DEV"
+@test "policy opens agent-specific layered CLI policy and scaffolds it when missing" {
+	rm -f "$INACTIVE_AGENT_POLICY_FILE"
 
 	unset -f open_editor
 	stub open_editor \
-		"$POLICY_FILE_CLI : :"
+		"$INACTIVE_AGENT_POLICY_FILE : :"
 
-	cd "$BATS_TEST_TMPDIR"
-	run policy --mode cli
+	cd "$PROJECT_DIR"
+	run policy --agent codex
 	assert_success
+	assert [ -f "$INACTIVE_AGENT_POLICY_FILE" ]
 }
 
-@test "policy filters by agent" {
-	POLICY_FILE_CURSOR="$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/policy-dev-cursor.yaml"
-	POLICY_FILE_CLAUDE="$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/policy-dev-claude.yaml"
-	touch "$POLICY_FILE_CURSOR" "$POLICY_FILE_CLAUDE"
-
+@test "policy restarts proxy when shared layered policy is modified and proxy is running" {
 	unset -f open_editor
 	stub open_editor \
-		"$POLICY_FILE_CURSOR : :"
-
-	cd "$BATS_TEST_TMPDIR"
-	run policy --agent cursor
-	assert_success
-}
-
-@test "policy filters by mode and agent" {
-	POLICY_FILE_SPECIFIC="$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/policy-cli-cursor.yaml"
-	touch "$POLICY_FILE_SPECIFIC" \
-		"$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/policy-dev-cursor.yaml" \
-		"$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/policy-cli-claude.yaml" \
-		"$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/policy-dev-claude.yaml"
-
-	unset -f open_editor
-	stub open_editor \
-		"$POLICY_FILE_SPECIFIC : :"
-
-	cd "$BATS_TEST_TMPDIR"
-	run policy --mode cli --agent cursor
-	assert_success
-}
-
-@test "policy warns when multiple files match and uses first" {
-	POLICY_FILE_1="$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/policy-dev-agent1.yaml"
-	POLICY_FILE_2="$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/policy-dev-agent2.yaml"
-	touch "$POLICY_FILE_1" "$POLICY_FILE_2"
-
-	unset -f open_editor
-	stub open_editor \
-		"$POLICY_FILE_1 : :"
-
-	cd "$BATS_TEST_TMPDIR"
-	run policy --mode dev
-	assert_success
-	assert_output --partial "Multiple policy files found matching pattern"
-}
-
-@test "policy restarts proxy when file modified and proxy running" {
-	mkdir -p "$BATS_TEST_TMPDIR/.devcontainer"
-	COMPOSE_FILE="$BATS_TEST_TMPDIR/.devcontainer/docker-compose.yml"
-	touch "$COMPOSE_FILE"
-
-	unset -f open_editor
-	stub open_editor \
-		"$POLICY_FILE : sleep 1 && touch '$POLICY_FILE'"
+		"$SHARED_POLICY_FILE : sleep 1 && touch '$SHARED_POLICY_FILE'"
 
 	stub docker \
-		"compose -f $COMPOSE_FILE ps proxy --status running --quiet : echo 'proxy-container-id'" \
-		"compose -f $COMPOSE_FILE restart proxy : :"
+		"compose -f $COMPOSE_DIR/base.yml -f $COMPOSE_DIR/agent.claude.yml -f $SHARED_OVERRIDE_FILE -f $ACTIVE_AGENT_OVERRIDE_FILE ps proxy --status running --quiet : echo 'proxy-container-id'" \
+		"compose -f $COMPOSE_DIR/base.yml -f $COMPOSE_DIR/agent.claude.yml -f $SHARED_OVERRIDE_FILE -f $ACTIVE_AGENT_OVERRIDE_FILE restart proxy : :"
 
-	cd "$BATS_TEST_TMPDIR"
+	cd "$PROJECT_DIR"
 	run policy
+	assert_success
 	assert_output --partial "Restarting proxy"
 }
 
-@test "policy skips restart when file unchanged" {
+@test "policy skips restart for inactive layered agent-specific policy changes" {
+	touch "$INACTIVE_AGENT_POLICY_FILE"
+
 	unset -f open_editor
 	stub open_editor \
-		"$POLICY_FILE : true"
+		"$INACTIVE_AGENT_POLICY_FILE : sleep 1 && touch '$INACTIVE_AGENT_POLICY_FILE'"
 
-	cd "$BATS_TEST_TMPDIR"
-	run policy
+	cd "$PROJECT_DIR"
+	run policy --agent codex
 	assert_success
-	assert_output --partial "Policy file unchanged. Skipping restart."
+	assert_output --partial "inactive agent 'codex'"
 }
 
-@test "policy skips restart when proxy not running" {
-	mkdir -p "$BATS_TEST_TMPDIR/.devcontainer"
-	COMPOSE_FILE="$BATS_TEST_TMPDIR/.devcontainer/docker-compose.yml"
-	touch "$COMPOSE_FILE"
+@test "policy falls back to legacy devcontainer policy lookup" {
+	local devcontainer_root="$BATS_TEST_TMPDIR/devcontainer-project"
+	local legacy_policy_file="$devcontainer_root/$AGB_PROJECT_DIR/policy-devcontainer-claude.yaml"
+
+	mkdir -p "$devcontainer_root/.git" "$devcontainer_root/$AGB_PROJECT_DIR"
+	touch "$legacy_policy_file"
 
 	unset -f open_editor
 	stub open_editor \
-		"$POLICY_FILE : sleep 1 && touch '$POLICY_FILE'"
+		"$legacy_policy_file : :"
 
-	stub docker \
-		"compose -f $COMPOSE_FILE ps proxy --status running --quiet : :"
-
-	cd "$BATS_TEST_TMPDIR"
-	run policy
+	cd "$devcontainer_root"
+	run policy --mode devcontainer --agent claude
 	assert_success
-	assert_output --partial "proxy service is not running. Skipping restart."
 }

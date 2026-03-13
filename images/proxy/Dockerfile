@@ -19,7 +19,8 @@ RUN pip install --no-cache-dir PyYAML
 COPY policy.yaml /etc/mitmproxy/policy.yaml
 COPY addons/ /home/mitmproxy/addons/
 COPY entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY render-policy /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/render-policy
 
 # Ensure mitmproxy user owns its home directory, confdir, and the CA export directory.
 RUN mkdir -p /home/mitmproxy/.mitmproxy /ca-export \

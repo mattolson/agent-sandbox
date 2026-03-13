@@ -1,0 +1,9 @@
+# Shared user-owned policy additions for layered CLI sandboxes.
+#
+# This file is merged into the active agent baseline at proxy startup.
+# Changes take effect on proxy restart: agentbox compose restart proxy
+#
+# See docs/policy/schema.md for the full format reference.
+
+services: []
+domains: []

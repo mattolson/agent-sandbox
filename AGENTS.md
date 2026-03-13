@@ -10,7 +10,9 @@ Agent Sandbox creates locked-down local sandboxes for running AI coding agents (
 
 ## Development Environment
 
-This project uses Docker Compose with a proxy sidecar. The compose file lives at `.agent-sandbox/docker-compose.yml` and the network policy at `.agent-sandbox/policy-cli-codex.yaml`.
+This project uses layered Docker Compose files with a proxy sidecar. The managed CLI compose files live under
+`.agent-sandbox/compose/`, the active agent lives in `.agent-sandbox/active-target.env`, and the user-owned layered
+policy inputs live at `.agent-sandbox/user.policy.yaml` plus `.agent-sandbox/user.agent.<agent>.policy.yaml`.
 
 The container runs Debian bookworm with:
 - Non-root `dev` user (uid/gid 500)
@@ -54,9 +56,13 @@ Available services and their domain allowlists are hardcoded in `images/proxy/ad
 
 ### Customizing the Policy
 
-For this project, the network policy lives at `.agent-sandbox/policy-cli-codex.yaml`. The `.agent-sandbox/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy. The proxy only reads the policy at startup.
+For layered CLI projects, the shared user-owned policy file is `.agent-sandbox/user.policy.yaml`, and the active
+agent's additions live in `.agent-sandbox/user.agent.<agent>.policy.yaml`. The proxy renders the effective policy at
+startup from the active agent baseline plus those user-owned inputs. The `.agent-sandbox/` directory is mounted
+read-only inside the agent container, preventing the agent from modifying the policy.
 
 To edit the policy in a user project: `agentbox edit policy`.
+To inspect the rendered effective policy: `agentbox policy render`.
 
 ## Architecture
 
@@ -65,7 +71,7 @@ Four components:
 1. **CLI** (`cli/`) - The `agentbox` command-line tool for initializing and managing sandboxed projects
 2. **Images** (`images/`) - Base image, agent-specific images, proxy image, and CLI image
 3. **Templates** (`cli/templates/`) - Per-agent, per-mode compose file and devcontainer templates
-4. **Runtime** (`.agent-sandbox/docker-compose.yml`) - Docker Compose stack for developing this project
+4. **Runtime** (`.agent-sandbox/compose/*.yml`) - Layered Docker Compose stack for developing this project
 
 The base image contains the firewall script and common tools. Agent images extend it with agent-specific software. The proxy image runs mitmproxy with the policy enforcement addon.
 

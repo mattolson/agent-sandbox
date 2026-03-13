@@ -126,16 +126,19 @@ assert_cli_base_layer() {
 	yq -e '.services.agent.volumes[] | select(. == "../..:/workspace")' "$compose_file"
 	yq -e '.services.agent.volumes[] | select(. == "..:/workspace/.agent-sandbox:ro")' "$compose_file"
 	yq -e '.services.agent.volumes[] | select(. == "proxy-ca:/etc/mitmproxy:ro")' "$compose_file"
+	yq -e '.services.proxy.volumes[] | select(. == "../user.policy.yaml:/etc/agent-sandbox/policy/user.policy.yaml:ro")' "$compose_file"
 
 	assert_named_volumes "$compose_file" "proxy-state" "proxy-ca"
 }
 
-assert_cli_policy_file() {
+assert_cli_user_policy_file() {
 	local policy_file=$1
-	local expected_service=$2
 
 	assert [ -f "$policy_file" ]
-	yq -e '.services[] | select(. == "'"$expected_service"'")' "$policy_file"
+	run yq '.services | length' "$policy_file"
+	assert_output "0"
+	run yq '.domains | length' "$policy_file"
+	assert_output "0"
 }
 
 assert_cli_shared_override() {
@@ -167,7 +170,8 @@ assert_cli_agent_layer_base() {
 	run yq '.services.agent.image' "$compose_file"
 	assert_output "$expected_image"
 
-	yq -e '.services.proxy.volumes[] | select(. == "../policy-cli-'"$agent"'.yaml:/etc/mitmproxy/policy.yaml:ro")' "$compose_file"
+	yq -e '.services.proxy.volumes[] | select(. == "../user.agent.'"$agent"'.policy.yaml:/etc/agent-sandbox/policy/user.agent.policy.yaml:ro")' "$compose_file"
+	yq -e '.services.proxy.environment[] | select(. == "AGENTBOX_ACTIVE_AGENT='"$agent"'")' "$compose_file"
 
 	yq -e '.services.agent.volumes[] | select(. == "'"$state_volume:$state_path"'")' "$compose_file"
 	yq -e '.services.agent.volumes[] | select(. == "'"$history_volume"':/commandhistory")' "$compose_file"
@@ -347,7 +351,8 @@ codex_agent_compose_file_has_expected_content() {
 		"$PROJECT_DIR/$AGB_PROJECT_DIR/compose/base.yml" \
 		"project-sandbox" \
 		"ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
-	assert_cli_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy-cli-claude.yaml" "claude"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.policy.yaml"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.agent.claude.policy.yaml"
 	assert_cli_shared_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.override.yml"
 	assert_claude_cli_layer "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/agent.claude.yml"
 	assert_claude_cli_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.agent.claude.override.yml"
@@ -407,7 +412,8 @@ codex_agent_compose_file_has_expected_content() {
 		"$PROJECT_DIR/$AGB_PROJECT_DIR/compose/base.yml" \
 		"project-sandbox" \
 		"ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
-	assert_cli_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy-cli-copilot.yaml" "copilot"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.policy.yaml"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.agent.copilot.policy.yaml"
 	assert_cli_shared_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.override.yml"
 	assert_copilot_cli_layer "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/agent.copilot.yml"
 	assert_non_claude_cli_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.agent.copilot.override.yml"
@@ -465,7 +471,8 @@ codex_agent_compose_file_has_expected_content() {
 		"$PROJECT_DIR/$AGB_PROJECT_DIR/compose/base.yml" \
 		"project-sandbox" \
 		"ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
-	assert_cli_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy-cli-codex.yaml" "codex"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.policy.yaml"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.agent.codex.policy.yaml"
 	assert_cli_shared_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.override.yml"
 	assert_codex_cli_layer "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/agent.codex.yml"
 	assert_non_claude_cli_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.agent.codex.override.yml"

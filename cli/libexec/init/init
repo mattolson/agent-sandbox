@@ -158,8 +158,6 @@ init() {
 		name=$(apply_mode_suffix "$name" "$mode")
 	fi
 
-	local policy_file="$AGB_PROJECT_DIR/policy-$mode-$agent.yaml"
-
 	case "$mode" in
 	cli)
 		require yq
@@ -167,10 +165,11 @@ init() {
 			--project-path "$project_path" \
 			--agent "$agent" \
 			--name "$name"
-		review_generated_file "policy" "$(cli_policy_file "$project_path" "$agent")" "$batch"
+		review_generated_file "shared policy" "$(cli_shared_policy_file "$project_path")" "$batch"
 		review_generated_file "compose override" "$(cli_user_override_file "$project_path")" "$batch"
 		;;
 	devcontainer)
+		local policy_file="$AGB_PROJECT_DIR/policy-$mode-$agent.yaml"
 		local available_ides=(vscode jetbrains none)
 		if [[ -z "$ide" ]]
 		then

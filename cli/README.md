@@ -11,10 +11,11 @@ Requires `docker` (and `docker compose`) and [`yq`](https://github.com/mikefarah
 Initializes agent-sandbox for a project. Prompts for any options not provided via flags, then sets up the necessary
 configuration files and network policy. In CLI mode, agentbox writes managed compose layers under
 `.agent-sandbox/compose/`, creates a shared user-owned override at `.agent-sandbox/compose/user.override.yml`, and
-creates the active agent's policy and managed agent layer. Optional mounts (Claude config, shell customizations,
-dotfiles, `.git`, `.idea`, `.vscode`) are scaffolded into user-owned override files instead of managed files. After
-generation, `init` offers to open the generated policy file and shared compose override in your editor. These review
-prompts default to `no`.
+creates `.agent-sandbox/user.policy.yaml` plus the active agent's `.agent-sandbox/user.agent.<agent>.policy.yaml`
+alongside the managed agent layer. Optional mounts (Claude config, shell customizations, dotfiles, `.git`, `.idea`,
+`.vscode`) are scaffolded into user-owned override files instead of managed files. After generation, `init` offers to
+open the shared user-owned policy file and shared compose override in your editor. These review prompts default to
+`no`.
 
 Options:
 - `--agent` - Agent type: `claude`, `copilot`, `codex` (skips prompt)
@@ -32,8 +33,10 @@ agentbox init --batch --agent claude --mode cli --name myproject --path /some/di
 ### `agentbox switch`
 
 Updates the active agent for an initialized project. For layered CLI projects, switching lazily creates the target
-agent's managed compose layer, baseline CLI policy file, and agent-specific override scaffold the first time that agent
-is selected. If `--agent` is omitted, prompts once for the new active agent.
+agent's managed compose layer, agent-specific user policy scaffold, and agent-specific override scaffold the first time
+that agent is selected. Interim `policy-cli-<agent>.yaml` files from `m8.2` are carried forward into the new
+user-owned policy file and renamed to a conspicuous deprecated filename. If `--agent` is omitted, prompts once for the
+new active agent.
 
 Options:
 - `--agent` - Agent type: `claude`, `copilot`, `codex` (skips prompt)
@@ -88,7 +91,15 @@ Options:
 ### `agentbox edit policy`
 
 Opens the network policy file in your editor. If you save changes, the proxy service will automatically restart to apply
-the new policy. Use `--mode` and `--agent` to select specific policy files.
+the new policy. For layered CLI projects, the default target is `.agent-sandbox/user.policy.yaml`, and `--agent
+<name>` targets `.agent-sandbox/user.agent.<name>.policy.yaml`. For devcontainer and legacy layouts, `--mode` and
+`--agent` continue to select flat policy files.
+
+### `agentbox policy render`
+
+Renders the effective policy that the proxy enforces. In layered CLI projects this merges the active agent baseline with
+`.agent-sandbox/user.policy.yaml` and `.agent-sandbox/user.agent.<active-agent>.policy.yaml` by invoking the same
+proxy-side render helper used at runtime.
 
 ### `agentbox bump`
 

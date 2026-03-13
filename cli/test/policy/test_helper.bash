@@ -2,8 +2,6 @@
 
 bats_require_minimum_version 1.5.0
 
-# Enable Bash 3.2 compat mode when running on Bash 4.4+
-# On actual Bash 3.2 (macOS default), these options don't exist and aren't needed.
 if shopt -s compat32 2>/dev/null; then
 	export BASH_COMPAT=3.2
 fi
@@ -23,3 +21,4 @@ export AGB_ROOT
 export AGB_LIBDIR="$AGB_ROOT/lib"
 export AGB_LIBEXECDIR="$AGB_ROOT/libexec"
 export AGB_TEMPLATEDIR="$AGB_ROOT/templates"
+export AGB_PROJECT_DIR='.agent-sandbox'
