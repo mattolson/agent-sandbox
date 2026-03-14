@@ -26,9 +26,8 @@ The sandbox is implemented as a Docker Compose project with a two-container stac
 
 **CLI** mode (recommended) stores the docker-compose project in the `.agent-sandbox` directory.
 
-**Devcontainer** mode stores managed configuration files in `.devcontainer/` alongside the `devcontainer.json`
-configuration. User edits belong in `.devcontainer/*user*` files, while shared and agent-specific policy edits still
-live in `.agent-sandbox/`.
+**Devcontainer** mode keeps `.devcontainer/` as a thin IDE entrypoint (`devcontainer.json` plus optional
+`devcontainer.user.json`) and stores the sandbox runtime compose and policy files in `.agent-sandbox/`.
 
 ## Quick start (macOS + Colima)
 
@@ -145,8 +144,10 @@ The proxy's CA certificate is shared via a Docker volume and automatically insta
 
 ### Customizing the policy
 
-The network policy lives in your project in the `.agent-sandbox` directory, with optional devcontainer-only overrides in
-`.devcontainer/`. These files can be checked into version control and shared with your team.
+The network policy lives in your project in the `.agent-sandbox/policy/` directory. Devcontainer projects also get a
+managed `.agent-sandbox/policy/policy.devcontainer.yaml` layer for IDE-related allowlists, but user-owned policy edits
+stay in the shared `.agent-sandbox/policy/` files. These files can be checked into version control and shared with
+your team.
 
 To edit the policy file:
 
@@ -155,12 +156,6 @@ agentbox edit policy
 ```
 
 This opens the network policy file in your editor. If you save changes, the proxy service will automatically restart to apply the new policy.
-
-For devcontainer-only additions, use:
-
-```bash
-agentbox edit policy --mode devcontainer
-```
 
 Example policy:
 
@@ -174,7 +169,8 @@ domains:
   - pypi.org
 ```
 
-The `.agent-sandbox` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy. The proxy reads the policy at startup, so changes require a restart from the host.
+The `.agent-sandbox` directory, and in devcontainer workflows the `.devcontainer/` directory, are mounted read-only
+inside the agent container. The proxy reads the policy at startup, so changes require a restart from the host.
 
 See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format reference.
 

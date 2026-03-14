@@ -20,7 +20,22 @@ compose() {
 
 	local compose_files=()
 
-	if cli_layered_compose_initialized "$repo_root"
+	if devcontainer_centralized_runtime_initialized "$repo_root"
+	then
+		local active_agent
+		active_agent="$(read_active_agent "$repo_root")" || {
+			echo "Active agent state missing for centralized devcontainer layout at $repo_root. Run 'agentbox switch --agent <name>'." >&2
+			return 1
+		}
+
+		ensure_devcontainer_runtime_files "$repo_root" "$active_agent"
+
+		local compose_file
+		while IFS= read -r compose_file
+		do
+			compose_files+=("$compose_file")
+		done < <(emit_devcontainer_compose_files "$repo_root")
+	elif cli_layered_compose_initialized "$repo_root"
 	then
 		local active_agent
 		active_agent="$(read_active_agent "$repo_root")" || {
@@ -35,21 +50,6 @@ compose() {
 		do
 			compose_files+=("$compose_file")
 		done < <(emit_cli_compose_files "$repo_root" "$active_agent")
-	elif devcontainer_sidecar_initialized "$repo_root"
-	then
-		local active_agent
-		active_agent="$(read_active_agent "$repo_root")" || {
-			echo "Active agent state missing for managed devcontainer file layout at $repo_root. Run 'agentbox switch --agent <name>'." >&2
-			return 1
-		}
-
-		ensure_devcontainer_runtime_files "$repo_root" "$active_agent"
-
-		local compose_file
-		while IFS= read -r compose_file
-		do
-			compose_files+=("$compose_file")
-		done < <(emit_devcontainer_compose_files "$repo_root")
 	else
 		compose_files+=("$(find_compose_file)")
 	fi

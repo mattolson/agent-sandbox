@@ -39,7 +39,7 @@ Replaced the old single-file devcontainer init path with a managed/user-owned si
 Key implementation changes:
 
 1. Added `cli/lib/devcontainer.bash` to own devcontainer sidecar paths, scaffolding, metadata-aware sync, and render behavior.
-2. Extended `.agent-sandbox/active-target.env` to persist `DEVCONTAINER_IDE` and `DEVCONTAINER_PROJECT_NAME`, while keeping `ACTIVE_AGENT` as the switching identity.
+2. Extended `.agent-sandbox/active-target.env` to persist `DEVCONTAINER_IDE` and `PROJECT_NAME`, while keeping `ACTIVE_AGENT` as the switching identity.
 3. Switched devcontainer templates to managed `docker-compose.base.yml` plus shared user-owned `.devcontainer/*user*` files, and rendered `devcontainer.json` from the agent template plus `devcontainer.user.json`.
 4. Updated `run-compose`, `find_compose_file`, `edit compose`, `edit policy`, and `switch` to respect the new devcontainer sidecar layout.
 5. Extended `images/proxy/render-policy` so devcontainer managed/user policy overrides layer onto the same `.agent-sandbox` shared/agent policy inputs introduced in `m8.3`.

@@ -58,7 +58,7 @@ find_repo_root() {
 # Locates the primary compose file for the project.
 # Checks in priority order:
 # 1. $repo_root/$AGB_PROJECT_DIR/docker-compose.yml
-# 2. $repo_root/.devcontainer/docker-compose.base.yml
+# 2. $repo_root/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml
 # 3. $repo_root/.devcontainer/docker-compose.yml
 # Returns the absolute path to the primary compose file.
 # Exits with error if none of the supported paths exist.
@@ -67,23 +67,23 @@ find_compose_file() {
 	repo_root="$(find_repo_root)"
 
 	local project_compose="$repo_root/$AGB_PROJECT_DIR/docker-compose.yml"
-	local devcontainer_sidecar_compose="$repo_root/.devcontainer/docker-compose.base.yml"
+	local devcontainer_mode_compose="$repo_root/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml"
 	local devcontainer_compose="$repo_root/.devcontainer/docker-compose.yml"
 
 	if [[ -f "$project_compose" ]]
 	then
 		echo "$project_compose"
 		return 0
-	elif [[ -f "$devcontainer_sidecar_compose" ]]
+	elif [[ -f "$devcontainer_mode_compose" ]]
 	then
-		echo "$devcontainer_sidecar_compose"
+		echo "$devcontainer_mode_compose"
 		return 0
 	elif [[ -f "$devcontainer_compose" ]]
 	then
 		echo "$devcontainer_compose"
 		return 0
 	else
-		echo "$0: No compose file found at $project_compose, $devcontainer_sidecar_compose, or $devcontainer_compose" >&2
+		echo "$0: No compose file found at $project_compose, $devcontainer_mode_compose, or $devcontainer_compose" >&2
 		return 1
 	fi
 }
@@ -113,6 +113,27 @@ apply_mode_suffix() {
 		echo "$name"
 	else
 		echo "${name}-${mode}"
+	fi
+}
+
+# Removes a trailing mode suffix from a project name when present.
+# Args:
+#   $1 - The project name
+#   $2 - The mode (cli or devcontainer)
+# Returns the name without the trailing -{mode} suffix, or the original name if absent.
+strip_mode_suffix() {
+	local name=$1
+	local mode=$2
+	local suffix="-$mode"
+
+	if [[ "$mode" == "cli" ]]
+	then
+		echo "$name"
+	elif [[ "$name" == *"$suffix" ]]
+	then
+		echo "${name%"$suffix"}"
+	else
+		echo "$name"
 	fi
 }
 

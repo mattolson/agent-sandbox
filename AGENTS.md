@@ -10,9 +10,7 @@ Agent Sandbox creates locked-down local sandboxes for running AI coding agents (
 
 ## Development Environment
 
-This project uses layered Docker Compose files with a proxy sidecar. The managed CLI compose files live under
-`.agent-sandbox/compose/`, the active agent lives in `.agent-sandbox/active-target.env`, and the user-owned layered
-policy inputs live at `.agent-sandbox/user.policy.yaml` plus `.agent-sandbox/user.agent.<agent>.policy.yaml`.
+This project uses layered Docker Compose files with a proxy sidecar. The managed CLI compose files live under `.agent-sandbox/compose/`, the active agent lives in `.agent-sandbox/active-target.env`, and the user-owned layered policy inputs live at `.agent-sandbox/policy/user.policy.yaml` plus `.agent-sandbox/policy/user.agent.<agent>.policy.yaml`.
 
 The container runs Debian bookworm with:
 - Non-root `dev` user (uid/gid 500)
@@ -56,10 +54,7 @@ Available services and their domain allowlists are hardcoded in `images/proxy/ad
 
 ### Customizing the Policy
 
-For layered CLI projects, the shared user-owned policy file is `.agent-sandbox/user.policy.yaml`, and the active
-agent's additions live in `.agent-sandbox/user.agent.<agent>.policy.yaml`. The proxy renders the effective policy at
-startup from the active agent baseline plus those user-owned inputs. The `.agent-sandbox/` directory is mounted
-read-only inside the agent container, preventing the agent from modifying the policy.
+For layered CLI projects, the shared user-owned policy file is `.agent-sandbox/policy/user.policy.yaml`, and the active agent's additions live in `.agent-sandbox/policy/user.agent.<agent>.policy.yaml`. The proxy renders the effective policy at startup from the active agent baseline plus those user-owned inputs. The `.agent-sandbox/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy.
 
 To edit the policy in a user project: `agentbox edit policy`.
 To inspect the rendered effective policy: `agentbox policy render`.

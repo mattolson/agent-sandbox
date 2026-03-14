@@ -1,8 +1,11 @@
 {
 	"name": "Codex CLI Sandbox",
 	"dockerComposeFile": [
-		"docker-compose.base.yml",
-		"docker-compose.user.override.yml"
+		"../.agent-sandbox/compose/base.yml",
+		"../.agent-sandbox/compose/agent.codex.yml",
+		"../.agent-sandbox/compose/mode.devcontainer.yml",
+		"../.agent-sandbox/compose/user.override.yml",
+		"../.agent-sandbox/compose/user.agent.codex.override.yml"
 	],
 	"service": "agent",
 	"workspaceFolder": "/workspace",

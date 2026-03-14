@@ -38,6 +38,12 @@ cli_agent_compose_file() {
 	echo "$(cli_compose_dir "$repo_root")/agent.$agent.yml"
 }
 
+cli_devcontainer_mode_compose_file() {
+	local repo_root="${1:-}"
+
+	echo "$(cli_compose_dir "$repo_root")/mode.devcontainer.yml"
+}
+
 cli_user_override_file() {
 	local repo_root="${1:-}"
 
@@ -52,7 +58,7 @@ cli_user_agent_override_file() {
 	echo "$(cli_compose_dir "$repo_root")/user.agent.$agent.override.yml"
 }
 
-cli_shared_policy_file() {
+cli_policy_dir() {
 	local repo_root="${1:-}"
 
 	if [[ -z "$repo_root" ]]
@@ -60,7 +66,13 @@ cli_shared_policy_file() {
 		repo_root="$(find_repo_root)"
 	fi
 
-	echo "$repo_root/$AGB_PROJECT_DIR/user.policy.yaml"
+	echo "$repo_root/$AGB_PROJECT_DIR/policy"
+}
+
+cli_shared_policy_file() {
+	local repo_root="${1:-}"
+
+	echo "$(cli_policy_dir "$repo_root")/user.policy.yaml"
 }
 
 cli_user_agent_policy_file() {
@@ -68,7 +80,7 @@ cli_user_agent_policy_file() {
 	local agent=$2
 
 	validate_agent "$agent" >/dev/null
-	echo "$repo_root/$AGB_PROJECT_DIR/user.agent.$agent.policy.yaml"
+	echo "$(cli_policy_dir "$repo_root")/user.agent.$agent.policy.yaml"
 }
 
 cli_legacy_policy_file() {
@@ -134,26 +146,53 @@ emit_cli_compose_files() {
 	fi
 }
 
-scaffold_cli_base_compose() {
+write_cli_base_compose_file() {
 	local repo_root=$1
 	local project_name=$2
+	local proxy_image=$3
 	local compose_dir
 	local base_file
-	local default_proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
-	local proxy_image_pinned
 
 	compose_dir="$(cli_compose_dir "$repo_root")"
 	base_file="$(cli_base_compose_file "$repo_root")"
 
 	mkdir -p "$compose_dir"
-	cp \
-		"$AGB_TEMPLATEDIR/compose/base.yml" \
-		"$base_file"
+	cp "$AGB_TEMPLATEDIR/compose/base.yml" "$base_file"
 
-	proxy_image_pinned=$(pull_and_pin_image "${AGENTBOX_PROXY_IMAGE:-$default_proxy_image}")
-	set_proxy_image "$base_file" "$proxy_image_pinned"
+	set_proxy_image "$base_file" "$proxy_image"
 	set_project_name "$base_file" "$project_name"
 	ensure_cli_base_policy_runtime_config "$repo_root"
+}
+
+scaffold_cli_base_compose() {
+	local repo_root=$1
+	local project_name=$2
+	local default_proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
+	local proxy_image_pinned
+
+	proxy_image_pinned=$(pull_and_pin_image "${AGENTBOX_PROXY_IMAGE:-$default_proxy_image}")
+	write_cli_base_compose_file "$repo_root" "$project_name" "$proxy_image_pinned"
+}
+
+write_cli_agent_compose_file() {
+	local repo_root=$1
+	local agent=$2
+	local agent_image=$3
+	local compose_dir
+	local agent_file
+	local template_file
+
+	validate_agent "$agent" >/dev/null
+
+	compose_dir="$(cli_compose_dir "$repo_root")"
+	agent_file="$(cli_agent_compose_file "$repo_root" "$agent")"
+	template_file="$AGB_TEMPLATEDIR/$agent/cli/agent.yml"
+
+	mkdir -p "$compose_dir"
+	cp "$template_file" "$agent_file"
+
+	set_agent_image "$agent_file" "$agent_image"
+	ensure_cli_agent_policy_runtime_config "$repo_root" "$agent"
 }
 
 scaffold_cli_agent_compose() {
@@ -180,9 +219,6 @@ scaffold_cli_agent_compose() {
 		return 0
 	fi
 
-	mkdir -p "$compose_dir"
-	cp "$template_file" "$agent_file"
-
 	default_agent_image="ghcr.io/mattolson/agent-sandbox-$agent:latest"
 
 	if [[ "$allow_env_override" == "true" ]]
@@ -193,8 +229,7 @@ scaffold_cli_agent_compose() {
 	fi
 
 	agent_image_pinned=$(pull_and_pin_image "$agent_image")
-	set_agent_image "$agent_file" "$agent_image_pinned"
-	ensure_cli_agent_policy_runtime_config "$repo_root" "$agent"
+	write_cli_agent_compose_file "$repo_root" "$agent" "$agent_image_pinned"
 }
 
 scaffold_cli_shared_override_if_missing() {
@@ -295,7 +330,7 @@ ensure_cli_base_policy_runtime_config() {
 	local shared_relative
 
 	base_file="$(cli_base_compose_file "$repo_root")"
-	shared_relative="../$(basename "$(cli_shared_policy_file "$repo_root")")"
+	shared_relative="../policy/$(basename "$(cli_shared_policy_file "$repo_root")")"
 
 	if [[ ! -f "$base_file" ]]
 	then
@@ -315,7 +350,7 @@ ensure_cli_agent_policy_runtime_config() {
 	validate_agent "$agent" >/dev/null
 	agent_file="$(cli_agent_compose_file "$repo_root" "$agent")"
 	legacy_volume="../$(basename "$(cli_legacy_policy_file "$repo_root" "$agent")"):/etc/mitmproxy/policy.yaml:ro"
-	policy_relative="../$(basename "$(cli_user_agent_policy_file "$repo_root" "$agent")")"
+	policy_relative="../policy/$(basename "$(cli_user_agent_policy_file "$repo_root" "$agent")")"
 
 	if [[ ! -f "$agent_file" ]]
 	then

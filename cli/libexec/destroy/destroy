@@ -5,10 +5,25 @@ set -euo pipefail
 source "$AGB_LIBDIR/logging.bash"
 # shellcheck source=../../lib/constants.bash
 source "$AGB_LIBDIR/constants.bash"
+# shellcheck source=../../lib/cli-compose.bash
+source "$AGB_LIBDIR/cli-compose.bash"
+# shellcheck source=../../lib/devcontainer.bash
+source "$AGB_LIBDIR/devcontainer.bash"
 # shellcheck source=../../lib/path.bash
 source "$AGB_LIBDIR/path.bash"
 # shellcheck source=../../lib/select.bash
 source "$AGB_LIBDIR/select.bash"
+
+destroy_can_resolve_compose_stack() {
+	local repo_root=$1
+	local legacy_project_compose="$repo_root/$AGB_PROJECT_DIR/docker-compose.yml"
+	local legacy_devcontainer_compose="$repo_root/.devcontainer/docker-compose.yml"
+
+	cli_layered_compose_initialized "$repo_root" ||
+		devcontainer_centralized_runtime_initialized "$repo_root" ||
+		[[ -f "$legacy_project_compose" ]] ||
+		[[ -f "$legacy_devcontainer_compose" ]]
+}
 
 destroy() {
 	local repo_root
@@ -33,7 +48,15 @@ destroy() {
 	esac
 
 	echo "Stopping containers" | warning
-	"$AGB_LIBDIR/run-compose" down --volumes
+	if destroy_can_resolve_compose_stack "$repo_root"
+	then
+		if ! "$AGB_LIBDIR/run-compose" down --volumes
+		then
+			echo "Could not stop containers from the current compose layout. Continuing with filesystem cleanup." | warning
+		fi
+	else
+		echo "No compose stack found. Skipping container shutdown." | warning
+	fi
 
 	local project_dir="$repo_root/$AGB_PROJECT_DIR"
 	if [[ -d "$project_dir" ]]

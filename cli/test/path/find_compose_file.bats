@@ -23,16 +23,16 @@ teardown() {
 	assert_output "$test_root/$AGB_PROJECT_DIR/docker-compose.yml"
 }
 
-@test "finds managed devcontainer compose file in .devcontainer" {
+@test "finds centralized devcontainer compose overlay in .agent-sandbox" {
 	local test_root="$BATS_TEST_TMPDIR/repo"
-	mkdir -p "$test_root/.devcontainer"
+	mkdir -p "$test_root/$AGB_PROJECT_DIR/compose"
 	mkdir -p "$test_root/.git"
-	touch "$test_root/.devcontainer/docker-compose.base.yml"
+	touch "$test_root/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml"
 
 	cd "$test_root"
 	run find_compose_file
 	assert_success
-	assert_output "$test_root/.devcontainer/docker-compose.base.yml"
+	assert_output "$test_root/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml"
 }
 
 @test "falls back to legacy devcontainer compose file" {
@@ -51,10 +51,10 @@ teardown() {
 	local test_root="$BATS_TEST_TMPDIR/repo"
 
 	mkdir -p "$test_root/$AGB_PROJECT_DIR"
-	mkdir -p "$test_root/.devcontainer"
+	mkdir -p "$test_root/$AGB_PROJECT_DIR/compose"
 	mkdir -p "$test_root/.git"
 	touch "$test_root/$AGB_PROJECT_DIR/docker-compose.yml"
-	touch "$test_root/.devcontainer/docker-compose.base.yml"
+	touch "$test_root/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml"
 
 	cd "$test_root"
 	run find_compose_file
@@ -77,15 +77,15 @@ teardown() {
 
 @test "works from nested directory" {
 	local test_root="$BATS_TEST_TMPDIR/repo"
-	mkdir -p "$test_root/.devcontainer"
+	mkdir -p "$test_root/$AGB_PROJECT_DIR/compose"
 	mkdir -p "$test_root/.git"
 	mkdir -p "$test_root/nested/deep"
-	touch "$test_root/.devcontainer/docker-compose.base.yml"
+	touch "$test_root/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml"
 
 	cd "$test_root/nested/deep"
 	run find_compose_file
 	assert_success
-	assert_output "$test_root/.devcontainer/docker-compose.base.yml"
+	assert_output "$test_root/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml"
 }
 
 @test "fails when repo root not found" {

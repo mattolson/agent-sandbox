@@ -105,14 +105,14 @@ teardown() {
 	assert_output "$PROJECT_DIR codex"
 }
 
-@test "switch refreshes devcontainer sidecars when agent is already active" {
-	mkdir -p "$PROJECT_DIR/.devcontainer" "$PROJECT_DIR/.agent-sandbox"
-	touch "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
+@test "switch refreshes centralized devcontainer runtime files when agent is already active" {
+	mkdir -p "$PROJECT_DIR/.devcontainer" "$PROJECT_DIR/.agent-sandbox/compose"
+	touch "$PROJECT_DIR/.devcontainer/devcontainer.json" "$PROJECT_DIR/.agent-sandbox/compose/mode.devcontainer.yml"
 	printf '%s\n' \
 		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
 		"ACTIVE_AGENT=claude" \
 		"DEVCONTAINER_IDE=vscode" \
-		"DEVCONTAINER_PROJECT_NAME=project-sandbox-devcontainer" > "$PROJECT_DIR/.agent-sandbox/active-target.env"
+		"PROJECT_NAME=project-sandbox" > "$PROJECT_DIR/.agent-sandbox/active-target.env"
 
 	unset -f ensure_devcontainer_runtime_files
 	ensure_devcontainer_runtime_files() {
@@ -128,14 +128,14 @@ teardown() {
 	assert_output "$PROJECT_DIR claude"
 }
 
-@test "switch syncs devcontainer sidecars for the target agent" {
-	mkdir -p "$PROJECT_DIR/.devcontainer" "$PROJECT_DIR/.agent-sandbox"
-	touch "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
+@test "switch syncs centralized devcontainer runtime files for the target agent" {
+	mkdir -p "$PROJECT_DIR/.devcontainer" "$PROJECT_DIR/.agent-sandbox/compose"
+	touch "$PROJECT_DIR/.devcontainer/devcontainer.json" "$PROJECT_DIR/.agent-sandbox/compose/mode.devcontainer.yml"
 	printf '%s\n' \
 		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
 		"ACTIVE_AGENT=claude" \
 		"DEVCONTAINER_IDE=vscode" \
-		"DEVCONTAINER_PROJECT_NAME=project-sandbox-devcontainer" > "$PROJECT_DIR/.agent-sandbox/active-target.env"
+		"PROJECT_NAME=project-sandbox" > "$PROJECT_DIR/.agent-sandbox/active-target.env"
 
 	unset -f ensure_devcontainer_runtime_files
 	ensure_devcontainer_runtime_files() {

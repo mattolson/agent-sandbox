@@ -50,15 +50,15 @@ switch() {
 		[[ "$current_agent" == "$agent" ]]
 	then
 		local refreshed=false
-		if cli_layered_compose_initialized "$repo_root"
+		if devcontainer_centralized_runtime_initialized "$repo_root"
 		then
-			ensure_cli_agent_runtime_files "$repo_root" "$agent"
+			ensure_devcontainer_runtime_files "$repo_root" "$agent"
 			refreshed=true
 		fi
 
-		if devcontainer_sidecar_initialized "$repo_root"
+		if cli_layered_compose_initialized "$repo_root" && ! devcontainer_centralized_runtime_initialized "$repo_root"
 		then
-			ensure_devcontainer_runtime_files "$repo_root" "$agent"
+			ensure_cli_agent_runtime_files "$repo_root" "$agent"
 			refreshed=true
 		fi
 
@@ -71,14 +71,14 @@ switch() {
 		return 0
 	fi
 
-	if cli_layered_compose_initialized "$repo_root"
-	then
-		ensure_cli_agent_runtime_files "$repo_root" "$agent"
-	fi
-
-	if devcontainer_sidecar_initialized "$repo_root"
+	if devcontainer_centralized_runtime_initialized "$repo_root"
 	then
 		ensure_devcontainer_runtime_files "$repo_root" "$agent"
+	fi
+
+	if cli_layered_compose_initialized "$repo_root" && ! devcontainer_centralized_runtime_initialized "$repo_root"
+	then
+		ensure_cli_agent_runtime_files "$repo_root" "$agent"
 	fi
 
 	write_active_agent "$repo_root" "$agent"

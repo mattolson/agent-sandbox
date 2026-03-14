@@ -1,8 +1,0 @@
-# User-owned devcontainer-only policy additions.
-# Safe to edit. agentbox will not overwrite this file.
-#
-# This file is merged after .devcontainer/policy.override.yaml for the active devcontainer stack.
-# See docs/policy/schema.md for the full format reference.
-
-services: []
-domains: []

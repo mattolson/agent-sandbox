@@ -1,8 +1,11 @@
 {
 	"name": "GitHub Copilot CLI Sandbox",
 	"dockerComposeFile": [
-		"docker-compose.base.yml",
-		"docker-compose.user.override.yml"
+		"../.agent-sandbox/compose/base.yml",
+		"../.agent-sandbox/compose/agent.copilot.yml",
+		"../.agent-sandbox/compose/mode.devcontainer.yml",
+		"../.agent-sandbox/compose/user.override.yml",
+		"../.agent-sandbox/compose/user.agent.copilot.override.yml"
 	],
 	"service": "agent",
 	"workspaceFolder": "/workspace",
