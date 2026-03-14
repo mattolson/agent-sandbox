@@ -44,7 +44,8 @@ cli() {
 	project_path=$(cd "$project_path" && pwd)
 
 	local project_name
-	project_name="${name:-$(derive_project_name "$project_path" "cli")}"
+	project_name="${name:-$(derive_base_project_name "$project_path")}"
+	project_name="$(apply_mode_suffix "$project_name" "cli")"
 
 	initialize_cli_layered_layout "$project_path" "$agent" "$project_name"
 }

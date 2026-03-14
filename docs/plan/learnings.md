@@ -49,3 +49,4 @@ Lessons learned during project execution. Review at the start of each planning s
 - VS Code integrated terminal adds trailing whitespace on copy, making copied commands unusable; iTerm + docker exec is the workaround
 - Documentation artifacts (schema docs, examples) belong in `docs/`, not in task execution directories
 - Default edit commands should keep pointing at shared cross-mode config unless the user explicitly asks for a mode-specific override
+- For user-facing runtime config, one clear ownership directory is better than a "cleaner" split across `.agent-sandbox/` and `.devcontainer/`; keep `.devcontainer/` as a thin IDE shim when possible

@@ -21,4 +21,5 @@ bats_load_library bats-mock-ext
 
 export AGB_ROOT
 export AGB_LIBDIR="$AGB_ROOT/lib"
+export AGB_TEMPLATEDIR="$AGB_ROOT/templates"
 export AGB_LIBEXECDIR="$AGB_ROOT/libexec"

@@ -35,22 +35,25 @@ teardown() {
 	assert_success
 }
 
-@test "run-compose uses devcontainer sidecar compose files in managed/user order" {
+@test "run-compose uses centralized devcontainer compose files in managed/user order" {
 	local test_root="$BATS_TEST_TMPDIR/repo"
-	local compose_dir="$test_root/.devcontainer"
-	local managed_file="$compose_dir/docker-compose.base.yml"
-	local user_file="$compose_dir/docker-compose.user.override.yml"
+	local compose_dir="$test_root/$AGB_PROJECT_DIR/compose"
+	local base_file="$compose_dir/base.yml"
+	local agent_file="$compose_dir/agent.codex.yml"
+	local mode_file="$compose_dir/mode.devcontainer.yml"
+	local shared_override="$compose_dir/user.override.yml"
+	local agent_override="$compose_dir/user.agent.codex.override.yml"
 
-	mkdir -p "$compose_dir" "$test_root/.git" "$test_root/$AGB_PROJECT_DIR"
+	mkdir -p "$compose_dir" "$test_root/.git" "$test_root/$AGB_PROJECT_DIR" "$test_root/.devcontainer"
 	printf '%s\n' \
 		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
 		"ACTIVE_AGENT=codex" \
 		"DEVCONTAINER_IDE=vscode" \
-		"DEVCONTAINER_PROJECT_NAME=repo-sandbox-devcontainer" > "$test_root/$AGB_PROJECT_DIR/active-target.env"
-	touch "$managed_file" "$user_file"
+		"PROJECT_NAME=repo-sandbox" > "$test_root/$AGB_PROJECT_DIR/active-target.env"
+	touch "$base_file" "$agent_file" "$mode_file" "$shared_override" "$agent_override" "$test_root/.devcontainer/devcontainer.json"
 
 	stub docker \
-		"compose -f $managed_file -f $user_file ps : :"
+		"compose -f $base_file -f $agent_file -f $mode_file -f $shared_override -f $agent_override ps : :"
 
 	ensure_devcontainer_runtime_files() { :; }
 	exec() { "$@"; }
@@ -60,7 +63,7 @@ teardown() {
 	assert_success
 }
 
-@test "run-compose falls back to a legacy single compose file when sidecar layout is not initialized" {
+@test "run-compose falls back to a legacy single compose file when centralized devcontainer layout is not initialized" {
 	local test_root="$BATS_TEST_TMPDIR/repo"
 	local compose_file="$test_root/.devcontainer/docker-compose.yml"
 

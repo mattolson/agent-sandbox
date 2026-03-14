@@ -49,6 +49,7 @@ teardown() {
 	run cat "$PROJECT_DIR/.agent-sandbox/active-target.env"
 	assert_success
 	assert_line --index 1 "ACTIVE_AGENT=claude"
+	assert_line --index 2 "PROJECT_NAME=test"
 }
 
 @test "init accepts valid --ide value for devcontainer mode" {
@@ -60,7 +61,7 @@ teardown() {
 	assert_success
 	assert_line --index 1 "ACTIVE_AGENT=copilot"
 	assert_line --index 2 "DEVCONTAINER_IDE=jetbrains"
-	assert_line --index 3 "DEVCONTAINER_PROJECT_NAME=test"
+	assert_line --index 3 "PROJECT_NAME=test"
 }
 
 @test "init requires --agent in batch mode" {
@@ -85,7 +86,7 @@ teardown() {
 	unset -f select_yes_no
 	unset -f open_editor
 
-	local policy_path="$PROJECT_DIR/.agent-sandbox/user.policy.yaml"
+	local policy_path="$PROJECT_DIR/.agent-sandbox/policy/user.policy.yaml"
 	local compose_path="$PROJECT_DIR/.agent-sandbox/compose/user.override.yml"
 
 	stub select_yes_no \
@@ -104,7 +105,7 @@ teardown() {
 	unset -f select_yes_no
 	unset -f open_editor
 
-	local policy_path="$PROJECT_DIR/.agent-sandbox/user.policy.yaml"
+	local policy_path="$PROJECT_DIR/.agent-sandbox/policy/user.policy.yaml"
 	local compose_path="$PROJECT_DIR/.agent-sandbox/compose/user.override.yml"
 
 	stub select_yes_no \
@@ -136,7 +137,7 @@ teardown() {
 
 	local expected_default
 	expected_default=$(basename "$PROJECT_DIR")-sandbox
-	local policy_file=".agent-sandbox/user.policy.yaml"
+	local policy_file=".agent-sandbox/policy/user.policy.yaml"
 
 	stub read_line "'Project name [$expected_default]:' : echo my-interactive-project"
 	stub select_option \
@@ -160,8 +161,8 @@ teardown() {
 
 	local expected_default
 	expected_default=$(basename "$PROJECT_DIR")-sandbox
-	local shared_policy_file=".agent-sandbox/user.policy.yaml"
-	local compose_override_file=".devcontainer/docker-compose.user.override.yml"
+	local shared_policy_file=".agent-sandbox/policy/user.policy.yaml"
+	local compose_override_file=".agent-sandbox/compose/user.override.yml"
 
 	stub read_line "'Project name [$expected_default]:' : echo ''"
 	stub select_option \
@@ -173,7 +174,7 @@ teardown() {
 		"'Review the generated compose override file at $PROJECT_DIR/$compose_override_file?' : echo false"
 
 	local expected_name
-	expected_name=$(basename "$PROJECT_DIR")-sandbox-devcontainer
+	expected_name=$(basename "$PROJECT_DIR")-sandbox
 
 	stub devcontainer "--project-path $PROJECT_DIR --agent copilot --ide vscode --name $expected_name : :"
 
@@ -189,8 +190,8 @@ teardown() {
 
 	local expected_default
 	expected_default=$(basename "$PROJECT_DIR")-sandbox
-	local shared_policy_file=".agent-sandbox/user.policy.yaml"
-	local compose_override_file=".devcontainer/docker-compose.user.override.yml"
+	local shared_policy_file=".agent-sandbox/policy/user.policy.yaml"
+	local compose_override_file=".agent-sandbox/compose/user.override.yml"
 
 	stub read_line "'Project name [$expected_default]:' : echo foo"
 	stub select_option \
@@ -201,7 +202,7 @@ teardown() {
 		"'Review the generated shared policy file at $PROJECT_DIR/$shared_policy_file?' : echo false" \
 		"'Review the generated compose override file at $PROJECT_DIR/$compose_override_file?' : echo false"
 
-	local expected_name="foo-devcontainer"
+	local expected_name="foo"
 
 	stub devcontainer "--project-path $PROJECT_DIR --agent copilot --ide vscode --name $expected_name : :"
 
@@ -210,15 +211,15 @@ teardown() {
 	assert_success
 }
 
-@test "init with --mode flag applies suffix to interactive name" {
+@test "init with --mode flag preserves the interactive base name" {
 	unset -f read_line
 	unset -f select_option
 	unset -f select_yes_no
 
 	local expected_default
 	expected_default=$(basename "$PROJECT_DIR")-sandbox
-	local shared_policy_file=".agent-sandbox/user.policy.yaml"
-	local compose_override_file=".devcontainer/docker-compose.user.override.yml"
+	local shared_policy_file=".agent-sandbox/policy/user.policy.yaml"
+	local compose_override_file=".agent-sandbox/compose/user.override.yml"
 
 	stub read_line "'Project name [$expected_default]:' : echo baz"
 	stub select_option \
@@ -228,11 +229,22 @@ teardown() {
 		"'Review the generated shared policy file at $PROJECT_DIR/$shared_policy_file?' : echo false" \
 		"'Review the generated compose override file at $PROJECT_DIR/$compose_override_file?' : echo false"
 
-	local expected_name="baz-devcontainer"
+	local expected_name="baz"
 
 	stub devcontainer "--project-path $PROJECT_DIR --agent copilot --ide vscode --name $expected_name : :"
 
 	run init --mode devcontainer --path "$PROJECT_DIR"
 
 	assert_success
+}
+
+@test "init stores the base project name for devcontainer mode" {
+	stub devcontainer "--project-path $PROJECT_DIR --agent codex --ide vscode --name already-devcontainer : :"
+
+	run init --batch --agent codex --mode devcontainer --ide vscode --name already-devcontainer --path "$PROJECT_DIR"
+
+	assert_success
+	run cat "$PROJECT_DIR/.agent-sandbox/active-target.env"
+	assert_success
+	assert_line --index 3 "PROJECT_NAME=already-devcontainer"
 }

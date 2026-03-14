@@ -41,18 +41,17 @@ teardown() {
 	assert_success
 }
 
-@test "edit opens devcontainer user override for sidecar projects" {
-	local repo_root="$BATS_TEST_TMPDIR/sidecar"
-	local managed_file="$repo_root/.devcontainer/docker-compose.base.yml"
-	local user_file="$repo_root/.devcontainer/docker-compose.user.override.yml"
+@test "edit opens shared override for centralized devcontainer projects" {
+	local repo_root="$BATS_TEST_TMPDIR/devcontainer-project"
+	local user_file="$repo_root/$AGB_PROJECT_DIR/compose/user.override.yml"
 
-	mkdir -p "$repo_root/.devcontainer" "$repo_root/$AGB_PROJECT_DIR" "$repo_root/.git"
-	touch "$managed_file" "$user_file"
+	mkdir -p "$repo_root/.devcontainer" "$repo_root/$AGB_PROJECT_DIR/compose" "$repo_root/.git"
+	touch "$repo_root/.devcontainer/devcontainer.json" "$repo_root/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml" "$user_file"
 	printf '%s\n' \
 		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
 		"ACTIVE_AGENT=codex" \
 		"DEVCONTAINER_IDE=vscode" \
-		"DEVCONTAINER_PROJECT_NAME=sidecar-sandbox-devcontainer" > "$repo_root/$AGB_PROJECT_DIR/active-target.env"
+		"PROJECT_NAME=sidecar-sandbox" > "$repo_root/$AGB_PROJECT_DIR/active-target.env"
 
 	unset -f open_editor
 	stub open_editor \

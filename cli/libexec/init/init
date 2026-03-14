@@ -55,14 +55,12 @@ init() {
 	local mode=""
 	local ide=""
 	local batch=false
-	local name_provided_via_flag=false
 
 	while [[ $# -gt 0 ]]
 	do
 		case $1 in
 		--name)
 			name="$2"
-			name_provided_via_flag=true
 			shift 2
 			;;
 		--path)
@@ -154,12 +152,6 @@ init() {
 		return 1
 	fi
 
-	# Apply mode suffix to the name (only if name wasn't provided via --name flag)
-	if [[ "$name_provided_via_flag" == false ]]
-	then
-		name=$(apply_mode_suffix "$name" "$mode")
-	fi
-
 	case "$mode" in
 	cli)
 		require yq
@@ -169,7 +161,7 @@ init() {
 			--name "$name"
 		review_generated_file "shared policy" "$(cli_shared_policy_file "$project_path")" "$batch"
 		review_generated_file "compose override" "$(cli_user_override_file "$project_path")" "$batch"
-		write_active_agent "$project_path" "$agent"
+		write_active_agent "$project_path" "$agent" "$name"
 		;;
 	devcontainer)
 		local available_ides=(vscode jetbrains none)
@@ -194,7 +186,7 @@ init() {
 			--ide "$ide" \
 			--name "$name"
 		review_generated_file "shared policy" "$(cli_shared_policy_file "$project_path")" "$batch"
-		review_generated_file "compose override" "$(devcontainer_user_compose_override_file "$project_path")" "$batch"
+		review_generated_file "compose override" "$(cli_user_override_file "$project_path")" "$batch"
 		write_devcontainer_state "$project_path" "$agent" "$ide" "$name"
 		;;
 	*)

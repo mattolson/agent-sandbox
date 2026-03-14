@@ -7,7 +7,7 @@ source "$AGB_LIBDIR/logging.bash"
 source "$AGB_LIBDIR/devcontainer.bash"
 
 # Sets up a Devcontainer configuration for an agent.
-# Creates managed devcontainer files plus user-owned extension points.
+# Creates managed devcontainer files plus centralized sandbox runtime files.
 # Args:
 #   --project-path - Path to the project directory
 #   --agent - The agent name (e.g., "claude")
@@ -51,9 +51,9 @@ devcontainer() {
 	validate_devcontainer_ide "$ide"
 
 	local project_name
-	project_name="${name:-$(derive_project_name "$project_path" "devcontainer")}"
+	project_name="${name:-$(derive_base_project_name "$project_path")}"
 
-	initialize_devcontainer_sidecar_layout "$project_path" "$agent" "$ide" "$project_name"
+	initialize_devcontainer_layout "$project_path" "$agent" "$ide" "$project_name"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]

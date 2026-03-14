@@ -53,16 +53,6 @@ assert_common_environment_vars() {
 	yq -e '.services.agent.environment[] | select(. == "NO_PROXY=localhost,127.0.0.1,proxy")' "$compose_file"
 }
 
-assert_devcontainer_common_volumes() {
-	local compose_file=$1
-
-	yq -e '.services.agent.volumes[] | select(. == "..:/workspace")' "$compose_file"
-
-	yq -e '.services.agent.volumes[] | select(. == "../.agent-sandbox:/workspace/.agent-sandbox:ro")' "$compose_file"
-
-	yq -e '.services.agent.volumes[] | select(. == "proxy-ca:/etc/mitmproxy:ro")' "$compose_file"
-}
-
 assert_named_volumes() {
 	local compose_file=$1
 	shift
@@ -72,43 +62,6 @@ assert_named_volumes() {
 	do
 		volume_name="$volume_name" yq -e '.volumes | select(has(env(volume_name)))' "$compose_file"
 	done
-}
-
-assert_devcontainer_policy_mounts() {
-	local compose_file=$1
-	local agent=$2
-
-	yq -e '.services.proxy.volumes[] | select(. == "../'"$AGB_PROJECT_DIR"'/user.policy.yaml:/etc/agent-sandbox/policy/user.policy.yaml:ro")' "$compose_file"
-	yq -e '.services.proxy.volumes[] | select(. == "../'"$AGB_PROJECT_DIR"'/user.agent.'"$agent"'.policy.yaml:/etc/agent-sandbox/policy/user.agent.policy.yaml:ro")' "$compose_file"
-	yq -e '.services.proxy.volumes[] | select(. == "./policy.override.yaml:/etc/agent-sandbox/policy/devcontainer.policy.yaml:ro")' "$compose_file"
-	yq -e '.services.proxy.volumes[] | select(. == "./policy.user.override.yaml:/etc/agent-sandbox/policy/devcontainer.user.policy.yaml:ro")' "$compose_file"
-	yq -e '.services.proxy.environment[] | select(. == "AGENTBOX_ACTIVE_AGENT='"$agent"'")' "$compose_file"
-}
-
-assert_devcontainer_user_override_common() {
-	local compose_file=$1
-
-	# shellcheck disable=SC2016
-	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro")' "$compose_file"
-
-	# shellcheck disable=SC2016
-	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro")' "$compose_file"
-
-	yq -e '.services.agent.volumes[] | select(. == "../.git:/workspace/.git:ro")' "$compose_file"
-
-	yq -e '.services.agent.volumes[] | select(. == "../.idea:/workspace/.idea:ro")' "$compose_file"
-
-	yq -e '.services.agent.volumes[] | select(. == "../.vscode:/workspace/.vscode:ro")' "$compose_file"
-}
-
-assert_devcontainer_user_policy_file() {
-	local policy_file=$1
-
-	assert [ -f "$policy_file" ]
-	run yq '.services | length' "$policy_file"
-	assert_output "0"
-	run yq '.domains | length' "$policy_file"
-	assert_output "0"
 }
 
 assert_devcontainer_managed_policy_file() {
@@ -142,12 +95,19 @@ assert_devcontainer_user_json_file() {
 
 assert_devcontainer_json_file() {
 	local json_file=$1
+	local agent=$2
 
 	assert [ -f "$json_file" ]
 	run yq -r '.dockerComposeFile[0]' "$json_file"
-	assert_output "docker-compose.base.yml"
+	assert_output "../.agent-sandbox/compose/base.yml"
 	run yq -r '.dockerComposeFile[1]' "$json_file"
-	assert_output "docker-compose.user.override.yml"
+	assert_output "../.agent-sandbox/compose/agent.$agent.yml"
+	run yq -r '.dockerComposeFile[2]' "$json_file"
+	assert_output "../.agent-sandbox/compose/mode.devcontainer.yml"
+	run yq -r '.dockerComposeFile[3]' "$json_file"
+	assert_output "../.agent-sandbox/compose/user.override.yml"
+	run yq -r '.dockerComposeFile[4]' "$json_file"
+	assert_output "../.agent-sandbox/compose/user.agent.$agent.override.yml"
 	run yq -r '.service' "$json_file"
 	assert_output "agent"
 }
@@ -183,7 +143,7 @@ assert_cli_base_layer() {
 	yq -e '.services.agent.volumes[] | select(. == "../..:/workspace")' "$compose_file"
 	yq -e '.services.agent.volumes[] | select(. == "..:/workspace/.agent-sandbox:ro")' "$compose_file"
 	yq -e '.services.agent.volumes[] | select(. == "proxy-ca:/etc/mitmproxy:ro")' "$compose_file"
-	yq -e '.services.proxy.volumes[] | select(. == "../user.policy.yaml:/etc/agent-sandbox/policy/user.policy.yaml:ro")' "$compose_file"
+	yq -e '.services.proxy.volumes[] | select(. == "../policy/user.policy.yaml:/etc/agent-sandbox/policy/user.policy.yaml:ro")' "$compose_file"
 
 	assert_named_volumes "$compose_file" "proxy-state" "proxy-ca"
 }
@@ -200,6 +160,8 @@ assert_cli_user_policy_file() {
 
 assert_cli_shared_override() {
 	local compose_file=$1
+	local include_idea="${2:-true}"
+	local include_vscode="${3:-true}"
 
 	assert [ -f "$compose_file" ]
 
@@ -210,8 +172,22 @@ assert_cli_shared_override() {
 	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro")' "$compose_file"
 
 	yq -e '.services.agent.volumes[] | select(. == "../../.git:/workspace/.git:ro")' "$compose_file"
-	yq -e '.services.agent.volumes[] | select(. == "../../.idea:/workspace/.idea:ro")' "$compose_file"
-	yq -e '.services.agent.volumes[] | select(. == "../../.vscode:/workspace/.vscode:ro")' "$compose_file"
+
+	if [[ "$include_idea" == "true" ]]
+	then
+		yq -e '.services.agent.volumes[] | select(. == "../../.idea:/workspace/.idea:ro")' "$compose_file"
+	else
+		run yq '.services.agent.volumes[] | select(. == "../../.idea:/workspace/.idea:ro")' "$compose_file"
+		assert_output ""
+	fi
+
+	if [[ "$include_vscode" == "true" ]]
+	then
+		yq -e '.services.agent.volumes[] | select(. == "../../.vscode:/workspace/.vscode:ro")' "$compose_file"
+	else
+		run yq '.services.agent.volumes[] | select(. == "../../.vscode:/workspace/.vscode:ro")' "$compose_file"
+		assert_output ""
+	fi
 }
 
 assert_cli_agent_layer_base() {
@@ -227,7 +203,7 @@ assert_cli_agent_layer_base() {
 	run yq '.services.agent.image' "$compose_file"
 	assert_output "$expected_image"
 
-	yq -e '.services.proxy.volumes[] | select(. == "../user.agent.'"$agent"'.policy.yaml:/etc/agent-sandbox/policy/user.agent.policy.yaml:ro")' "$compose_file"
+	yq -e '.services.proxy.volumes[] | select(. == "../policy/user.agent.'"$agent"'.policy.yaml:/etc/agent-sandbox/policy/user.agent.policy.yaml:ro")' "$compose_file"
 	yq -e '.services.proxy.environment[] | select(. == "AGENTBOX_ACTIVE_AGENT='"$agent"'")' "$compose_file"
 
 	yq -e '.services.agent.volumes[] | select(. == "'"$state_volume:$state_path"'")' "$compose_file"
@@ -296,34 +272,36 @@ assert_non_claude_cli_override() {
 	assert_output ""
 }
 
-assert_claude_devcontainer_user_override() {
+assert_devcontainer_mode_overlay() {
 	local compose_file=$1
+	local ide=$2
+	local expected_name=$3
 
 	assert [ -f "$compose_file" ]
-	assert_devcontainer_user_override_common "$compose_file"
 
-	# shellcheck disable=SC2016
-	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro")' "$compose_file"
+	run yq '.name' "$compose_file"
+	assert_output "$expected_name"
 
-	# shellcheck disable=SC2016
-	yq -e '.services.agent.volumes[] | select(. == "${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro")' "$compose_file"
-}
+	yq -e '.services.proxy.volumes[] | select(. == "../policy/policy.devcontainer.yaml:/etc/agent-sandbox/policy/devcontainer.policy.yaml:ro")' "$compose_file"
+	yq -e '.services.agent.volumes[] | select(. == "../../.devcontainer:/workspace/.devcontainer:ro")' "$compose_file"
 
-assert_non_claude_devcontainer_user_override() {
-	local compose_file=$1
-
-	assert [ -f "$compose_file" ]
-	assert_devcontainer_user_override_common "$compose_file"
-
-	# shellcheck disable=SC2016
-	run yq '.services.agent.volumes[] | select(. == "${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro")' "$compose_file"
-	assert_output ""
-}
-
-assert_devcontainer_volume() {
-	local compose_file=$1
-
-	yq -e '.services.agent.volumes[] | select(. == ".:/workspace/.devcontainer:ro")' "$compose_file"
+	if [[ "$ide" == "jetbrains" ]]
+	then
+		yq -e '.services.agent.volumes[] | select(. == "../../.idea:/workspace/.idea:ro")' "$compose_file"
+		assert_jetbrains_capabilities "$compose_file"
+		run yq '.services.agent.volumes[] | select(. == "../../.vscode:/workspace/.vscode:ro")' "$compose_file"
+		assert_output ""
+	elif [[ "$ide" == "vscode" ]]
+	then
+		run yq '.services.agent.volumes[] | select(. == "../../.idea:/workspace/.idea:ro")' "$compose_file"
+		assert_output ""
+		yq -e '.services.agent.volumes[] | select(. == "../../.vscode:/workspace/.vscode:ro")' "$compose_file"
+	else
+		run yq '.services.agent.volumes[] | select(. == "../../.idea:/workspace/.idea:ro")' "$compose_file"
+		assert_output ""
+		run yq '.services.agent.volumes[] | select(. == "../../.vscode:/workspace/.vscode:ro")' "$compose_file"
+		assert_output ""
+	fi
 }
 
 assert_jetbrains_capabilities() {
@@ -339,21 +317,10 @@ claude_agent_compose_file_has_expected_content() {
 
 	assert [ -f "$compose_file" ]
 
-	assert_proxy_service "$compose_file" "ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
-	assert_devcontainer_agent_service_base "$compose_file" "ghcr.io/mattolson/agent-sandbox-claude@sha256:def456"
+	assert_claude_cli_layer "$compose_file"
 	yq -e '.services.agent.environment[] | select(. == "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1")' "$compose_file"
 	run yq '.services.agent.environment[] | select(. == "CLAUDE_CONFIG_DIR=/home/dev/.claude")' "$compose_file"
 	assert_output ""
-
-	assert_common_environment_vars "$compose_file"
-	assert_devcontainer_common_volumes "$compose_file"
-	assert_devcontainer_policy_mounts "$compose_file" "claude"
-
-	yq -e '.services.agent.volumes[] | select(. == "claude-state:/home/dev/.claude")' "$compose_file"
-
-	yq -e '.services.agent.volumes[] | select(. == "claude-history:/commandhistory")' "$compose_file"
-
-	assert_named_volumes "$compose_file" "claude-state" "claude-history" "proxy-state" "proxy-ca"
 }
 
 copilot_agent_compose_file_has_expected_content() {
@@ -361,17 +328,7 @@ copilot_agent_compose_file_has_expected_content() {
 
 	assert [ -f "$compose_file" ]
 
-	assert_proxy_service "$compose_file" "ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
-	assert_devcontainer_agent_service_base "$compose_file" "ghcr.io/mattolson/agent-sandbox-copilot@sha256:ghi789"
-	assert_common_environment_vars "$compose_file"
-	assert_devcontainer_common_volumes "$compose_file"
-	assert_devcontainer_policy_mounts "$compose_file" "copilot"
-
-	yq -e '.services.agent.volumes[] | select(. == "copilot-state:/home/dev/.copilot")' "$compose_file"
-
-	yq -e '.services.agent.volumes[] | select(. == "copilot-history:/commandhistory")' "$compose_file"
-
-	assert_named_volumes "$compose_file" "copilot-state" "copilot-history" "proxy-state" "proxy-ca"
+	assert_copilot_cli_layer "$compose_file"
 }
 
 codex_agent_compose_file_has_expected_content() {
@@ -379,20 +336,9 @@ codex_agent_compose_file_has_expected_content() {
 
 	assert [ -f "$compose_file" ]
 
-	assert_proxy_service "$compose_file" "ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
-	assert_devcontainer_agent_service_base "$compose_file" "ghcr.io/mattolson/agent-sandbox-codex@sha256:jkl012"
+	assert_codex_cli_layer "$compose_file"
 	run yq '.services.agent.environment[] | select(. == "CODEX_HOME=/home/dev/.codex")' "$compose_file"
 	assert_output ""
-
-	assert_common_environment_vars "$compose_file"
-	assert_devcontainer_common_volumes "$compose_file"
-	assert_devcontainer_policy_mounts "$compose_file" "codex"
-
-	yq -e '.services.agent.volumes[] | select(. == "codex-state:/home/dev/.codex")' "$compose_file"
-
-	yq -e '.services.agent.volumes[] | select(. == "codex-history:/commandhistory")' "$compose_file"
-
-	assert_named_volumes "$compose_file" "codex-state" "codex-history" "proxy-state" "proxy-ca"
 }
 
 @test "cli creates layered compose files for claude agent with all options enabled" {
@@ -419,14 +365,14 @@ codex_agent_compose_file_has_expected_content() {
 		"$PROJECT_DIR/$AGB_PROJECT_DIR/compose/base.yml" \
 		"project-sandbox" \
 		"ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
-	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.policy.yaml"
-	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.agent.claude.policy.yaml"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/user.policy.yaml"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/user.agent.claude.policy.yaml"
 	assert_cli_shared_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.override.yml"
 	assert_claude_cli_layer "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/agent.claude.yml"
 	assert_claude_cli_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.agent.claude.override.yml"
 }
 
-@test "devcontainer creates sidecar files for claude agent with all options enabled" {
+@test "devcontainer creates centralized runtime files for claude agent with all options enabled" {
 	export AGENTBOX_PROXY_IMAGE="ghcr.io/mattolson/agent-sandbox-proxy:latest"
 	export AGENTBOX_AGENT_IMAGE="ghcr.io/mattolson/agent-sandbox-claude:latest"
 	export AGENTBOX_MOUNT_CLAUDE_CONFIG="true"
@@ -447,19 +393,22 @@ codex_agent_compose_file_has_expected_content() {
 		--ide "jetbrains"
 	assert_success
 
-	run yq '.name' "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
-	assert_output "project-sandbox-devcontainer"
+	run yq '.name' "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/base.yml"
+	assert_output "project-sandbox"
 
-	claude_agent_compose_file_has_expected_content "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
-	assert_devcontainer_volume "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
-	assert_jetbrains_capabilities "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
-	assert_devcontainer_json_file "$PROJECT_DIR/.devcontainer/devcontainer.json"
+	assert_cli_base_layer \
+		"$PROJECT_DIR/$AGB_PROJECT_DIR/compose/base.yml" \
+		"project-sandbox" \
+		"ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
+	claude_agent_compose_file_has_expected_content "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/agent.claude.yml"
+	assert_devcontainer_mode_overlay "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml" "jetbrains" "project-sandbox-devcontainer"
+	assert_devcontainer_json_file "$PROJECT_DIR/.devcontainer/devcontainer.json" "claude"
 	assert_devcontainer_user_json_file "$PROJECT_DIR/.devcontainer/devcontainer.user.json"
-	assert_devcontainer_managed_policy_file "$PROJECT_DIR/.devcontainer/policy.override.yaml" "jetbrains"
-	assert_devcontainer_user_policy_file "$PROJECT_DIR/.devcontainer/policy.user.override.yaml"
-	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.policy.yaml"
-	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.agent.claude.policy.yaml"
-	assert_claude_devcontainer_user_override "$PROJECT_DIR/.devcontainer/docker-compose.user.override.yml"
+	assert_devcontainer_managed_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/policy.devcontainer.yaml" "jetbrains"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/user.policy.yaml"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/user.agent.claude.policy.yaml"
+	assert_cli_shared_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.override.yml" "false" "false"
+	assert_claude_cli_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.agent.claude.override.yml"
 }
 
 @test "cli creates layered compose files for copilot agent with all options enabled" {
@@ -485,14 +434,14 @@ codex_agent_compose_file_has_expected_content() {
 		"$PROJECT_DIR/$AGB_PROJECT_DIR/compose/base.yml" \
 		"project-sandbox" \
 		"ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
-	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.policy.yaml"
-	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.agent.copilot.policy.yaml"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/user.policy.yaml"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/user.agent.copilot.policy.yaml"
 	assert_cli_shared_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.override.yml"
 	assert_copilot_cli_layer "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/agent.copilot.yml"
 	assert_non_claude_cli_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.agent.copilot.override.yml"
 }
 
-@test "devcontainer creates sidecar files for copilot agent with all options enabled" {
+@test "devcontainer creates centralized runtime files for copilot agent with all options enabled" {
 	export AGENTBOX_PROXY_IMAGE="ghcr.io/mattolson/agent-sandbox-proxy:latest"
 	export AGENTBOX_AGENT_IMAGE="ghcr.io/mattolson/agent-sandbox-copilot:latest"
 	export AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS="true"
@@ -512,18 +461,22 @@ codex_agent_compose_file_has_expected_content() {
 		--ide "vscode"
 	assert_success
 
-	run yq '.name' "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
-	assert_output "project-sandbox-devcontainer"
+	run yq '.name' "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/base.yml"
+	assert_output "project-sandbox"
 
-	copilot_agent_compose_file_has_expected_content "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
-	assert_devcontainer_volume "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
-	assert_devcontainer_json_file "$PROJECT_DIR/.devcontainer/devcontainer.json"
+	assert_cli_base_layer \
+		"$PROJECT_DIR/$AGB_PROJECT_DIR/compose/base.yml" \
+		"project-sandbox" \
+		"ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
+	copilot_agent_compose_file_has_expected_content "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/agent.copilot.yml"
+	assert_devcontainer_mode_overlay "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml" "vscode" "project-sandbox-devcontainer"
+	assert_devcontainer_json_file "$PROJECT_DIR/.devcontainer/devcontainer.json" "copilot"
 	assert_devcontainer_user_json_file "$PROJECT_DIR/.devcontainer/devcontainer.user.json"
-	assert_devcontainer_managed_policy_file "$PROJECT_DIR/.devcontainer/policy.override.yaml" "vscode"
-	assert_devcontainer_user_policy_file "$PROJECT_DIR/.devcontainer/policy.user.override.yaml"
-	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.policy.yaml"
-	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.agent.copilot.policy.yaml"
-	assert_non_claude_devcontainer_user_override "$PROJECT_DIR/.devcontainer/docker-compose.user.override.yml"
+	assert_devcontainer_managed_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/policy.devcontainer.yaml" "vscode"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/user.policy.yaml"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/user.agent.copilot.policy.yaml"
+	assert_cli_shared_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.override.yml" "false" "false"
+	assert_non_claude_cli_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.agent.copilot.override.yml"
 }
 
 @test "cli creates layered compose files for codex agent with all standard options enabled" {
@@ -549,14 +502,14 @@ codex_agent_compose_file_has_expected_content() {
 		"$PROJECT_DIR/$AGB_PROJECT_DIR/compose/base.yml" \
 		"project-sandbox" \
 		"ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
-	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.policy.yaml"
-	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.agent.codex.policy.yaml"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/user.policy.yaml"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/user.agent.codex.policy.yaml"
 	assert_cli_shared_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.override.yml"
 	assert_codex_cli_layer "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/agent.codex.yml"
 	assert_non_claude_cli_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.agent.codex.override.yml"
 }
 
-@test "devcontainer creates sidecar files for codex agent with all standard options enabled" {
+@test "devcontainer creates centralized runtime files for codex agent with all standard options enabled" {
 	export AGENTBOX_PROXY_IMAGE="ghcr.io/mattolson/agent-sandbox-proxy:latest"
 	export AGENTBOX_AGENT_IMAGE="ghcr.io/mattolson/agent-sandbox-codex:latest"
 	export AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS="true"
@@ -576,16 +529,20 @@ codex_agent_compose_file_has_expected_content() {
 		--ide "vscode"
 	assert_success
 
-	run yq '.name' "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
-	assert_output "project-sandbox-devcontainer"
+	run yq '.name' "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/base.yml"
+	assert_output "project-sandbox"
 
-	codex_agent_compose_file_has_expected_content "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
-	assert_devcontainer_volume "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
-	assert_devcontainer_json_file "$PROJECT_DIR/.devcontainer/devcontainer.json"
+	assert_cli_base_layer \
+		"$PROJECT_DIR/$AGB_PROJECT_DIR/compose/base.yml" \
+		"project-sandbox" \
+		"ghcr.io/mattolson/agent-sandbox-proxy@sha256:abc123"
+	codex_agent_compose_file_has_expected_content "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/agent.codex.yml"
+	assert_devcontainer_mode_overlay "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml" "vscode" "project-sandbox-devcontainer"
+	assert_devcontainer_json_file "$PROJECT_DIR/.devcontainer/devcontainer.json" "codex"
 	assert_devcontainer_user_json_file "$PROJECT_DIR/.devcontainer/devcontainer.user.json"
-	assert_devcontainer_managed_policy_file "$PROJECT_DIR/.devcontainer/policy.override.yaml" "vscode"
-	assert_devcontainer_user_policy_file "$PROJECT_DIR/.devcontainer/policy.user.override.yaml"
-	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.policy.yaml"
-	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/user.agent.codex.policy.yaml"
-	assert_non_claude_devcontainer_user_override "$PROJECT_DIR/.devcontainer/docker-compose.user.override.yml"
+	assert_devcontainer_managed_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/policy.devcontainer.yaml" "vscode"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/user.policy.yaml"
+	assert_cli_user_policy_file "$PROJECT_DIR/$AGB_PROJECT_DIR/policy/user.agent.codex.policy.yaml"
+	assert_cli_shared_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.override.yml" "false" "false"
+	assert_non_claude_cli_override "$PROJECT_DIR/$AGB_PROJECT_DIR/compose/user.agent.codex.override.yml"
 }

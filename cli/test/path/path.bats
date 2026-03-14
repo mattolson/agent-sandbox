@@ -53,6 +53,12 @@ teardown() {
 	assert_output "myproject-sandbox-devcontainer"
 }
 
+@test "strip_mode_suffix removes one trailing devcontainer suffix" {
+	run strip_mode_suffix "myproject-sandbox-devcontainer" "devcontainer"
+	assert_success
+	assert_output "myproject-sandbox"
+}
+
 @test "derive_project_name uses basename of path" {
 	run derive_project_name "/deeply/nested/path/coolproject" "cli"
 	assert_success

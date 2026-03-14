@@ -40,6 +40,12 @@ def load_policy_file(path, required=False):
             fail(f"Policy file not found: {path}")
         return {}
 
+    if os.path.isdir(path):
+        fail(f"Policy path is a directory, expected a file: {path}")
+
+    if not os.path.isfile(path):
+        fail(f"Policy path is not a regular file: {path}")
+
     with open(path, encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
 

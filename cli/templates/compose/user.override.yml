@@ -5,8 +5,6 @@
 #   - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
 #   - ${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro
 #   - ../../.git:/workspace/.git:ro
-#   - ../../.idea:/workspace/.idea:ro
-#   - ../../.vscode:/workspace/.vscode:ro
 services:
   agent:
     volumes: []

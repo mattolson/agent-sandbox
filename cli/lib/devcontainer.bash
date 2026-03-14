@@ -44,24 +44,6 @@ devcontainer_dir() {
 	echo "$repo_root/.devcontainer"
 }
 
-devcontainer_compose_file() {
-	local repo_root="${1:-}"
-
-	echo "$(devcontainer_dir "$repo_root")/docker-compose.base.yml"
-}
-
-devcontainer_legacy_compose_file() {
-	local repo_root="${1:-}"
-
-	echo "$(devcontainer_dir "$repo_root")/docker-compose.yml"
-}
-
-devcontainer_user_compose_override_file() {
-	local repo_root="${1:-}"
-
-	echo "$(devcontainer_dir "$repo_root")/docker-compose.user.override.yml"
-}
-
 devcontainer_json_file() {
 	local repo_root="${1:-}"
 
@@ -74,43 +56,74 @@ devcontainer_user_json_file() {
 	echo "$(devcontainer_dir "$repo_root")/devcontainer.user.json"
 }
 
+devcontainer_managed_policy_file() {
+	local repo_root="${1:-}"
+
+	echo "$(cli_policy_dir "$repo_root")/policy.devcontainer.yaml"
+}
+
 devcontainer_policy_override_file() {
 	local repo_root="${1:-}"
 
 	echo "$(devcontainer_dir "$repo_root")/policy.override.yaml"
 }
 
-devcontainer_user_policy_override_file() {
+devcontainer_centralized_runtime_initialized() {
 	local repo_root="${1:-}"
 
-	echo "$(devcontainer_dir "$repo_root")/policy.user.override.yaml"
-}
-
-devcontainer_sidecar_initialized() {
-	local repo_root="${1:-}"
-
-	[[ -f "$(devcontainer_compose_file "$repo_root")" ]]
+	[[ -f "$(cli_devcontainer_mode_compose_file "$repo_root")" ]]
 }
 
 emit_devcontainer_compose_files() {
 	local repo_root="${1:-}"
-	local managed_file
-	local user_file
+	local active_agent=""
+	local base_file
+	local agent_file
+	local mode_file
+	local shared_override
+	local agent_override
 
-	managed_file="$(devcontainer_compose_file "$repo_root")"
-	user_file="$(devcontainer_user_compose_override_file "$repo_root")"
+	active_agent="$(read_active_agent "$repo_root")" || {
+		echo "Active agent state missing for centralized devcontainer layout at $repo_root. Run 'agentbox switch --agent <name>'." | error
+		return 1
+	}
 
-	if [[ ! -f "$managed_file" ]]
+	base_file="$(cli_base_compose_file "$repo_root")"
+	agent_file="$(cli_agent_compose_file "$repo_root" "$active_agent")"
+	mode_file="$(cli_devcontainer_mode_compose_file "$repo_root")"
+	shared_override="$(cli_user_override_file "$repo_root")"
+	agent_override="$(cli_user_agent_override_file "$repo_root" "$active_agent")"
+
+	if [[ ! -f "$base_file" ]]
 	then
-		echo "Devcontainer compose file not found: $managed_file" | error
+		echo "Devcontainer compose base file not found: $base_file" | error
 		return 1
 	fi
 
-	printf '%s\n' "$managed_file"
-
-	if [[ -f "$user_file" ]]
+	if [[ ! -f "$agent_file" ]]
 	then
-		printf '%s\n' "$user_file"
+		echo "Devcontainer compose agent file not found for '$active_agent': $agent_file" | error
+		return 1
+	fi
+
+	if [[ ! -f "$mode_file" ]]
+	then
+		echo "Devcontainer compose mode overlay not found: $mode_file" | error
+		return 1
+	fi
+
+	printf '%s\n' "$base_file"
+	printf '%s\n' "$agent_file"
+	printf '%s\n' "$mode_file"
+
+	if [[ -f "$shared_override" ]]
+	then
+		printf '%s\n' "$shared_override"
+	fi
+
+	if [[ -f "$agent_override" ]]
+	then
+		printf '%s\n' "$agent_override"
 	fi
 }
 
@@ -129,90 +142,35 @@ scaffold_devcontainer_user_json_if_missing() {
 	cp "$AGB_TEMPLATEDIR/devcontainer/devcontainer.user.json" "$user_file"
 }
 
-scaffold_devcontainer_user_policy_override_if_missing() {
+cleanup_legacy_devcontainer_managed_files() {
 	local repo_root=$1
-	local policy_file
+	local legacy_compose_file
+	local legacy_policy_file
 
-	policy_file="$(devcontainer_user_policy_override_file "$repo_root")"
+	legacy_compose_file="$(devcontainer_dir "$repo_root")/docker-compose.base.yml"
+	legacy_policy_file="$(devcontainer_policy_override_file "$repo_root")"
 
-	if [[ -f "$policy_file" ]]
+	if [[ -f "$legacy_compose_file" ]]
 	then
-		return 0
+		rm -f "$legacy_compose_file"
 	fi
 
-	scaffold_user_policy_file_if_missing "$policy_file" "devcontainer/policy.user.override.yaml"
+	if [[ -f "$legacy_policy_file" ]]
+	then
+		rm -f "$legacy_policy_file"
+	fi
 }
 
-scaffold_devcontainer_user_compose_override_if_missing() {
-	local repo_root=$1
-	local agent=$2
-	local ide=$3
-	local override_file
+set_devcontainer_override_defaults_for_ide() {
+	local ide=$1
 
-	validate_agent "$agent" >/dev/null
 	validate_devcontainer_ide "$ide" >/dev/null
-
-	override_file="$(devcontainer_user_compose_override_file "$repo_root")"
-
-	if [[ -f "$override_file" ]]
-	then
-		return 0
-	fi
-
-	mkdir -p "$(dirname "$override_file")"
-	cp "$AGB_TEMPLATEDIR/devcontainer/docker-compose.user.override.yml" "$override_file"
-
-	if [[ "$agent" == "claude" ]]
-	then
-		: "${AGENTBOX_MOUNT_CLAUDE_CONFIG:=false}"
-	fi
 
 	: "${AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS:=false}"
 	: "${AGENTBOX_ENABLE_DOTFILES:=false}"
 	: "${AGENTBOX_MOUNT_GIT_READONLY:=false}"
-
-	if [[ "$ide" == "jetbrains" ]]
-	then
-		: "${AGENTBOX_MOUNT_IDEA_READONLY:=true}"
-	fi
-
-	if [[ "$ide" == "vscode" ]]
-	then
-		: "${AGENTBOX_MOUNT_VSCODE_READONLY:=true}"
-	fi
-
-	if [[ "$agent" == "claude" ]] && [[ "$AGENTBOX_MOUNT_CLAUDE_CONFIG" == "true" ]]
-	then
-		# shellcheck disable=SC2016
-		add_volume_entry "$override_file" '${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro' "true"
-		# shellcheck disable=SC2016
-		add_volume_entry "$override_file" '${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro' "true"
-	fi
-
-	if [[ "$AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS" == "true" ]]
-	then
-		add_volume_entry "$override_file" '${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro' "true"
-	fi
-
-	if [[ "$AGENTBOX_ENABLE_DOTFILES" == "true" ]]
-	then
-		add_volume_entry "$override_file" '${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro' "true"
-	fi
-
-	if [[ "$AGENTBOX_MOUNT_GIT_READONLY" == "true" ]]
-	then
-		add_volume_entry "$override_file" '../.git:/workspace/.git:ro' "true"
-	fi
-
-	if [[ "${AGENTBOX_MOUNT_IDEA_READONLY:-false}" == "true" ]]
-	then
-		add_volume_entry "$override_file" '../.idea:/workspace/.idea:ro' "true"
-	fi
-
-	if [[ "${AGENTBOX_MOUNT_VSCODE_READONLY:-false}" == "true" ]]
-	then
-		add_volume_entry "$override_file" '../.vscode:/workspace/.vscode:ro' "true"
-	fi
+	AGENTBOX_MOUNT_IDEA_READONLY=false
+	AGENTBOX_MOUNT_VSCODE_READONLY=false
 }
 
 devcontainer_template_json_file() {
@@ -220,13 +178,6 @@ devcontainer_template_json_file() {
 
 	validate_agent "$agent" >/dev/null
 	echo "$AGB_TEMPLATEDIR/$agent/devcontainer/devcontainer.json"
-}
-
-devcontainer_template_compose_file() {
-	local agent=$1
-
-	validate_agent "$agent" >/dev/null
-	echo "$AGB_TEMPLATEDIR/$agent/devcontainer/docker-compose.base.yml"
 }
 
 render_devcontainer_json() {
@@ -271,7 +222,7 @@ read_compose_service_image_if_exists() {
 	service="$service" yq -r '.services.[env(service)].image // ""' "$compose_file"
 }
 
-write_devcontainer_policy_override_file() {
+write_devcontainer_policy_file() {
 	local policy_file=$1
 	local ide=$2
 	local services=""
@@ -279,7 +230,7 @@ write_devcontainer_policy_override_file() {
 	validate_devcontainer_ide "$ide" >/dev/null
 	require yq
 
-	copy_policy_template "$policy_file" "devcontainer/policy.override.yaml"
+	copy_policy_template "$policy_file" "policy.devcontainer.yaml"
 
 	if [[ "$ide" != "none" ]]
 	then
@@ -291,68 +242,47 @@ write_devcontainer_policy_override_file() {
 		"$policy_file"
 }
 
-write_devcontainer_compose_file() {
+write_devcontainer_mode_compose_file() {
 	local repo_root=$1
-	local agent=$2
-	local ide=$3
-	local project_name=$4
-	local proxy_image=$5
-	local agent_image=$6
+	local ide=$2
+	local project_name=$3
 	local compose_file
-	local template_file
 
-	validate_agent "$agent" >/dev/null
 	validate_devcontainer_ide "$ide" >/dev/null
 
-	compose_file="$(devcontainer_compose_file "$repo_root")"
-	template_file="$(devcontainer_template_compose_file "$agent")"
+	compose_file="$(cli_devcontainer_mode_compose_file "$repo_root")"
 
 	mkdir -p "$(dirname "$compose_file")"
-	cp "$template_file" "$compose_file"
-
-	set_project_name "$compose_file" "$project_name"
-	set_proxy_image "$compose_file" "$proxy_image"
-	set_agent_image "$compose_file" "$agent_image"
+	cp "$AGB_TEMPLATEDIR/compose/mode.devcontainer.yml" "$compose_file"
+	set_project_name "$compose_file" "$(apply_mode_suffix "$project_name" "devcontainer")"
 
 	if [[ "$ide" == "jetbrains" ]]
 	then
+		add_volume_entry "$compose_file" '../../.idea:/workspace/.idea:ro' "true"
 		add_jetbrains_capabilities "$compose_file"
+	elif [[ "$ide" == "vscode" ]]
+	then
+		add_volume_entry "$compose_file" '../../.vscode:/workspace/.vscode:ro' "true"
 	fi
 }
 
-initialize_devcontainer_sidecar_layout() {
+initialize_devcontainer_layout() {
 	local repo_root=$1
 	local agent=$2
 	local ide=$3
 	local project_name=$4
-	local default_proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
-	local default_agent_image
-	local proxy_image_pinned
-	local agent_image_pinned
 
 	validate_agent "$agent" >/dev/null
 	validate_devcontainer_ide "$ide" >/dev/null
 
-	default_agent_image="ghcr.io/mattolson/agent-sandbox-$agent:latest"
-
-	scaffold_cli_shared_policy_if_missing "$repo_root"
-	ensure_cli_policy_file "$repo_root" "$agent"
+	set_devcontainer_override_defaults_for_ide "$ide"
+	initialize_cli_layered_layout "$repo_root" "$agent" "$project_name"
 	scaffold_devcontainer_user_json_if_missing "$repo_root"
-	scaffold_devcontainer_user_policy_override_if_missing "$repo_root"
-	scaffold_devcontainer_user_compose_override_if_missing "$repo_root" "$agent" "$ide"
-
-	proxy_image_pinned=$(pull_and_pin_image "${AGENTBOX_PROXY_IMAGE:-$default_proxy_image}")
-	agent_image_pinned=$(pull_and_pin_image "${AGENTBOX_AGENT_IMAGE:-$default_agent_image}")
 
 	render_devcontainer_json "$repo_root" "$agent" "$(devcontainer_json_file "$repo_root")"
-	write_devcontainer_compose_file \
-		"$repo_root" \
-		"$agent" \
-		"$ide" \
-		"$project_name" \
-		"$proxy_image_pinned" \
-		"$agent_image_pinned"
-	write_devcontainer_policy_override_file "$(devcontainer_policy_override_file "$repo_root")" "$ide"
+	write_devcontainer_mode_compose_file "$repo_root" "$ide" "$project_name"
+	write_devcontainer_policy_file "$(devcontainer_managed_policy_file "$repo_root")" "$ide"
+	cleanup_legacy_devcontainer_managed_files "$repo_root"
 }
 
 ensure_devcontainer_runtime_files() {
@@ -360,8 +290,8 @@ ensure_devcontainer_runtime_files() {
 	local agent=$2
 	local ide=""
 	local project_name=""
-	local current_agent=""
-	local compose_file
+	local base_compose_file
+	local agent_compose_file
 	local default_proxy_image="ghcr.io/mattolson/agent-sandbox-proxy:latest"
 	local default_agent_image
 	local proxy_image
@@ -369,9 +299,11 @@ ensure_devcontainer_runtime_files() {
 
 	validate_agent "$agent" >/dev/null
 
+	base_compose_file="$(cli_base_compose_file "$repo_root")"
+	agent_compose_file="$(cli_agent_compose_file "$repo_root" "$agent")"
+
 	ide="$(read_devcontainer_ide "$repo_root" 2>/dev/null)" || true
-	project_name="$(read_devcontainer_project_name "$repo_root" 2>/dev/null)" || true
-	current_agent="$(read_active_agent "$repo_root" 2>/dev/null)" || true
+	project_name="$(read_project_name "$repo_root" 2>/dev/null)" || true
 
 	if [[ -z "$ide" ]]
 	then
@@ -381,42 +313,56 @@ ensure_devcontainer_runtime_files() {
 
 	if [[ -z "$project_name" ]]
 	then
-		echo "Devcontainer project name metadata missing. Falling back to the default derived name." | warning
-		project_name="$(derive_project_name "$repo_root" "devcontainer")"
+		project_name="$(read_project_name_if_exists "$base_compose_file" 2>/dev/null)" || true
+	fi
+
+	if [[ -n "$project_name" ]]
+	then
+		project_name="$(strip_mode_suffix "$project_name" "devcontainer")"
+	fi
+
+	if [[ -z "$project_name" ]]
+	then
+		echo "Project name metadata missing. Falling back to the default derived name." | warning
+		project_name="$(derive_base_project_name "$repo_root")"
 	fi
 
 	default_agent_image="ghcr.io/mattolson/agent-sandbox-$agent:latest"
-	compose_file="$(devcontainer_compose_file "$repo_root")"
 
-	proxy_image="$(read_compose_service_image_if_exists "$compose_file" "proxy" 2>/dev/null)" || true
+	proxy_image="$(read_compose_service_image_if_exists "$base_compose_file" "proxy" 2>/dev/null)" || true
 	if [[ -z "$proxy_image" ]]
 	then
 		proxy_image="$default_proxy_image"
 	fi
 
-	if [[ -n "$current_agent" ]] && [[ "$current_agent" == "$agent" ]]
+	if [[ -f "$agent_compose_file" ]]
 	then
-		agent_image="$(read_compose_service_image_if_exists "$compose_file" "agent" 2>/dev/null)" || true
+		agent_image="$(read_compose_service_image_if_exists "$agent_compose_file" "agent" 2>/dev/null)" || true
 	fi
 	if [[ -z "$agent_image" ]]
 	then
 		agent_image="$default_agent_image"
 	fi
 
-	scaffold_cli_shared_policy_if_missing "$repo_root"
-	ensure_cli_policy_file "$repo_root" "$agent"
+	set_devcontainer_override_defaults_for_ide "$ide"
+
+	if [[ ! -f "$base_compose_file" ]]
+	then
+		write_cli_base_compose_file "$repo_root" "$project_name" "$proxy_image"
+	fi
+	set_project_name "$base_compose_file" "$project_name"
+
+	if [[ ! -f "$agent_compose_file" ]]
+	then
+		write_cli_agent_compose_file "$repo_root" "$agent" "$agent_image"
+	fi
+
+	ensure_cli_agent_runtime_files "$repo_root" "$agent"
 	scaffold_devcontainer_user_json_if_missing "$repo_root"
-	scaffold_devcontainer_user_policy_override_if_missing "$repo_root"
-	scaffold_devcontainer_user_compose_override_if_missing "$repo_root" "$agent" "$ide"
 
 	render_devcontainer_json "$repo_root" "$agent" "$(devcontainer_json_file "$repo_root")"
-	write_devcontainer_compose_file \
-		"$repo_root" \
-		"$agent" \
-		"$ide" \
-		"$project_name" \
-		"$proxy_image" \
-		"$agent_image"
-	write_devcontainer_policy_override_file "$(devcontainer_policy_override_file "$repo_root")" "$ide"
+	write_devcontainer_mode_compose_file "$repo_root" "$ide" "$project_name"
+	write_devcontainer_policy_file "$(devcontainer_managed_policy_file "$repo_root")" "$ide"
+	cleanup_legacy_devcontainer_managed_files "$repo_root"
 	write_devcontainer_state "$repo_root" "$agent" "$ide" "$project_name"
 }

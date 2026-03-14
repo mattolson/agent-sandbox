@@ -128,6 +128,18 @@ set_project_name() {
 	project_name="$project_name" yq -i '. = {"name": env(project_name)} * .' "$compose_file"
 }
 
+read_project_name_if_exists() {
+	require yq
+	local compose_file=$1
+
+	if [[ ! -f "$compose_file" ]]
+	then
+		return 1
+	fi
+
+	yq -r '.name // ""' "$compose_file"
+}
+
 add_service_volume() {
 	require yq
 	local compose_file=$1

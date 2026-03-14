@@ -98,7 +98,7 @@ For `devcontainer.json`, avoid relying on IDE-native support for a second JSON f
 
 ### Resolved Questions
 
-- The stored devcontainer IDE preference and project name now live in `.agent-sandbox/active-target.env` as auxiliary metadata (`DEVCONTAINER_IDE`, `DEVCONTAINER_PROJECT_NAME`), while `ACTIVE_AGENT` remains the only switching identity.
+- The stored devcontainer IDE preference and base project name now live in `.agent-sandbox/active-target.env` as auxiliary metadata (`DEVCONTAINER_IDE`, `PROJECT_NAME`), while `ACTIVE_AGENT` remains the only switching identity.
 - `devcontainer.user.json` is treated as a user-owned input merged into the generated managed `devcontainer.json` during init/switch sync, keeping the editor-facing file split without depending on IDE-native JSON layering.
 - The default policy edit surface for sidecar projects remains `.agent-sandbox/user.policy.yaml`; `.devcontainer/policy.user.override.yaml` is the explicit `--mode devcontainer` override layer.
 
@@ -109,7 +109,7 @@ For `devcontainer.json`, avoid relying on IDE-native support for a second JSON f
 - [x] `cli/libexec/init/devcontainer`, `cli/lib/devcontainer.bash`, and the new templates under `cli/templates/devcontainer/` now generate managed sidecars plus user-owned devcontainer extension points instead of copying a single `docker-compose.yml`.
 - [x] `cli/lib/run-compose` and `cli/lib/path.bash` now resolve the devcontainer sidecar stack as managed `docker-compose.base.yml` plus optional `docker-compose.user.override.yml`, while still preserving legacy single-file fallback behavior.
 - [x] `images/proxy/render-policy` now layers the devcontainer managed/user policy overrides after the active-agent baseline plus shared/agent `.agent-sandbox` policy inputs.
-- [x] `cli/libexec/switch/switch` now refreshes devcontainer sidecars alongside layered CLI runtime files, using persisted `DEVCONTAINER_IDE` and `DEVCONTAINER_PROJECT_NAME` metadata from `.agent-sandbox/active-target.env`.
+- [x] `cli/libexec/switch/switch` now refreshes devcontainer sidecars alongside layered CLI runtime files, using persisted `DEVCONTAINER_IDE` and `PROJECT_NAME` metadata from `.agent-sandbox/active-target.env`.
 - [x] `cli/libexec/edit/compose` now opens `.devcontainer/docker-compose.user.override.yml` for sidecar projects, and `cli/libexec/edit/policy` now treats `.devcontainer/policy.user.override.yaml` as the explicit `--mode devcontainer` edit surface while keeping shared policy edits in `.agent-sandbox/`.
 - [x] Targeted verification passed with `cli/support/bats/bin/bats` across `cli/test/init/init.bats`, `cli/test/switch/switch.bats`, `cli/test/compose/run-compose.bats`, `cli/test/path/find_compose_file.bats`, `cli/test/edit/compose.bats`, `cli/test/edit/policy.bats`, and `cli/test/policy/render.bats`.
 

@@ -70,7 +70,7 @@ read_target_state_var() {
 	fi
 
 	(
-		unset ACTIVE_AGENT DEVCONTAINER_IDE DEVCONTAINER_PROJECT_NAME
+		unset ACTIVE_AGENT DEVCONTAINER_IDE PROJECT_NAME
 		# shellcheck disable=SC1090
 		source "$state_file"
 		local value="${!var_name:-}"
@@ -91,17 +91,17 @@ read_devcontainer_ide() {
 	read_target_state_var "$repo_root" "DEVCONTAINER_IDE"
 }
 
-read_devcontainer_project_name() {
+read_project_name() {
 	local repo_root="${1:-}"
 
-	read_target_state_var "$repo_root" "DEVCONTAINER_PROJECT_NAME"
+	read_target_state_var "$repo_root" "PROJECT_NAME"
 }
 
 write_target_state() {
 	local repo_root=$1
 	local agent=$2
 	local devcontainer_ide="${3:-}"
-	local devcontainer_project_name="${4:-}"
+	local project_name="${4:-}"
 	local sandbox_dir
 	local state_file
 	local tmp_file
@@ -124,9 +124,9 @@ write_target_state() {
 			printf 'DEVCONTAINER_IDE=%q\n' "$devcontainer_ide"
 		fi
 
-		if [[ -n "$devcontainer_project_name" ]]
+		if [[ -n "$project_name" ]]
 		then
-			printf 'DEVCONTAINER_PROJECT_NAME=%q\n' "$devcontainer_project_name"
+			printf 'PROJECT_NAME=%q\n' "$project_name"
 		fi
 	} > "$tmp_file"
 	mv "$tmp_file" "$state_file"
@@ -135,20 +135,23 @@ write_target_state() {
 write_active_agent() {
 	local repo_root=$1
 	local agent=$2
+	local project_name="${3:-}"
 	local devcontainer_ide=""
-	local devcontainer_project_name=""
 
 	devcontainer_ide="$(read_devcontainer_ide "$repo_root" 2>/dev/null)" || true
-	devcontainer_project_name="$(read_devcontainer_project_name "$repo_root" 2>/dev/null)" || true
+	if [[ -z "$project_name" ]]
+	then
+		project_name="$(read_project_name "$repo_root" 2>/dev/null)" || true
+	fi
 
-	write_target_state "$repo_root" "$agent" "$devcontainer_ide" "$devcontainer_project_name"
+	write_target_state "$repo_root" "$agent" "$devcontainer_ide" "$project_name"
 }
 
 write_devcontainer_state() {
 	local repo_root=$1
 	local agent=$2
 	local devcontainer_ide=$3
-	local devcontainer_project_name=$4
+	local project_name=$4
 
-	write_target_state "$repo_root" "$agent" "$devcontainer_ide" "$devcontainer_project_name"
+	write_target_state "$repo_root" "$agent" "$devcontainer_ide" "$project_name"
 }

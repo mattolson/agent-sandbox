@@ -5,14 +5,15 @@ setup() {
 
 	PROJECT_DIR="$BATS_TEST_TMPDIR/project"
 	COMPOSE_DIR="$PROJECT_DIR/$AGB_PROJECT_DIR/compose"
+	POLICY_DIR="$PROJECT_DIR/$AGB_PROJECT_DIR/policy"
 
-	mkdir -p "$PROJECT_DIR/.git" "$COMPOSE_DIR" "$PROJECT_DIR/$AGB_PROJECT_DIR"
+	mkdir -p "$PROJECT_DIR/.git" "$COMPOSE_DIR" "$POLICY_DIR"
 	touch \
 		"$COMPOSE_DIR/base.yml" \
 		"$COMPOSE_DIR/agent.claude.yml" \
 		"$COMPOSE_DIR/user.override.yml" \
 		"$COMPOSE_DIR/user.agent.claude.override.yml"
-	touch "$PROJECT_DIR/$AGB_PROJECT_DIR/user.policy.yaml" "$PROJECT_DIR/$AGB_PROJECT_DIR/user.agent.claude.policy.yaml"
+	touch "$POLICY_DIR/user.policy.yaml" "$POLICY_DIR/user.agent.claude.policy.yaml"
 	printf '%s\n' \
 		"# Managed by agentbox. Tracks the active agent for this project." \
 		"ACTIVE_AGENT=claude" > "$PROJECT_DIR/$AGB_PROJECT_DIR/active-target.env"
@@ -41,21 +42,25 @@ teardown() {
 	assert_output "services: []"
 }
 
-@test "policy render runs the proxy-side render helper through devcontainer sidecar compose" {
+@test "policy render runs the proxy-side render helper through centralized devcontainer compose" {
 	local sidecar_root="$BATS_TEST_TMPDIR/devcontainer-project"
-	local managed_file="$sidecar_root/.devcontainer/docker-compose.base.yml"
-	local user_file="$sidecar_root/.devcontainer/docker-compose.user.override.yml"
+	local compose_dir="$sidecar_root/$AGB_PROJECT_DIR/compose"
+	local base_file="$compose_dir/base.yml"
+	local agent_file="$compose_dir/agent.claude.yml"
+	local mode_file="$compose_dir/mode.devcontainer.yml"
+	local shared_override="$compose_dir/user.override.yml"
+	local agent_override="$compose_dir/user.agent.claude.override.yml"
 
-	mkdir -p "$sidecar_root/.git" "$sidecar_root/.devcontainer" "$sidecar_root/$AGB_PROJECT_DIR"
-	touch "$managed_file" "$user_file"
+	mkdir -p "$sidecar_root/.git" "$sidecar_root/.devcontainer" "$sidecar_root/$AGB_PROJECT_DIR/compose" "$sidecar_root/$AGB_PROJECT_DIR/policy"
+	touch "$sidecar_root/.devcontainer/devcontainer.json" "$base_file" "$agent_file" "$mode_file" "$shared_override" "$agent_override"
 	printf '%s\n' \
 		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
 		"ACTIVE_AGENT=claude" \
 		"DEVCONTAINER_IDE=vscode" \
-		"DEVCONTAINER_PROJECT_NAME=devcontainer-project-sandbox-devcontainer" > "$sidecar_root/$AGB_PROJECT_DIR/active-target.env"
+		"PROJECT_NAME=devcontainer-project-sandbox" > "$sidecar_root/$AGB_PROJECT_DIR/active-target.env"
 
 	stub docker \
-		"compose -f $managed_file -f $user_file run --rm --no-deps -T --entrypoint /usr/local/bin/render-policy proxy : echo 'services: [claude, vscode]'"
+		"compose -f $base_file -f $agent_file -f $mode_file -f $shared_override -f $agent_override run --rm --no-deps -T --entrypoint /usr/local/bin/render-policy proxy : echo 'services: [claude, vscode]'"
 
 	ensure_devcontainer_runtime_files() { :; }
 
