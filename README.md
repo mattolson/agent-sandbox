@@ -26,9 +26,9 @@ The sandbox is implemented as a Docker Compose project with a two-container stac
 
 **CLI** mode (recommended) stores the docker-compose project in the `.agent-sandbox` directory.
 
-**Devcontainer** mode stores the docker-compose project in the `.devcontainer` directory alongside the devcontainer.json configuration.
-
-Both modes store the network proxy policy file in the `.agent-sandbox` directory.
+**Devcontainer** mode stores managed configuration files in `.devcontainer/` alongside the `devcontainer.json`
+configuration. User edits belong in `.devcontainer/*user*` files, while shared and agent-specific policy edits still
+live in `.agent-sandbox/`.
 
 ## Quick start (macOS + Colima)
 
@@ -92,7 +92,9 @@ You can pass flags to skip the selection prompts. Use `--batch` to disable all p
 agentbox init --batch --agent claude --mode cli
 ```
 
-Optional volume mounts (dotfiles, shell customizations, .git read-only, etc.) are included as commented-out entries in the generated compose file. Uncomment them as needed, or set `AGENTBOX_*` environment variables for scripted usage. See the [CLI README](cli/README.md) for the full list of flags and environment variables.
+Optional volume mounts (dotfiles, shell customizations, .git read-only, etc.) are scaffolded into user-owned override
+files. Uncomment them as needed, or set `AGENTBOX_*` environment variables for scripted usage. See the
+[CLI README](cli/README.md) for the full list of flags and environment variables.
 
 ### 4. Start the sandbox
 
@@ -143,7 +145,8 @@ The proxy's CA certificate is shared via a Docker volume and automatically insta
 
 ### Customizing the policy
 
-The network policy lives in your project in the `.agent-sandbox` directory. This file can be checked into version control and shared with your team.
+The network policy lives in your project in the `.agent-sandbox` directory, with optional devcontainer-only overrides in
+`.devcontainer/`. These files can be checked into version control and shared with your team.
 
 To edit the policy file:
 
@@ -152,6 +155,12 @@ agentbox edit policy
 ```
 
 This opens the network policy file in your editor. If you save changes, the proxy service will automatically restart to apply the new policy.
+
+For devcontainer-only additions, use:
+
+```bash
+agentbox edit policy --mode devcontainer
+```
 
 Example policy:
 

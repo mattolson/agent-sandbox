@@ -5,6 +5,8 @@ set -euo pipefail
 source "$AGB_LIBDIR/require.bash"
 # shellcheck source=../../lib/cli-compose.bash
 source "$AGB_LIBDIR/cli-compose.bash"
+# shellcheck source=../../lib/devcontainer.bash
+source "$AGB_LIBDIR/devcontainer.bash"
 # shellcheck source=../../lib/path.bash
 source "$AGB_LIBDIR/path.bash"
 
@@ -33,6 +35,21 @@ compose() {
 		do
 			compose_files+=("$compose_file")
 		done < <(emit_cli_compose_files "$repo_root" "$active_agent")
+	elif devcontainer_sidecar_initialized "$repo_root"
+	then
+		local active_agent
+		active_agent="$(read_active_agent "$repo_root")" || {
+			echo "Active agent state missing for managed devcontainer file layout at $repo_root. Run 'agentbox switch --agent <name>'." >&2
+			return 1
+		}
+
+		ensure_devcontainer_runtime_files "$repo_root" "$active_agent"
+
+		local compose_file
+		while IFS= read -r compose_file
+		do
+			compose_files+=("$compose_file")
+		done < <(emit_devcontainer_compose_files "$repo_root")
 	else
 		compose_files+=("$(find_compose_file)")
 	fi

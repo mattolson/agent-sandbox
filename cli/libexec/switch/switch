@@ -9,6 +9,8 @@ source "$AGB_LIBDIR/path.bash"
 source "$AGB_LIBDIR/agent.bash"
 # shellcheck source=../../lib/cli-compose.bash
 source "$AGB_LIBDIR/cli-compose.bash"
+# shellcheck source=../../lib/devcontainer.bash
+source "$AGB_LIBDIR/devcontainer.bash"
 
 switch() {
 	local agent=""
@@ -47,9 +49,21 @@ switch() {
 	if current_agent="$(read_active_agent "$repo_root" 2>/dev/null)" &&
 		[[ "$current_agent" == "$agent" ]]
 	then
+		local refreshed=false
 		if cli_layered_compose_initialized "$repo_root"
 		then
 			ensure_cli_agent_runtime_files "$repo_root" "$agent"
+			refreshed=true
+		fi
+
+		if devcontainer_sidecar_initialized "$repo_root"
+		then
+			ensure_devcontainer_runtime_files "$repo_root" "$agent"
+			refreshed=true
+		fi
+
+		if [[ "$refreshed" == "true" ]]
+		then
 			echo "Active agent is already '$agent'. Refreshed layered runtime files." | info
 		else
 			echo "Active agent is already '$agent'. No changes made." | info
@@ -60,6 +74,11 @@ switch() {
 	if cli_layered_compose_initialized "$repo_root"
 	then
 		ensure_cli_agent_runtime_files "$repo_root" "$agent"
+	fi
+
+	if devcontainer_sidecar_initialized "$repo_root"
+	then
+		ensure_devcontainer_runtime_files "$repo_root" "$agent"
 	fi
 
 	write_active_agent "$repo_root" "$agent"

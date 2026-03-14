@@ -106,3 +106,45 @@ teardown() {
 	run policy --mode devcontainer --agent claude
 	assert_success
 }
+
+@test "policy defaults devcontainer sidecar projects to the shared layered policy file" {
+	local sidecar_root="$BATS_TEST_TMPDIR/devcontainer-sidecar-project"
+	local shared_policy_file="$sidecar_root/$AGB_PROJECT_DIR/user.policy.yaml"
+
+	mkdir -p "$sidecar_root/.git" "$sidecar_root/$AGB_PROJECT_DIR" "$sidecar_root/.devcontainer"
+	touch "$shared_policy_file" "$sidecar_root/.devcontainer/docker-compose.base.yml"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
+		"ACTIVE_AGENT=claude" \
+		"DEVCONTAINER_IDE=vscode" \
+		"DEVCONTAINER_PROJECT_NAME=devcontainer-sidecar-sandbox-devcontainer" > "$sidecar_root/$AGB_PROJECT_DIR/active-target.env"
+
+	unset -f open_editor
+	stub open_editor \
+		"$shared_policy_file : :"
+
+	cd "$sidecar_root"
+	run policy
+	assert_success
+}
+
+@test "policy opens devcontainer user override for sidecar projects when mode is devcontainer" {
+	local sidecar_root="$BATS_TEST_TMPDIR/devcontainer-sidecar-project"
+	local devcontainer_policy_file="$sidecar_root/.devcontainer/policy.user.override.yaml"
+
+	mkdir -p "$sidecar_root/.git" "$sidecar_root/$AGB_PROJECT_DIR" "$sidecar_root/.devcontainer"
+	touch "$sidecar_root/.devcontainer/docker-compose.base.yml" "$devcontainer_policy_file"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
+		"ACTIVE_AGENT=claude" \
+		"DEVCONTAINER_IDE=vscode" \
+		"DEVCONTAINER_PROJECT_NAME=devcontainer-sidecar-sandbox-devcontainer" > "$sidecar_root/$AGB_PROJECT_DIR/active-target.env"
+
+	unset -f open_editor
+	stub open_editor \
+		"$devcontainer_policy_file : :"
+
+	cd "$sidecar_root"
+	run policy --mode devcontainer
+	assert_success
+}

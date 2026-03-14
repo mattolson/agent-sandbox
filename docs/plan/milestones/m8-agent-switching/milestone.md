@@ -70,7 +70,7 @@ Introduce explicit ownership boundaries:
   - `.agent-sandbox/compose/user.agent.<agent>.override.yml` (optional)
 - Devcontainer sidecar files (agentbox-managed):
   - `.devcontainer/devcontainer.json`
-  - `.devcontainer/docker-compose.override.yml`
+  - `.devcontainer/docker-compose.base.yml`
   - `.devcontainer/policy.override.yaml`
 - Devcontainer user override files (never overwritten):
   - `.devcontainer/devcontainer.user.json` (optional)

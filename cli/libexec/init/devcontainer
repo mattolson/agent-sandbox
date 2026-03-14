@@ -3,18 +3,16 @@ set -euo pipefail
 
 # shellcheck source=../../lib/logging.bash
 source "$AGB_LIBDIR/logging.bash"
-# shellcheck source=../../lib/composefile.bash
-source "$AGB_LIBDIR/composefile.bash"
+# shellcheck source=../../lib/devcontainer.bash
+source "$AGB_LIBDIR/devcontainer.bash"
 
 # Sets up a Devcontainer configuration for an agent.
-# Copies devcontainer template files and customizes the docker-compose.yml.
+# Creates managed devcontainer files plus user-owned extension points.
 # Args:
-#   --policy-file - Path to the policy file (relative to project directory)
 #   --project-path - Path to the project directory
 #   --agent - The agent name (e.g., "claude")
-#   --ide - The IDE name (e.g., "vscode", "jetbrains", "none") (optional)
+#   --ide - The IDE name (e.g., "vscode", "jetbrains", "none")
 devcontainer() {
-	local policy_file=""
 	local project_path=""
 	local agent=""
 	local ide=""
@@ -23,10 +21,6 @@ devcontainer() {
 	while [[ $# -gt 0 ]]
 	do
 		case $1 in
-		--policy-file)
-			policy_file="$2"
-			shift 2
-			;;
 		--project-path)
 			project_path="$2"
 			shift 2
@@ -50,25 +44,16 @@ devcontainer() {
 		esac
 	done
 
-	: "${policy_file?Missing required parameter: --policy-file}"
 	: "${project_path?Missing required parameter: --project-path}"
 	: "${agent?Missing required parameter: --agent}"
+	: "${ide?Missing required parameter: --ide}"
 
-	local devcontainer_dir="$project_path/.devcontainer"
-	local compose_file="$devcontainer_dir/docker-compose.yml"
-
-	mkdir -p "$devcontainer_dir"
-	cp -r \
-		"$AGB_TEMPLATEDIR/$agent/devcontainer/"* \
-		"$devcontainer_dir"
-
-	local rel_policy_file="../$policy_file"
-
-	customize_compose_file "$rel_policy_file" "$compose_file" "$agent" "$ide"
+	validate_devcontainer_ide "$ide"
 
 	local project_name
 	project_name="${name:-$(derive_project_name "$project_path" "devcontainer")}"
-	set_project_name "$compose_file" "$project_name"
+
+	initialize_devcontainer_sidecar_layout "$project_path" "$agent" "$ide" "$project_name"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
