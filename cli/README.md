@@ -99,12 +99,14 @@ the new policy. For layered CLI projects, the default target is `.agent-sandbox/
 separate user-editable devcontainer policy file; `--mode devcontainer` is only for legacy layouts, which still use
 flat `policy-<mode>-<agent>.yaml` files.
 
-### `agentbox policy render`
+### `agentbox policy config`
 
 Renders the effective policy that the proxy enforces. In layered CLI projects this merges the active agent baseline with
 `.agent-sandbox/policy/user.policy.yaml` and `.agent-sandbox/policy/user.agent.<active-agent>.policy.yaml` by invoking
 the same proxy-side render helper used at runtime. For devcontainer projects, the same render path also layers the
 managed `.agent-sandbox/policy/policy.devcontainer.yaml`.
+
+`agentbox policy render` remains available as an alias.
 
 ### `agentbox bump`
 

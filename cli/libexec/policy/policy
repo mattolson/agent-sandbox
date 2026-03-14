@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-exec render "$@"
+exec "$AGB_LIBEXECDIR/policy/config" "$@"
