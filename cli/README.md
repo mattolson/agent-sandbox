@@ -14,8 +14,10 @@ configuration files and network policy. In CLI mode, agentbox writes managed com
 creates `.agent-sandbox/user.policy.yaml` plus the active agent's `.agent-sandbox/user.agent.<agent>.policy.yaml`
 alongside the managed agent layer. Optional mounts (Claude config, shell customizations, dotfiles, `.git`, `.idea`,
 `.vscode`) are scaffolded into user-owned override files instead of managed files. After generation, `init` offers to
-open the shared user-owned policy file and shared compose override in your editor. These review prompts default to
-`no`.
+open the shared user-owned policy file and the relevant user-owned compose override in your editor. For devcontainer
+mode, agentbox writes managed files under `.devcontainer/` (`devcontainer.json`,
+`docker-compose.base.yml`, `policy.override.yaml`) plus user-owned `.devcontainer/*user*` extension points. These
+review prompts default to `no`.
 
 Options:
 - `--agent` - Agent type: `claude`, `copilot`, `codex` (skips prompt)
@@ -34,9 +36,11 @@ agentbox init --batch --agent claude --mode cli --name myproject --path /some/di
 
 Updates the active agent for an initialized project. For layered CLI projects, switching lazily creates the target
 agent's managed compose layer, agent-specific user policy scaffold, and agent-specific override scaffold the first time
-that agent is selected. Interim `policy-cli-<agent>.yaml` files from `m8.2` are carried forward into the new
-user-owned policy file and renamed to a conspicuous deprecated filename. If `--agent` is omitted, prompts once for the
-new active agent.
+that agent is selected. For devcontainer projects using the managed `.devcontainer/` file layout, switching also
+rewrites the managed `.devcontainer/` files for the selected agent while preserving user-owned
+`.devcontainer/*user*` files and reusing the stored IDE
+selection. Legacy `policy-cli-<agent>.yaml` files are carried forward into the new user-owned policy file
+and renamed to a conspicuous deprecated filename. If `--agent` is omitted, prompts once for the new active agent.
 
 Options:
 - `--agent` - Agent type: `claude`, `copilot`, `codex` (skips prompt)
@@ -52,14 +56,13 @@ Options:
 
 #### `agentbox init devcontainer`
 
-Sets up a devcontainer configuration for an agent. Copies devcontainer template files and customizes the
-docker-compose.yml.
+Sets up a devcontainer configuration for an agent. Writes managed devcontainer files plus user-owned devcontainer
+override files.
 
 Options:
-- `--policy-file` - Path to the policy file (relative to project directory)
 - `--project-path` - Path to the project directory
 - `--agent` - The agent name (e.g., `claude`)
-- `--ide` - The IDE name (e.g., `vscode`, `jetbrains`, `none`) (optional)
+- `--ide` - The IDE name (e.g., `vscode`, `jetbrains`, `none`)
 - `--name` - Project name for Docker Compose (default: `{dir}-sandbox-devcontainer`)
 
 #### `agentbox init policy`
@@ -82,8 +85,9 @@ Displays the current version of agent-sandbox.
 ### `agentbox edit compose`
 
 Opens the user-editable Docker Compose surface in your editor. For layered CLI projects this is
-`.agent-sandbox/compose/user.override.yml`; otherwise it falls back to the single compose file. If you save changes and
-containers are running, it will restart containers by default to apply the changes.
+`.agent-sandbox/compose/user.override.yml`. For devcontainer projects using the managed `.devcontainer/` file layout,
+this is `.devcontainer/docker-compose.user.override.yml`; otherwise it falls back to the single compose file. If you
+save changes and containers are running, it will restart containers by default to apply the changes.
 
 Options:
 - `--no-restart` — Do not automatically restart containers after changes. When set (or when `AGENTBOX_NO_RESTART=true`), a warning is shown instead with instructions to run `agentbox up -d` manually.
@@ -92,19 +96,24 @@ Options:
 
 Opens the network policy file in your editor. If you save changes, the proxy service will automatically restart to apply
 the new policy. For layered CLI projects, the default target is `.agent-sandbox/user.policy.yaml`, and `--agent
-<name>` targets `.agent-sandbox/user.agent.<name>.policy.yaml`. For devcontainer and legacy layouts, `--mode` and
-`--agent` continue to select flat policy files.
+<name>` targets `.agent-sandbox/user.agent.<name>.policy.yaml`. For devcontainer projects using the managed
+`.devcontainer/` file layout, `--mode devcontainer` targets `.devcontainer/policy.user.override.yaml`. Legacy layouts
+still use flat
+`policy-<mode>-<agent>.yaml` files.
 
 ### `agentbox policy render`
 
 Renders the effective policy that the proxy enforces. In layered CLI projects this merges the active agent baseline with
 `.agent-sandbox/user.policy.yaml` and `.agent-sandbox/user.agent.<active-agent>.policy.yaml` by invoking the same
-proxy-side render helper used at runtime.
+proxy-side render helper used at runtime. For devcontainer projects using the managed `.devcontainer/` file layout,
+the same render path also layers `.devcontainer/policy.override.yaml` and `.devcontainer/policy.user.override.yaml`.
 
 ### `agentbox bump`
 
 Updates Docker images to their latest digests. For layered CLI projects, this updates the managed base layer plus any
-initialized agent layers without touching user-owned override files. Skips local images.
+initialized agent layers without touching user-owned override files. For devcontainer projects using the managed
+`.devcontainer/` file layout, it updates the managed `.devcontainer/docker-compose.base.yml` file and leaves
+`.devcontainer/docker-compose.user.override.yml` untouched. Skips local images.
 
 ### `agentbox up`
 
@@ -162,7 +171,8 @@ cli/
 ### Configuration (set before running `agentbox init`)
 
 These override defaults during compose generation. Optional mounts default to `false`. In layered CLI mode they are
-written into user-owned override scaffolds instead of managed files.
+written into user-owned override scaffolds instead of managed files. In devcontainer mode they are written into
+`.devcontainer/docker-compose.user.override.yml` when that file is first scaffolded.
 
 - `AGENTBOX_PROXY_IMAGE` - Docker image for proxy service (default: latest published proxy image)
 - `AGENTBOX_AGENT_IMAGE` - Docker image for the active agent service during CLI init (default: latest published image for that agent)

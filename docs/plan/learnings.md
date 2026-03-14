@@ -13,6 +13,7 @@ Lessons learned during project execution. Review at the start of each planning s
 - Entrypoint scripts should be idempotent (check for existing state before acting) to support both devcontainer and compose workflows
 - devcontainer.json and docker-compose.yml need separate volume/mount configs; they serve different workflows and VS Code reads devcontainer.json directly
 - yq syntax `.foo // [] | .[]` safely iterates arrays that may be missing or null
+- Shell-sourced state files should write user-facing values with shell escaping (`%q`) or later reads can break on spaces and special characters
 - Policy files that control security must live outside the workspace and be mounted read-only; otherwise the agent can modify them and re-run initialization to bypass restrictions
 - Baking default policies into images is safe (agent can't modify the image) and provides good UX (works out of the box)
 - Policy layering via Dockerfile COPY overwrites parent layer's policy cleanly
@@ -32,6 +33,7 @@ Lessons learned during project execution. Review at the start of each planning s
 - Defense in depth works when layers serve different purposes; redundant enforcement at the same layer adds complexity without security benefit
 - Devcontainers can use Docker Compose backend via `dockerComposeFile` in devcontainer.json, enabling sidecar patterns
 - Relative paths in docker-compose files are resolved from the compose file's directory, not the project root; `.devcontainer/docker-compose.yml` needs `../` to reach repo root, not `../../`
+- Devcontainer-specific policy rules should be additive layers on top of the shared `.agent-sandbox` policy files, not a second standalone source of truth
 
 ## Security
 
@@ -46,3 +48,4 @@ Lessons learned during project execution. Review at the start of each planning s
 
 - VS Code integrated terminal adds trailing whitespace on copy, making copied commands unusable; iTerm + docker exec is the workaround
 - Documentation artifacts (schema docs, examples) belong in `docs/`, not in task execution directories
+- Default edit commands should keep pointing at shared cross-mode config unless the user explicitly asks for a mode-specific override

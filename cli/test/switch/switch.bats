@@ -105,6 +105,51 @@ teardown() {
 	assert_output "$PROJECT_DIR codex"
 }
 
+@test "switch refreshes devcontainer sidecars when agent is already active" {
+	mkdir -p "$PROJECT_DIR/.devcontainer" "$PROJECT_DIR/.agent-sandbox"
+	touch "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
+		"ACTIVE_AGENT=claude" \
+		"DEVCONTAINER_IDE=vscode" \
+		"DEVCONTAINER_PROJECT_NAME=project-sandbox-devcontainer" > "$PROJECT_DIR/.agent-sandbox/active-target.env"
+
+	unset -f ensure_devcontainer_runtime_files
+	ensure_devcontainer_runtime_files() {
+		printf '%s\n' "$*" > "$BATS_TEST_TMPDIR/ensure-devcontainer-runtime-files.args"
+	}
+
+	run switch --agent claude
+
+	assert_success
+	assert_output --partial "Refreshed layered runtime files."
+	run cat "$BATS_TEST_TMPDIR/ensure-devcontainer-runtime-files.args"
+	assert_success
+	assert_output "$PROJECT_DIR claude"
+}
+
+@test "switch syncs devcontainer sidecars for the target agent" {
+	mkdir -p "$PROJECT_DIR/.devcontainer" "$PROJECT_DIR/.agent-sandbox"
+	touch "$PROJECT_DIR/.devcontainer/docker-compose.base.yml"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
+		"ACTIVE_AGENT=claude" \
+		"DEVCONTAINER_IDE=vscode" \
+		"DEVCONTAINER_PROJECT_NAME=project-sandbox-devcontainer" > "$PROJECT_DIR/.agent-sandbox/active-target.env"
+
+	unset -f ensure_devcontainer_runtime_files
+	ensure_devcontainer_runtime_files() {
+		printf '%s\n' "$*" > "$BATS_TEST_TMPDIR/ensure-devcontainer-runtime-files.args"
+	}
+
+	run switch --agent codex
+
+	assert_success
+	run cat "$BATS_TEST_TMPDIR/ensure-devcontainer-runtime-files.args"
+	assert_success
+	assert_output "$PROJECT_DIR codex"
+}
+
 @test "switch fails when agent-sandbox is not initialized" {
 	run switch --agent claude
 

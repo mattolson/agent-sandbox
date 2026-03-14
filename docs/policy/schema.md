@@ -66,16 +66,20 @@ If `PROXY_MODE=enforce` and no effective policy file exists at `POLICY_PATH`, th
 There are three ways a policy can be sourced:
 
 1. **Baked into the proxy image** at build time (`images/proxy/policy.yaml`). The default blocks all traffic.
-2. **Single-file project policy** for devcontainer and legacy layouts. `agentbox init` creates `.agent-sandbox/policy-<mode>-<agent>.yaml` and mounts it into the proxy container at `/etc/mitmproxy/policy.yaml`.
-3. **Layered CLI policy inputs** for current CLI layouts:
+2. **Single-file project policy** for legacy layouts. `agentbox init` used to create `.agent-sandbox/policy-<mode>-<agent>.yaml` and mount it into the proxy container at `/etc/mitmproxy/policy.yaml`.
+3. **Layered project policy inputs** for current CLI and managed devcontainer file layouts:
    - `.agent-sandbox/user.policy.yaml`
    - `.agent-sandbox/user.agent.<agent>.policy.yaml`
+   - `.devcontainer/policy.override.yaml` (managed devcontainer file layouts only)
+   - `.devcontainer/policy.user.override.yaml` (managed devcontainer file layouts only)
 
-For layered CLI projects, proxy startup renders the effective policy from:
+For layered projects, proxy startup renders the effective policy from:
 
 1. the active agent baseline (`services: [<active-agent>]`)
 2. `.agent-sandbox/user.policy.yaml`
 3. `.agent-sandbox/user.agent.<active-agent>.policy.yaml`
+4. `.devcontainer/policy.override.yaml` when the managed devcontainer compose file mounts it
+5. `.devcontainer/policy.user.override.yaml` when the managed devcontainer compose file mounts it
 
 The layered merge semantics are intentionally narrow:
 
@@ -97,8 +101,9 @@ Single-file layouts still mount the policy directly into the proxy service:
 - <path-to-policy>:/etc/mitmproxy/policy.yaml:ro
 ```
 
-Layered CLI layouts mount the two user-owned input files into fixed proxy paths instead of replacing
-`/etc/mitmproxy/policy.yaml` directly.
+Layered CLI layouts mount the shared and agent-specific `.agent-sandbox/` input files into fixed proxy paths instead of
+replacing `/etc/mitmproxy/policy.yaml` directly. Managed devcontainer file layouts mount those same
+`.agent-sandbox/` files plus the devcontainer managed and user-owned policy override files.
 
 The `.agent-sandbox/` directory (CLI mode) or `.devcontainer/` directory (devcontainer mode) is mounted read-only
 inside the agent container, preventing the agent from modifying the policy or compose file. The proxy only reads the
@@ -106,6 +111,8 @@ effective policy at startup, so changes require a human-initiated restart.
 
 ## Examples
 
-The single-file base policy template is at [cli/templates/policy.yaml](../../cli/templates/policy.yaml). Layered CLI
-user-owned scaffolds are at [cli/templates/user.policy.yaml](../../cli/templates/user.policy.yaml) and
-[cli/templates/user.agent.policy.yaml](../../cli/templates/user.agent.policy.yaml).
+The single-file base policy template is at [cli/templates/policy.yaml](../../cli/templates/policy.yaml). Layered shared
+and agent-specific user-owned scaffolds are at [cli/templates/user.policy.yaml](../../cli/templates/user.policy.yaml)
+and [cli/templates/user.agent.policy.yaml](../../cli/templates/user.agent.policy.yaml). Devcontainer policy templates
+are at [cli/templates/devcontainer/policy.override.yaml](../../cli/templates/devcontainer/policy.override.yaml)
+and [cli/templates/devcontainer/policy.user.override.yaml](../../cli/templates/devcontainer/policy.user.override.yaml).

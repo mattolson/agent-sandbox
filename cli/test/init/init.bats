@@ -52,14 +52,15 @@ teardown() {
 }
 
 @test "init accepts valid --ide value for devcontainer mode" {
-	stub policy "$PROJECT_DIR/.agent-sandbox/policy-devcontainer-copilot.yaml copilot jetbrains : :"
-	stub devcontainer "--policy-file .agent-sandbox/policy-devcontainer-copilot.yaml --project-path $PROJECT_DIR --agent copilot --ide jetbrains --name test : :"
+	stub devcontainer "--project-path $PROJECT_DIR --agent copilot --ide jetbrains --name test : :"
 
 	run init --batch --agent copilot --mode devcontainer --ide jetbrains --name test --path "$PROJECT_DIR"
 	assert_success
 	run cat "$PROJECT_DIR/.agent-sandbox/active-target.env"
 	assert_success
 	assert_line --index 1 "ACTIVE_AGENT=copilot"
+	assert_line --index 2 "DEVCONTAINER_IDE=jetbrains"
+	assert_line --index 3 "DEVCONTAINER_PROJECT_NAME=test"
 }
 
 @test "init requires --agent in batch mode" {
@@ -159,7 +160,8 @@ teardown() {
 
 	local expected_default
 	expected_default=$(basename "$PROJECT_DIR")-sandbox
-	local policy_file=".agent-sandbox/policy-devcontainer-copilot.yaml"
+	local shared_policy_file=".agent-sandbox/user.policy.yaml"
+	local compose_override_file=".devcontainer/docker-compose.user.override.yml"
 
 	stub read_line "'Project name [$expected_default]:' : echo ''"
 	stub select_option \
@@ -167,14 +169,13 @@ teardown() {
 		"'Select mode:' cli devcontainer : echo devcontainer" \
 		"'Select IDE:' vscode jetbrains none : echo vscode"
 	stub select_yes_no \
-		"'Review the generated policy file at $PROJECT_DIR/$policy_file?' : echo false" \
-		"'Review the generated compose file at $PROJECT_DIR/.devcontainer/docker-compose.yml?' : echo false"
+		"'Review the generated shared policy file at $PROJECT_DIR/$shared_policy_file?' : echo false" \
+		"'Review the generated compose override file at $PROJECT_DIR/$compose_override_file?' : echo false"
 
 	local expected_name
 	expected_name=$(basename "$PROJECT_DIR")-sandbox-devcontainer
 
-	stub policy "$PROJECT_DIR/$policy_file copilot vscode : :"
-	stub devcontainer "--policy-file $policy_file --project-path $PROJECT_DIR --agent copilot --ide vscode --name $expected_name : :"
+	stub devcontainer "--project-path $PROJECT_DIR --agent copilot --ide vscode --name $expected_name : :"
 
 	run init --path "$PROJECT_DIR"
 
@@ -188,7 +189,8 @@ teardown() {
 
 	local expected_default
 	expected_default=$(basename "$PROJECT_DIR")-sandbox
-	local policy_file=".agent-sandbox/policy-devcontainer-copilot.yaml"
+	local shared_policy_file=".agent-sandbox/user.policy.yaml"
+	local compose_override_file=".devcontainer/docker-compose.user.override.yml"
 
 	stub read_line "'Project name [$expected_default]:' : echo foo"
 	stub select_option \
@@ -196,13 +198,12 @@ teardown() {
 		"'Select mode:' cli devcontainer : echo devcontainer" \
 		"'Select IDE:' vscode jetbrains none : echo vscode"
 	stub select_yes_no \
-		"'Review the generated policy file at $PROJECT_DIR/$policy_file?' : echo false" \
-		"'Review the generated compose file at $PROJECT_DIR/.devcontainer/docker-compose.yml?' : echo false"
+		"'Review the generated shared policy file at $PROJECT_DIR/$shared_policy_file?' : echo false" \
+		"'Review the generated compose override file at $PROJECT_DIR/$compose_override_file?' : echo false"
 
 	local expected_name="foo-devcontainer"
 
-	stub policy "$PROJECT_DIR/$policy_file copilot vscode : :"
-	stub devcontainer "--policy-file $policy_file --project-path $PROJECT_DIR --agent copilot --ide vscode --name $expected_name : :"
+	stub devcontainer "--project-path $PROJECT_DIR --agent copilot --ide vscode --name $expected_name : :"
 
 	run init --path "$PROJECT_DIR"
 
@@ -216,20 +217,20 @@ teardown() {
 
 	local expected_default
 	expected_default=$(basename "$PROJECT_DIR")-sandbox
-	local policy_file=".agent-sandbox/policy-devcontainer-copilot.yaml"
+	local shared_policy_file=".agent-sandbox/user.policy.yaml"
+	local compose_override_file=".devcontainer/docker-compose.user.override.yml"
 
 	stub read_line "'Project name [$expected_default]:' : echo baz"
 	stub select_option \
 		"'Select agent:' claude copilot codex : echo copilot" \
 		"'Select IDE:' vscode jetbrains none : echo vscode"
 	stub select_yes_no \
-		"'Review the generated policy file at $PROJECT_DIR/$policy_file?' : echo false" \
-		"'Review the generated compose file at $PROJECT_DIR/.devcontainer/docker-compose.yml?' : echo false"
+		"'Review the generated shared policy file at $PROJECT_DIR/$shared_policy_file?' : echo false" \
+		"'Review the generated compose override file at $PROJECT_DIR/$compose_override_file?' : echo false"
 
 	local expected_name="baz-devcontainer"
 
-	stub policy "$PROJECT_DIR/$policy_file copilot vscode : :"
-	stub devcontainer "--policy-file $policy_file --project-path $PROJECT_DIR --agent copilot --ide vscode --name $expected_name : :"
+	stub devcontainer "--project-path $PROJECT_DIR --agent copilot --ide vscode --name $expected_name : :"
 
 	run init --mode devcontainer --path "$PROJECT_DIR"
 

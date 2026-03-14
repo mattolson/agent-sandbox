@@ -41,6 +41,28 @@ teardown() {
 	assert_success
 }
 
+@test "edit opens devcontainer user override for sidecar projects" {
+	local repo_root="$BATS_TEST_TMPDIR/sidecar"
+	local managed_file="$repo_root/.devcontainer/docker-compose.base.yml"
+	local user_file="$repo_root/.devcontainer/docker-compose.user.override.yml"
+
+	mkdir -p "$repo_root/.devcontainer" "$repo_root/$AGB_PROJECT_DIR" "$repo_root/.git"
+	touch "$managed_file" "$user_file"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
+		"ACTIVE_AGENT=codex" \
+		"DEVCONTAINER_IDE=vscode" \
+		"DEVCONTAINER_PROJECT_NAME=sidecar-sandbox-devcontainer" > "$repo_root/$AGB_PROJECT_DIR/active-target.env"
+
+	unset -f open_editor
+	stub open_editor \
+		"$user_file : :"
+
+	cd "$repo_root"
+	run edit
+	assert_success
+}
+
 @test "edit restarts containers when file modified and containers running (default)" {
 	unset -f open_editor
 	stub open_editor \

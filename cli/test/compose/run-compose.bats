@@ -35,7 +35,32 @@ teardown() {
 	assert_success
 }
 
-@test "run-compose falls back to single compose file when layered CLI is not initialized" {
+@test "run-compose uses devcontainer sidecar compose files in managed/user order" {
+	local test_root="$BATS_TEST_TMPDIR/repo"
+	local compose_dir="$test_root/.devcontainer"
+	local managed_file="$compose_dir/docker-compose.base.yml"
+	local user_file="$compose_dir/docker-compose.user.override.yml"
+
+	mkdir -p "$compose_dir" "$test_root/.git" "$test_root/$AGB_PROJECT_DIR"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
+		"ACTIVE_AGENT=codex" \
+		"DEVCONTAINER_IDE=vscode" \
+		"DEVCONTAINER_PROJECT_NAME=repo-sandbox-devcontainer" > "$test_root/$AGB_PROJECT_DIR/active-target.env"
+	touch "$managed_file" "$user_file"
+
+	stub docker \
+		"compose -f $managed_file -f $user_file ps : :"
+
+	ensure_devcontainer_runtime_files() { :; }
+	exec() { "$@"; }
+
+	cd "$test_root"
+	run compose ps
+	assert_success
+}
+
+@test "run-compose falls back to a legacy single compose file when sidecar layout is not initialized" {
 	local test_root="$BATS_TEST_TMPDIR/repo"
 	local compose_file="$test_root/.devcontainer/docker-compose.yml"
 
