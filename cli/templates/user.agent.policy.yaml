@@ -1,4 +1,4 @@
-# Agent-specific user-owned policy additions for layered CLI sandboxes.
+# Agent-specific user-owned policy additions for layered agentbox sandboxes.
 #
 # This file is merged after the shared policy for the matching active agent.
 # Changes take effect after switching to this agent and restarting the proxy.
