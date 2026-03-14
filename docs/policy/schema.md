@@ -89,7 +89,7 @@ The layered merge semantics are intentionally narrow:
 The rendered result is then used for enforcement. You can inspect that rendered output with:
 
 ```bash
-agentbox policy render
+agentbox policy config
 ```
 
 Single-file layouts still mount the policy directly into the proxy service:

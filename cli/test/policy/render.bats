@@ -32,17 +32,17 @@ teardown() {
 	unstub_all
 }
 
-@test "policy render runs the proxy-side render helper through layered compose" {
+@test "policy config runs the proxy-side render helper through layered compose" {
 	stub docker \
 		"compose -f $COMPOSE_DIR/base.yml -f $COMPOSE_DIR/agent.claude.yml -f $COMPOSE_DIR/user.override.yml -f $COMPOSE_DIR/user.agent.claude.override.yml run --rm --no-deps -T --entrypoint /usr/local/bin/render-policy proxy : echo 'services: []'"
 
 	cd "$PROJECT_DIR"
-	run "$AGB_LIBEXECDIR/policy/render"
+	run "$AGB_LIBEXECDIR/policy/config"
 	assert_success
 	assert_output "services: []"
 }
 
-@test "policy render runs the proxy-side render helper through centralized devcontainer compose" {
+@test "policy config runs the proxy-side render helper through centralized devcontainer compose" {
 	local sidecar_root="$BATS_TEST_TMPDIR/devcontainer-project"
 	local compose_dir="$sidecar_root/$AGB_PROJECT_DIR/compose"
 	local base_file="$compose_dir/base.yml"
@@ -65,7 +65,17 @@ teardown() {
 	ensure_devcontainer_runtime_files() { :; }
 
 	cd "$sidecar_root"
-	run "$AGB_LIBEXECDIR/policy/render"
+	run "$AGB_LIBEXECDIR/policy/config"
 	assert_success
 	assert_output "services: [claude, vscode]"
+}
+
+@test "policy render remains an alias for policy config" {
+	stub docker \
+		"compose -f $COMPOSE_DIR/base.yml -f $COMPOSE_DIR/agent.claude.yml -f $COMPOSE_DIR/user.override.yml -f $COMPOSE_DIR/user.agent.claude.override.yml run --rm --no-deps -T --entrypoint /usr/local/bin/render-policy proxy : echo 'services: []'"
+
+	cd "$PROJECT_DIR"
+	run "$AGB_LIBEXECDIR/policy/render"
+	assert_success
+	assert_output "services: []"
 }

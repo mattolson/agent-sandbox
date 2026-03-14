@@ -57,7 +57,7 @@ Available services and their domain allowlists are hardcoded in `images/proxy/ad
 For layered CLI projects, the shared user-owned policy file is `.agent-sandbox/policy/user.policy.yaml`, and the active agent's additions live in `.agent-sandbox/policy/user.agent.<agent>.policy.yaml`. The proxy renders the effective policy at startup from the active agent baseline plus those user-owned inputs. The `.agent-sandbox/` directory is mounted read-only inside the agent container, preventing the agent from modifying the policy.
 
 To edit the policy in a user project: `agentbox edit policy`.
-To inspect the rendered effective policy: `agentbox policy render`.
+To inspect the rendered effective policy: `agentbox policy config`.
 
 ## Architecture
 
