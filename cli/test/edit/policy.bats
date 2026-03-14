@@ -129,19 +129,23 @@ teardown() {
 	assert_success
 }
 
-@test "policy rejects centralized devcontainer mode-specific edits" {
+@test "policy treats --mode devcontainer as the shared layered policy surface in centralized layouts" {
 	local sidecar_root="$BATS_TEST_TMPDIR/devcontainer-project"
+	local shared_policy_file="$sidecar_root/$AGB_PROJECT_DIR/policy/user.policy.yaml"
 
 	mkdir -p "$sidecar_root/.git" "$sidecar_root/$AGB_PROJECT_DIR/compose" "$sidecar_root/$AGB_PROJECT_DIR/policy" "$sidecar_root/.devcontainer"
-	touch "$sidecar_root/.devcontainer/devcontainer.json" "$sidecar_root/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml"
+	touch "$shared_policy_file" "$sidecar_root/.devcontainer/devcontainer.json" "$sidecar_root/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml"
 	printf '%s\n' \
 		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
 		"ACTIVE_AGENT=claude" \
 		"DEVCONTAINER_IDE=vscode" \
 		"PROJECT_NAME=devcontainer-sidecar-sandbox" > "$sidecar_root/$AGB_PROJECT_DIR/active-target.env"
 
+	unset -f open_editor
+	stub open_editor \
+		"$shared_policy_file : :"
+
 	cd "$sidecar_root"
 	run policy --mode devcontainer
-	assert_failure
-	assert_output --partial "does not have a separate policy override file"
+	assert_success
 }

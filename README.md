@@ -28,6 +28,8 @@ The sandbox is implemented as a Docker Compose project with a two-container stac
 
 **Devcontainer** mode keeps `.devcontainer/` as a thin IDE entrypoint (`devcontainer.json` plus optional
 `devcontainer.user.json`) and stores the sandbox runtime compose and policy files in `.agent-sandbox/`.
+`devcontainer.user.json` is an agentbox overlay input, not a second devcontainer file that the IDE reads directly:
+agentbox merges it into the generated `.devcontainer/devcontainer.json` during init and refresh paths.
 
 ## Quick start (macOS + Colima)
 
@@ -94,6 +96,9 @@ agentbox init --batch --agent claude --mode cli
 Optional volume mounts (dotfiles, shell customizations, .git read-only, etc.) are scaffolded into user-owned override
 files. Uncomment them as needed, or set `AGENTBOX_*` environment variables for scripted usage. See the
 [CLI README](cli/README.md) for the full list of flags and environment variables.
+
+If you edit `.devcontainer/devcontainer.user.json`, rerun `agentbox switch --agent <current-agent>` before reopening
+the devcontainer so agentbox can regenerate `.devcontainer/devcontainer.json`.
 
 ### 4. Start the sandbox
 
