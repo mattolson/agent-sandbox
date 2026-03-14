@@ -63,9 +63,7 @@ policy() {
 		esac
 	done
 
-	if [[ -z "$mode" || "$mode" == "cli" ]] && {
-		cli_layered_compose_initialized "$repo_root" || devcontainer_centralized_runtime_initialized "$repo_root"
-	}
+	if cli_layered_compose_initialized "$repo_root" || devcontainer_centralized_runtime_initialized "$repo_root"
 	then
 		scaffold_cli_shared_policy_if_missing "$repo_root"
 
@@ -85,10 +83,6 @@ policy() {
 		else
 			policy_file="$(cli_shared_policy_file "$repo_root")"
 		fi
-	elif devcontainer_centralized_runtime_initialized "$repo_root" && [[ "$mode" == "devcontainer" ]]
-	then
-		echo "Devcontainer mode does not have a separate policy override file. Edit $(cli_shared_policy_file "$repo_root") instead." | error
-		return 1
 	else
 		local policy_files=()
 		mapfile -t policy_files < <(legacy_policy_file_matches "$repo_root" "$mode" "$agent")

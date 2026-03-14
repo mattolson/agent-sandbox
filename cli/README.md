@@ -17,7 +17,9 @@ config, shell customizations, dotfiles, `.git`, `.idea`, `.vscode`) are scaffold
 instead of managed files. After generation, `init` offers to open the shared user-owned policy file and the relevant
 user-owned compose override in your editor. For devcontainer mode, agentbox writes `.devcontainer/devcontainer.json`
 plus optional `.devcontainer/devcontainer.user.json`, while the managed compose and policy runtime files live under
-`.agent-sandbox/`. These review prompts default to `no`.
+`.agent-sandbox/`. `devcontainer.user.json` is an agentbox overlay input, not a second devcontainer config file that
+VS Code or JetBrains reads directly: agentbox merges it into the generated `.devcontainer/devcontainer.json` during
+init and refresh paths. These review prompts default to `no`.
 
 Options:
 - `--agent` - Agent type: `claude`, `copilot`, `codex` (skips prompt)
@@ -41,6 +43,8 @@ files and regenerates `.devcontainer/devcontainer.json` for the selected agent w
 `.devcontainer/devcontainer.user.json` and reusing the stored IDE selection. Legacy `policy-cli-<agent>.yaml` files
 are carried forward into the new user-owned policy file
 and renamed to a conspicuous deprecated filename. If `--agent` is omitted, prompts once for the new active agent.
+This same-agent refresh path is also the explicit way to re-merge edits from `.devcontainer/devcontainer.user.json`
+into the generated `.devcontainer/devcontainer.json`.
 
 Options:
 - `--agent` - Agent type: `claude`, `copilot`, `codex` (skips prompt)
@@ -57,7 +61,9 @@ Options:
 #### `agentbox init devcontainer`
 
 Sets up a devcontainer configuration for an agent. Writes the IDE-facing `.devcontainer/devcontainer.json`, optional
-`.devcontainer/devcontainer.user.json`, and centralized sandbox runtime files under `.agent-sandbox/`.
+`.devcontainer/devcontainer.user.json`, and centralized sandbox runtime files under `.agent-sandbox/`. The optional
+user file is merged by agentbox into the generated `devcontainer.json`; it is not read directly by devcontainer
+tooling.
 
 Options:
 - `--project-path` - Path to the project directory
@@ -96,8 +102,8 @@ Options:
 Opens the network policy file in your editor. If you save changes, the proxy service will automatically restart to apply
 the new policy. For layered CLI projects, the default target is `.agent-sandbox/policy/user.policy.yaml`, and `--agent
 <name>` targets `.agent-sandbox/policy/user.agent.<name>.policy.yaml`. Current devcontainer projects do not have a
-separate user-editable devcontainer policy file; `--mode devcontainer` is only for legacy layouts, which still use
-flat `policy-<mode>-<agent>.yaml` files.
+separate user-editable devcontainer policy file, so `--mode devcontainer` reuses those same layered policy surfaces.
+Legacy flat `policy-<mode>-<agent>.yaml` files are still opened when present in older projects.
 
 ### `agentbox policy config`
 
