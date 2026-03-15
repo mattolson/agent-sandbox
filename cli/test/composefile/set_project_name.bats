@@ -58,6 +58,33 @@ teardown() {
 	assert_equal "$final_mtime" "$initial_mtime"
 }
 
+@test "set_service_environment_var does not rewrite file when value is unchanged" {
+	cat >"$COMPOSE_FILE" <<'YAML'
+services:
+  proxy:
+    image: placeholder
+    environment:
+      - KEEP=1
+      - AGENTBOX_ACTIVE_AGENT=claude
+YAML
+
+	set_service_environment_var "$COMPOSE_FILE" "proxy" "AGENTBOX_ACTIVE_AGENT" "claude"
+
+	local initial_mtime
+	initial_mtime="$(get_file_mtime "$COMPOSE_FILE")"
+
+	sleep 1
+	set_service_environment_var "$COMPOSE_FILE" "proxy" "AGENTBOX_ACTIVE_AGENT" "claude"
+
+	local final_mtime
+	final_mtime="$(get_file_mtime "$COMPOSE_FILE")"
+
+	assert_equal "$final_mtime" "$initial_mtime"
+
+	run yq '.services.proxy.environment[]' "$COMPOSE_FILE"
+	assert_output $'KEEP=1\nAGENTBOX_ACTIVE_AGENT=claude'
+}
+
 @test "pull_and_pin_image propagates docker pull failure" {
 	stub docker \
 		"pull ghcr.io/example/fail:latest : exit 1"
