@@ -213,6 +213,9 @@ infer_legacy_layout_agent() {
 		"")
 			continue
 			;;
+		*)
+			continue
+			;;
 		esac
 
 		if [[ -z "$resolved_agent" ]]
