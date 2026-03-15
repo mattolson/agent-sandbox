@@ -295,6 +295,7 @@ initialize_devcontainer_layout() {
 ensure_devcontainer_runtime_files() {
 	local repo_root=$1
 	local agent=$2
+	local persist_state="${3:-true}"
 	local ide=""
 	local project_name=""
 	local base_compose_file
@@ -371,5 +372,8 @@ ensure_devcontainer_runtime_files() {
 	write_devcontainer_mode_compose_file "$repo_root" "$ide" "$project_name"
 	write_devcontainer_policy_file "$(devcontainer_managed_policy_file "$repo_root")" "$ide"
 	cleanup_legacy_devcontainer_managed_files "$repo_root"
-	write_devcontainer_state "$repo_root" "$agent" "$ide" "$project_name"
+	if [[ "$persist_state" == "true" ]]
+	then
+		write_devcontainer_state "$repo_root" "$agent" "$ide" "$project_name"
+	fi
 }

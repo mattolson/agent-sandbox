@@ -49,6 +49,19 @@ teardown() {
 	assert_output --partial "Invalid agent: invalid (expected: claude codex copilot)"
 }
 
+@test "switch validates --agent before legacy layout handling" {
+	mkdir -p "$PROJECT_DIR/.agent-sandbox"
+	touch "$PROJECT_DIR/.agent-sandbox/docker-compose.yml"
+	printf '%s\n' "services: [claude]" > "$PROJECT_DIR/.agent-sandbox/policy-cli-claude.yaml"
+
+	run switch --agent invalid
+
+	assert_failure
+	assert_output --partial "Invalid agent: invalid (expected: claude codex copilot)"
+	refute_output --partial "does not support the legacy single-file layout"
+	refute_output --partial "user.agent.invalid.override.yml"
+}
+
 @test "switch fails fast for legacy layouts without prompting" {
 	mkdir -p "$PROJECT_DIR/.agent-sandbox"
 	touch "$PROJECT_DIR/.agent-sandbox/docker-compose.yml"
@@ -182,6 +195,54 @@ SCRIPT
 	run cat "$BATS_TEST_TMPDIR/run-compose.calls"
 	assert_success
 	assert_output $'ps --status running --quiet\ndown\nup -d'
+}
+
+@test "switch keeps old active-agent state until restart reaches down" {
+	local compose_dir="$PROJECT_DIR/.agent-sandbox/compose"
+
+	mkdir -p "$compose_dir"
+	touch \
+		"$compose_dir/base.yml" \
+		"$compose_dir/agent.claude.yml" \
+		"$compose_dir/agent.codex.yml"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent for this project." \
+		"ACTIVE_AGENT=claude" > "$PROJECT_DIR/.agent-sandbox/active-target.env"
+
+	ensure_cli_agent_runtime_files() { :; }
+
+	export AGB_LIBDIR="$BATS_TEST_TMPDIR/lib"
+	mkdir -p "$AGB_LIBDIR"
+	cat > "$AGB_LIBDIR/run-compose" <<'SCRIPT'
+#!/usr/bin/env bash
+state_file="$PWD/.agent-sandbox/active-target.env"
+case "$1" in
+	ps)
+		echo "running"
+		;;
+	down)
+		grep '^ACTIVE_AGENT=' "$state_file" > "$BATS_TEST_TMPDIR/down.active-agent"
+		;;
+	up)
+		grep '^ACTIVE_AGENT=' "$state_file" > "$BATS_TEST_TMPDIR/up.active-agent"
+		;;
+	*)
+		echo "unexpected command: $*" >&2
+		exit 1
+		;;
+esac
+SCRIPT
+	chmod +x "$AGB_LIBDIR/run-compose"
+
+	run switch --agent codex
+
+	assert_success
+	run cat "$BATS_TEST_TMPDIR/down.active-agent"
+	assert_success
+	assert_output "ACTIVE_AGENT=claude"
+	run cat "$BATS_TEST_TMPDIR/up.active-agent"
+	assert_success
+	assert_output "ACTIVE_AGENT=codex"
 }
 
 @test "switch preserves existing user-owned compose overrides" {
@@ -361,7 +422,7 @@ SCRIPT
 	assert_success
 	run cat "$BATS_TEST_TMPDIR/ensure-devcontainer-runtime-files.args"
 	assert_success
-	assert_output "$PROJECT_DIR codex"
+	assert_output "$PROJECT_DIR codex false"
 }
 
 @test "switch fails when agent-sandbox is not initialized" {

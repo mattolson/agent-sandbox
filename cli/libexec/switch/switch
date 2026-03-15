@@ -40,13 +40,16 @@ switch() {
 		return 1
 	fi
 
+	if [[ -n "$agent" ]]
+	then
+		validate_agent "$agent" || return 1
+	fi
+
 	abort_if_unsupported_legacy_layout "$repo_root" "switch" "$agent" || return 1
 
 	if [[ -z "$agent" ]]
 	then
 		agent="$(select_agent)"
-	else
-		validate_agent "$agent"
 	fi
 
 	local current_agent=""
@@ -83,7 +86,7 @@ switch() {
 
 	if devcontainer_centralized_runtime_initialized "$repo_root"
 	then
-		ensure_devcontainer_runtime_files "$repo_root" "$agent"
+		ensure_devcontainer_runtime_files "$repo_root" "$agent" false
 	fi
 
 	if cli_layered_compose_initialized "$repo_root" && ! devcontainer_centralized_runtime_initialized "$repo_root"
@@ -91,14 +94,14 @@ switch() {
 		ensure_cli_agent_runtime_files "$repo_root" "$agent"
 	fi
 
-	write_active_agent "$repo_root" "$agent"
-
 	if [[ -n "$runtime_running" ]]
 	then
 		echo "Active agent set to '$agent'. Restarting containers to apply the switch..." | info
 		"$AGB_LIBDIR/run-compose" down
+		write_active_agent "$repo_root" "$agent"
 		"$AGB_LIBDIR/run-compose" up -d
 	else
+		write_active_agent "$repo_root" "$agent"
 		echo "Active agent set to '$agent'." | info
 	fi
 }
