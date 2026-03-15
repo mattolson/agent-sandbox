@@ -17,8 +17,8 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 | Agent | Status |
 |-------|--------|
 | [Claude Code](https://claude.ai/code) | ✅ Stable |
-| [Codex CLI](https://github.com/openai/codex) | ✅ Stable |
-| [GitHub Copilot CLI](https://github.com/github/copilot-cli) | 🧪 Preview |
+| [Codex](https://github.com/openai/codex) | ✅ Stable |
+| [GitHub Copilot](https://github.com/github/copilot-cli) | 🧪 Preview |
 
 ## Runtime modes
 
@@ -144,8 +144,8 @@ JetBrains (IntelliJ, PyCharm, WebStorm, etc.):
 
 Follow the setup instructions specific to the agent image you are using:
 - [Claude Code](docs/claude/README.md)
+- [Codex](docs/codex/README.md)
 - [GitHub Copilot](docs/copilot/README.md)
-- [OpenAI Codex CLI](docs/codex/README.md)
 
 ## Network policy
 
