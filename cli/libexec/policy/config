@@ -7,5 +7,5 @@ then
 	exit 1
 fi
 
-AGENTBOX_RUNTIME_COMMAND_NAME="policy config" exec \
+AGENTBOX_RUNTIME_COMMAND_NAME="policy config" AGENTBOX_SKIP_RUNTIME_SYNC=1 exec \
 	"$AGB_LIBDIR/run-compose" run --rm --no-deps -T --entrypoint /usr/local/bin/render-policy proxy

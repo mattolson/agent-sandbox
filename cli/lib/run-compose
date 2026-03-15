@@ -15,6 +15,12 @@ source "$AGB_LIBDIR/path.bash"
 # Helper that automatically locates the docker compose files
 # All arguments are passed to docker compose
 compose_command_requires_runtime_sync() {
+	case "${AGENTBOX_SKIP_RUNTIME_SYNC:-}" in
+	1 | true)
+		return 1
+		;;
+	esac
+
 	case "${1:-}" in
 	up | run | create | restart | start)
 		return 0

@@ -80,6 +80,29 @@ teardown() {
 	assert_output "services: []"
 }
 
+@test "policy config disables runtime sync for the render helper" {
+	export AGB_LIBDIR="$BATS_TEST_TMPDIR/lib"
+	mkdir -p "$AGB_LIBDIR"
+	cat > "$AGB_LIBDIR/run-compose" <<'SCRIPT'
+#!/usr/bin/env bash
+printf '%s\n' "${AGENTBOX_SKIP_RUNTIME_SYNC:-}" > "$BATS_TEST_TMPDIR/skip-runtime-sync"
+printf '%s\n' "$*" > "$BATS_TEST_TMPDIR/run-compose-args"
+echo 'services: []'
+SCRIPT
+	chmod +x "$AGB_LIBDIR/run-compose"
+
+	cd "$PROJECT_DIR"
+	run "$AGB_LIBEXECDIR/policy/config"
+
+	assert_success
+	run cat "$BATS_TEST_TMPDIR/skip-runtime-sync"
+	assert_success
+	assert_output "1"
+	run cat "$BATS_TEST_TMPDIR/run-compose-args"
+	assert_success
+	assert_output "run --rm --no-deps -T --entrypoint /usr/local/bin/render-policy proxy"
+}
+
 @test "render-policy rejects scalar services fields with a clear error" {
 	command -v python3 >/dev/null || skip "python3 not installed"
 	python3 -c 'import yaml' 2>/dev/null || skip "PyYAML not installed"
@@ -93,4 +116,22 @@ teardown() {
 
 	assert_failure
 	assert_output --partial "Policy field 'services' must be a YAML list in: $policy_file"
+}
+
+@test "render-policy rejects non-string services list items with a clear error" {
+	command -v python3 >/dev/null || skip "python3 not installed"
+	python3 -c 'import yaml' 2>/dev/null || skip "PyYAML not installed"
+
+	local policy_file="$BATS_TEST_TMPDIR/policy.yaml"
+	cat > "$policy_file" <<'YAML'
+services:
+  - 1
+YAML
+
+	run env -u AGENTBOX_ACTIVE_AGENT \
+		AGENTBOX_POLICY_SOURCE_PATH="$policy_file" \
+		"$AGB_ROOT/images/proxy/render-policy"
+
+	assert_failure
+	assert_output --partial "Policy field 'services' must contain only strings, got int: 1"
 }

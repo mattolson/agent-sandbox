@@ -198,7 +198,7 @@ render_devcontainer_json() {
 	if [[ -f "$user_file" ]]
 	then
 		yq eval-all -P -o=json \
-			'select(fileIndex == 0) * select(fileIndex == 1)' \
+			'select(fileIndex == 0) *+ select(fileIndex == 1)' \
 			"$template_file" \
 			"$user_file" > "$tmp_file"
 	else
