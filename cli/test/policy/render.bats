@@ -108,11 +108,14 @@ SCRIPT
 	python3 -c 'import yaml' 2>/dev/null || skip "PyYAML not installed"
 
 	local policy_file="$BATS_TEST_TMPDIR/policy.yaml"
+	local render_policy_script
+	render_policy_script="$(cd "$AGB_ROOT/../images/proxy" && pwd)/render-policy"
 	printf '%s\n' "services: github" > "$policy_file"
+	[ -x "$render_policy_script" ]
 
 	run env -u AGENTBOX_ACTIVE_AGENT \
 		AGENTBOX_POLICY_SOURCE_PATH="$policy_file" \
-		"$AGB_ROOT/images/proxy/render-policy"
+		"$render_policy_script"
 
 	assert_failure
 	assert_output --partial "Policy field 'services' must be a YAML list in: $policy_file"
@@ -123,14 +126,17 @@ SCRIPT
 	python3 -c 'import yaml' 2>/dev/null || skip "PyYAML not installed"
 
 	local policy_file="$BATS_TEST_TMPDIR/policy.yaml"
+	local render_policy_script
+	render_policy_script="$(cd "$AGB_ROOT/../images/proxy" && pwd)/render-policy"
 	cat > "$policy_file" <<'YAML'
 services:
   - 1
 YAML
+	[ -x "$render_policy_script" ]
 
 	run env -u AGENTBOX_ACTIVE_AGENT \
 		AGENTBOX_POLICY_SOURCE_PATH="$policy_file" \
-		"$AGB_ROOT/images/proxy/render-policy"
+		"$render_policy_script"
 
 	assert_failure
 	assert_output --partial "Policy field 'services' must contain only strings, got int: 1"
