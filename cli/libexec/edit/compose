@@ -38,11 +38,7 @@ edit() {
 	abort_if_unsupported_legacy_layout "$repo_root" "edit compose" || return 1
 
 	local compose_file
-	if devcontainer_centralized_runtime_initialized "$repo_root"
-	then
-		scaffold_cli_shared_override_if_missing "$repo_root"
-		compose_file="$(cli_user_override_file "$repo_root")"
-	elif cli_layered_compose_initialized "$repo_root"
+	if devcontainer_centralized_runtime_initialized "$repo_root" || cli_layered_compose_initialized "$repo_root"
 	then
 		scaffold_cli_shared_override_if_missing "$repo_root"
 		compose_file="$(cli_user_override_file "$repo_root")"
