@@ -205,7 +205,7 @@ render_devcontainer_json() {
 		cp "$template_file" "$tmp_file"
 	fi
 
-	mv "$tmp_file" "$output_file"
+	replace_file_if_changed "$tmp_file" "$output_file"
 }
 
 read_compose_service_image_if_exists() {
@@ -226,11 +226,13 @@ write_devcontainer_policy_file() {
 	local policy_file=$1
 	local ide=$2
 	local services=""
+	local tmp_file
 
 	validate_devcontainer_ide "$ide" >/dev/null
 	require yq
 
-	copy_policy_template "$policy_file" "policy.devcontainer.yaml"
+	tmp_file="${policy_file}.tmp"
+	copy_policy_template "$tmp_file" "policy.devcontainer.yaml"
 
 	if [[ "$ide" != "none" ]]
 	then
@@ -239,7 +241,8 @@ write_devcontainer_policy_file() {
 
 	services="$services" yq -i \
 		'.services = ((strenv(services) | split("\n")) | map(select(. != "")))' \
-		"$policy_file"
+		"$tmp_file"
+	replace_file_if_changed "$tmp_file" "$policy_file"
 }
 
 write_devcontainer_mode_compose_file() {
@@ -247,23 +250,27 @@ write_devcontainer_mode_compose_file() {
 	local ide=$2
 	local project_name=$3
 	local compose_file
+	local tmp_file
 
 	validate_devcontainer_ide "$ide" >/dev/null
 
 	compose_file="$(cli_devcontainer_mode_compose_file "$repo_root")"
+	tmp_file="${compose_file}.tmp"
 
 	mkdir -p "$(dirname "$compose_file")"
-	cp "$AGB_TEMPLATEDIR/compose/mode.devcontainer.yml" "$compose_file"
-	set_project_name "$compose_file" "$(apply_mode_suffix "$project_name" "devcontainer")"
+	cp "$AGB_TEMPLATEDIR/compose/mode.devcontainer.yml" "$tmp_file"
+	set_project_name "$tmp_file" "$(apply_mode_suffix "$project_name" "devcontainer")"
 
 	if [[ "$ide" == "jetbrains" ]]
 	then
-		add_volume_entry "$compose_file" '../../.idea:/workspace/.idea:ro' "true"
-		add_jetbrains_capabilities "$compose_file"
+		add_volume_entry "$tmp_file" '../../.idea:/workspace/.idea:ro' "true"
+		add_jetbrains_capabilities "$tmp_file"
 	elif [[ "$ide" == "vscode" ]]
 	then
-		add_volume_entry "$compose_file" '../../.vscode:/workspace/.vscode:ro' "true"
+		add_volume_entry "$tmp_file" '../../.vscode:/workspace/.vscode:ro' "true"
 	fi
+
+	replace_file_if_changed "$tmp_file" "$compose_file"
 }
 
 initialize_devcontainer_layout() {

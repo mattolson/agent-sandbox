@@ -129,7 +129,7 @@ write_target_state() {
 			printf 'PROJECT_NAME=%q\n' "$project_name"
 		fi
 	} > "$tmp_file"
-	mv "$tmp_file" "$state_file"
+	replace_file_if_changed "$tmp_file" "$state_file"
 }
 
 write_active_agent() {

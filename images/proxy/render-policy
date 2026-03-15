@@ -10,7 +10,6 @@ DEFAULT_SINGLE_POLICY_PATH = "/etc/mitmproxy/policy.yaml"
 DEFAULT_SHARED_POLICY_PATH = "/etc/agent-sandbox/policy/user.policy.yaml"
 DEFAULT_AGENT_POLICY_PATH = "/etc/agent-sandbox/policy/user.agent.policy.yaml"
 DEFAULT_DEVCONTAINER_POLICY_PATH = "/etc/agent-sandbox/policy/devcontainer.policy.yaml"
-DEFAULT_DEVCONTAINER_USER_POLICY_PATH = "/etc/agent-sandbox/policy/devcontainer.user.policy.yaml"
 
 
 def fail(message):
@@ -82,10 +81,6 @@ def render_layered_policy(active_agent):
     shared_policy_path = os.getenv("AGENTBOX_SHARED_POLICY_PATH", DEFAULT_SHARED_POLICY_PATH)
     agent_policy_path = os.getenv("AGENTBOX_AGENT_POLICY_PATH", DEFAULT_AGENT_POLICY_PATH)
     devcontainer_policy_path = os.getenv("AGENTBOX_DEVCONTAINER_POLICY_PATH", DEFAULT_DEVCONTAINER_POLICY_PATH)
-    devcontainer_user_policy_path = os.getenv(
-        "AGENTBOX_DEVCONTAINER_USER_POLICY_PATH",
-        DEFAULT_DEVCONTAINER_USER_POLICY_PATH,
-    )
 
     merged = {
         "services": [active_agent],
@@ -94,7 +89,6 @@ def render_layered_policy(active_agent):
     merged = merge_policy(merged, load_policy_file(shared_policy_path))
     merged = merge_policy(merged, load_policy_file(agent_policy_path))
     merged = merge_policy(merged, load_policy_file(devcontainer_policy_path))
-    merged = merge_policy(merged, load_policy_file(devcontainer_user_policy_path))
     return normalize_policy(merged)
 
 

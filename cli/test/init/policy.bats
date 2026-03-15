@@ -54,6 +54,16 @@ teardown() {
 	assert_output "vscode"
 }
 
+@test "policy omits empty service entries when no services are passed" {
+	local policy_file="$BATS_TEST_TMPDIR/policy.yaml"
+
+	run policy "$policy_file"
+	assert_success
+
+	run yq '.services | length' "$policy_file"
+	assert_output "0"
+}
+
 @test "policy preserves domains key from template" {
 	local policy_file="$BATS_TEST_TMPDIR/policy.yaml"
 
