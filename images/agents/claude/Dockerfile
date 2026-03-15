@@ -26,5 +26,8 @@ RUN curl -fsSL https://claude.ai/install.sh | bash -s $CLAUDE_CODE_VERSION
 # Add Claude to PATH (install script puts it in ~/.local/bin)
 ENV PATH="/home/dev/.local/bin:$PATH"
 
+# Tell Claude Code where its config lives
+ENV CLAUDE_CONFIG_DIR="/home/dev/.claude"
+
 LABEL org.opencontainers.image.description="Agent Sandbox with Claude Code"
 LABEL com.mattolson.agentsandbox.claude-code-version="${CLAUDE_CODE_VERSION}"

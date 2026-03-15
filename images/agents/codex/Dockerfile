@@ -27,6 +27,9 @@ USER dev
 # Add ~/.local/bin to PATH (where the Codex binary will live)
 ENV PATH="/home/dev/.local/bin:$PATH"
 
+# Tell Codex where its config/state lives
+ENV CODEX_HOME="/home/dev/.codex"
+
 # Install Codex CLI binary from GitHub releases
 # CODEX_VERSION: "latest" or a specific version like "0.104.0"
 ARG CODEX_VERSION=latest
