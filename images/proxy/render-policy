@@ -10,6 +10,7 @@ DEFAULT_SINGLE_POLICY_PATH = "/etc/mitmproxy/policy.yaml"
 DEFAULT_SHARED_POLICY_PATH = "/etc/agent-sandbox/policy/user.policy.yaml"
 DEFAULT_AGENT_POLICY_PATH = "/etc/agent-sandbox/policy/user.agent.policy.yaml"
 DEFAULT_DEVCONTAINER_POLICY_PATH = "/etc/agent-sandbox/policy/devcontainer.policy.yaml"
+KNOWN_AGENTS = {"claude", "codex", "copilot"}
 
 
 def fail(message):
@@ -100,6 +101,11 @@ def render_single_policy():
 def render_policy():
     active_agent = os.getenv("AGENTBOX_ACTIVE_AGENT", "").strip()
     if active_agent:
+        if active_agent not in KNOWN_AGENTS:
+            fail(
+                "Unknown agent in AGENTBOX_ACTIVE_AGENT: "
+                f"{active_agent!r} (expected one of {sorted(KNOWN_AGENTS)})"
+            )
         return render_layered_policy(active_agent)
     return render_single_policy()
 
