@@ -55,20 +55,20 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Docker-based CLI distribution (`ghcr.io/mattolson/agent-sandbox-cli`)
 - Bash 3.2 compatibility (macOS default shell)
 
-## m7: [Codex](https://github.com/openai/codex) support (planned)
+## m7: [Codex](https://github.com/openai/codex) support (done)
 
-- agent-sandbox-codex image and templates
-- OpenAI Codex CLI installation and configuration
-- Network policy with Codex API domains
+- agent-sandbox-codex image, CLI/devcontainer templates, and init/build integration
+- OpenAI Codex CLI installation from GitHub releases with its internal sandbox disabled in-container
+- Network policy, CI publishing, and daily version checks for Codex/OpenAI domains
 
-## m8: Agent switching (planned)
+## m8: Agent switching (done)
 
-- Add `agentbox switch --agent <name>`
-- Preserve per-agent state volumes when switching
-- Preserve layered user compose/policy customizations (shared + optional mode/agent overrides)
-- Merge policy layers at proxy runtime
-- Clarify runtime ownership split (CLI mode agentbox-managed, devcontainer mode IDE-managed)
-- Use explicit upgrade guidance for legacy single-file setups (no automatic migration tooling)
+- `agentbox switch --agent <name>` shipped
+- Per-agent state volumes are preserved when switching
+- Layered user compose/policy customizations are preserved (shared + optional mode/agent overrides)
+- Policy layers are merged at proxy runtime
+- Runtime ownership split is explicit: CLI mode is agentbox-managed, devcontainer mode is IDE-managed
+- Legacy single-file setups now fail with explicit upgrade guidance instead of automatic migration tooling
 
 ## m9: [Gemini CLI](https://github.com/google-gemini/gemini-cli) support (planned)
 

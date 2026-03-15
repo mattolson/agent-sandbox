@@ -129,13 +129,18 @@ Create the `agentbox` CLI for managing sandbox configurations.
 
 **Dependencies:** m1 (templates exist), m2 (images to reference)
 
-### m7-codex
+### m7-codex (done)
 
 Add OpenAI Codex CLI agent support.
 
 **Dependencies:** m6 (CLI and templates established)
 
-### m8-agent-switching
+**Delivered:**
+- Codex image, templates, and CLI integration shipped
+- OpenAI/Codex proxy domains and CI version tracking added
+- Codex setup and usage documentation added
+
+### m8-agent-switching (done)
 
 Add first-class, non-destructive agent switching so users can move between Claude, Codex, and Copilot without losing state or customizations.
 
@@ -149,6 +154,12 @@ Add first-class, non-destructive agent switching so users can move between Claud
 - Use explicit breaking-change upgrade guidance instead of automatic migration tooling
 
 **Dependencies:** m6 (CLI), m7 (Codex), m4 (multi-agent foundations)
+
+**Delivered:**
+- `agentbox switch` with active-agent state and non-destructive layered runtime selection shipped
+- Compose and policy ownership split into managed and user-owned layers under `.agent-sandbox/`
+- Devcontainer flow reduced to an IDE shim over centralized runtime files
+- Legacy single-file layouts now fail fast with an upgrade guide instead of silent fallback behavior
 
 ### m9-gemini
 

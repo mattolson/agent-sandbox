@@ -7,6 +7,8 @@ source "$AGB_LIBDIR/path.bash"
 source "$AGB_LIBDIR/cli-compose.bash"
 # shellcheck source=../../lib/devcontainer.bash
 source "$AGB_LIBDIR/devcontainer.bash"
+# shellcheck source=../../lib/legacy-layout.bash
+source "$AGB_LIBDIR/legacy-layout.bash"
 # shellcheck source=../../lib/select.bash
 source "$AGB_LIBDIR/select.bash"
 # shellcheck source=../../lib/logging.bash
@@ -33,6 +35,8 @@ edit() {
 	local repo_root
 	repo_root="$(find_repo_root)"
 
+	abort_if_unsupported_legacy_layout "$repo_root" "edit compose" || return 1
+
 	local compose_file
 	if devcontainer_centralized_runtime_initialized "$repo_root"
 	then
@@ -43,7 +47,8 @@ edit() {
 		scaffold_cli_shared_override_if_missing "$repo_root"
 		compose_file="$(cli_user_override_file "$repo_root")"
 	else
-		compose_file="$(find_compose_file)"
+		echo "No layered compose layout found at $repo_root. Run 'agentbox init' first." | error
+		return 1
 	fi
 
 	local mtime_before

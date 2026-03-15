@@ -1,5 +1,9 @@
 # Execution Log: m7.6 - Docs and Testing
 
+## 2026-03-15 - Follow-up status closure
+
+The remaining `enforcer.py` service-domain reorder from the original handoff state is now present in the repository, so the last open `m7.6` acceptance item is closed and the milestone status can accurately be treated as complete.
+
 ## 2026-02-23 - Implementation complete
 
 Created `docs/codex/README.md` mirroring the Copilot doc structure. Covers both auth methods (API key and device code OAuth), notes the ChatGPT workspace settings requirement, and documents `codex --full-auto` for auto-approve mode.

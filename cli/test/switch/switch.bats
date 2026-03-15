@@ -49,6 +49,26 @@ teardown() {
 	assert_output --partial "Invalid agent: invalid (expected: claude copilot codex)"
 }
 
+@test "switch fails fast for legacy layouts without prompting" {
+	mkdir -p "$PROJECT_DIR/.agent-sandbox"
+	touch "$PROJECT_DIR/.agent-sandbox/docker-compose.yml"
+	printf '%s\n' "services: [claude]" > "$PROJECT_DIR/.agent-sandbox/policy-cli-claude.yaml"
+
+	unset -f select_option
+	select_option() {
+		echo "prompted" > "$BATS_TEST_TMPDIR/select-agent.called"
+		echo codex
+	}
+
+	run switch
+
+	assert_failure
+	assert_output --partial "does not support the legacy single-file layout"
+	assert_output --partial ".agent-sandbox/docker-compose.yml -> .agent-sandbox/docker-compose.legacy.yml"
+	assert_output --partial "docs/upgrades/m8-layered-layout.md"
+	[ ! -f "$BATS_TEST_TMPDIR/select-agent.called" ]
+}
+
 @test "switch is a no-op when agent is already active" {
 	mkdir -p "$PROJECT_DIR/.agent-sandbox"
 	printf '%s\n' \
@@ -103,6 +123,110 @@ teardown() {
 	run cat "$BATS_TEST_TMPDIR/ensure-cli-agent-runtime-files.args"
 	assert_success
 	assert_output "$PROJECT_DIR codex"
+}
+
+@test "switch preserves existing user-owned compose overrides" {
+	local compose_dir="$PROJECT_DIR/.agent-sandbox/compose"
+	local shared_override="$compose_dir/user.override.yml"
+	local active_override="$compose_dir/user.agent.claude.override.yml"
+	local target_override="$compose_dir/user.agent.codex.override.yml"
+
+	mkdir -p "$compose_dir"
+	touch "$compose_dir/base.yml"
+	printf '%s\n' \
+		"# shared override" \
+		"services:" \
+		"  agent:" \
+		"    environment:" \
+		"      - SHARED=1" > "$shared_override"
+	printf '%s\n' \
+		"# claude override" \
+		"services:" \
+		"  agent:" \
+		"    environment:" \
+		"      - CLAUDE_ONLY=1" > "$active_override"
+	printf '%s\n' \
+		"# codex override" \
+		"services:" \
+		"  agent:" \
+		"    environment:" \
+		"      - CODEX_ONLY=1" > "$target_override"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent for this project." \
+		"ACTIVE_AGENT=claude" > "$PROJECT_DIR/.agent-sandbox/active-target.env"
+
+	ensure_cli_agent_runtime_files() { :; }
+
+	run switch --agent codex
+
+	assert_success
+	run cat "$shared_override"
+	assert_success
+	assert_output --partial "SHARED=1"
+	run cat "$active_override"
+	assert_success
+	assert_output --partial "CLAUDE_ONLY=1"
+	run cat "$target_override"
+	assert_success
+	assert_output --partial "CODEX_ONLY=1"
+}
+
+@test "switch preserves shared and agent policy overrides" {
+	local compose_dir="$PROJECT_DIR/.agent-sandbox/compose"
+	local policy_dir="$PROJECT_DIR/.agent-sandbox/policy"
+	local shared_policy="$policy_dir/user.policy.yaml"
+	local active_policy="$policy_dir/user.agent.claude.policy.yaml"
+	local target_policy="$policy_dir/user.agent.codex.policy.yaml"
+
+	mkdir -p "$compose_dir" "$policy_dir"
+	touch "$compose_dir/base.yml"
+	printf '%s\n' \
+		"services:" \
+		"  - github" > "$shared_policy"
+	printf '%s\n' \
+		"domains:" \
+		"  - api.anthropic.com" > "$active_policy"
+	printf '%s\n' \
+		"domains:" \
+		"  - api.openai.com" > "$target_policy"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent for this project." \
+		"ACTIVE_AGENT=claude" > "$PROJECT_DIR/.agent-sandbox/active-target.env"
+
+	ensure_cli_agent_runtime_files() { :; }
+
+	run switch --agent codex
+
+	assert_success
+	run cat "$shared_policy"
+	assert_success
+	assert_output --partial "github"
+	run cat "$active_policy"
+	assert_success
+	assert_output --partial "api.anthropic.com"
+	run cat "$target_policy"
+	assert_success
+	assert_output --partial "api.openai.com"
+}
+
+@test "switch does not touch docker while changing the active agent" {
+	mkdir -p "$PROJECT_DIR/.agent-sandbox/compose"
+	touch "$PROJECT_DIR/.agent-sandbox/compose/base.yml"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent for this project." \
+		"ACTIVE_AGENT=claude" > "$PROJECT_DIR/.agent-sandbox/active-target.env"
+
+	ensure_cli_agent_runtime_files() { :; }
+	docker() {
+		echo "$*" > "$BATS_TEST_TMPDIR/docker.called"
+		return 1
+	}
+	export -f docker
+
+	run switch --agent codex
+
+	assert_success
+	[ ! -f "$BATS_TEST_TMPDIR/docker.called" ]
 }
 
 @test "switch refreshes centralized devcontainer runtime files when agent is already active" {

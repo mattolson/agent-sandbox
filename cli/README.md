@@ -34,17 +34,21 @@ Fully non-interactive example:
 agentbox init --batch --agent claude --mode cli --name myproject --path /some/dir
 ```
 
+If `init` detects a legacy single-file layout, it fails fast with rename-and-rerun guidance and points to the
+[upgrade guide](../docs/upgrades/m8-layered-layout.md).
+
 ### `agentbox switch`
 
 Updates the active agent for an initialized project. For layered CLI projects, switching lazily creates the target
 agent's managed compose layer, agent-specific user policy scaffold, and agent-specific override scaffold the first time
 that agent is selected. For devcontainer projects, switching also refreshes the centralized `.agent-sandbox` runtime
 files and regenerates `.devcontainer/devcontainer.json` for the selected agent while preserving
-`.devcontainer/devcontainer.user.json` and reusing the stored IDE selection. Legacy `policy-cli-<agent>.yaml` files
-are carried forward into the new user-owned policy file
-and renamed to a conspicuous deprecated filename. If `--agent` is omitted, prompts once for the new active agent.
-This same-agent refresh path is also the explicit way to re-merge edits from `.devcontainer/devcontainer.user.json`
-into the generated `.devcontainer/devcontainer.json`.
+`.devcontainer/devcontainer.user.json` and reusing the stored IDE selection. If `--agent` is omitted, prompts once for
+the new active agent. This same-agent refresh path is also the explicit way to re-merge edits from
+`.devcontainer/devcontainer.user.json` into the generated `.devcontainer/devcontainer.json`.
+
+If the project is still on the legacy single-file layout, `switch` fails fast and points to the
+[upgrade guide](../docs/upgrades/m8-layered-layout.md).
 
 Options:
 - `--agent` - Agent type: `claude`, `copilot`, `codex` (skips prompt)
@@ -84,6 +88,18 @@ Arguments:
 Removes all agent-sandbox configuration and containers from a project. Stops running containers, removes volumes, and
 deletes configuration directories.
 
+### Legacy upgrades
+
+Current runtime and edit commands no longer operate on pre-layered single-file layouts such as:
+
+- `.agent-sandbox/docker-compose.yml`
+- `.devcontainer/docker-compose.yml`
+- `.agent-sandbox/policy-cli-<agent>.yaml`
+- `.agent-sandbox/policy-devcontainer-<agent>.yaml`
+
+When those files are detected, commands fail fast with a short rename-and-rerun summary and point to the
+[upgrade guide](../docs/upgrades/m8-layered-layout.md) for the full upgrade procedure.
+
 ### `agentbox version`
 
 Displays the current version of agent-sandbox.
@@ -91,8 +107,9 @@ Displays the current version of agent-sandbox.
 ### `agentbox edit compose`
 
 Opens the user-editable Docker Compose surface in your editor. For layered CLI projects this is
-`.agent-sandbox/compose/user.override.yml`. Devcontainer projects using the centralized layout reuse that same file. If
-you save changes and containers are running, it will restart containers by default to apply the changes.
+`.agent-sandbox/compose/user.override.yml`. Devcontainer projects using the centralized layout reuse that same file.
+Legacy single-file compose layouts are no longer edited in place; current commands point to the upgrade guide instead.
+If you save changes and containers are running, it will restart containers by default to apply the changes.
 
 Options:
 - `--no-restart` — Do not automatically restart containers after changes. When set (or when `AGENTBOX_NO_RESTART=true`), a warning is shown instead with instructions to run `agentbox up -d` manually.
@@ -103,7 +120,8 @@ Opens the network policy file in your editor. If you save changes, the proxy ser
 the new policy. For layered CLI projects, the default target is `.agent-sandbox/policy/user.policy.yaml`, and `--agent
 <name>` targets `.agent-sandbox/policy/user.agent.<name>.policy.yaml`. Current devcontainer projects do not have a
 separate user-editable devcontainer policy file, so `--mode devcontainer` reuses those same layered policy surfaces.
-Legacy flat `policy-<mode>-<agent>.yaml` files are still opened when present in older projects.
+Legacy flat `policy-<mode>-<agent>.yaml` files are no longer opened in place; current commands point to the upgrade
+guide instead.
 
 ### `agentbox policy config`
 
@@ -122,19 +140,19 @@ initialized agent layers without touching user-owned override files. Devcontaine
 
 ### `agentbox up`
 
-Runs `docker compose up` with the correct compose stack automatically detected.
+Runs `docker compose up` with the correct layered compose stack automatically detected.
 
 ### `agentbox down`
 
-Runs `docker compose down` with the correct compose stack automatically detected.
+Runs `docker compose down` with the correct layered compose stack automatically detected.
 
 ### `agentbox logs`
 
-Runs `docker compose logs` with the correct compose stack automatically detected.
+Runs `docker compose logs` with the correct layered compose stack automatically detected.
 
 ### `agentbox compose`
 
-Runs arbitrary `docker compose` commands with the correct compose stack automatically detected
+Runs arbitrary `docker compose` commands with the correct layered compose stack automatically detected
 (for example `agentbox compose ps`).
 
 ### `agentbox exec`

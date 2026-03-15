@@ -92,12 +92,16 @@ The rendered result is then used for enforcement. You can inspect that rendered 
 agentbox policy config
 ```
 
-Single-file layouts still mount the policy directly into the proxy service:
+Historical single-file layouts mounted the policy directly into the proxy service:
 
 ```yaml
 # Under proxy.volumes (added by agentbox init):
 - <path-to-policy>:/etc/mitmproxy/policy.yaml:ro
 ```
+
+Current `agentbox` commands no longer treat that layout as a supported editing or runtime surface. If those files are
+still present in your project, rename them out of the way and follow
+[docs/upgrades/m8-layered-layout.md](../upgrades/m8-layered-layout.md).
 
 Layered CLI layouts mount the shared and agent-specific `.agent-sandbox/policy/` input files into fixed proxy paths
 instead of replacing `/etc/mitmproxy/policy.yaml` directly. Managed devcontainer layouts mount those same

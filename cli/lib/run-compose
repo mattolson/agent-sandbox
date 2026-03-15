@@ -7,16 +7,21 @@ source "$AGB_LIBDIR/require.bash"
 source "$AGB_LIBDIR/cli-compose.bash"
 # shellcheck source=../../lib/devcontainer.bash
 source "$AGB_LIBDIR/devcontainer.bash"
+# shellcheck source=../../lib/legacy-layout.bash
+source "$AGB_LIBDIR/legacy-layout.bash"
 # shellcheck source=../../lib/path.bash
 source "$AGB_LIBDIR/path.bash"
 
 # Helper that automatically locates the docker compose files
 # All arguments are passed to docker compose
 compose() {
-	require docker
-
 	local repo_root
 	repo_root="$(find_repo_root)"
+
+	local command_name="${AGENTBOX_RUNTIME_COMMAND_NAME:-runtime command}"
+	abort_if_unsupported_legacy_layout "$repo_root" "$command_name" || return 1
+
+	require docker
 
 	local compose_files=()
 
@@ -51,7 +56,8 @@ compose() {
 			compose_files+=("$compose_file")
 		done < <(emit_cli_compose_files "$repo_root" "$active_agent")
 	else
-		compose_files+=("$(find_compose_file)")
+		echo "No layered compose layout found at $repo_root. Run 'agentbox init' first." >&2
+		return 1
 	fi
 
 	local compose_args=()

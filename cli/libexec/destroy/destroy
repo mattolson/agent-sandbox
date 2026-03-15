@@ -50,9 +50,19 @@ destroy() {
 	echo "Stopping containers" | warning
 	if destroy_can_resolve_compose_stack "$repo_root"
 	then
-		if ! "$AGB_LIBDIR/run-compose" down --volumes
+		if cli_layered_compose_initialized "$repo_root" || devcontainer_centralized_runtime_initialized "$repo_root"
 		then
-			echo "Could not stop containers from the current compose layout. Continuing with filesystem cleanup." | warning
+			if ! "$AGB_LIBDIR/run-compose" down --volumes
+			then
+				echo "Could not stop containers from the current compose layout. Continuing with filesystem cleanup." | warning
+			fi
+		else
+			local compose_file
+			compose_file="$(find_compose_file)"
+			if ! docker compose -f "$compose_file" down --volumes
+			then
+				echo "Could not stop containers from the legacy compose layout. Continuing with filesystem cleanup." | warning
+			fi
 		fi
 	else
 		echo "No compose stack found. Skipping container shutdown." | warning

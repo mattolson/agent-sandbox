@@ -23,6 +23,7 @@ Lessons learned during project execution. Review at the start of each planning s
 - mitmproxy can read SNI (Server Name Indication) from TLS ClientHello without MITM decryption, enabling hostname logging for HTTPS
 - Transparent proxy (iptables REDIRECT) works for same-container proxy but is complex for cross-container (requires TPROXY or custom routing)
 - SSH allows tunneling (-D, -L, -R) which can bypass other network restrictions; blocking SSH entirely is simpler than trying to restrict it
+- Shared shell helpers that use `mapfile` must source `compat.bash` or macOS Bash 3.2 support regresses silently
 
 ## Architecture
 
@@ -34,6 +35,7 @@ Lessons learned during project execution. Review at the start of each planning s
 - Devcontainers can use Docker Compose backend via `dockerComposeFile` in devcontainer.json, enabling sidecar patterns
 - Relative paths in docker-compose files are resolved from the compose file's directory, not the project root; `.devcontainer/docker-compose.yml` needs `../` to reach repo root, not `../../`
 - Devcontainer-specific policy rules should be additive layers on top of the shared `.agent-sandbox` policy files, not a second standalone source of truth
+- When legacy layouts need a cleanup-compatible exception, put guardrails in user-facing entrypoints instead of deleting every low-level fallback helper
 
 ## Security
 
@@ -50,3 +52,5 @@ Lessons learned during project execution. Review at the start of each planning s
 - Documentation artifacts (schema docs, examples) belong in `docs/`, not in task execution directories
 - Default edit commands should keep pointing at shared cross-mode config unless the user explicitly asks for a mode-specific override
 - For user-facing runtime config, one clear ownership directory is better than a "cleaner" split across `.agent-sandbox/` and `.devcontainer/`; keep `.devcontainer/` as a thin IDE shim when possible
+- Keep CLI stderr concise for large migrations; point users at a dedicated upgrade guide instead of trying to explain the whole layout change inline
+- Regression tests over `docker compose config --no-interpolate` should assert semantic invariants, not one YAML shape; env and volume nodes vary across Compose and `yq` versions

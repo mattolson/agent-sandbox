@@ -1,5 +1,9 @@
 # m8: Agent Switching Without Data Loss
 
+**Status: Complete**
+
+Layered switching, centralized runtime ownership, and legacy-layout guardrails shipped.
+
 Make it easy to switch between supported agents without losing:
 
 - Agent state volumes (credentials, history, tool state)

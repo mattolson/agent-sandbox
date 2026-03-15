@@ -63,19 +63,19 @@ teardown() {
 	assert_success
 }
 
-@test "run-compose falls back to a legacy single compose file when centralized devcontainer layout is not initialized" {
+@test "run-compose fails fast for legacy single-file layouts" {
 	local test_root="$BATS_TEST_TMPDIR/repo"
 	local compose_file="$test_root/.devcontainer/docker-compose.yml"
 
 	mkdir -p "$test_root/.devcontainer" "$test_root/.git"
 	touch "$compose_file"
 
-	stub docker \
-		"compose -f $compose_file ps : :"
-
 	exec() { "$@"; }
 
 	cd "$test_root"
 	run compose ps
-	assert_success
+	assert_failure
+	assert_output --partial "does not support the legacy single-file layout"
+	assert_output --partial ".devcontainer/docker-compose.legacy.yml"
+	assert_output --partial "docs/upgrades/m8-layered-layout.md"
 }

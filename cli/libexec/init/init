@@ -17,6 +17,8 @@ source "$AGB_LIBDIR/agent.bash"
 source "$AGB_LIBDIR/cli-compose.bash"
 # shellcheck source=../../lib/devcontainer.bash
 source "$AGB_LIBDIR/devcontainer.bash"
+# shellcheck source=../../lib/legacy-layout.bash
+source "$AGB_LIBDIR/legacy-layout.bash"
 
 # Initializes agent-sandbox for a project.
 # Prompts for any options not provided via flags.
@@ -102,6 +104,27 @@ init() {
 	fi
 	project_path=$(cd "$project_path" && pwd)
 
+	if [[ -n "$agent" ]] && ! validate_agent "$agent"
+	then
+		return 1
+	fi
+
+	local available_modes=(cli devcontainer)
+	if [[ -n "$mode" ]] && [[ ! " ${available_modes[*]} " =~ [[:space:]]${mode}[[:space:]] ]]
+	then
+		echo "Invalid mode: $mode (expected: ${available_modes[*]})" | error
+		return 1
+	fi
+
+	local available_ides=(vscode jetbrains none)
+	if [[ -n "$ide" ]] && [[ ! " ${available_ides[*]} " =~ [[:space:]]${ide}[[:space:]] ]]
+	then
+		echo "Invalid IDE: $ide (expected: ${available_ides[*]})" | error
+		return 1
+	fi
+
+	abort_if_unsupported_legacy_layout "$project_path" "init" "$agent" "$mode" "$ide" || return 1
+
 	echo "Configuring project at: $project_path" | info
 
 	# Calculate the default base name to display (without mode suffix)
@@ -132,12 +155,8 @@ init() {
 			return 1
 		fi
 		agent=$(select_agent)
-	elif ! validate_agent "$agent"
-	then
-		return 1
 	fi
 
-	local available_modes=(cli devcontainer)
 	if [[ -z "$mode" ]]
 	then
 		if [[ "$batch" == "true" ]]
@@ -173,10 +192,6 @@ init() {
 				return 1
 			fi
 			ide=$(select_option "Select IDE:" "${available_ides[@]}")
-		elif [[ ! " ${available_ides[*]} " =~ [[:space:]]${ide}[[:space:]] ]]
-		then
-			echo "Invalid IDE: $ide (expected: ${available_ides[*]})" | error
-			return 1
 		fi
 
 		require yq
