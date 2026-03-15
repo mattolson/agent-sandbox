@@ -21,7 +21,7 @@ write_policy_file() {
 
 	copy_policy_template "$policy_file" "policy.yaml"
 
-	services="$services" yq -i '.services = (strenv(services) | split("\n") )' "$policy_file"
+	services="$services" yq -i '.services = (strenv(services) | split("\n") | map(select(. != "")))' "$policy_file"
 }
 
 scaffold_user_policy_file_if_missing() {

@@ -14,6 +14,17 @@ source "$AGB_LIBDIR/path.bash"
 
 # Helper that automatically locates the docker compose files
 # All arguments are passed to docker compose
+compose_command_requires_runtime_sync() {
+	case "${1:-}" in
+	up | run | create | restart | start)
+		return 0
+		;;
+	*)
+		return 1
+		;;
+	esac
+}
+
 compose() {
 	local repo_root
 	repo_root="$(find_repo_root)"
@@ -24,6 +35,11 @@ compose() {
 	require docker
 
 	local compose_files=()
+	local sync_runtime=false
+	if compose_command_requires_runtime_sync "${1:-}"
+	then
+		sync_runtime=true
+	fi
 
 	if devcontainer_centralized_runtime_initialized "$repo_root"
 	then
@@ -33,7 +49,10 @@ compose() {
 			return 1
 		}
 
-		ensure_devcontainer_runtime_files "$repo_root" "$active_agent"
+		if [[ "$sync_runtime" == "true" ]]
+		then
+			ensure_devcontainer_runtime_files "$repo_root" "$active_agent"
+		fi
 
 		local compose_file
 		while IFS= read -r compose_file
@@ -48,7 +67,10 @@ compose() {
 			return 1
 		}
 
-		ensure_cli_agent_runtime_files "$repo_root" "$active_agent"
+		if [[ "$sync_runtime" == "true" ]]
+		then
+			ensure_cli_agent_runtime_files "$repo_root" "$active_agent"
+		fi
 
 		local compose_file
 		while IFS= read -r compose_file

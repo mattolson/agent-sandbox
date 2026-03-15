@@ -164,3 +164,16 @@ get_file_mtime() {
 		stat -c "%Y" "$file"
 	fi
 }
+
+replace_file_if_changed() {
+	local tmp_file=$1
+	local target_file=$2
+
+	if [[ -f "$target_file" ]] && cmp -s "$tmp_file" "$target_file"
+	then
+		rm -f "$tmp_file"
+		return 0
+	fi
+
+	mv "$tmp_file" "$target_file"
+}
