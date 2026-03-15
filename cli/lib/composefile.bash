@@ -124,8 +124,11 @@ set_project_name() {
 	require yq
 	local compose_file=$1
 	local project_name=$2
+	local tmp_file="${compose_file}.tmp"
 
-	project_name="$project_name" yq -i '. = {"name": env(project_name)} * .' "$compose_file"
+	cp "$compose_file" "$tmp_file"
+	project_name="$project_name" yq -i '. = {"name": env(project_name)} * .' "$tmp_file"
+	replace_file_if_changed "$tmp_file" "$compose_file"
 }
 
 read_project_name_if_exists() {
