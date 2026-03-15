@@ -304,6 +304,7 @@ ensure_devcontainer_runtime_files() {
 	local default_agent_image
 	local proxy_image
 	local agent_image=""
+	local agent_compose_created=false
 
 	validate_agent "$agent" >/dev/null
 
@@ -364,9 +365,10 @@ ensure_devcontainer_runtime_files() {
 	if [[ ! -f "$agent_compose_file" ]]
 	then
 		write_cli_agent_compose_file "$repo_root" "$agent" "$agent_image"
+		agent_compose_created=true
 	fi
 
-	ensure_cli_agent_runtime_files "$repo_root" "$agent"
+	ensure_cli_agent_runtime_files "$repo_root" "$agent" "$agent_compose_created"
 	scaffold_devcontainer_user_json_if_missing "$repo_root"
 
 	render_devcontainer_json "$repo_root" "$agent" "$(devcontainer_json_file "$repo_root")"

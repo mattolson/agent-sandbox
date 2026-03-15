@@ -388,6 +388,7 @@ initialize_cli_layered_layout() {
 ensure_cli_agent_runtime_files() {
 	local repo_root=$1
 	local agent=$2
+	local skip_agent_compose="${3:-false}"
 
 	validate_agent "$agent" >/dev/null
 
@@ -395,6 +396,9 @@ ensure_cli_agent_runtime_files() {
 	scaffold_cli_shared_override_if_missing "$repo_root"
 	scaffold_cli_shared_policy_if_missing "$repo_root"
 	ensure_cli_policy_file "$repo_root" "$agent"
-	scaffold_cli_agent_compose "$repo_root" "$agent" "false" "false"
+	if [[ "$skip_agent_compose" != "true" ]]
+	then
+		scaffold_cli_agent_compose "$repo_root" "$agent" "false" "false"
+	fi
 	scaffold_cli_agent_override_if_missing "$repo_root" "$agent"
 }
