@@ -41,6 +41,31 @@ teardown() {
 	assert_output --partial "Invalid IDE: invalid (expected: vscode jetbrains none)"
 }
 
+@test "init fails fast for legacy layouts before prompting" {
+	mkdir -p "$PROJECT_DIR/.agent-sandbox"
+	touch "$PROJECT_DIR/.agent-sandbox/docker-compose.yml"
+
+	unset -f read_line
+	unset -f select_option
+	read_line() {
+		echo "prompted" > "$BATS_TEST_TMPDIR/read-line.called"
+		echo test
+	}
+	select_option() {
+		echo "prompted" > "$BATS_TEST_TMPDIR/select-option.called"
+		echo claude
+	}
+
+	run init --path "$PROJECT_DIR"
+
+	assert_failure
+	assert_output --partial "does not support the legacy single-file layout"
+	assert_output --partial ".agent-sandbox/docker-compose.legacy.yml"
+	assert_output --partial "docs/upgrades/m8-layered-layout.md"
+	[ ! -f "$BATS_TEST_TMPDIR/read-line.called" ]
+	[ ! -f "$BATS_TEST_TMPDIR/select-option.called" ]
+}
+
 @test "init accepts valid --agent and --mode values" {
 	stub cli "--project-path $PROJECT_DIR --agent claude --name test : :"
 

@@ -370,47 +370,6 @@ scaffold_cli_shared_policy_if_missing() {
 	scaffold_user_policy_file_if_missing "$policy_file" "user.policy.yaml"
 }
 
-migrate_cli_legacy_policy_file() {
-	local repo_root=$1
-	local agent=$2
-	local legacy_policy_file
-	local shared_policy_file
-	local agent_policy_file
-
-	validate_agent "$agent" >/dev/null
-	legacy_policy_file="$(cli_legacy_policy_file "$repo_root" "$agent")"
-	shared_policy_file="$(cli_shared_policy_file "$repo_root")"
-	agent_policy_file="$(cli_user_agent_policy_file "$repo_root" "$agent")"
-
-	if [[ ! -f "$legacy_policy_file" ]]
-	then
-		return 0
-	fi
-
-	if [[ -f "$agent_policy_file" ]]
-	then
-		echo "Retiring legacy flat policy file: $legacy_policy_file" | warning
-	else
-		echo "Carrying forward legacy flat policy into $agent_policy_file" | info
-	fi
-
-	carry_forward_legacy_cli_policy_file \
-		"$legacy_policy_file" \
-		"$agent_policy_file" \
-		"$agent" \
-		"$shared_policy_file"
-}
-
-migrate_all_cli_legacy_policy_files() {
-	local repo_root=$1
-	local agent
-
-	while IFS= read -r agent
-	do
-		migrate_cli_legacy_policy_file "$repo_root" "$agent"
-	done < <(supported_agents)
-}
-
 initialize_cli_layered_layout() {
 	local repo_root=$1
 	local agent=$2
@@ -421,7 +380,6 @@ initialize_cli_layered_layout() {
 	scaffold_cli_base_compose "$repo_root" "$project_name"
 	scaffold_cli_shared_override_if_missing "$repo_root"
 	scaffold_cli_shared_policy_if_missing "$repo_root"
-	migrate_all_cli_legacy_policy_files "$repo_root"
 	ensure_cli_policy_file "$repo_root" "$agent"
 	scaffold_cli_agent_compose "$repo_root" "$agent" "true" "true"
 	scaffold_cli_agent_override_if_missing "$repo_root" "$agent"
@@ -436,7 +394,6 @@ ensure_cli_agent_runtime_files() {
 	ensure_cli_base_policy_runtime_config "$repo_root" || true
 	scaffold_cli_shared_override_if_missing "$repo_root"
 	scaffold_cli_shared_policy_if_missing "$repo_root"
-	migrate_all_cli_legacy_policy_files "$repo_root"
 	ensure_cli_policy_file "$repo_root" "$agent"
 	scaffold_cli_agent_compose "$repo_root" "$agent" "false" "false"
 	scaffold_cli_agent_override_if_missing "$repo_root" "$agent"

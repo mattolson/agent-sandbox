@@ -11,6 +11,8 @@ source "$AGB_LIBDIR/cli-compose.bash"
 source "$AGB_LIBDIR/path.bash"
 # shellcheck source=../../lib/composefile.bash
 source "$AGB_LIBDIR/composefile.bash"
+# shellcheck source=../../lib/legacy-layout.bash
+source "$AGB_LIBDIR/legacy-layout.bash"
 # shellcheck source=../../lib/logging.bash
 source "$AGB_LIBDIR/logging.bash"
 
@@ -69,11 +71,13 @@ bump_service() {
 # Updates Docker images in compose file to latest digests
 # Reads current images, pulls latest versions, and updates to new digests
 bump() {
-	require docker
-	require yq
-
 	local repo_root
 	repo_root="$(find_repo_root)"
+
+	abort_if_unsupported_legacy_layout "$repo_root" "bump" || return 1
+
+	require docker
+	require yq
 
 	if cli_layered_compose_initialized "$repo_root"
 	then
@@ -100,20 +104,8 @@ bump() {
 			fi
 		done < <(supported_agents)
 	else
-		local compose_file
-		compose_file="$(find_compose_file)"
-
-		echo "Found compose file: $compose_file" | info
-
-		local services=("proxy" "agent")
-
-		echo "Checking images for services: ${services[*]}" | info
-
-		local service
-		for service in "${services[@]}"
-		do
-			bump_service "$compose_file" "$service"
-		done
+		echo "No layered compose layout found at $repo_root. Run 'agentbox init' first." | error
+		return 1
 	fi
 
 	echo "Bump complete" | info

@@ -18,7 +18,7 @@ Not in scope:
 - [x] `docs/codex/README.md` exists with setup, auth, usage, and network policy sections
 - [x] `README.md` lists Codex in supported agents table (Preview status)
 - [x] `README.md` agent-specific setup section links to Codex docs
-- [ ] `enforcer.py` reorder committed
+- [x] `enforcer.py` reorder committed
 
 ## Plan
 

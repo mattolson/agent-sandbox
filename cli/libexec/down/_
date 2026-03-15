@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-exec "$AGB_LIBDIR/run-compose" down "$@"
+AGENTBOX_RUNTIME_COMMAND_NAME="down" exec "$AGB_LIBDIR/run-compose" down "$@"

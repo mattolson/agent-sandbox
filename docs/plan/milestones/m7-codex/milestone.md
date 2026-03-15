@@ -1,6 +1,8 @@
 # m7-codex
 
-**Status: Not started**
+**Status: Complete**
+
+Codex support shipped across images, templates, CLI integration, CI, and docs.
 
 Add OpenAI Codex CLI as a supported agent.
 
@@ -206,11 +208,11 @@ In practice, m7.1 through m7.4 could be a single PR since the changes are small 
 
 ## Definition of Done
 
-- [ ] `agentbox init --agent codex` works for both CLI and devcontainer modes
-- [ ] Codex image builds for amd64 and arm64 with no Node.js dependency
-- [ ] Codex's internal sandbox is disabled in the container
-- [ ] Proxy allows traffic to OpenAI API and OAuth domains, blocks everything else
-- [ ] `./images/build.sh codex` and `./images/build.sh all` succeed
-- [ ] CI builds and publishes image on push to main
-- [ ] Daily version check detects new Codex releases
-- [ ] Documentation covers setup, auth, and usage
+- [x] `agentbox init --agent codex` works for both CLI and devcontainer modes
+- [x] Codex image builds for amd64 and arm64 with no Node.js dependency
+- [x] Codex's internal sandbox is disabled in the container
+- [x] Proxy allows traffic to OpenAI API and OAuth domains, blocks everything else
+- [x] `./images/build.sh codex` and `./images/build.sh all` succeed
+- [x] CI builds and publishes image on push to main
+- [x] Daily version check detects new Codex releases
+- [x] Documentation covers setup, auth, and usage

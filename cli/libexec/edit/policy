@@ -13,28 +13,12 @@ source "$AGB_LIBDIR/agent.bash"
 source "$AGB_LIBDIR/cli-compose.bash"
 # shellcheck source=../../lib/devcontainer.bash
 source "$AGB_LIBDIR/devcontainer.bash"
+# shellcheck source=../../lib/legacy-layout.bash
+source "$AGB_LIBDIR/legacy-layout.bash"
 # shellcheck source=../../lib/select.bash
 source "$AGB_LIBDIR/select.bash"
 # shellcheck source=../../lib/path.bash
 source "$AGB_LIBDIR/path.bash"
-
-# Opens the network policy file in the default editor. If the file is modified,
-# automatically restarts the proxy service (only if docker compose is running).
-#
-legacy_policy_file_matches() {
-	local repo_root=$1
-	local mode=$2
-	local agent=$3
-	local mode_pattern="${mode:-*}"
-	local agent_pattern="${agent:-*}"
-	local policy_files=()
-
-	mapfile -t policy_files < <(compgen -G "$repo_root/$AGB_PROJECT_DIR/policy-$mode_pattern-$agent_pattern.yaml" 2>/dev/null | sort)
-	if [[ ${#policy_files[@]} -gt 0 ]]
-	then
-		printf '%s\n' "${policy_files[@]}"
-	fi
-}
 
 policy() {
 	local repo_root
@@ -63,14 +47,19 @@ policy() {
 		esac
 	done
 
+	if [[ -n "$agent" ]]
+	then
+		validate_agent "$agent" || return 1
+	fi
+
+	abort_if_unsupported_legacy_layout "$repo_root" "edit policy" "$agent" "$mode" || return 1
+
 	if cli_layered_compose_initialized "$repo_root" || devcontainer_centralized_runtime_initialized "$repo_root"
 	then
 		scaffold_cli_shared_policy_if_missing "$repo_root"
 
 		if [[ -n "$agent" ]]
 		then
-			validate_agent "$agent" || return 1
-			migrate_cli_legacy_policy_file "$repo_root" "$agent"
 			ensure_cli_policy_file "$repo_root" "$agent"
 			policy_file="$(cli_user_agent_policy_file "$repo_root" "$agent")"
 
@@ -84,24 +73,8 @@ policy() {
 			policy_file="$(cli_shared_policy_file "$repo_root")"
 		fi
 	else
-		local policy_files=()
-		mapfile -t policy_files < <(legacy_policy_file_matches "$repo_root" "$mode" "$agent")
-		if [[ ${#policy_files[@]} -eq 0 ]]
-		then
-			local mode_pattern="${mode:-*}"
-			local agent_pattern="${agent:-*}"
-			echo "No policy file found matching pattern: $repo_root/$AGB_PROJECT_DIR/policy-$mode_pattern-$agent_pattern.yaml" | error
-			return 1
-		fi
-
-		if [[ ${#policy_files[@]} -gt 1 ]]
-		then
-			echo "Multiple policy files found matching pattern:" | warning
-			printf '  %s\n' "${policy_files[@]}" | warning
-			echo "Using: ${policy_files[0]}" | warning
-		fi
-
-		policy_file="${policy_files[0]}"
+		echo "No layered policy layout found at $repo_root. Run 'agentbox init' first." | error
+		return 1
 	fi
 
 	local mtime_before

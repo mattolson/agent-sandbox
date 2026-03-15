@@ -11,6 +11,8 @@ source "$AGB_LIBDIR/agent.bash"
 source "$AGB_LIBDIR/cli-compose.bash"
 # shellcheck source=../../lib/devcontainer.bash
 source "$AGB_LIBDIR/devcontainer.bash"
+# shellcheck source=../../lib/legacy-layout.bash
+source "$AGB_LIBDIR/legacy-layout.bash"
 
 switch() {
 	local agent=""
@@ -37,6 +39,8 @@ switch() {
 		echo "agent-sandbox is not initialized at $repo_root. Run 'agentbox init' first." | error
 		return 1
 	fi
+
+	abort_if_unsupported_legacy_layout "$repo_root" "switch" "$agent" || return 1
 
 	if [[ -z "$agent" ]]
 	then

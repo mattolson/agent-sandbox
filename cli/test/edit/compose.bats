@@ -6,37 +6,59 @@ setup() {
 	# shellcheck source=../../libexec/edit/compose
 	source "$AGB_LIBEXECDIR/edit/compose"
 
-	mkdir -p "$BATS_TEST_TMPDIR/.devcontainer"
-	COMPOSE_FILE="$BATS_TEST_TMPDIR/.devcontainer/docker-compose.yml"
-	touch "$COMPOSE_FILE"
+	REPO_ROOT="$BATS_TEST_TMPDIR/repo"
+	mkdir -p "$REPO_ROOT/.git"
+
+	local bin_dir="$BATS_TEST_TMPDIR/bin"
+	mkdir -p "$bin_dir"
+	cat > "$bin_dir/yq" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+	chmod +x "$bin_dir/yq"
+	PATH="$bin_dir:$PATH"
 }
 
 teardown() {
 	unstub_all
 }
 
-@test "edit opens compose file in editor" {
-	unset -f open_editor
-	stub open_editor \
-		"$COMPOSE_FILE : :"
+setup_layered_cli_project() {
+	local compose_dir="$REPO_ROOT/$AGB_PROJECT_DIR/compose"
+	local shared_override="$compose_dir/user.override.yml"
+	local agent_override="$compose_dir/user.agent.claude.override.yml"
 
-	cd "$BATS_TEST_TMPDIR"
+	mkdir -p "$compose_dir"
+	touch "$compose_dir/base.yml" "$compose_dir/agent.claude.yml" "$shared_override" "$agent_override"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent for this project." \
+		"ACTIVE_AGENT=claude" > "$REPO_ROOT/$AGB_PROJECT_DIR/active-target.env"
+}
+
+@test "edit compose fails fast for legacy layouts" {
+	mkdir -p "$REPO_ROOT/.devcontainer"
+	touch "$REPO_ROOT/.devcontainer/docker-compose.yml"
+
+	cd "$REPO_ROOT"
 	run edit
-	assert_success
+
+	assert_failure
+	assert_output --partial "does not support the legacy single-file layout"
+	assert_output --partial ".devcontainer/docker-compose.yml -> .devcontainer/docker-compose.legacy.yml"
+	assert_output --partial "docs/upgrades/m8-layered-layout.md"
 }
 
 @test "edit opens shared user override for layered CLI projects" {
-	local compose_dir="$BATS_TEST_TMPDIR/$AGB_PROJECT_DIR/compose"
+	local compose_dir="$REPO_ROOT/$AGB_PROJECT_DIR/compose"
 	local override_file="$compose_dir/user.override.yml"
 
-	mkdir -p "$compose_dir" "$BATS_TEST_TMPDIR/.git"
-	touch "$compose_dir/base.yml" "$override_file"
+	setup_layered_cli_project
 
 	unset -f open_editor
 	stub open_editor \
 		"$override_file : :"
 
-	cd "$BATS_TEST_TMPDIR"
+	cd "$REPO_ROOT"
 	run edit
 	assert_success
 }
@@ -46,7 +68,12 @@ teardown() {
 	local user_file="$repo_root/$AGB_PROJECT_DIR/compose/user.override.yml"
 
 	mkdir -p "$repo_root/.devcontainer" "$repo_root/$AGB_PROJECT_DIR/compose" "$repo_root/.git"
-	touch "$repo_root/.devcontainer/devcontainer.json" "$repo_root/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml" "$user_file"
+	touch \
+		"$repo_root/.devcontainer/devcontainer.json" \
+		"$repo_root/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml" \
+		"$repo_root/$AGB_PROJECT_DIR/compose/base.yml" \
+		"$repo_root/$AGB_PROJECT_DIR/compose/agent.codex.yml" \
+		"$user_file"
 	printf '%s\n' \
 		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
 		"ACTIVE_AGENT=codex" \
@@ -62,74 +89,120 @@ teardown() {
 	assert_success
 }
 
-@test "edit restarts containers when file modified and containers running (default)" {
+@test "edit restarts containers when file modified and containers running by default" {
+	local compose_dir="$REPO_ROOT/$AGB_PROJECT_DIR/compose"
+	local override_file="$compose_dir/user.override.yml"
+	local base_file="$compose_dir/base.yml"
+	local agent_file="$compose_dir/agent.claude.yml"
+	local agent_override="$compose_dir/user.agent.claude.override.yml"
+
+	setup_layered_cli_project
+
 	unset -f open_editor
 	stub open_editor \
-		"$COMPOSE_FILE : sleep 1 && touch '$COMPOSE_FILE'"
+		"$override_file : sleep 1 && touch '$override_file'"
+	ensure_cli_agent_runtime_files() { :; }
 
 	stub docker \
-		"compose -f $COMPOSE_FILE ps --status running --quiet : echo running" \
-		"compose -f $COMPOSE_FILE up -d : :"
+		"compose -f $base_file -f $agent_file -f $override_file -f $agent_override ps --status running --quiet : echo running" \
+		"compose -f $base_file -f $agent_file -f $override_file -f $agent_override up -d : :"
 
-	cd "$BATS_TEST_TMPDIR"
+	cd "$REPO_ROOT"
 	run edit
+
 	assert_success
 	assert_output --partial "Compose file was modified. Restarting containers..."
 	refute_output --partial "agentbox up -d"
 }
 
-@test "edit confirms save when file modified and no containers running" {
+@test "edit confirms save when file modified and no containers are running" {
+	local compose_dir="$REPO_ROOT/$AGB_PROJECT_DIR/compose"
+	local override_file="$compose_dir/user.override.yml"
+	local base_file="$compose_dir/base.yml"
+	local agent_file="$compose_dir/agent.claude.yml"
+	local agent_override="$compose_dir/user.agent.claude.override.yml"
+
+	setup_layered_cli_project
+
 	unset -f open_editor
 	stub open_editor \
-		"$COMPOSE_FILE : sleep 1 && touch '$COMPOSE_FILE'"
+		"$override_file : sleep 1 && touch '$override_file'"
+	ensure_cli_agent_runtime_files() { :; }
 
 	stub docker \
-		"compose -f $COMPOSE_FILE ps --status running --quiet : :"
+		"compose -f $base_file -f $agent_file -f $override_file -f $agent_override ps --status running --quiet : :"
 
-	cd "$BATS_TEST_TMPDIR"
+	cd "$REPO_ROOT"
 	run edit
+
 	assert_success
 	assert_output --partial "Compose file was modified."
 	refute_output --partial "agentbox up -d"
 }
 
-@test "edit reports no changes when file unchanged" {
+@test "edit reports no changes when file is unchanged" {
+	local compose_dir="$REPO_ROOT/$AGB_PROJECT_DIR/compose"
+	local override_file="$compose_dir/user.override.yml"
+
+	setup_layered_cli_project
+
 	unset -f open_editor
 	stub open_editor \
-		"$COMPOSE_FILE : :"
+		"$override_file : :"
 
-	cd "$BATS_TEST_TMPDIR"
+	cd "$REPO_ROOT"
 	run edit
+
 	assert_success
 	assert_output --partial "No changes detected."
 }
 
-@test "edit with --no-restart warns when modified and containers running" {
+@test "edit with --no-restart warns when modified and containers are running" {
+	local compose_dir="$REPO_ROOT/$AGB_PROJECT_DIR/compose"
+	local override_file="$compose_dir/user.override.yml"
+	local base_file="$compose_dir/base.yml"
+	local agent_file="$compose_dir/agent.claude.yml"
+	local agent_override="$compose_dir/user.agent.claude.override.yml"
+
+	setup_layered_cli_project
+
 	unset -f open_editor
 	stub open_editor \
-		"$COMPOSE_FILE : sleep 1 && touch '$COMPOSE_FILE'"
+		"$override_file : sleep 1 && touch '$override_file'"
+	ensure_cli_agent_runtime_files() { :; }
 
 	stub docker \
-		"compose -f $COMPOSE_FILE ps --status running --quiet : echo running"
+		"compose -f $base_file -f $agent_file -f $override_file -f $agent_override ps --status running --quiet : echo running"
 
-	cd "$BATS_TEST_TMPDIR"
+	cd "$REPO_ROOT"
 	run edit --no-restart
+
 	assert_success
 	assert_output --partial "Compose file was modified, and you have containers running."
 	assert_output --partial "agentbox up -d"
 }
 
-@test "edit respects AGENTBOX_NO_RESTART env var when modified and containers running" {
+@test "edit respects AGENTBOX_NO_RESTART when modified and containers are running" {
+	local compose_dir="$REPO_ROOT/$AGB_PROJECT_DIR/compose"
+	local override_file="$compose_dir/user.override.yml"
+	local base_file="$compose_dir/base.yml"
+	local agent_file="$compose_dir/agent.claude.yml"
+	local agent_override="$compose_dir/user.agent.claude.override.yml"
+
+	setup_layered_cli_project
+
 	unset -f open_editor
 	stub open_editor \
-		"$COMPOSE_FILE : sleep 1 && touch '$COMPOSE_FILE'"
+		"$override_file : sleep 1 && touch '$override_file'"
+	ensure_cli_agent_runtime_files() { :; }
 
 	stub docker \
-		"compose -f $COMPOSE_FILE ps --status running --quiet : echo running"
+		"compose -f $base_file -f $agent_file -f $override_file -f $agent_override ps --status running --quiet : echo running"
 
 	export AGENTBOX_NO_RESTART=true
-	cd "$BATS_TEST_TMPDIR"
+	cd "$REPO_ROOT"
 	run edit
+
 	assert_success
 	assert_output --partial "Compose file was modified, and you have containers running."
 	assert_output --partial "agentbox up -d"

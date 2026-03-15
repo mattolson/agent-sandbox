@@ -92,20 +92,38 @@ teardown() {
 	assert_output --partial "inactive agent 'codex'"
 }
 
-@test "policy falls back to legacy devcontainer policy lookup" {
+@test "policy fails fast for legacy cli policy files even in layered projects" {
+	local legacy_policy_file="$PROJECT_DIR/$AGB_PROJECT_DIR/policy-cli-codex.yaml"
+
+	printf '%s\n' \
+		"services:" \
+		"  - codex" \
+		"domains:" \
+		"  - api.openai.com" > "$legacy_policy_file"
+
+	cd "$PROJECT_DIR"
+	run policy --agent codex
+
+	assert_failure
+	assert_output --partial "does not support the legacy single-file layout"
+	assert_output --partial "policy-cli-codex.legacy.yaml"
+	assert_output --partial "docs/upgrades/m8-layered-layout.md"
+}
+
+@test "policy fails fast for legacy devcontainer policy layouts" {
 	local devcontainer_root="$BATS_TEST_TMPDIR/devcontainer-project"
 	local legacy_policy_file="$devcontainer_root/$AGB_PROJECT_DIR/policy-devcontainer-claude.yaml"
 
 	mkdir -p "$devcontainer_root/.git" "$devcontainer_root/$AGB_PROJECT_DIR"
 	touch "$legacy_policy_file"
 
-	unset -f open_editor
-	stub open_editor \
-		"$legacy_policy_file : :"
-
 	cd "$devcontainer_root"
 	run policy --mode devcontainer --agent claude
-	assert_success
+
+	assert_failure
+	assert_output --partial "does not support the legacy single-file layout"
+	assert_output --partial "policy-devcontainer-claude.legacy.yaml"
+	assert_output --partial "docs/upgrades/m8-layered-layout.md"
 }
 
 @test "policy defaults devcontainer sidecar projects to the shared layered policy file" {

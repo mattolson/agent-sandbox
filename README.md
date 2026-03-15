@@ -100,6 +100,20 @@ files. Uncomment them as needed, or set `AGENTBOX_*` environment variables for s
 If you edit `.devcontainer/devcontainer.user.json`, rerun `agentbox switch --agent <current-agent>` before reopening
 the devcontainer so agentbox can regenerate `.devcontainer/devcontainer.json`.
 
+To switch agents later without reinitializing the project:
+
+```bash
+agentbox switch --agent codex
+```
+
+`switch` preserves user-owned override files and agent-specific state volumes. In devcontainer projects it also
+regenerates `.devcontainer/devcontainer.json` for the selected agent while preserving
+`.devcontainer/devcontainer.user.json`.
+
+If the project still has a legacy single-file layout such as `.agent-sandbox/docker-compose.yml` or
+`.devcontainer/docker-compose.yml`, current commands fail fast and point you to the
+[upgrade guide](docs/upgrades/m8-layered-layout.md).
+
 ### 4. Start the sandbox
 
 **CLI:**
@@ -178,6 +192,8 @@ The `.agent-sandbox` directory, and in devcontainer workflows the `.devcontainer
 inside the agent container. The proxy reads the policy at startup, so changes require a restart from the host.
 
 See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format reference.
+If you still have legacy single-file sandbox files, use the
+[upgrade guide](docs/upgrades/m8-layered-layout.md) before editing policy or compose.
 
 ## Customization
 
