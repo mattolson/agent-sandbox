@@ -33,5 +33,8 @@ RUN npm install -g @github/copilot@${COPILOT_VERSION}
 
 USER dev
 
+# Tell Copilot where its config/state lives
+ENV COPILOT_HOME="/home/dev/.copilot"
+
 LABEL org.opencontainers.image.description="Agent Sandbox with GitHub Copilot CLI"
 LABEL com.mattolson.agentsandbox.copilot-version="${COPILOT_VERSION}"
