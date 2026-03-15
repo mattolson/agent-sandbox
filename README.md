@@ -5,31 +5,33 @@
 
 Run AI coding agents in a locked-down local sandbox with:
 
-- Minimal filesystem access (only your repo + project-scoped agent state)
+- Minimal filesystem access (read/write access to only the repository directory)
 - Configurable egress policy enforced by sidecar proxy (mitmproxy sidecar blocks non-allowed domains)
 - Iptables firewall preventing direct outbound (all traffic must go through the proxy)
 - Reproducible environments (Debian container with pinned dependencies)
+- Persistent volume for agent state - auth and config preserved across container restarts
+- Ability to easily switch between agents without losing state
+- Support for CLI and devcontainers (including VS Code and JetBrains IDEs)
 
 Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](https://docs.docker.com/engine/) on Apple Silicon. Should work with any Docker-compatible runtime.
 
-## Supported agents
-
-| Agent | Status |
-|-------|--------|
-| [Claude Code](https://claude.ai/code) | ✅ Stable |
-| [Codex](https://github.com/openai/codex) | ✅ Stable |
-| [GitHub Copilot](https://github.com/github/copilot-cli) | 🧪 Preview |
-
 ## Runtime modes
 
-The sandbox is implemented as a Docker Compose project with a two-container stack: the agent container and a sidecar proxy (mitmproxy). There are two main ways to run this stack:
+**CLI (preferred)** - run the agent in a terminal session managed by `agentbox exec`.
 
-**CLI** mode (recommended) stores the docker-compose project in the `.agent-sandbox` directory.
+**Devcontainer** - open the project in VS Code or JetBrains and let the IDE manage the container lifecycle.
 
-**Devcontainer** mode keeps `.devcontainer/` as a thin IDE entrypoint (`devcontainer.json` plus optional
-`devcontainer.user.json`) and stores the sandbox runtime compose and policy files in `.agent-sandbox/`.
-`devcontainer.user.json` is an agentbox overlay input, not a second devcontainer file that the IDE reads directly:
-agentbox merges it into the generated `.devcontainer/devcontainer.json` during init and refresh paths.
+## Supported agents
+
+| Agent | CLI | VS Code | JetBrains |
+|-------|-----|---------|-----------|
+| [Claude Code](https://code.claude.com/docs/en/overview) | :green_circle: Full | :green_circle: Full | :green_circle: Full |
+| [Codex CLI](https://github.com/openai/codex) | :green_circle: Full | :large_blue_circle: Preview | :large_blue_circle: Preview |
+| [Copilot CLI](https://github.com/github/copilot-cli) | :green_circle: Full | :large_blue_circle: Preview | :red_circle: Not supported |
+
+:green_circle: **Full** - stable, heavily used.
+:large_blue_circle: **Preview** - functional but not heavily tested.
+:red_circle: **Not supported** - known blockers. Copilot's IntelliJ plugin [cannot complete auth in a devcontainer](https://github.com/microsoft/copilot-intellij-feedback/issues/1375).
 
 ## Quick start (macOS + Colima)
 
@@ -42,8 +44,6 @@ You need docker and docker-compose installed. So far we've tested with Colima + 
 brew install colima docker docker-compose docker-buildx yq
 colima start --cpu 4 --memory 8 --disk 60
 ```
-
-Set your [Docker credential helper](https://docs.docker.com/reference/cli/docker/login/#configure-the-credential-store) to `osxkeychain` (not `desktop`) in `~/.docker/config.json`.
 
 ### 2. Install agent-sandbox CLI
 
@@ -59,11 +59,11 @@ git clone https://github.com/mattolson/agent-sandbox.git
 export PATH="$PWD/agent-sandbox/cli/bin:$PATH"
 ```
 
-`yq` is required to edit compose files. Install with `brew install yq`.
+`yq` is required for certain CLI functionality. Install with `brew install yq`.
 
 #### Run through docker image
 
-You can also run the cli through a published docker image if you don't want to install anything locally:
+You can also run the agentbox CLI through a published docker image if you don't want to install anything locally:
 
 ```bash
 # Pull the image to local docker
@@ -73,49 +73,24 @@ docker pull ghcr.io/mattolson/agent-sandbox-cli
 alias agentbox='docker run --rm -it -v "/var/run/docker.sock:/var/run/docker.sock" -v"$PWD:$PWD" -w"$PWD" -e TERM -e HOME --network none ghcr.io/mattolson/agent-sandbox-cli'
 ```
 
-Using the Docker image disables the editor integration (`vi` installed in the image will be used instead of your host editor).
-
-The host environment variables will not be available inside the container, unless you forward them explicitly. This is important, because Docker Compose runs inside the container. `HOME` is already forwarded to handle common use cases.
-
-The image runs as root, to avoid permission issues with the host Docker socket. On Colima file ownership is mapped automatically, on Linux you should add `--user` parameter accordingly.
-
 ### 3. Initialize the sandbox for your project
 
 ```bash
 agentbox init
 ```
 
-This prompts for the project name, agent, mode, and IDE when needed, then generates the policy and compose files for the sandbox.
+This prompts interactively for the project name, agent, mode, and IDE when needed, then generates the docker compose and network policy files for the sandbox.
 
-You can pass flags to skip the selection prompts. Use `--batch` to disable all prompts:
+For scripted use, you can pass flags to skip the selection prompts. Use `--batch` to disable all prompts:
 
 ```bash
 agentbox init --batch --agent claude --mode cli
 ```
 
-Optional volume mounts (dotfiles, shell customizations, .git read-only, etc.) are scaffolded into user-owned override
-files. Uncomment them as needed, or set `AGENTBOX_*` environment variables for scripted usage. See the
-[CLI README](cli/README.md) for the full list of flags and environment variables.
+See the [CLI README](cli/README.md) for the full list of flags and environment variables.
 
-To inspect the rendered config after init, use `agentbox policy config` for the effective policy and
-`agentbox compose config` for the effective compose stack.
-
-If you edit `.devcontainer/devcontainer.user.json`, rerun `agentbox switch --agent <current-agent>` before reopening
-the devcontainer so agentbox can regenerate `.devcontainer/devcontainer.json`.
-
-To switch agents later without reinitializing the project:
-
-```bash
-agentbox switch --agent codex
-```
-
-`switch` preserves user-owned override files and agent-specific state volumes. In devcontainer projects it also
-regenerates `.devcontainer/devcontainer.json` for the selected agent while preserving
-`.devcontainer/devcontainer.user.json`.
-
-If the project still has a legacy single-file layout such as `.agent-sandbox/docker-compose.yml` or
-`.devcontainer/docker-compose.yml`, current commands fail fast and point you to the
-[upgrade guide](docs/upgrades/m8-layered-layout.md).
+To inspect the configuration after init, use `agentbox policy config` to output the effective network policy and
+`agentbox compose config` for the fully combined docker compose stack.
 
 ### 4. Start the sandbox
 
@@ -146,6 +121,16 @@ Follow the setup instructions specific to the agent image you are using:
 - [Claude Code](docs/claude/README.md)
 - [Codex](docs/codex/README.md)
 - [GitHub Copilot](docs/copilot/README.md)
+
+## Switching agents
+
+Switch to a different agent without reinitializing the project:
+
+```bash
+agentbox switch --agent codex
+```
+
+`switch` preserves user-owned override files and per-agent state volumes (credentials, history). In devcontainer projects it regenerates `.devcontainer/devcontainer.json` for the selected agent.
 
 ## Network policy
 
@@ -204,6 +189,7 @@ If you still have legacy single-file sandbox files, use the
 - **[Dotfiles and shell customization](docs/dotfiles.md)** - Mount dotfiles and shell.d scripts
 - **[Language stacks](docs/stacks.md)** - Extend the base image with Python, Node, Go, Rust
 - **[Image versioning](docs/images.md)** - Pin and bump image digests
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and fixes
 
 ## Security
 
@@ -247,6 +233,10 @@ See [SECURITY.md](./SECURITY.md) for the reporting process. Do not post full rep
 ## Roadmap
 
 See [docs/roadmap.md](./docs/roadmap.md) for planned features and milestones.
+
+## Troubleshooting
+
+Running into problems? Check the [troubleshooting guide](docs/troubleshooting.md).
 
 ## Contributing
 
