@@ -4,7 +4,48 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-No user-facing changes. Internal updates: milestone plans, roadmap updates, scaffold-agent skill.
+## [0.8.0] - 2026-03-14 (f422f7a)
+
+Agent switching without data loss, plus a new layered runtime model from `m8`.
+
+### Added
+
+- **`agentbox switch --agent <name>`.** Switch between supported agents without reinitializing the project. `switch` updates the active agent, lazily scaffolds missing agent runtime files, refreshes `.devcontainer/devcontainer.json` for devcontainer projects, and preserves per-agent state volumes so credentials/history survive switching back.
+
+- **Layered compose ownership.** Managed runtime files now live under `.agent-sandbox/compose/` as:
+  - `base.yml`
+  - `agent.<agent>.yml`
+  - `mode.devcontainer.yml`
+
+  User customizations now live in user-owned files that agentbox does not overwrite:
+  - `.agent-sandbox/compose/user.override.yml`
+  - `.agent-sandbox/compose/user.agent.<agent>.override.yml`
+
+- **Layered policy ownership and runtime merge.** Policy customizations now live under `.agent-sandbox/policy/` as shared and agent-specific user-owned files. The proxy renders the effective policy at startup from the managed active-agent baseline plus:
+  - `.agent-sandbox/policy/user.policy.yaml`
+  - `.agent-sandbox/policy/user.agent.<agent>.policy.yaml`
+  - `.agent-sandbox/policy/policy.devcontainer.yaml` for devcontainer workflows
+
+- **Effective policy inspection.** `agentbox policy config` / `agentbox policy render` now show the same merged policy that proxy runtime enforcement uses.
+
+- **Dedicated upgrade guide for legacy layouts.** Added `docs/upgrades/m8-layered-layout.md` with the rename-and-rerun upgrade flow for pre-`m8` projects.
+
+### Changed
+
+- **Devcontainer projects now use a thin IDE shim.** `.devcontainer/` is now reduced to `devcontainer.json` plus optional `devcontainer.user.json`. Managed compose and policy runtime files moved into `.agent-sandbox/`, so CLI and devcontainer workflows share one runtime ownership model.
+
+- **Compose and policy commands now target layered user-owned surfaces.** `agentbox edit compose` edits the shared `.agent-sandbox/compose/user.override.yml`. `agentbox edit policy` edits layered shared or agent-specific policy files instead of standalone per-mode generated files.
+
+- **Switching a running stack reconciles the runtime immediately.** When containers are already running, `agentbox switch` brings the old stack down and starts the selected agent's stack back up so the visible runtime matches the new active agent.
+
+### Breaking Changes
+
+- **Pre-`m8` single-file layouts are no longer supported by current commands.** Commands such as `init`, `switch`, runtime compose commands, `edit compose`, `edit policy`, and `bump` now fail fast when they detect legacy files such as:
+  - `.agent-sandbox/docker-compose.yml`
+  - `.devcontainer/docker-compose.yml`
+  - `.agent-sandbox/policy-cli-<agent>.yaml`
+
+  Upgrade requires following the guide in `docs/upgrades/m8-layered-layout.md`: rename the old generated files, rerun `agentbox init`, then copy customizations into the new layered user-owned files.
 
 ## [0.6.0] - 2026-02-22 (141b04d)
 
