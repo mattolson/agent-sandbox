@@ -146,6 +146,48 @@ teardown() {
 	[ ! -f "$BATS_TEST_TMPDIR/ensure-cli-agent-runtime-files.called" ]
 }
 
+@test "run-compose fails clearly when layered CLI compose file resolution fails" {
+	local test_root="$BATS_TEST_TMPDIR/repo"
+	local compose_dir="$test_root/$AGB_PROJECT_DIR/compose"
+
+	mkdir -p "$compose_dir" "$test_root/.git"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent for this project." \
+		"ACTIVE_AGENT=codex" > "$test_root/$AGB_PROJECT_DIR/active-target.env"
+	touch "$compose_dir/base.yml"
+
+	require() { :; }
+	emit_cli_compose_files() { return 1; }
+	exec() { "$@"; }
+
+	cd "$test_root"
+	run compose ps
+	assert_failure
+	assert_output --partial "Failed to resolve layered CLI compose files for $test_root."
+}
+
+@test "run-compose fails clearly when devcontainer compose file resolution fails" {
+	local test_root="$BATS_TEST_TMPDIR/repo"
+	local compose_dir="$test_root/$AGB_PROJECT_DIR/compose"
+
+	mkdir -p "$compose_dir" "$test_root/.git" "$test_root/.devcontainer"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
+		"ACTIVE_AGENT=codex" \
+		"DEVCONTAINER_IDE=vscode" \
+		"PROJECT_NAME=repo-sandbox" > "$test_root/$AGB_PROJECT_DIR/active-target.env"
+	touch "$compose_dir/mode.devcontainer.yml" "$test_root/.devcontainer/devcontainer.json"
+
+	require() { :; }
+	emit_devcontainer_compose_files() { return 1; }
+	exec() { "$@"; }
+
+	cd "$test_root"
+	run compose ps
+	assert_failure
+	assert_output --partial "Failed to resolve devcontainer compose files for $test_root."
+}
+
 @test "run-compose fails fast for legacy single-file layouts" {
 	local test_root="$BATS_TEST_TMPDIR/repo"
 	local compose_file="$test_root/.devcontainer/docker-compose.yml"
