@@ -45,7 +45,9 @@ that agent is selected. For devcontainer projects, switching also refreshes the 
 files and regenerates `.devcontainer/devcontainer.json` for the selected agent while preserving
 `.devcontainer/devcontainer.user.json` and reusing the stored IDE selection. If `--agent` is omitted, prompts once for
 the new active agent. This same-agent refresh path is also the explicit way to re-merge edits from
-`.devcontainer/devcontainer.user.json` into the generated `.devcontainer/devcontainer.json`.
+`.devcontainer/devcontainer.user.json` into the generated `.devcontainer/devcontainer.json`. If the current compose
+stack is running, `switch` reconciles it immediately by running `docker compose down` followed by `docker compose up -d`
+through the layered runtime wrapper, so the selected agent and mounted config stay in sync.
 
 If the project is still on the legacy single-file layout, `switch` fails fast and points to the
 [upgrade guide](../docs/upgrades/m8-layered-layout.md).

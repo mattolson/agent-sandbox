@@ -125,6 +125,65 @@ teardown() {
 	assert_output "$PROJECT_DIR codex"
 }
 
+@test "switch restarts running containers after changing the active agent" {
+	local compose_dir="$PROJECT_DIR/.agent-sandbox/compose"
+	local base_file="$compose_dir/base.yml"
+	local active_agent_file="$compose_dir/agent.claude.yml"
+	local target_agent_file="$compose_dir/agent.codex.yml"
+	local shared_override="$compose_dir/user.override.yml"
+	local active_override="$compose_dir/user.agent.claude.override.yml"
+	local target_override="$compose_dir/user.agent.codex.override.yml"
+
+	mkdir -p "$compose_dir"
+	touch \
+		"$base_file" \
+		"$active_agent_file" \
+		"$target_agent_file" \
+		"$shared_override" \
+		"$active_override" \
+		"$target_override"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent for this project." \
+		"ACTIVE_AGENT=claude" > "$PROJECT_DIR/.agent-sandbox/active-target.env"
+
+	ensure_cli_agent_runtime_files() { :; }
+
+	export AGB_LIBDIR="$BATS_TEST_TMPDIR/lib"
+	mkdir -p "$AGB_LIBDIR"
+	cat > "$AGB_LIBDIR/run-compose" <<'SCRIPT'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$BATS_TEST_TMPDIR/run-compose.calls"
+case "$1" in
+	ps)
+		[[ "$*" == "ps --status running --quiet" ]] || { echo "unexpected ps args: $*" >&2; exit 1; }
+		echo "running"
+		;;
+	down)
+		[[ "$*" == "down" ]] || { echo "unexpected down args: $*" >&2; exit 1; }
+		;;
+	up)
+		[[ "$*" == "up -d" ]] || { echo "unexpected up args: $*" >&2; exit 1; }
+		;;
+	*)
+		echo "unexpected command: $*" >&2
+		exit 1
+		;;
+esac
+SCRIPT
+	chmod +x "$AGB_LIBDIR/run-compose"
+
+	run switch --agent codex
+
+	assert_success
+	assert_output --partial "Active agent set to 'codex'. Restarting containers to apply the switch..."
+	run cat "$PROJECT_DIR/.agent-sandbox/active-target.env"
+	assert_success
+	assert_line --index 1 "ACTIVE_AGENT=codex"
+	run cat "$BATS_TEST_TMPDIR/run-compose.calls"
+	assert_success
+	assert_output $'ps --status running --quiet\ndown\nup -d'
+}
+
 @test "switch preserves existing user-owned compose overrides" {
 	local compose_dir="$PROJECT_DIR/.agent-sandbox/compose"
 	local shared_override="$compose_dir/user.override.yml"
@@ -209,24 +268,55 @@ teardown() {
 	assert_output --partial "api.openai.com"
 }
 
-@test "switch does not touch docker while changing the active agent" {
-	mkdir -p "$PROJECT_DIR/.agent-sandbox/compose"
-	touch "$PROJECT_DIR/.agent-sandbox/compose/base.yml"
+@test "switch skips restart when containers are not running" {
+	local compose_dir="$PROJECT_DIR/.agent-sandbox/compose"
+	local base_file="$compose_dir/base.yml"
+	local active_agent_file="$compose_dir/agent.claude.yml"
+	local target_agent_file="$compose_dir/agent.codex.yml"
+	local shared_override="$compose_dir/user.override.yml"
+	local active_override="$compose_dir/user.agent.claude.override.yml"
+	local target_override="$compose_dir/user.agent.codex.override.yml"
+
+	mkdir -p "$compose_dir"
+	touch \
+		"$base_file" \
+		"$active_agent_file" \
+		"$target_agent_file" \
+		"$shared_override" \
+		"$active_override" \
+		"$target_override"
 	printf '%s\n' \
 		"# Managed by agentbox. Tracks the active agent for this project." \
 		"ACTIVE_AGENT=claude" > "$PROJECT_DIR/.agent-sandbox/active-target.env"
 
 	ensure_cli_agent_runtime_files() { :; }
-	docker() {
-		echo "$*" > "$BATS_TEST_TMPDIR/docker.called"
-		return 1
-	}
-	export -f docker
+
+	export AGB_LIBDIR="$BATS_TEST_TMPDIR/lib"
+	mkdir -p "$AGB_LIBDIR"
+	cat > "$AGB_LIBDIR/run-compose" <<'SCRIPT'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$BATS_TEST_TMPDIR/run-compose.calls"
+case "$1" in
+	ps)
+		[[ "$*" == "ps --status running --quiet" ]] || { echo "unexpected ps args: $*" >&2; exit 1; }
+		echo ""
+		;;
+	*)
+		echo "unexpected command: $*" >&2
+		exit 1
+		;;
+esac
+SCRIPT
+	chmod +x "$AGB_LIBDIR/run-compose"
 
 	run switch --agent codex
 
 	assert_success
-	[ ! -f "$BATS_TEST_TMPDIR/docker.called" ]
+	assert_output --partial "Active agent set to 'codex'."
+	refute_output --partial "Restarting containers"
+	run cat "$BATS_TEST_TMPDIR/run-compose.calls"
+	assert_success
+	assert_output "ps --status running --quiet"
 }
 
 @test "switch refreshes centralized devcontainer runtime files when agent is already active" {
