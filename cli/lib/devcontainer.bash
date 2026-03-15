@@ -357,8 +357,9 @@ ensure_devcontainer_runtime_files() {
 	if [[ ! -f "$base_compose_file" ]]
 	then
 		write_cli_base_compose_file "$repo_root" "$project_name" "$proxy_image"
+	else
+		set_project_name "$base_compose_file" "$project_name"
 	fi
-	set_project_name "$base_compose_file" "$project_name"
 
 	if [[ ! -f "$agent_compose_file" ]]
 	then

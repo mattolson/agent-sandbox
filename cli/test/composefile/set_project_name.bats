@@ -43,6 +43,21 @@ teardown() {
 	assert_output "placeholder"
 }
 
+@test "set_project_name does not rewrite file when name is unchanged" {
+	set_project_name "$COMPOSE_FILE" "stable-sandbox"
+
+	local initial_mtime
+	initial_mtime="$(get_file_mtime "$COMPOSE_FILE")"
+
+	sleep 1
+	set_project_name "$COMPOSE_FILE" "stable-sandbox"
+
+	local final_mtime
+	final_mtime="$(get_file_mtime "$COMPOSE_FILE")"
+
+	assert_equal "$final_mtime" "$initial_mtime"
+}
+
 @test "pull_and_pin_image propagates docker pull failure" {
 	stub docker \
 		"pull ghcr.io/example/fail:latest : exit 1"
