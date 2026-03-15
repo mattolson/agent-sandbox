@@ -85,6 +85,32 @@ YAML
 	assert_output $'KEEP=1\nAGENTBOX_ACTIVE_AGENT=claude'
 }
 
+@test "remove_service_volume does not rewrite file when volume is absent" {
+	cat >"$COMPOSE_FILE" <<'YAML'
+services:
+  proxy:
+    image: placeholder
+    volumes:
+      - KEEP:/keep
+YAML
+
+	remove_service_volume "$COMPOSE_FILE" "proxy" "../policy-cli-claude.yaml:/etc/mitmproxy/policy.yaml:ro"
+
+	local initial_mtime
+	initial_mtime="$(get_file_mtime "$COMPOSE_FILE")"
+
+	sleep 1
+	remove_service_volume "$COMPOSE_FILE" "proxy" "../policy-cli-claude.yaml:/etc/mitmproxy/policy.yaml:ro"
+
+	local final_mtime
+	final_mtime="$(get_file_mtime "$COMPOSE_FILE")"
+
+	assert_equal "$final_mtime" "$initial_mtime"
+
+	run yq '.services.proxy.volumes[]' "$COMPOSE_FILE"
+	assert_output "KEEP:/keep"
+}
+
 @test "pull_and_pin_image propagates docker pull failure" {
 	stub docker \
 		"pull ghcr.io/example/fail:latest : exit 1"
