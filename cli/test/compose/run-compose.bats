@@ -120,6 +120,32 @@ teardown() {
 	assert_output "$test_root codex"
 }
 
+@test "run-compose skips runtime sync when AGENTBOX_SKIP_RUNTIME_SYNC is set" {
+	local test_root="$BATS_TEST_TMPDIR/repo"
+	local compose_dir="$test_root/$AGB_PROJECT_DIR/compose"
+	local base_file="$compose_dir/base.yml"
+	local agent_file="$compose_dir/agent.codex.yml"
+
+	mkdir -p "$compose_dir" "$test_root/.git"
+	printf '%s\n' \
+		"# Managed by agentbox. Tracks the active agent for this project." \
+		"ACTIVE_AGENT=codex" > "$test_root/$AGB_PROJECT_DIR/active-target.env"
+	touch "$base_file" "$agent_file"
+
+	stub docker \
+		"compose -f $base_file -f $agent_file run --rm proxy : :"
+
+	ensure_cli_agent_runtime_files() {
+		echo called > "$BATS_TEST_TMPDIR/ensure-cli-agent-runtime-files.called"
+	}
+	exec() { "$@"; }
+
+	cd "$test_root"
+	AGENTBOX_SKIP_RUNTIME_SYNC=1 run compose run --rm proxy
+	assert_success
+	[ ! -f "$BATS_TEST_TMPDIR/ensure-cli-agent-runtime-files.called" ]
+}
+
 @test "run-compose fails fast for legacy single-file layouts" {
 	local test_root="$BATS_TEST_TMPDIR/repo"
 	local compose_file="$test_root/.devcontainer/docker-compose.yml"

@@ -18,18 +18,22 @@ def fail(message):
     sys.exit(1)
 
 
-def normalize_list(values):
+def normalize_list(values, field_name="list"):
     items = []
     seen = set()
 
     for value in values or []:
         if value is None:
             continue
-        item = str(value)
-        if item in seen:
+        if not isinstance(value, str):
+            fail(
+                f"Policy field '{field_name}' must contain only strings, "
+                f"got {type(value).__name__}: {value!r}"
+            )
+        if value in seen:
             continue
-        seen.add(item)
-        items.append(item)
+        seen.add(value)
+        items.append(value)
 
     return items
 
@@ -64,7 +68,7 @@ def merge_policy(base, overlay):
 
     for key, value in overlay.items():
         if key in ("services", "domains"):
-            merged[key] = normalize_list((merged.get(key) or []) + (value or []))
+            merged[key] = normalize_list((merged.get(key) or []) + (value or []), key)
         elif isinstance(merged.get(key), dict) and isinstance(value, dict):
             merged[key] = merge_policy(merged[key], value)
         elif isinstance(value, list):
@@ -77,8 +81,8 @@ def merge_policy(base, overlay):
 
 def normalize_policy(policy):
     normalized = dict(policy)
-    normalized["services"] = normalize_list(normalized.get("services") or [])
-    normalized["domains"] = normalize_list(normalized.get("domains") or [])
+    normalized["services"] = normalize_list(normalized.get("services") or [], "services")
+    normalized["domains"] = normalize_list(normalized.get("domains") or [], "domains")
     return normalized
 
 
