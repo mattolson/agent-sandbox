@@ -116,8 +116,8 @@ write_target_state() {
 
 	{
 		printf '%s\n' \
-			"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project." \
-			"ACTIVE_AGENT=$agent"
+			"# Managed by agentbox. Tracks the active agent and related runtime metadata for this project."
+		printf 'ACTIVE_AGENT=%q\n' "$agent"
 
 		if [[ -n "$devcontainer_ide" ]]
 		then
