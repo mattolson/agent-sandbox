@@ -148,10 +148,6 @@ init() {
 			return 1
 		fi
 		mode=$(select_option "Select mode:" "${available_modes[@]}")
-	elif [[ ! " ${available_modes[*]} " =~ [[:space:]]${mode}[[:space:]] ]]
-	then
-		echo "Invalid mode: $mode (expected: ${available_modes[*]})" | error
-		return 1
 	fi
 
 	case "$mode" in
