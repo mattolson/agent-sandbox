@@ -75,6 +75,12 @@ switch() {
 		return 0
 	fi
 
+	local runtime_running=""
+	if [[ -n "$current_agent" ]]
+	then
+		runtime_running=$("$AGB_LIBDIR/run-compose" ps --status running --quiet 2>/dev/null) || true
+	fi
+
 	if devcontainer_centralized_runtime_initialized "$repo_root"
 	then
 		ensure_devcontainer_runtime_files "$repo_root" "$agent"
@@ -86,7 +92,15 @@ switch() {
 	fi
 
 	write_active_agent "$repo_root" "$agent"
-	echo "Active agent set to '$agent'." | info
+
+	if [[ -n "$runtime_running" ]]
+	then
+		echo "Active agent set to '$agent'. Restarting containers to apply the switch..." | info
+		"$AGB_LIBDIR/run-compose" down
+		"$AGB_LIBDIR/run-compose" up -d
+	else
+		echo "Active agent set to '$agent'." | info
+	fi
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]
