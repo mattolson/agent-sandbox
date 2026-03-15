@@ -180,9 +180,25 @@ remove_service_volume() {
 	local compose_file=$1
 	local service=$2
 	local volume_entry=$3
+	local tmp_file="${compose_file}.tmp"
+	local existing_count
 
+	existing_count=$(
+		service="$service" volume_entry="$volume_entry" yq -r \
+			'(.services.[env(service)].volumes // []) | map(select(. == env(volume_entry))) | length' \
+			"$compose_file"
+	)
+	existing_count="${existing_count:-0}"
+
+	if [[ "$existing_count" == "0" ]]
+	then
+		return 0
+	fi
+
+	cp "$compose_file" "$tmp_file"
 	service="$service" volume_entry="$volume_entry" yq -i \
-		'.services.[env(service)].volumes = ((.services.[env(service)].volumes // []) | map(select(. != env(volume_entry))))' "$compose_file"
+		'.services.[env(service)].volumes = ((.services.[env(service)].volumes // []) | map(select(. != env(volume_entry))))' "$tmp_file"
+	replace_file_if_changed "$tmp_file" "$compose_file"
 }
 
 set_service_environment_var() {
