@@ -39,8 +39,9 @@ Ask the user for the following (skip any already provided):
 12. **Authentication method** - how users authenticate (API key env var, OAuth flow, device code, etc.)
 13. **Auto-approve flag** - the CLI flag for unattended/yolo mode (e.g., `--dangerously-skip-permissions`, `--yolo`, `--full-auto`)
 14. **VS Code extension ID** - if one exists (e.g., `github.copilot-chat`), or "none" for CLI-only agents
-15. **Agent-specific environment variables** - any env vars the agent needs at runtime
-16. **Does the agent need Node.js?** - whether to install Node.js in the Dockerfile (only if the base image doesn't include it and the agent needs it)
+15. **JetBrains plugin ID** - if one exists (e.g., `com.anthropic.code.plugin`), or "none"
+16. **Agent-specific environment variables** - any env vars the agent needs at runtime
+17. **Does the agent need Node.js?** - whether to install Node.js in the Dockerfile (only if the base image doesn't include it and the agent needs it)
 
 ### Step 2: Create Files
 
@@ -64,45 +65,62 @@ Pattern:
 
 If the agent needs default config files, create them alongside the Dockerfile (e.g., `images/agents/{agent}/config.toml`).
 
-#### 2.2: CLI Compose Template
+#### 2.2: Agent Compose Layer
 
-Create `cli/templates/{agent}/cli/docker-compose.yml`.
+Create `cli/templates/{agent}/cli/agent.yml`.
 
-Copy from an existing CLI template (Copilot is simplest) and modify:
-- Comment at top: `# {Display Name} Sandbox`
-- Agent image: `ghcr.io/mattolson/agent-sandbox-{agent}:latest`
-- State volume: `{agent}-state` mounted at config directory
-- History volume: `{agent}-history`
-- Agent-specific environment variables
-- Always include `GODEBUG=http2client=0` (workaround for Go programs through mitmproxy)
-- Always include `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` settings
-- Update the named volumes section at the bottom
+This is a compose overlay that layers on top of the shared `cli/templates/compose/base.yml`. It contains only agent-specific configuration. Read an existing agent.yml for the exact format.
 
-#### 2.3: Devcontainer Compose Template
+Contents:
+- Managed-by comment header
+- `services.proxy.volumes: []` (required placeholder for compose merge)
+- `services.agent.image` - the GHCR image reference
+- `services.agent.volumes` - agent-specific state and history volumes
+- `services.agent.environment` - agent-specific env vars (if any)
+- Named volume declarations at the bottom
 
-Create `cli/templates/{agent}/devcontainer/docker-compose.yml`.
+Do NOT include proxy config, HTTP_PROXY, HTTPS_PROXY, capabilities, or other shared settings. Those live in `base.yml`.
 
-Same as CLI template but add the devcontainer directory mount:
-```yaml
-- .:/workspace/.devcontainer:ro
-```
-
-#### 2.4: devcontainer.json
+#### 2.3: devcontainer.json
 
 Create `cli/templates/{agent}/devcontainer/devcontainer.json`.
 
-Copy from existing and modify:
-- `name`: `"{Display Name} Sandbox"`
-- VS Code extensions array if applicable, or remove extensions arrays for CLI-only agents
-- Keep proxy settings and JetBrains settings unchanged
+This file references a layered array of compose files. Read an existing devcontainer.json for the exact format.
 
-#### 2.5: Update CLI Agent List
+Key points:
+- `dockerComposeFile` is an array of 5 paths pointing into `.agent-sandbox/compose/`:
+  `base.yml`, `agent.{name}.yml`, `mode.devcontainer.yml`, `user.override.yml`, `user.agent.{name}.override.yml`
+- `service: "agent"`
+- `workspaceFolder: "/workspace"`
+- VS Code settings section with port forwarding disabled and security settings
+- VS Code extensions array if applicable, or omit for CLI-only agents
+- JetBrains settings section with proxy configuration
+- JetBrains plugins array if applicable
+- `remoteUser: "dev"`
+- `overrideCommand: false`
 
-Edit `cli/libexec/init/init`: add the new agent name to the `available_agents` array.
+#### 2.4: Update Agent Registry
 
-#### 2.6: Update BATS Test
+Edit `cli/lib/agent.bash`:
+- Add the new agent to `supported_agents_display()` (space-separated string)
+- Add the new agent to `supported_agents()` (printf list)
+- Add the new agent to `select_agent()` (option list)
+- Add the new agent to the `validate_agent()` case statement
 
-Edit `cli/test/init/init.bats`: update the "rejects invalid --agent value" test assertion to include the new agent name in the expected agent list string (e.g., `"claude copilot codex gemini"`).
+#### 2.5: Update CLI Compose Scaffolding
+
+Edit `cli/lib/cli-compose.bash`:
+- If the agent has host-side config that users might want to mount (like Claude's `CLAUDE.md` and `settings.json`), add a conditional block in `scaffold_cli_agent_override_if_missing()` following the Claude pattern. This adds commented-out volume entries to `user.agent.{name}.override.yml`.
+- Skip this for agents without meaningful host-side config.
+
+#### 2.6: Update BATS Tests
+
+Two test files reference the agent list string:
+
+1. Edit `cli/test/init/init.bats`: update the "rejects invalid --agent value" assertion to include the new agent name.
+2. Edit `cli/test/switch/switch.bats`: update the "switch rejects invalid --agent value" assertion to include the new agent name.
+
+Both assertions match the output of `supported_agents_display()`.
 
 #### 2.7: Update Proxy Service Domains
 
@@ -114,16 +132,7 @@ Guidelines:
 - Only use separate entries for different TLDs (e.g., `chatgpt.com` is separate from `openai.com`)
 - Include both API domains and auth/OAuth domains so authentication works through the proxy
 
-#### 2.8: Update composefile.bash (if needed)
-
-If the agent has host-side config that users might want to mount into the container (like Claude's `~/.claude/CLAUDE.md` and `settings.json`), add a conditional block in `cli/lib/composefile.bash` following the pattern of `add_claude_config_volumes`. This involves:
-- Adding an `AGENTBOX_MOUNT_{AGENT}_CONFIG` env var check in `customize_compose_file()`
-- Creating an `add_{agent}_config_volumes()` function
-- Calling it conditionally when the agent matches
-
-Skip this for agents that don't have meaningful host-side config to mount.
-
-#### 2.9: Update build.sh
+#### 2.8: Update build.sh
 
 Edit `images/build.sh` to add:
 - Default env var at top (e.g., `: "${GEMINI_VERSION:=latest}"`)
@@ -132,9 +141,9 @@ Edit `images/build.sh` to add:
 - Add to the case statement (both specific target and `all` target)
 - Update usage text (first line and examples)
 
-#### 2.10: Agent Documentation
+#### 2.9: Agent Documentation
 
-Create `docs/{agent}/README.md` following this structure (see `docs/copilot/README.md` or `docs/codex/README.md` for exact format):
+Create `docs/{agent}/README.md` following this structure (see `docs/codex/README.md` for exact format):
 
 1. **Header**: `# {Display Name} Sandbox Template`
 2. **One-liner**: "Run {display name} in a network-locked container..."
@@ -143,10 +152,10 @@ Create `docs/{agent}/README.md` following this structure (see `docs/copilot/READ
 5. **Usage section**: How to start the agent, including the auto-approve flag. Include `agentbox compose down` for stopping.
 6. **Required Network Policy section**: Show the `services:` YAML snippet with the agent's service name.
 
-#### 2.11: Update Project README
+#### 2.10: Update Project README
 
 Edit `README.md`:
-- Add row to the "Supported agents" table with the agent name, project URL, and status (usually `Preview` for new agents)
+- Add row to the "Supported agents" table with the agent name, project URL, and status columns (CLI, VS Code, JetBrains). New agents are typically `:large_blue_circle: Preview` for CLI and devcontainer modes.
 - Add link to `docs/{agent}/README.md` in the "Agent-specific setup" section
 
 ### Step 3: CI/CD Workflows
@@ -196,13 +205,17 @@ When generating files, read these for the exact patterns:
 - `images/agents/copilot/Dockerfile` (npm install with Node.js pattern)
 - `images/agents/codex/Dockerfile` (direct binary download pattern, multi-arch, config file baking)
 - `images/agents/codex/config.toml` (baked config file example)
-- `cli/templates/copilot/cli/docker-compose.yml` (simplest CLI template)
-- `cli/templates/codex/cli/docker-compose.yml` (CLI template with agent-specific env vars)
-- `cli/templates/copilot/devcontainer/docker-compose.yml`
-- `cli/templates/copilot/devcontainer/devcontainer.json`
+- `cli/templates/compose/base.yml` (shared compose base layer with proxy and agent skeleton)
+- `cli/templates/compose/mode.devcontainer.yml` (devcontainer mode overlay)
+- `cli/templates/claude/cli/agent.yml` (agent compose layer with env vars)
+- `cli/templates/copilot/cli/agent.yml` (simplest agent compose layer)
+- `cli/templates/claude/devcontainer/devcontainer.json` (devcontainer with extensions and JetBrains plugins)
 - `cli/templates/codex/devcontainer/devcontainer.json` (CLI-only agent, no extensions)
-- `cli/libexec/init/init` (agent list)
-- `cli/test/init/init.bats` (test assertion for agent list)
+- `cli/lib/agent.bash` (agent registry: supported list, validation, selection)
+- `cli/lib/cli-compose.bash` (CLI mode init flow, agent override scaffolding)
+- `cli/lib/devcontainer.bash` (devcontainer mode init flow)
+- `cli/test/init/init.bats` (init test assertion for agent list)
+- `cli/test/switch/switch.bats` (switch test assertion for agent list)
 - `images/proxy/addons/enforcer.py` (service domains, alphabetical ordering)
 - `images/build.sh` (build functions and case statement)
 - `docs/codex/README.md` (simplest agent doc, CLI-only)
