@@ -51,7 +51,7 @@ Both modes use the same images; they differ only in how firewall initialization 
 
 ## Milestones
 
-### m1-devcontainer-template
+### m1-devcontainer-template (done)
 
 Extract the current `.devcontainer/` into a reusable template that other projects can copy and configure.
 
@@ -65,7 +65,7 @@ Extract the current `.devcontainer/` into a reusable template that other project
 - Proxy-based template (m3)
 - Pre-built images (m2)
 
-### m2-images
+### m2-images (done)
 
 Build the image hierarchy so devcontainers use pre-built images instead of building from scratch.
 
@@ -78,7 +78,7 @@ Build the image hierarchy so devcontainers use pre-built images instead of build
 
 **Dependencies:** m1 (template exists to update)
 
-### m3-proxy
+### m3-proxy (done)
 
 Replace iptables-based domain enforcement with proxy-based enforcement.
 
@@ -198,19 +198,7 @@ Rewrite the `agentbox` CLI in Go using Cobra. Single static binary for easier di
 
 **Dependencies:** m6 (existing CLI defines the feature set to port)
 
-### m14-host-credential-service
-
-Run a credential helper service on the host that bridges the container to the host's native credential store (macOS Keychain, etc.). No secrets stored inside the container.
-
-**Goals:**
-- Lightweight host-side service implementing git's credential helper protocol over HTTP
-- Container-side shim translates git credential requests into HTTP calls to the host service
-- Works with any program that supports git credential helpers (git, gh, etc.)
-- Agent can use credentials but cannot read raw tokens
-
-**Dependencies:** m13 (Go CLI manages service lifecycle)
-
-### m15-fine-grained-proxy
+### m14-fine-grained-proxy
 
 Extend proxy enforcement beyond domain-level rules to support path, method, and query parameter filtering.
 
@@ -223,6 +211,25 @@ Extend proxy enforcement beyond domain-level rules to support path, method, and 
 
 **Dependencies:** m3 (proxy established)
 
+### m15-proxy-secret-injection
+
+Make the proxy the primary credential path for HTTP-native auth by keeping real secrets out of the agent container and injecting them into matched outbound requests.
+
+**Goals:**
+- Support placeholder-based secret substitution in outbound HTTP headers
+- Keep raw secret values in a host-only source mounted into the proxy only
+- First supported rollout for git over HTTPS with repo-level scoping
+- Support other HTTP-native auth patterns such as env-token clients where practical
+- Add leak-detection guardrails and redacted audit logging for secret-backed requests
+
+**Out of scope:**
+- Browser or device-code OAuth flows
+- Non-HTTP protocols
+- Request body mutation
+- Replacing every credential flow with proxy injection
+
+**Dependencies:** m14 (request-phase MITM matching), m3 (proxy foundation)
+
 ### m16-cli-monitoring
 
 CLI tools for monitoring proxy activity and managing policy interactively.
@@ -230,10 +237,22 @@ CLI tools for monitoring proxy activity and managing policy interactively.
 **Goals:**
 - Filtered log view showing only blocked requests
 - Interactive unblock workflow (detect blocked request, generate rule, apply)
-- Integration with hot-reload (m15) for immediate policy updates
+- Integration with hot-reload (m14) for immediate policy updates
 - UI approach TBD during milestone planning (options: filtered log stream with prompts, TUI, or hybrid)
 
-**Dependencies:** m13 (Go CLI), m15 (fine-grained proxy and hot reload)
+**Dependencies:** m13 (Go CLI), m14 (fine-grained proxy and hot reload)
+
+### m17-host-credential-service
+
+Add a narrower, secondary credential path for tools and auth flows that cannot be handled cleanly by proxy-side injection.
+
+**Goals:**
+- Host-side credential helper bridge for clients that must obtain a credential locally
+- Support non-HTTP or helper-protocol-shaped auth workflows that `m15` cannot cover
+- Keep credentials off disk inside the container even when the client must receive them
+- Integrate the helper lifecycle with the Go CLI
+
+**Dependencies:** m13 (Go CLI manages service lifecycle), m15 (primary proxy-based credential path defined first)
 
 ## Decisions
 
