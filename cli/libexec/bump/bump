@@ -7,6 +7,8 @@ source "$AGB_LIBDIR/require.bash"
 source "$AGB_LIBDIR/agent.bash"
 # shellcheck source=../../lib/cli-compose.bash
 source "$AGB_LIBDIR/cli-compose.bash"
+# shellcheck source=../../lib/devcontainer.bash
+source "$AGB_LIBDIR/devcontainer.bash"
 # shellcheck source=../../lib/path.bash
 source "$AGB_LIBDIR/path.bash"
 # shellcheck source=../../lib/composefile.bash
@@ -79,13 +81,22 @@ bump() {
 	require docker
 	require yq
 
-	if cli_layered_compose_initialized "$repo_root"
+	local project_mode=""
+	if devcontainer_centralized_runtime_initialized "$repo_root"
+	then
+		project_mode="devcontainer"
+	elif cli_layered_compose_initialized "$repo_root"
+	then
+		project_mode="cli"
+	fi
+
+	if [[ -n "$project_mode" ]]
 	then
 		local base_file
 		base_file="$(cli_base_compose_file "$repo_root")"
 
-		echo "Found layered CLI compose files under $(cli_compose_dir "$repo_root")" | info
-		echo "Checking images for managed CLI layers" | info
+		echo "Found layered compose files (mode: $project_mode) under $(cli_compose_dir "$repo_root")" | info
+		echo "Checking images for managed $project_mode layers" | info
 
 		bump_service "$base_file" "proxy"
 

@@ -4,6 +4,9 @@ setup() {
 	load test_helper
 	# shellcheck source=../../libexec/bump/bump
 	source "$AGB_LIBEXECDIR/bump/bump"
+
+	unset -f require
+	require() { :; }
 }
 
 teardown() {
@@ -59,4 +62,44 @@ EOF
 
 	run yq '.services.agent.image' "$claude_file"
 	assert_output "ghcr.io/example/claude@sha256:def456"
+}
+
+@test "bump reports devcontainer mode for centralized devcontainer projects" {
+	local test_root="$BATS_TEST_TMPDIR/repo"
+	local compose_dir="$test_root/$AGB_PROJECT_DIR/compose"
+	local base_file="$compose_dir/base.yml"
+
+	mkdir -p "$compose_dir" "$test_root/.git" "$test_root/.devcontainer"
+	touch "$test_root/.devcontainer/devcontainer.json" "$compose_dir/mode.devcontainer.yml"
+	cat >"$base_file" <<'EOF'
+services:
+  proxy:
+    image: ghcr.io/example/proxy:latest
+EOF
+
+	unset -f pull_and_pin_image
+	stub pull_and_pin_image \
+		"ghcr.io/example/proxy:latest : echo 'ghcr.io/example/proxy@sha256:abc123'"
+
+	cd "$test_root"
+	run bump
+
+	assert_success
+	assert_output --partial "Found layered compose files (mode: devcontainer)"
+	assert_output --partial "Checking images for managed devcontainer layers"
+}
+
+@test "bump recognizes corrupted devcontainer-only layout before the generic missing-layout error" {
+	local test_root="$BATS_TEST_TMPDIR/repo"
+
+	mkdir -p "$test_root/$AGB_PROJECT_DIR/compose" "$test_root/.git" "$test_root/.devcontainer"
+	touch "$test_root/.devcontainer/devcontainer.json" "$test_root/$AGB_PROJECT_DIR/compose/mode.devcontainer.yml"
+
+	cd "$test_root"
+	run bump
+
+	assert_failure
+	refute_output --partial "No layered compose layout found"
+	assert_output --partial "Found layered compose files (mode: devcontainer)"
+	assert_output --partial ".agent-sandbox/compose/base.yml"
 }

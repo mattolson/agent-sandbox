@@ -65,6 +65,12 @@ compose() {
 		do
 			compose_files+=("$compose_file")
 		done < <(emit_devcontainer_compose_files "$repo_root")
+
+		if [[ ${#compose_files[@]} -eq 0 ]]
+		then
+			echo "Failed to resolve devcontainer compose files for $repo_root." >&2
+			return 1
+		fi
 	elif cli_layered_compose_initialized "$repo_root"
 	then
 		local active_agent
@@ -83,6 +89,12 @@ compose() {
 		do
 			compose_files+=("$compose_file")
 		done < <(emit_cli_compose_files "$repo_root" "$active_agent")
+
+		if [[ ${#compose_files[@]} -eq 0 ]]
+		then
+			echo "Failed to resolve layered CLI compose files for $repo_root." >&2
+			return 1
+		fi
 	else
 		echo "No layered compose layout found at $repo_root. Run 'agentbox init' first." >&2
 		return 1
