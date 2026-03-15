@@ -44,7 +44,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 
 ## m6: CLI (done)
 
-- `agentbox init` - interactive project setup (project name, agent, mode, IDE, policy, file review)
+- `agentbox init` - interactive project setup (project name, agent, mode, IDE)
 - `agentbox exec` - start or attach to the agent container
 - `agentbox edit policy` - edit network policy, auto-restart proxy on save
 - `agentbox edit compose` - open compose file in editor

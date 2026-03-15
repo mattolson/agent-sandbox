@@ -26,7 +26,7 @@ teardown() {
 @test "init rejects invalid --agent value" {
 	run init --name my-project --agent "invalid" --path "$PROJECT_DIR"
 	assert_failure
-	assert_output --partial "Invalid agent: invalid (expected: claude copilot codex)"
+	assert_output --partial "Invalid agent: invalid (expected: claude codex copilot)"
 }
 
 @test "init rejects invalid --mode value" {
@@ -107,96 +107,54 @@ teardown() {
 	assert_output --partial "Missing required option in batch mode: --ide"
 }
 
-@test "init opens generated files for review by default when flags are provided" {
+@test "init prints config-viewing commands instead of review prompts" {
 	unset -f select_yes_no
-	unset -f open_editor
-
-	local policy_path="$PROJECT_DIR/.agent-sandbox/policy/user.policy.yaml"
-	local compose_path="$PROJECT_DIR/.agent-sandbox/compose/user.override.yml"
-
-	stub select_yes_no \
-		"'Review the generated shared policy file at $policy_path?' : echo true" \
-		"'Review the generated compose override file at $compose_path?' : echo true"
-	stub open_editor \
-		"$policy_path : :" \
-		"$compose_path : :"
+	select_yes_no() {
+		echo called > "$BATS_TEST_TMPDIR/select-yes-no.called"
+		echo false
+	}
 	stub cli "--project-path $PROJECT_DIR --agent claude --name test : :"
 
 	run init --agent claude --mode cli --name test --path "$PROJECT_DIR"
 	assert_success
-}
-
-@test "init warns and continues when editor cannot be opened" {
-	unset -f select_yes_no
-	unset -f open_editor
-
-	local policy_path="$PROJECT_DIR/.agent-sandbox/policy/user.policy.yaml"
-	local compose_path="$PROJECT_DIR/.agent-sandbox/compose/user.override.yml"
-
-	stub select_yes_no \
-		"'Review the generated shared policy file at $policy_path?' : echo true" \
-		"'Review the generated compose override file at $compose_path?' : echo false"
-	stub open_editor \
-		"$policy_path : exit 1"
-	stub cli "--project-path $PROJECT_DIR --agent claude --name test : :"
-
-	run init --agent claude --mode cli --name test --path "$PROJECT_DIR"
-	assert_success
-	assert_output --partial "Could not open editor for $policy_path. Review it manually."
-}
-
-@test "init skips review prompts in batch mode" {
-	unset -f select_yes_no
-	unset -f open_editor
-
-	stub cli "--project-path $PROJECT_DIR --agent claude --name test : :"
-
-	run init --batch --agent claude --mode cli --name test --path "$PROJECT_DIR"
-	assert_success
+	assert_output --partial "agentbox policy config"
+	assert_output --partial "agentbox compose config"
+	[ ! -f "$BATS_TEST_TMPDIR/select-yes-no.called" ]
 }
 
 @test "init interactive flow (cli mode)" {
 	unset -f read_line
 	unset -f select_option
-	unset -f select_yes_no
 
 	local expected_default
 	expected_default=$(basename "$PROJECT_DIR")-sandbox
-	local policy_file=".agent-sandbox/policy/user.policy.yaml"
 
 	stub read_line "'Project name [$expected_default]:' : echo my-interactive-project"
 	stub select_option \
-		"'Select agent:' claude copilot codex : echo claude" \
+		"'Select agent:' claude codex copilot : echo claude" \
 		"'Select mode:' cli devcontainer : echo cli"
-	stub select_yes_no \
-		"'Review the generated shared policy file at $PROJECT_DIR/$policy_file?' : echo false" \
-		"'Review the generated compose override file at $PROJECT_DIR/.agent-sandbox/compose/user.override.yml?' : echo false"
 
 	stub cli "--project-path $PROJECT_DIR --agent claude --name my-interactive-project : :"
 
 	run init --path "$PROJECT_DIR"
 
 	assert_success
+	assert_output --partial "agentbox policy config"
+	assert_output --partial "agentbox compose config"
 }
 
 @test "init interactive flow (devcontainer mode, default name)" {
 	unset -f read_line
 	unset -f select_option
-	unset -f select_yes_no
 
 	local expected_default
 	expected_default=$(basename "$PROJECT_DIR")-sandbox
-	local shared_policy_file=".agent-sandbox/policy/user.policy.yaml"
-	local compose_override_file=".agent-sandbox/compose/user.override.yml"
 
 	stub read_line "'Project name [$expected_default]:' : echo ''"
 	stub select_option \
-		"'Select agent:' claude copilot codex : echo copilot" \
+		"'Select agent:' claude codex copilot : echo copilot" \
 		"'Select mode:' cli devcontainer : echo devcontainer" \
 		"'Select IDE:' vscode jetbrains none : echo vscode"
-	stub select_yes_no \
-		"'Review the generated shared policy file at $PROJECT_DIR/$shared_policy_file?' : echo false" \
-		"'Review the generated compose override file at $PROJECT_DIR/$compose_override_file?' : echo false"
 
 	local expected_name
 	expected_name=$(basename "$PROJECT_DIR")-sandbox
@@ -211,21 +169,15 @@ teardown() {
 @test "init interactive flow (devcontainer mode, custom name)" {
 	unset -f read_line
 	unset -f select_option
-	unset -f select_yes_no
 
 	local expected_default
 	expected_default=$(basename "$PROJECT_DIR")-sandbox
-	local shared_policy_file=".agent-sandbox/policy/user.policy.yaml"
-	local compose_override_file=".agent-sandbox/compose/user.override.yml"
 
 	stub read_line "'Project name [$expected_default]:' : echo foo"
 	stub select_option \
-		"'Select agent:' claude copilot codex : echo copilot" \
+		"'Select agent:' claude codex copilot : echo copilot" \
 		"'Select mode:' cli devcontainer : echo devcontainer" \
 		"'Select IDE:' vscode jetbrains none : echo vscode"
-	stub select_yes_no \
-		"'Review the generated shared policy file at $PROJECT_DIR/$shared_policy_file?' : echo false" \
-		"'Review the generated compose override file at $PROJECT_DIR/$compose_override_file?' : echo false"
 
 	local expected_name="foo"
 
@@ -239,20 +191,14 @@ teardown() {
 @test "init with --mode flag preserves the interactive base name" {
 	unset -f read_line
 	unset -f select_option
-	unset -f select_yes_no
 
 	local expected_default
 	expected_default=$(basename "$PROJECT_DIR")-sandbox
-	local shared_policy_file=".agent-sandbox/policy/user.policy.yaml"
-	local compose_override_file=".agent-sandbox/compose/user.override.yml"
 
 	stub read_line "'Project name [$expected_default]:' : echo baz"
 	stub select_option \
-		"'Select agent:' claude copilot codex : echo copilot" \
+		"'Select agent:' claude codex copilot : echo copilot" \
 		"'Select IDE:' vscode jetbrains none : echo vscode"
-	stub select_yes_no \
-		"'Review the generated shared policy file at $PROJECT_DIR/$shared_policy_file?' : echo false" \
-		"'Review the generated compose override file at $PROJECT_DIR/$compose_override_file?' : echo false"
 
 	local expected_name="baz"
 

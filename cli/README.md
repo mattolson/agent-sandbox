@@ -14,20 +14,20 @@ configuration files and network policy. In CLI mode, agentbox writes managed com
 creates `.agent-sandbox/policy/user.policy.yaml` plus the active agent's
 `.agent-sandbox/policy/user.agent.<agent>.policy.yaml` alongside the managed agent layer. Optional mounts (Claude
 config, shell customizations, dotfiles, `.git`, `.idea`, `.vscode`) are scaffolded into user-owned override files
-instead of managed files. After generation, `init` offers to open the shared user-owned policy file and the relevant
-user-owned compose override in your editor. For devcontainer mode, agentbox writes `.devcontainer/devcontainer.json`
+instead of managed files. After generation, `init` reminds you to use `agentbox policy config` and
+`agentbox compose config` to inspect the effective rendered configuration. For devcontainer mode, agentbox writes `.devcontainer/devcontainer.json`
 plus optional `.devcontainer/devcontainer.user.json`, while the managed compose and policy runtime files live under
 `.agent-sandbox/`. `devcontainer.user.json` is an agentbox overlay input, not a second devcontainer config file that
 VS Code or JetBrains reads directly: agentbox merges it into the generated `.devcontainer/devcontainer.json` during
-init and refresh paths. These review prompts default to `no`.
+init and refresh paths.
 
 Options:
-- `--agent` - Agent type: `claude`, `copilot`, `codex` (skips prompt)
+- `--agent` - Agent type: `claude`, `codex`, `copilot` (skips prompt)
 - `--mode` - Setup mode: `cli`, `devcontainer` (skips prompt)
 - `--ide` - IDE for devcontainer mode: `vscode`, `jetbrains`, `none` (skips prompt)
 - `--name` - Base project name for Docker Compose. CLI uses it as-is; devcontainer appends `-devcontainer` to avoid collisions between modes.
 - `--path` - Project directory (default: current directory)
-- `--batch` - Disable prompts, including generated-file review prompts. Requires `--agent` and `--mode`, plus `--ide` for `devcontainer`.
+- `--batch` - Disable prompts. Requires `--agent` and `--mode`, plus `--ide` for `devcontainer`.
 
 Fully non-interactive example:
 ```bash
@@ -51,7 +51,7 @@ If the project is still on the legacy single-file layout, `switch` fails fast an
 [upgrade guide](../docs/upgrades/m8-layered-layout.md).
 
 Options:
-- `--agent` - Agent type: `claude`, `copilot`, `codex` (skips prompt)
+- `--agent` - Agent type: `claude`, `codex`, `copilot` (skips prompt)
 
 #### `agentbox init cli`
 

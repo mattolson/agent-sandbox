@@ -60,6 +60,7 @@ select_option() {
 	shift
 	local options=("$@")
 	local default="${options[0]}"
+	local default_index=1
 	local i
 
 	for i in "${!options[@]}"; do
@@ -68,7 +69,7 @@ select_option() {
 
 	local reply
 	while true; do
-		read -rp "$prompt [$default] " reply >&2
+		read -rp "$prompt [$default_index] " reply >&2
 		if [[ -z $reply ]]; then
 			printf '%s\n' "$default"
 			return
