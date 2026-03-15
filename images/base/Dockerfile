@@ -1,3 +1,5 @@
+ARG YQ_VERSION=4.52.4
+
 FROM debian:bookworm-slim AS git-builder
 
 ARG GIT_VERSION=2.50.1
@@ -24,9 +26,12 @@ RUN curl -fsSL "https://github.com/git/git/archive/refs/tags/v${GIT_VERSION}.tar
   make prefix=/usr/local NO_GETTEXT=YesPlease NO_TCLTK=YesPlease -j"$(nproc)" all && \
   make prefix=/usr/local NO_GETTEXT=YesPlease NO_TCLTK=YesPlease install
 
+FROM mikefarah/yq:${YQ_VERSION} AS yq-builder
+
 FROM debian:bookworm-slim
 
 ARG TZ
+ARG YQ_VERSION
 ENV TZ="$TZ"
 
 # Install basic development tools and firewall dependencies
@@ -49,6 +54,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   vim \
   zsh \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Keep yq aligned with the CLI's mikefarah/yq-based behavior instead of
+# Debian's unrelated yq package.
+COPY --from=yq-builder /usr/bin/yq /usr/local/bin/yq
+RUN yq --version | grep -F "v${YQ_VERSION}"
 
 # Optional extra packages (separate layer for cacheability)
 ARG EXTRA_PACKAGES=""

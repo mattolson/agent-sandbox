@@ -9,6 +9,7 @@ set -euo pipefail
 #   TZ                      - Timezone (default: America/Los_Angeles)
 #   GIT_VERSION             - Upstream Git version for the base image (default: 2.50.1)
 #   GIT_TARBALL_SHA256      - SHA-256 for the pinned upstream Git source tarball
+#   YQ_VERSION              - Mike Farah yq version for the base image (default: 4.52.4)
 #   CLAUDE_CODE_VERSION     - Claude Code version (default: latest)
 #   COPILOT_VERSION         - GitHub Copilot CLI version (default: latest)
 #   CODEX_VERSION           - OpenAI Codex CLI version (default: latest)
@@ -22,6 +23,7 @@ set -euo pipefail
 #
 # Examples:
 #   GIT_VERSION=2.50.1 GIT_TARBALL_SHA256=4932f262b88b7f4f8402e331a7ee8d0a98ba350aa2269ce3a00eeda18cb4fe43 ./build.sh base
+#   YQ_VERSION=4.52.4 ./build.sh base
 #   CODEX_VERSION=0.104.0 ./build.sh codex
 #   CLAUDE_CODE_VERSION=1.0.0 ./build.sh claude
 #   EXTRA_PACKAGES="jq gh" ./build.sh base
@@ -49,6 +51,7 @@ DOCKER_BUILD_ARGS=("$@")
 : "${TZ:=America/Los_Angeles}"
 : "${GIT_VERSION:=2.50.1}"
 : "${GIT_TARBALL_SHA256:=4932f262b88b7f4f8402e331a7ee8d0a98ba350aa2269ce3a00eeda18cb4fe43}"
+: "${YQ_VERSION:=4.52.4}"
 : "${CLAUDE_CODE_VERSION:=latest}"
 : "${COPILOT_VERSION:=latest}"
 : "${CODEX_VERSION:=latest}"
@@ -65,6 +68,7 @@ build_base() {
   echo "  TZ=$TZ"
   echo "  GIT_VERSION=$GIT_VERSION"
   echo "  GIT_TARBALL_SHA256=$GIT_TARBALL_SHA256"
+  echo "  YQ_VERSION=$YQ_VERSION"
   [ -n "$EXTRA_PACKAGES" ] && echo "  EXTRA_PACKAGES=$EXTRA_PACKAGES"
   [ -n "$STACKS" ] && echo "  STACKS=$STACKS"
   [ "$TAG" != "local" ] && echo "  TAG=$TAG"
@@ -72,6 +76,7 @@ build_base() {
     --build-arg TZ="$TZ" \
     --build-arg GIT_VERSION="$GIT_VERSION" \
     --build-arg GIT_TARBALL_SHA256="$GIT_TARBALL_SHA256" \
+    --build-arg YQ_VERSION="$YQ_VERSION" \
     --build-arg EXTRA_PACKAGES="$EXTRA_PACKAGES" \
     --build-arg STACKS="$STACKS" \
     ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \
@@ -178,6 +183,7 @@ case "$TARGET" in
     echo "  TZ                      Timezone (default: America/Los_Angeles)"
     echo "  GIT_VERSION             Upstream Git version for base image"
     echo "  GIT_TARBALL_SHA256      SHA-256 for the pinned upstream Git source tarball"
+    echo "  YQ_VERSION              Mike Farah yq version for base image"
     echo "  CLAUDE_CODE_VERSION     Claude Code version (default: latest)"
     echo "  COPILOT_VERSION         GitHub Copilot CLI version (default: latest)"
     echo "  CODEX_VERSION           OpenAI Codex CLI version (default: latest)"
