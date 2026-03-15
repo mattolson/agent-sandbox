@@ -191,9 +191,12 @@ set_service_environment_var() {
 	local service=$2
 	local name=$3
 	local value=$4
+	local tmp_file="${compose_file}.tmp"
 	local env_entry
 	local preserved_entries=()
 	local preserved_entry_count=0
+
+	cp "$compose_file" "$tmp_file"
 
 	while IFS= read -r env_entry
 	do
@@ -208,25 +211,24 @@ set_service_environment_var() {
 	done < <(
 		service="$service" yq -r \
 			'.services.[env(service)].environment[]?' \
-			"$compose_file"
+			"$tmp_file"
 	)
 
-	service="$service" yq -i '.services.[env(service)].environment = []' "$compose_file"
+	service="$service" yq -i '.services.[env(service)].environment = []' "$tmp_file"
 
 	if [[ "$preserved_entry_count" -gt 0 ]]
 	then
 		for env_entry in "${preserved_entries[@]}"
 		do
 			service="$service" env_entry="$env_entry" yq -i \
-				'.services.[env(service)].environment += [env(env_entry)]' \
-				"$compose_file"
+				'.services.[env(service)].environment += [env(env_entry)]' "$tmp_file"
 		done
 	fi
 
 	env_entry="$name=$value"
 	service="$service" env_entry="$env_entry" yq -i \
-		'.services.[env(service)].environment += [env(env_entry)]' \
-		"$compose_file"
+		'.services.[env(service)].environment += [env(env_entry)]' "$tmp_file"
+	replace_file_if_changed "$tmp_file" "$compose_file"
 }
 
 add_proxy_volume() {
