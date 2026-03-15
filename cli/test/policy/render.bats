@@ -79,3 +79,18 @@ teardown() {
 	assert_success
 	assert_output "services: []"
 }
+
+@test "render-policy rejects scalar services fields with a clear error" {
+	command -v python3 >/dev/null || skip "python3 not installed"
+	python3 -c 'import yaml' 2>/dev/null || skip "PyYAML not installed"
+
+	local policy_file="$BATS_TEST_TMPDIR/policy.yaml"
+	printf '%s\n' "services: github" > "$policy_file"
+
+	run env -u AGENTBOX_ACTIVE_AGENT \
+		AGENTBOX_POLICY_SOURCE_PATH="$policy_file" \
+		"$AGB_ROOT/images/proxy/render-policy"
+
+	assert_failure
+	assert_output --partial "Policy field 'services' must be a YAML list in: $policy_file"
+}

@@ -52,6 +52,10 @@ def load_policy_file(path, required=False):
     if not isinstance(data, dict):
         fail(f"Policy file must contain a YAML mapping: {path}")
 
+    for field in ("services", "domains"):
+        if field in data and data[field] is not None and not isinstance(data[field], list):
+            fail(f"Policy field '{field}' must be a YAML list in: {path}")
+
     return data
 
 
