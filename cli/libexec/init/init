@@ -23,31 +23,14 @@ source "$AGB_LIBDIR/legacy-layout.bash"
 # Initializes agent-sandbox for a project.
 # Prompts for any options not provided via flags.
 # Args:
-#   --agent - Agent type (claude, copilot, codex)
+#   --agent - Agent type (claude, codex, copilot)
 #   --mode - Setup mode (cli, devcontainer)
 #   --ide - IDE for devcontainer mode (vscode, jetbrains, none)
 #   --name - Project name for Docker Compose
 #   --path - Project directory path
 #   --batch - Disable prompts and require explicit mode-selection flags
-review_generated_file() {
-	local label="$1"
-	local file="$2"
-	local batch="${3:-false}"
-
-	if [[ "$batch" == "true" ]]
-	then
-		return 0
-	fi
-
-	local should_review
-	should_review=$(select_yes_no "Review the generated $label file at $file?")
-	if [[ "$should_review" == "true" ]]
-	then
-		if ! open_editor "$file"
-		then
-			echo "Could not open editor for $file. Review it manually." | warning
-		fi
-	fi
+print_init_view_commands_hint() {
+	echo "Use 'agentbox policy config' to view the effective policy and 'agentbox compose config' to view the effective compose stack." | info
 }
 
 init() {
@@ -178,9 +161,8 @@ init() {
 			--project-path "$project_path" \
 			--agent "$agent" \
 			--name "$name"
-		review_generated_file "shared policy" "$(cli_shared_policy_file "$project_path")" "$batch"
-		review_generated_file "compose override" "$(cli_user_override_file "$project_path")" "$batch"
 		write_active_agent "$project_path" "$agent" "$name"
+		print_init_view_commands_hint
 		;;
 	devcontainer)
 		local available_ides=(vscode jetbrains none)
@@ -200,9 +182,8 @@ init() {
 			--agent "$agent" \
 			--ide "$ide" \
 			--name "$name"
-		review_generated_file "shared policy" "$(cli_shared_policy_file "$project_path")" "$batch"
-		review_generated_file "compose override" "$(cli_user_override_file "$project_path")" "$batch"
 		write_devcontainer_state "$project_path" "$agent" "$ide" "$name"
+		print_init_view_commands_hint
 		;;
 	*)
 		echo "Invalid mode selected: $mode" | error

@@ -87,7 +87,7 @@ agentbox init
 
 This prompts for the project name, agent, mode, and IDE when needed, then generates the policy and compose files for the sandbox.
 
-You can pass flags to skip the selection prompts. Use `--batch` to disable all prompts, including the final file-review prompts:
+You can pass flags to skip the selection prompts. Use `--batch` to disable all prompts:
 
 ```bash
 agentbox init --batch --agent claude --mode cli
@@ -96,6 +96,9 @@ agentbox init --batch --agent claude --mode cli
 Optional volume mounts (dotfiles, shell customizations, .git read-only, etc.) are scaffolded into user-owned override
 files. Uncomment them as needed, or set `AGENTBOX_*` environment variables for scripted usage. See the
 [CLI README](cli/README.md) for the full list of flags and environment variables.
+
+To inspect the rendered config after init, use `agentbox policy config` for the effective policy and
+`agentbox compose config` for the effective compose stack.
 
 If you edit `.devcontainer/devcontainer.user.json`, rerun `agentbox switch --agent <current-agent>` before reopening
 the devcontainer so agentbox can regenerate `.devcontainer/devcontainer.json`.

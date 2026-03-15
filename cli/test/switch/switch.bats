@@ -29,7 +29,7 @@ teardown() {
 @test "switch prompts for agent when --agent is omitted" {
 	mkdir -p "$PROJECT_DIR/.agent-sandbox"
 	unset -f select_option
-	stub select_option "'Select agent:' claude copilot codex : echo copilot"
+	stub select_option "'Select agent:' claude codex copilot : echo copilot"
 
 	run switch
 
@@ -46,7 +46,7 @@ teardown() {
 	run switch --agent invalid
 
 	assert_failure
-	assert_output --partial "Invalid agent: invalid (expected: claude copilot codex)"
+	assert_output --partial "Invalid agent: invalid (expected: claude codex copilot)"
 }
 
 @test "switch fails fast for legacy layouts without prompting" {
