@@ -111,12 +111,25 @@ YAML
 	assert_output "KEEP:/keep"
 }
 
-@test "pull_and_pin_image propagates docker pull failure" {
+@test "pull_and_pin_image fails when pull fails and no local copy exists" {
 	stub docker \
-		"pull ghcr.io/example/fail:latest : exit 1"
+		"pull ghcr.io/example/fail:latest : exit 1" \
+		"image inspect ghcr.io/example/fail:latest : exit 1"
 
 	run pull_and_pin_image "ghcr.io/example/fail:latest"
 	assert_failure
+	assert_output --partial "no local copy exists"
+}
+
+@test "pull_and_pin_image falls back to local image when pull fails" {
+	stub docker \
+		"pull ghcr.io/example/local-only:latest : exit 1" \
+		"image inspect ghcr.io/example/local-only:latest : :"
+
+	run pull_and_pin_image "ghcr.io/example/local-only:latest"
+	assert_success
+	assert_output --partial "using local image"
+	assert_output --partial "ghcr.io/example/local-only:latest"
 }
 
 @test "pull_and_pin_image propagates docker inspect failure" {

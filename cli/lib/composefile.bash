@@ -453,8 +453,18 @@ pull_and_pin_image() {
 
 	require docker
 
-	# Pull remote image
-	docker pull "$image" >&2
+	# Pull remote image; fall back to local copy if pull fails
+	if ! docker pull "$image" >&2
+	then
+		if docker image inspect "$image" >/dev/null 2>&1
+		then
+			echo "Pull failed but '$image' exists locally; using local image." >&2
+			echo "$image"
+			return 0
+		fi
+		echo "Failed to pull '$image' and no local copy exists." >&2
+		return 1
+	fi
 
 	# Get the digest
 	local digest
