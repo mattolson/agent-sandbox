@@ -16,7 +16,7 @@ DOTFILES_DIR="$HOME/.dotfiles"
 # Prefixes where symlinking is skipped (root-owned, must not be modified)
 PROTECTED_PREFIXES=".config/agent-sandbox"
 
-find "$DOTFILES_DIR" -name .git -prune -o -type f -print | while read -r source; do
+find "$DOTFILES_DIR" -name .git -prune -o \( -type f -o -type l \) -print | while read -r source; do
   relpath="${source#$DOTFILES_DIR/}"
 
   # Skip protected prefixes
