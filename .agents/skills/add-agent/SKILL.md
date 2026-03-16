@@ -118,19 +118,25 @@ Edit `cli/lib/cli-compose.bash`:
 Two test files reference the agent list string:
 
 1. Edit `cli/test/init/init.bats`: update the "rejects invalid --agent value" assertion to include the new agent name.
-2. Edit `cli/test/switch/switch.bats`: update the "switch rejects invalid --agent value" assertion to include the new agent name.
+2. Edit `cli/test/switch/switch.bats`:
+   - Update the "switch rejects invalid --agent value" assertion(s) to include the new agent name.
+   - Update the `stub select_option` call in "switch prompts for agent when --agent is omitted" to include the new agent in the argument list.
 
-Both assertions match the output of `supported_agents_display()`.
+Both assertions and the stub match the output of `supported_agents_display()` / `select_agent()`.
 
-#### 2.7: Update Proxy Service Domains
+#### 2.7: Update Proxy Service Domains and Known Agents
 
-Edit `images/proxy/addons/enforcer.py`: add a new entry to `SERVICE_DOMAINS` dict.
+Two files in the proxy image need updating:
+
+**`images/proxy/addons/enforcer.py`**: add a new entry to `SERVICE_DOMAINS` dict.
 
 Guidelines:
 - Place alphabetically among existing entries
 - Prefer wildcards over listing subdomains individually (e.g., `*.openai.com` covers `api.openai.com`, `auth.openai.com`, regional endpoints)
 - Only use separate entries for different TLDs (e.g., `chatgpt.com` is separate from `openai.com`)
 - Include both API domains and auth/OAuth domains so authentication works through the proxy
+
+**`images/proxy/render-policy`**: add the new agent name to the `KNOWN_AGENTS` set. This script renders the effective proxy policy at startup and validates the `AGENTBOX_ACTIVE_AGENT` env var against this set. If the agent is missing, the proxy will refuse to start with an "Unknown agent" error.
 
 #### 2.8: Update build.sh
 
@@ -217,6 +223,7 @@ When generating files, read these for the exact patterns:
 - `cli/test/init/init.bats` (init test assertion for agent list)
 - `cli/test/switch/switch.bats` (switch test assertion for agent list)
 - `images/proxy/addons/enforcer.py` (service domains, alphabetical ordering)
+- `images/proxy/render-policy` (KNOWN_AGENTS set, policy rendering validation)
 - `images/build.sh` (build functions and case statement)
 - `docs/codex/README.md` (simplest agent doc, CLI-only)
 - `docs/copilot/README.md` (agent doc with IDE notes)
