@@ -17,7 +17,10 @@
 				"remote.autoForwardPortsSource": "output",
 				"security.promptForRemoteFileProtocolHandling": true,
 				"terminal.integrated.defaultProfile.linux": "zsh"
-			}
+			},
+			"extensions": [
+				"Google.gemini-cli-vscode-ide-companion"
+			]
 		},
 		"jetbrains": {
 			"settings": {
