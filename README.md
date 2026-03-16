@@ -28,12 +28,13 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 | [Claude Code](https://code.claude.com/docs/en/overview) | :green_circle: | :green_circle: | :green_circle: |
 | [Codex CLI](https://github.com/openai/codex) | :green_circle: | :large_blue_circle: | :large_blue_circle: |
 | [Copilot CLI](https://github.com/github/copilot-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
-| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | :large_blue_circle: | :large_blue_circle: | :large_blue_circle: |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
 
 * :green_circle: **Full Support** - stable, heavily used.
 * :large_blue_circle: **Preview** - functional but not heavily tested.
 * :red_circle: **Not Supported** - known blockers.
   * Copilot's IntelliJ plugin [cannot complete auth in a devcontainer](https://github.com/microsoft/copilot-intellij-feedback/issues/1375).
+  * No official Google Gemini plugin available for JetBrains
 
 ## Quick start (macOS + Colima)
 
