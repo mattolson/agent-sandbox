@@ -34,6 +34,11 @@ SERVICE_DOMAINS = {
         "chatgpt.com",
         "*.chatgpt.com",
     ],
+    "gemini": [
+        "cloudcode-pa.googleapis.com",
+        "generativelanguage.googleapis.com",
+        "oauth2.googleapis.com",
+    ],
     "copilot": [
         "github.com",
         "api.github.com",

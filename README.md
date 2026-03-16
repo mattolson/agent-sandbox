@@ -27,7 +27,8 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 |-------|-----|---------|-----------|
 | [Claude Code](https://code.claude.com/docs/en/overview) | :green_circle: | :green_circle: | :green_circle: |
 | [Codex CLI](https://github.com/openai/codex) | :green_circle: | :large_blue_circle: | :large_blue_circle: |
-| [Copilot CLI](https://github.com/github/copilot-cli) | :green_circle: | :large_blue_circle: | :red_circle: |
+| [Copilot CLI](https://github.com/github/copilot-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | :large_blue_circle: | :large_blue_circle: | :large_blue_circle: |
 
 * :green_circle: **Full Support** - stable, heavily used.
 * :large_blue_circle: **Preview** - functional but not heavily tested.
@@ -122,6 +123,7 @@ Follow the setup instructions specific to the agent image you are using:
 - [Claude Code](docs/claude/README.md)
 - [Codex](docs/codex/README.md)
 - [GitHub Copilot](docs/copilot/README.md)
+- [Gemini CLI](docs/gemini/README.md)
 
 ## Switching agents
 
