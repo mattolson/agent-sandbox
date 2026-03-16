@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Build agent-sandbox images locally
 #
-# Usage: ./build.sh [base|proxy|claude|copilot|codex|cli|all] [docker build options...]
+# Usage: ./build.sh [base|proxy|claude|copilot|codex|gemini|cli|all] [docker build options...]
 #
 # Environment variables (all optional):
 #   TZ                      - Timezone (default: America/Los_Angeles)
@@ -13,10 +13,12 @@ set -euo pipefail
 #   CLAUDE_CODE_VERSION     - Claude Code version (default: latest)
 #   COPILOT_VERSION         - GitHub Copilot CLI version (default: latest)
 #   CODEX_VERSION           - OpenAI Codex CLI version (default: latest)
+#   GEMINI_VERSION          - Gemini CLI version (default: latest)
 #   EXTRA_PACKAGES          - Additional apt packages for the base image
 #   CLAUDE_EXTRA_PACKAGES   - Additional apt packages for the claude image
 #   COPILOT_EXTRA_PACKAGES  - Additional apt packages for the copilot image
 #   CODEX_EXTRA_PACKAGES    - Additional apt packages for the codex image
+#   GEMINI_EXTRA_PACKAGES   - Additional apt packages for the gemini image
 #   PROXY_EXTRA_PACKAGES    - Additional apt packages for the proxy image
 #   STACKS                  - Comma-separated language stacks for the base image (e.g. "python,go:1.23")
 #   TAG                     - Image tag (default: local)
@@ -25,6 +27,7 @@ set -euo pipefail
 #   GIT_VERSION=2.50.1 GIT_TARBALL_SHA256=4932f262b88b7f4f8402e331a7ee8d0a98ba350aa2269ce3a00eeda18cb4fe43 ./build.sh base
 #   YQ_VERSION=4.52.4 ./build.sh base
 #   CODEX_VERSION=0.104.0 ./build.sh codex
+#   GEMINI_VERSION=0.1.0 ./build.sh gemini
 #   CLAUDE_CODE_VERSION=1.0.0 ./build.sh claude
 #   EXTRA_PACKAGES="jq gh" ./build.sh base
 #   STACKS="python,go:1.23" ./build.sh base
@@ -37,7 +40,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Parse target and extra args
 # If first arg is a known target, use it; otherwise default to 'all'
 case "${1:-}" in
-  base|claude|proxy|copilot|codex|cli|all)
+  base|claude|proxy|copilot|codex|gemini|cli|all)
     TARGET="$1"
     shift
     ;;
@@ -55,10 +58,12 @@ DOCKER_BUILD_ARGS=("$@")
 : "${CLAUDE_CODE_VERSION:=latest}"
 : "${COPILOT_VERSION:=latest}"
 : "${CODEX_VERSION:=latest}"
+: "${GEMINI_VERSION:=latest}"
 : "${EXTRA_PACKAGES:=}"
 : "${CLAUDE_EXTRA_PACKAGES:=}"
 : "${COPILOT_EXTRA_PACKAGES:=}"
 : "${CODEX_EXTRA_PACKAGES:=}"
+: "${GEMINI_EXTRA_PACKAGES:=}"
 : "${PROXY_EXTRA_PACKAGES:=}"
 : "${STACKS:=}"
 : "${TAG:=local}"
@@ -137,6 +142,20 @@ build_codex() {
     "$SCRIPT_DIR/agents/codex"
 }
 
+build_gemini() {
+  echo "Building agent-sandbox-gemini..."
+  echo "  GEMINI_VERSION=$GEMINI_VERSION"
+  [ -n "$GEMINI_EXTRA_PACKAGES" ] && echo "  EXTRA_PACKAGES=$GEMINI_EXTRA_PACKAGES"
+  [ "$TAG" != "local" ] && echo "  TAG=$TAG"
+  docker build \
+    --build-arg BASE_IMAGE=agent-sandbox-base:$TAG \
+    --build-arg GEMINI_VERSION="$GEMINI_VERSION" \
+    --build-arg EXTRA_PACKAGES="$GEMINI_EXTRA_PACKAGES" \
+    ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \
+    -t agent-sandbox-gemini:$TAG \
+    "$SCRIPT_DIR/agents/gemini"
+}
+
 build_cli() {
   echo "Building agent-sandbox-cli..."
   [ "$TAG" != "local" ] && echo "  TAG=$TAG"
@@ -163,6 +182,9 @@ case "$TARGET" in
   codex)
     build_codex
     ;;
+  gemini)
+    build_gemini
+    ;;
   cli)
     build_cli
     ;;
@@ -172,10 +194,11 @@ case "$TARGET" in
     build_claude
     build_copilot
     build_codex
+    build_gemini
     build_cli
     ;;
   *)
-    echo "Usage: $0 [base|proxy|claude|copilot|codex|cli|all] [docker build options...]"
+    echo "Usage: $0 [base|proxy|claude|copilot|codex|gemini|cli|all] [docker build options...]"
     echo ""
     echo "Any additional arguments are passed to docker build."
     echo ""
@@ -187,10 +210,12 @@ case "$TARGET" in
     echo "  CLAUDE_CODE_VERSION     Claude Code version (default: latest)"
     echo "  COPILOT_VERSION         GitHub Copilot CLI version (default: latest)"
     echo "  CODEX_VERSION           OpenAI Codex CLI version (default: latest)"
+    echo "  GEMINI_VERSION          Gemini CLI version (default: latest)"
     echo "  EXTRA_PACKAGES          Additional apt packages for base image"
     echo "  CLAUDE_EXTRA_PACKAGES   Additional apt packages for claude image"
     echo "  COPILOT_EXTRA_PACKAGES  Additional apt packages for copilot image"
     echo "  CODEX_EXTRA_PACKAGES    Additional apt packages for codex image"
+    echo "  GEMINI_EXTRA_PACKAGES   Additional apt packages for gemini image"
     echo "  PROXY_EXTRA_PACKAGES    Additional apt packages for proxy image"
     echo "  STACKS                  Language stacks for base image, comma-separated (e.g. python,go:1.23)"
     echo "  TAG                     Image tag (default: local)"

@@ -10,22 +10,22 @@ source "$AGB_LIBDIR/select.bash"
 source "$AGB_LIBDIR/logging.bash"
 
 supported_agents_display() {
-	echo "claude codex copilot"
+	echo "claude codex copilot gemini"
 }
 
 supported_agents() {
-	printf '%s\n' claude codex copilot
+	printf '%s\n' claude codex copilot gemini
 }
 
 select_agent() {
-	select_option "Select agent:" claude codex copilot
+	select_option "Select agent:" claude codex copilot gemini
 }
 
 validate_agent() {
 	local agent=$1
 
 	case "$agent" in
-	claude | copilot | codex)
+	claude | copilot | codex | gemini)
 		return 0
 		;;
 	*)

@@ -1,0 +1,37 @@
+# Gemini CLI agent image
+# Extends base with Gemini CLI installed via npm
+
+ARG BASE_IMAGE=agent-sandbox-base:local
+FROM ${BASE_IMAGE}
+
+# Optional extra packages
+ARG EXTRA_PACKAGES=""
+USER root
+RUN if [ -n "$EXTRA_PACKAGES" ]; then \
+      printf '%s' "$EXTRA_PACKAGES" | grep -qE '^[a-zA-Z0-9][a-zA-Z0-9.+ :-]*$' \
+        || { echo "ERROR: EXTRA_PACKAGES contains invalid characters: $EXTRA_PACKAGES" >&2; exit 1; }; \
+      apt-get update && apt-get install -y --no-install-recommends $EXTRA_PACKAGES \
+      && apt-get clean && rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Install Node.js (required for npm) via NodeSource apt repo with GPG verification
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key -o /tmp/nodesource.key && \
+    gpg --batch --yes --dearmor -o /etc/apt/keyrings/nodesource.gpg /tmp/nodesource.key && \
+    rm /tmp/nodesource.key && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
+      > /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && apt-get install -y nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Create gemini config directory
+RUN mkdir -p /home/dev/.gemini && chown -R dev:dev /home/dev/.gemini
+
+# Install Gemini CLI via npm - must be root for global install
+ARG GEMINI_VERSION=latest
+RUN npm install -g @google/gemini-cli@${GEMINI_VERSION}
+
+USER dev
+
+LABEL org.opencontainers.image.description="Agent Sandbox with Gemini CLI"
+LABEL com.mattolson.agentsandbox.gemini-version="${GEMINI_VERSION}"
