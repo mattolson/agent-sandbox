@@ -70,7 +70,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Runtime ownership split is explicit: CLI mode is agentbox-managed, devcontainer mode is IDE-managed
 - Legacy single-file setups now fail with explicit upgrade guidance instead of automatic migration tooling
 
-## m9: [Gemini CLI](https://github.com/google-gemini/gemini-cli) support (planned)
+## m9: [Gemini CLI](https://github.com/google-gemini/gemini-cli) support (done)
 
 - agent-sandbox-gemini image and templates
 - Google Gemini CLI installation and configuration
