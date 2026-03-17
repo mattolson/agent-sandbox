@@ -17,7 +17,7 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 
 ## Runtime modes
 
-**CLI (preferred)** - run the agent in a terminal session managed by `agentbox exec`.
+**CLI (preferred)** - run the agent in a terminal session using `agentbox exec`.
 
 **Devcontainer** - open the project in VS Code or JetBrains and let the IDE manage the container lifecycle.
 
@@ -27,9 +27,9 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 |-------|-----|---------|-----------|
 | [Claude Code](https://code.claude.com/docs/en/overview) | :green_circle: | :green_circle: | :green_circle: |
 | [Codex CLI](https://github.com/openai/codex) | :green_circle: | :large_blue_circle: | :large_blue_circle: |
-| [Copilot CLI](https://github.com/github/copilot-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
 | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
 | [Factory CLI](https://docs.factory.ai/cli) | :large_blue_circle: | :large_blue_circle: | :large_blue_circle: |
+| [Copilot CLI](https://github.com/github/copilot-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
 
 * :green_circle: **Full Support** - stable, heavily used.
 * :large_blue_circle: **Preview** - functional but not heavily tested.
