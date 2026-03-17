@@ -161,7 +161,7 @@ Add first-class, non-destructive agent switching so users can move between Claud
 - Devcontainer flow reduced to an IDE shim over centralized runtime files
 - Legacy single-file layouts now fail fast with an upgrade guide instead of silent fallback behavior
 
-### m9-gemini
+### m9-gemini (done)
 
 Add Google Gemini CLI agent support.
 
