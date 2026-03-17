@@ -1331,7 +1331,7 @@ When reviewing an item, capture whether it implements any of these primitives:
 - Worth bringing into the vision:
   - a real microVM-backed stronger-isolation backend candidate
   - host-side VFS and exec control-plane separation as input to `m18-backend-interface`
-  - richer HTTP policy concepts for `m15`, especially method and path matching plus response shaping
+  - richer HTTP policy concepts for `m14`, especially method and path matching plus response shaping
   - lifecycle persistence and explicit garbage-collection or reconcile workflows for leaked sandbox resources
 - Probably not worth bringing in as-is:
   - feature-triggered interception with allow-all semantics when the allow-list is empty
