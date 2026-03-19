@@ -10,25 +10,24 @@ source "$AGB_LIBDIR/select.bash"
 source "$AGB_LIBDIR/logging.bash"
 
 supported_agents_display() {
-	echo "claude codex copilot gemini"
+        echo "claude codex copilot factory gemini"
 }
 
 supported_agents() {
-	printf '%s\n' claude codex copilot gemini
+        printf '%s\n' claude codex copilot factory gemini
 }
 
 select_agent() {
-	select_option "Select agent:" claude codex copilot gemini
+        select_option "Select agent:" claude codex copilot factory gemini
 }
 
 validate_agent() {
-	local agent=$1
+        local agent=$1
 
-	case "$agent" in
-	claude | copilot | codex | gemini)
-		return 0
-		;;
-	*)
+        case "$agent" in
+        claude | copilot | codex | factory | gemini)
+                return 0
+                ;;	*)
 		echo "Invalid agent: $agent (expected: $(supported_agents_display))" | error
 		return 1
 		;;
