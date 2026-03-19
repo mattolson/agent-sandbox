@@ -10,7 +10,7 @@ DEFAULT_SINGLE_POLICY_PATH = "/etc/mitmproxy/policy.yaml"
 DEFAULT_SHARED_POLICY_PATH = "/etc/agent-sandbox/policy/user.policy.yaml"
 DEFAULT_AGENT_POLICY_PATH = "/etc/agent-sandbox/policy/user.agent.policy.yaml"
 DEFAULT_DEVCONTAINER_POLICY_PATH = "/etc/agent-sandbox/policy/devcontainer.policy.yaml"
-KNOWN_AGENTS = {"claude", "codex", "copilot", "gemini"}
+KNOWN_AGENTS = {"claude", "codex", "copilot", "factory", "gemini"}
 
 
 def fail(message):

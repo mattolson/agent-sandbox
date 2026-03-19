@@ -26,7 +26,7 @@ teardown() {
 @test "init rejects invalid --agent value" {
 	run init --name my-project --agent "invalid" --path "$PROJECT_DIR"
 	assert_failure
-	assert_output --partial "Invalid agent: invalid (expected: claude codex copilot gemini)"
+	assert_output --partial "Invalid agent: invalid (expected: claude codex copilot factory gemini)"
 }
 
 @test "init rejects invalid --mode value" {

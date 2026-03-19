@@ -59,11 +59,14 @@ DOCKER_BUILD_ARGS=("$@")
 : "${COPILOT_VERSION:=latest}"
 : "${CODEX_VERSION:=latest}"
 : "${GEMINI_VERSION:=latest}"
+: "${FACTORY_VERSION:=latest}"
+
 : "${EXTRA_PACKAGES:=}"
 : "${CLAUDE_EXTRA_PACKAGES:=}"
 : "${COPILOT_EXTRA_PACKAGES:=}"
 : "${CODEX_EXTRA_PACKAGES:=}"
 : "${GEMINI_EXTRA_PACKAGES:=}"
+: "${FACTORY_EXTRA_PACKAGES:=}"
 : "${PROXY_EXTRA_PACKAGES:=}"
 : "${STACKS:=}"
 : "${TAG:=local}"
@@ -156,6 +159,20 @@ build_gemini() {
     "$SCRIPT_DIR/agents/gemini"
 }
 
+build_factory() {
+  echo "Building agent-sandbox-factory..."
+  echo "  FACTORY_VERSION=$FACTORY_VERSION"
+  [ -n "$FACTORY_EXTRA_PACKAGES" ] && echo "  EXTRA_PACKAGES=$FACTORY_EXTRA_PACKAGES"
+  [ "$TAG" != "local" ] && echo "  TAG=$TAG"
+  docker build \
+    --build-arg BASE_IMAGE=agent-sandbox-base:$TAG \
+    --build-arg FACTORY_VERSION="$FACTORY_VERSION" \
+    --build-arg EXTRA_PACKAGES="$FACTORY_EXTRA_PACKAGES" \
+    ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \
+    -t agent-sandbox-factory:$TAG \
+    "$SCRIPT_DIR/agents/factory"
+}
+
 build_cli() {
   echo "Building agent-sandbox-cli..."
   [ "$TAG" != "local" ] && echo "  TAG=$TAG"
@@ -185,6 +202,9 @@ case "$TARGET" in
   gemini)
     build_gemini
     ;;
+  factory)
+    build_factory
+    ;;
   cli)
     build_cli
     ;;
@@ -195,10 +215,11 @@ case "$TARGET" in
     build_copilot
     build_codex
     build_gemini
+    build_factory
     build_cli
     ;;
   *)
-    echo "Usage: $0 [base|proxy|claude|copilot|codex|gemini|cli|all] [docker build options...]"
+    echo "Usage: $0 [base|proxy|claude|copilot|codex|factory|gemini|cli|all] [docker build options...]"
     echo ""
     echo "Any additional arguments are passed to docker build."
     echo ""
@@ -211,11 +232,13 @@ case "$TARGET" in
     echo "  COPILOT_VERSION         GitHub Copilot CLI version (default: latest)"
     echo "  CODEX_VERSION           OpenAI Codex CLI version (default: latest)"
     echo "  GEMINI_VERSION          Gemini CLI version (default: latest)"
+    echo "  FACTORY_VERSION         Factory CLI version (default: latest)"
     echo "  EXTRA_PACKAGES          Additional apt packages for base image"
     echo "  CLAUDE_EXTRA_PACKAGES   Additional apt packages for claude image"
     echo "  COPILOT_EXTRA_PACKAGES  Additional apt packages for copilot image"
     echo "  CODEX_EXTRA_PACKAGES    Additional apt packages for codex image"
     echo "  GEMINI_EXTRA_PACKAGES   Additional apt packages for gemini image"
+    echo "  FACTORY_EXTRA_PACKAGES  Additional apt packages for factory image"
     echo "  PROXY_EXTRA_PACKAGES    Additional apt packages for proxy image"
     echo "  STACKS                  Language stacks for base image, comma-separated (e.g. python,go:1.23)"
     echo "  TAG                     Image tag (default: local)"
