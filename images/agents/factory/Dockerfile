@@ -30,7 +30,7 @@ RUN mkdir -p /home/dev/.factory /home/dev/.local/bin \
 
 # Install Factory CLI via npm - must be root for global install
 ARG FACTORY_VERSION=latest
-RUN npm install -g factory@${FACTORY_VERSION}
+RUN npm install -g droid@${FACTORY_VERSION}
 
 USER dev
 
