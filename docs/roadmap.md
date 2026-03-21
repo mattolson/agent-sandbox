@@ -76,7 +76,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Google Gemini CLI installation and configuration
 - Network policy with Gemini API domains
 
-## m10: [Factory](https://github.com/Factory-AI/factory) support (planned)
+## m10: [Factory](https://github.com/Factory-AI/factory) support (done)
 
 - agent-sandbox-factory image and templates
 - Factory agent installation and configuration
