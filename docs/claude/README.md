@@ -77,14 +77,3 @@ In VS Code, both modes work with the sandbox container. The IDE extension runs a
 **First-time setup with extension.** If you start fresh with the extension (no prior authentication), the extension will prompt you to authenticate through its UI. This works the same as the terminal OAuth flow.
 
 **Connecting terminal to IDE.** Running `/ide` in the terminal Claude session shows the connection status to VS Code. When connected, Claude can interact with the editor directly.
-
-## Required Network Policy
-
-The Claude service requires these services:
-
-```yaml
-services:
-  - claude  # Anthropic Claude API
-```
-
-See the [main README](../../README.md#network-policy) for policy customization and verification.

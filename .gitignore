@@ -3,3 +3,5 @@
 .env
 .idea
 .vscode
+__pycache__/
+*.pyc

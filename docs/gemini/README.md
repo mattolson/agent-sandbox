@@ -45,14 +45,3 @@ You can run Gemini CLI two ways within the container:
 
 ### VS Code
 In VS Code, both modes work with the sandbox container. The IDE extension runs inside the container and respects the `HTTP_PROXY` environment variable. The [extension](https://marketplace.visualstudio.com/items?itemName=google.gemini-cli-vscode-ide-companion) is automatically installed when using the devcontainer.
-
-## Required Network Policy
-
-The Gemini service requires these services:
-
-```yaml
-services:
-  - gemini  # Google Gemini API and OAuth domains
-```
-
-See the [main README](../../README.md#network-policy) for policy customization and verification.

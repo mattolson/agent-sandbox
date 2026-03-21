@@ -36,14 +36,3 @@ Afterward, for CLI mode, stop the container:
 ```bash
 agentbox compose down
 ```
-
-## Required Network Policy
-
-The Copilot service requires these services:
-
-```yaml
-services:
-  - copilot  # GitHub Copilot API domains
-```
-
-See the [main README](../../README.md#network-policy) for policy customization and verification.

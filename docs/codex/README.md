@@ -35,14 +35,3 @@ Afterward, for CLI mode, stop the container:
 ```bash
 agentbox compose down
 ```
-
-## Required Network Policy
-
-The Codex service requires these services:
-
-```yaml
-services:
-  - codex  # OpenAI API and OAuth domains
-```
-
-See the [main README](../../README.md#network-policy) for policy customization and verification.

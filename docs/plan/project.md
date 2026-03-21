@@ -167,7 +167,7 @@ Add Google Gemini CLI agent support.
 
 **Dependencies:** m6 (CLI and templates established)
 
-### m10-factory
+### m10-factory (done)
 
 Add Factory agent support.
 
