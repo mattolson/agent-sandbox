@@ -463,7 +463,7 @@ jobs:
       - name: Get latest Factory CLI version from npm
         id: version
         run: |
-          VERSION=$(npm view factory@latest version || echo "latest")
+          VERSION=$(npm view droid@latest version || echo "latest")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Factory CLI version: $VERSION"
 

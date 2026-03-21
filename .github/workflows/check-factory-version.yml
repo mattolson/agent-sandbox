@@ -21,7 +21,7 @@ jobs:
       - name: Get latest Factory CLI version from npm
         id: npm
         run: |
-          VERSION=$(npm view factory@latest version 2>/dev/null || echo "latest")
+          VERSION=$(npm view droid@latest version 2>/dev/null || echo "latest")
           if [ -z "$VERSION" ]; then
             echo "Failed to fetch version from npm"
             exit 1
