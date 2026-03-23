@@ -50,8 +50,6 @@ jobs:
             echo "Tag $TAG does not exist"
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
-        env:
-          DOCKER_CLI_EXPERIMENTAL: enabled
 
       - name: Trigger image rebuild
         if: steps.check.outputs.exists == 'false'
