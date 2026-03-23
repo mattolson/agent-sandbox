@@ -8,7 +8,7 @@ services:
     environment:
       - AGENTBOX_ACTIVE_AGENT=codex
   agent:
-    image: ghcr.io/mattolson/agent-sandbox-codex@sha256:1e95ea3be2bb6b13c12e769f73dd62713bcbe749610026eaeaa694fdd7abb291
+    image: ghcr.io/mattolson/agent-sandbox-codex@sha256:21dc92cf71b218875f6770cedbb8b079dfcacde3006f329bde75b18099e00655
     volumes:
       # Persist Codex config and credentials
       - codex-state:/home/dev/.codex
