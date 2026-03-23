@@ -463,7 +463,11 @@ jobs:
       - name: Get latest Factory CLI version from npm
         id: version
         run: |
-          VERSION=$(npm view droid@latest version || echo "latest")
+          VERSION=$(npm view droid@latest version 2>/dev/null)
+          if [ -z "$VERSION" ]; then
+            echo "Failed to fetch Factory CLI version from npm"
+            exit 1
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Factory CLI version: $VERSION"
 
