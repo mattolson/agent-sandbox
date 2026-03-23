@@ -35,7 +35,8 @@ SERVICE_DOMAINS = {
         "*.chatgpt.com",
     ],
     "factory": [
-        "*.factory.ai",
+        "api.factory.ai",
+        'api.workos.com'
     ],
     "gemini": [
         "cloudcode-pa.googleapis.com",
