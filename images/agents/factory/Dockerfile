@@ -24,18 +24,14 @@ RUN mkdir -p /etc/apt/keyrings && \
     apt-get update && apt-get install -y nodejs xdg-utils && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Create factory config directory and ensure ~/.local/bin exists
-RUN mkdir -p /home/dev/.factory /home/dev/.local/bin \
-    && chown -R dev:dev /home/dev/.factory /home/dev/.local
+# Create factory config directory
+RUN mkdir -p /home/dev/.factory && chown -R dev:dev /home/dev/.factory
 
 # Install Factory CLI via npm - must be root for global install
 ARG FACTORY_VERSION=latest
 RUN npm install -g droid@${FACTORY_VERSION}
 
 USER dev
-
-# Add ~/.local/bin to PATH
-ENV PATH="/home/dev/.local/bin:$PATH"
 
 LABEL org.opencontainers.image.description="Agent Sandbox with Factory CLI"
 LABEL com.mattolson.agentsandbox.factory-version="${FACTORY_VERSION}"
