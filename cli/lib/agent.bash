@@ -27,7 +27,8 @@ validate_agent() {
         case "$agent" in
         claude | copilot | codex | factory | gemini)
                 return 0
-                ;;	*)
+                ;;
+        *)
 		echo "Invalid agent: $agent (expected: $(supported_agents_display))" | error
 		return 1
 		;;
