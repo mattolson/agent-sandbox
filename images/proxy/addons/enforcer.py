@@ -36,7 +36,7 @@ SERVICE_DOMAINS = {
     ],
     "factory": [
         "api.factory.ai",
-        'api.workos.com'
+        "api.workos.com",
     ],
     "gemini": [
         "cloudcode-pa.googleapis.com",
