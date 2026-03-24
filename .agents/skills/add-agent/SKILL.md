@@ -153,7 +153,7 @@ Create `docs/agents/{agent}.md` following this structure (see `docs/agents/codex
 
 1. **Header**: `# {Display Name} Sandbox Template`
 2. **One-liner**: "Run {display name} in a network-locked container..."
-3. **Link**: "See the [main README](../README.md) for installation, architecture overview, and configuration options."
+3. **Link**: "See the [main README](../../README.md) for installation, architecture overview, and configuration options."
 4. **Setup section**: Auth instructions covering all supported auth methods. Note any gotchas (e.g., account-level settings that must be enabled).
 5. **Usage section**: How to start the agent, including the auto-approve flag. Include `agentbox compose down` for stopping.
 6. **Required Network Policy section**: Show the `services:` YAML snippet with the agent's service name.
