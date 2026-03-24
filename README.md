@@ -31,9 +31,9 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 | [Factory CLI](https://docs.factory.ai/cli) | :large_blue_circle: | :large_blue_circle: | :large_blue_circle: |
 | [Copilot CLI](https://github.com/github/copilot-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
 
-* :green_circle: **Full Support** - stable, heavily used.
-* :large_blue_circle: **Preview** - functional but not heavily tested.
-* :red_circle: **Not Supported** - known blockers.
+* :green_circle: **Full Support** - stable, heavily used by maintainers
+* :large_blue_circle: **Preview** - tested during initial integration, but not heavily used by maintainers, contributions, documentation, and bug reports welcome
+* :red_circle: **Not Supported** - known blockers
   * Copilot's IntelliJ plugin [cannot complete auth in a devcontainer](https://github.com/microsoft/copilot-intellij-feedback/issues/1375).
   * No official Google Gemini plugin available for JetBrains
 
@@ -41,17 +41,30 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 
 ### 1. Install prerequisites
 
-You need docker and docker-compose installed. So far we've tested with Colima + Docker Engine, but this should work with Docker Desktop for Mac or Podman as well. Instructions that follow are for Colima.
+You need a VM and Docker (along with docker-compose and docker-buildx) installed. This can be done in a variety of ways.
+
+* Colima
+* Podman
+* OrbStack
+* Docker Desktop
+* Rancher
+
+Instructions that follow are for Colima.
 
 ```bash
-# colima for VM, docker packages for running containers in VM, yq is a dependency for agentbox cli
-brew install colima docker docker-compose docker-buildx yq
+# colima for virtual machine
+# docker for the core docker engine
+# docker-compose for agentbox runtime
+# docker-buildx for building images locally
+brew install colima docker docker-compose docker-buildx
+
+# Start the virtual machine - see the colima docs for launching on boot
 colima start --cpu 4 --memory 8 --disk 60
 ```
 
 ### 2. Install agent-sandbox CLI
 
-The [CLI](cli/README.md) is a helper script and thin wrapper around docker-compose that simplifies the process of initializing and starting the sandbox.
+The [CLI](cli/README.md) is a set of helper scripts that simplify the process of initializing and managing the sandbox.
 
 #### Local install (recommended)
 
@@ -104,7 +117,8 @@ To inspect the configuration after init, use `agentbox policy config` to output 
 # Open a shell in the agent container
 agentbox exec
 
-# Start your agent cli (e.g. claude). Because you're in a sandbox, you can even try yolo mode!
+# Then, inside the container, start your agent cli (e.g. claude).
+# Because you're in a sandbox, you can even try yolo mode!
 claude --dangerously-skip-permissions
 ```
 
