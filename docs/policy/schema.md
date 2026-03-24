@@ -1,7 +1,6 @@
 # Policy Schema
 
-Policy files configure which domains the sandbox can reach. The proxy enforcer reads the rendered effective policy at
-startup and blocks requests to any domain not on the allowlist.
+Policy files configure which domains the sandbox can reach. The proxy enforcer reads the rendered effective policy at startup and blocks requests to any domain not on the allowlist.
 
 Effective policy location inside the proxy container: `POLICY_PATH` (defaults to `/etc/mitmproxy/policy.yaml` for
 single-file setups).
