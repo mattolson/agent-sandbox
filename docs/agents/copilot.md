@@ -2,7 +2,7 @@
 
 Run GitHub Copilot CLI in a network-locked container. All outbound traffic is routed through an enforcing proxy that blocks requests to domains not on the allowlist.
 
-See the [main README](../../README.md) for installation, architecture overview, and configuration options.
+See the [main README](../README.md) for installation, architecture overview, and configuration options.
 
 ## Setup
 
@@ -14,7 +14,7 @@ In CLI mode you should be able to `/login` as usual.
 
 When using VS Code (devcontainer), you need to use the "URL handler" method.
 
-[<img src="../../docs/images/copilot-auth-vscode-ide.png" alt="Copilot authentication from VS Code IDE" width="200"/>](../images/copilot-auth-vscode-ide.png)
+[<img src="../images/copilot-auth-vscode-ide.png" alt="Copilot authentication from VS Code IDE" width="200"/>](../images/copilot-auth-vscode-ide.png)
 
 Note: even in Devcontainer mode, VS Code will store the credentials on the host (removing the containers and volumes preserves them).
 

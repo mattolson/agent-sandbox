@@ -149,11 +149,11 @@ Edit `images/build.sh` to add:
 
 #### 2.9: Agent Documentation
 
-Create `docs/{agent}/README.md` following this structure (see `docs/codex/README.md` for exact format):
+Create `docs/agents/{agent}.md` following this structure (see `docs/agents/codex.md` for exact format):
 
 1. **Header**: `# {Display Name} Sandbox Template`
 2. **One-liner**: "Run {display name} in a network-locked container..."
-3. **Link**: "See the [main README](../../README.md) for installation, architecture overview, and configuration options."
+3. **Link**: "See the [main README](../README.md) for installation, architecture overview, and configuration options."
 4. **Setup section**: Auth instructions covering all supported auth methods. Note any gotchas (e.g., account-level settings that must be enabled).
 5. **Usage section**: How to start the agent, including the auto-approve flag. Include `agentbox compose down` for stopping.
 6. **Required Network Policy section**: Show the `services:` YAML snippet with the agent's service name.
@@ -225,8 +225,8 @@ When generating files, read these for the exact patterns:
 - `images/proxy/addons/enforcer.py` (service domains, alphabetical ordering)
 - `images/proxy/render-policy` (KNOWN_AGENTS set, policy rendering validation)
 - `images/build.sh` (build functions and case statement)
-- `docs/codex/README.md` (simplest agent doc, CLI-only)
-- `docs/copilot/README.md` (agent doc with IDE notes)
+- `docs/agents/codex.md` (simplest agent doc, CLI-only)
+- `docs/agents/copilot.md` (agent doc with IDE notes)
 - `README.md` (supported agents table and setup links)
 - `.github/workflows/build-images.yml` (build jobs)
 - `.github/workflows/check-codex-version.yml` (GitHub releases version check)
