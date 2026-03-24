@@ -136,11 +136,11 @@ JetBrains (IntelliJ, PyCharm, WebStorm, etc.):
 ### 5. Agent-specific setup
 
 Follow the setup instructions specific to the agent image you are using:
-- [Claude Code](docs/claude/README.md)
-- [Codex](docs/codex/README.md)
-- [Gemini CLI](docs/gemini/README.md)
-- [GitHub Copilot](docs/copilot/README.md)
-- [Factory CLI](docs/factory/README.md)
+- [Claude Code](docs/agents/claude.md)
+- [Codex](docs/agents/codex.md)
+- [Gemini CLI](docs/agents/gemini.md)
+- [GitHub Copilot](docs/agents/copilot.md)
+- [Factory CLI](docs/agents/factory.md)
 
 ## Switching agents
 
