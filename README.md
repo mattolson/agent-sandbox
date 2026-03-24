@@ -156,7 +156,7 @@ agentbox switch --agent codex
 
 Network enforcement has two layers:
 
-1. **Proxy** (mitmproxy sidecar) - Enforces a domain allowlist at the HTTP/HTTPS level. Blocks requests to non-allowed domains with 403.
+1. **Proxy** (mitmproxy sidecar) - Enforces a domain allowlist at the HTTP/HTTPS level. Blocks requests to disallowed domains with 403.
 2. **Firewall** (iptables) - Blocks all direct outbound from the agent container. Only the Docker host network is reachable, which is where the proxy sidecar runs. This prevents applications from bypassing the proxy.
 
 The proxy image ships with a default policy that blocks all traffic. You must mount a policy file to allow any outbound requests. `agentbox init` will set this up for you.
@@ -171,10 +171,7 @@ The proxy's CA certificate is shared via a Docker volume and automatically insta
 
 ### Customizing the policy
 
-The network policy lives in your project in the `.agent-sandbox/policy/` directory. Devcontainer projects also get a
-managed `.agent-sandbox/policy/policy.devcontainer.yaml` layer for IDE-related allowlists, but user-owned policy edits
-stay in the shared `.agent-sandbox/policy/` files. These files can be checked into version control and shared with
-your team.
+The network policy lives in your project in the `.agent-sandbox/policy/` directory.
 
 To edit the policy file:
 
@@ -182,26 +179,22 @@ To edit the policy file:
 agentbox edit policy
 ```
 
-This opens the network policy file in your editor. If you save changes, the proxy service will automatically restart to apply the new policy.
+This opens the user layer file (`.agent-sandbox/policy/user.policy.yaml`) in your editor, which will be preserved across agent switches, and will be applied on top of the base agent policy. If you save changes, the proxy service will automatically restart to apply the new policy.
 
 Example policy:
 
 ```yaml
 services:
-  - claude
+  - github
 
 domains:
-  # Add your own
   - registry.npmjs.org
   - pypi.org
 ```
 
-The `.agent-sandbox` directory, and in devcontainer workflows the `.devcontainer/` directory, are mounted read-only
-inside the agent container. The proxy reads the policy at startup, so changes require a restart from the host.
+If you want to make customizations that apply to a single agent, you can edit the file `.agent-sandbox/policy/user.agent.<agent>.policy.yaml`. For example, to add a domain to the allowlist, but only when using Claude Code, add it to the file `user.agent.claude.policy.yaml`.
 
 See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format reference.
-If you still have legacy single-file sandbox files, use the
-[upgrade guide](docs/upgrades/m8-layered-layout.md) before editing policy or compose.
 
 ## Customization
 
@@ -243,8 +236,6 @@ What this means in practice:
 - Installing IDE extensions can [introduce additional risk](https://blog.theredguild.org/leveraging-vscode-internals-to-escape-containers/)
 
 Treat the IDE and its extensions as trusted host-side code. If you want the tightest boundary, use CLI mode instead of devcontainer mode.
-
-For Codex specifically, prefer [device code OAuth](./docs/codex/README.md) in sandboxed environments. It avoids localhost callback flows entirely.
 
 ### Security issues
 
