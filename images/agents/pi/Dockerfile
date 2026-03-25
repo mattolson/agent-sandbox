@@ -21,8 +21,11 @@ RUN mkdir -p /etc/apt/keyrings && \
     rm /tmp/nodesource.key && \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
       > /etc/apt/sources.list.d/nodesource.list && \
-    apt-get update && apt-get install -y nodejs && \
+    apt-get update && apt-get install -y nodejs fd-find && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Debian installs fd as fdfind; symlink to fd for compatibility
+RUN ln -sf /usr/bin/fdfind /usr/local/bin/fd
 
 # Create pi config directory
 RUN mkdir -p /home/dev/.pi && chown -R dev:dev /home/dev/.pi
