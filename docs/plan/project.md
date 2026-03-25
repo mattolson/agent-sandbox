@@ -173,15 +173,15 @@ Add Factory agent support.
 
 **Dependencies:** m6 (CLI and templates established)
 
-### m11-opencode
+### m11-pi
 
-Add OpenCode agent support.
+Add Pi agent support.
 
 **Dependencies:** m6 (CLI and templates established)
 
-### m12-pi
+### m12-opencode
 
-Add Pi agent support.
+Add OpenCode agent support.
 
 **Dependencies:** m6 (CLI and templates established)
 
