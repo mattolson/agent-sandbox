@@ -43,6 +43,9 @@ SERVICE_DOMAINS = {
         "generativelanguage.googleapis.com",
         "oauth2.googleapis.com",
     ],
+    "pi": [
+        "registry.npmjs.org",
+    ],
     "copilot": [
         "github.com",
         "api.github.com",

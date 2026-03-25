@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Build agent-sandbox images locally
 #
-# Usage: ./build.sh [base|proxy|claude|copilot|codex|gemini|cli|all] [docker build options...]
+# Usage: ./build.sh [base|proxy|claude|copilot|codex|gemini|factory|pi|cli|all] [docker build options...]
 #
 # Environment variables (all optional):
 #   TZ                      - Timezone (default: America/Los_Angeles)
@@ -40,7 +40,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Parse target and extra args
 # If first arg is a known target, use it; otherwise default to 'all'
 case "${1:-}" in
-  base|claude|proxy|copilot|codex|gemini|cli|all)
+  base|claude|proxy|copilot|codex|gemini|factory|pi|cli|all)
     TARGET="$1"
     shift
     ;;
@@ -60,6 +60,7 @@ DOCKER_BUILD_ARGS=("$@")
 : "${CODEX_VERSION:=latest}"
 : "${GEMINI_VERSION:=latest}"
 : "${FACTORY_VERSION:=latest}"
+: "${PI_VERSION:=latest}"
 
 : "${EXTRA_PACKAGES:=}"
 : "${CLAUDE_EXTRA_PACKAGES:=}"
@@ -67,6 +68,7 @@ DOCKER_BUILD_ARGS=("$@")
 : "${CODEX_EXTRA_PACKAGES:=}"
 : "${GEMINI_EXTRA_PACKAGES:=}"
 : "${FACTORY_EXTRA_PACKAGES:=}"
+: "${PI_EXTRA_PACKAGES:=}"
 : "${PROXY_EXTRA_PACKAGES:=}"
 : "${STACKS:=}"
 : "${TAG:=local}"
@@ -173,6 +175,20 @@ build_factory() {
     "$SCRIPT_DIR/agents/factory"
 }
 
+build_pi() {
+  echo "Building agent-sandbox-pi..."
+  echo "  PI_VERSION=$PI_VERSION"
+  [ -n "$PI_EXTRA_PACKAGES" ] && echo "  EXTRA_PACKAGES=$PI_EXTRA_PACKAGES"
+  [ "$TAG" != "local" ] && echo "  TAG=$TAG"
+  docker build \
+    --build-arg BASE_IMAGE=agent-sandbox-base:$TAG \
+    --build-arg PI_VERSION="$PI_VERSION" \
+    --build-arg EXTRA_PACKAGES="$PI_EXTRA_PACKAGES" \
+    ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \
+    -t agent-sandbox-pi:$TAG \
+    "$SCRIPT_DIR/agents/pi"
+}
+
 build_cli() {
   echo "Building agent-sandbox-cli..."
   [ "$TAG" != "local" ] && echo "  TAG=$TAG"
@@ -205,6 +221,9 @@ case "$TARGET" in
   factory)
     build_factory
     ;;
+  pi)
+    build_pi
+    ;;
   cli)
     build_cli
     ;;
@@ -216,10 +235,11 @@ case "$TARGET" in
     build_codex
     build_gemini
     build_factory
+    build_pi
     build_cli
     ;;
   *)
-    echo "Usage: $0 [base|proxy|claude|copilot|codex|factory|gemini|cli|all] [docker build options...]"
+    echo "Usage: $0 [base|proxy|claude|copilot|codex|factory|gemini|pi|cli|all] [docker build options...]"
     echo ""
     echo "Any additional arguments are passed to docker build."
     echo ""
@@ -239,6 +259,8 @@ case "$TARGET" in
     echo "  CODEX_EXTRA_PACKAGES    Additional apt packages for codex image"
     echo "  GEMINI_EXTRA_PACKAGES   Additional apt packages for gemini image"
     echo "  FACTORY_EXTRA_PACKAGES  Additional apt packages for factory image"
+    echo "  PI_VERSION              Pi coding agent version (default: latest)"
+    echo "  PI_EXTRA_PACKAGES       Additional apt packages for pi image"
     echo "  PROXY_EXTRA_PACKAGES    Additional apt packages for proxy image"
     echo "  STACKS                  Language stacks for base image, comma-separated (e.g. python,go:1.23)"
     echo "  TAG                     Image tag (default: local)"
