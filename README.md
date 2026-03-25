@@ -26,10 +26,10 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 | Agent | CLI | VS Code | JetBrains |
 |-------|-----|---------|-----------|
 | [Claude Code](https://code.claude.com/docs/en/overview) | :green_circle: | :green_circle: | :green_circle: |
-| [Codex CLI](https://github.com/openai/codex) | :green_circle: | :large_blue_circle: | :large_blue_circle: |
-| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
-| [Factory CLI](https://docs.factory.ai/cli) | :large_blue_circle: | :large_blue_circle: | :large_blue_circle: |
-| [Copilot CLI](https://github.com/github/copilot-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
+| [Codex](https://github.com/openai/codex) | :green_circle: | :large_blue_circle: | :large_blue_circle: |
+| [Gemini](https://github.com/google-gemini/gemini-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
+| [Factory](https://docs.factory.ai/cli) | :large_blue_circle: | :large_blue_circle: | :large_blue_circle: |
+| [Copilot](https://github.com/github/copilot-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
 
 * :green_circle: **Full Support** - stable, heavily used by maintainers
 * :large_blue_circle: **Preview** - tested during initial integration, but not heavily used by maintainers, contributions, documentation, and bug reports welcome
@@ -138,9 +138,9 @@ JetBrains (IntelliJ, PyCharm, WebStorm, etc.):
 Follow the setup instructions specific to the agent image you are using:
 - [Claude Code](docs/agents/claude.md)
 - [Codex](docs/agents/codex.md)
-- [Gemini CLI](docs/agents/gemini.md)
-- [GitHub Copilot](docs/agents/copilot.md)
-- [Factory CLI](docs/agents/factory.md)
+- [Gemini](docs/agents/gemini.md)
+- [Factory](docs/agents/factory.md)
+- [Copilot](docs/agents/copilot.md)
 
 ## Switching agents
 
