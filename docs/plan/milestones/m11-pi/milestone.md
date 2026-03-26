@@ -57,7 +57,7 @@ Add Pi coding agent (`@mariozechner/pi-coding-agent`) as a supported agent in Ag
 **Scope:**
 - Add `"pi"` entry to `SERVICE_DOMAINS` in `images/proxy/addons/enforcer.py`
 - Add `"pi"` to `KNOWN_AGENTS` in `images/proxy/render-policy`
-- Pi-specific domains: `registry.npmjs.org` (needed for `pi install` and `pi update` package commands)
+- Pi service defined with empty domain list (Pi's core operation requires only provider domains, which users add separately)
 
 **Acceptance Criteria:**
 - Proxy starts with `AGENTBOX_ACTIVE_AGENT=pi` without error
