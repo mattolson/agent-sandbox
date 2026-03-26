@@ -43,9 +43,7 @@ SERVICE_DOMAINS = {
         "generativelanguage.googleapis.com",
         "oauth2.googleapis.com",
     ],
-    "pi": [
-        "registry.npmjs.org",
-    ],
+    "pi": [],
     "copilot": [
         "github.com",
         "api.github.com",
@@ -115,7 +113,7 @@ class PolicyEnforcer:
 
         for svc in policy.get("services") or []:
             patterns = SERVICE_DOMAINS.get(svc)
-            if patterns:
+            if patterns is not None:
                 for domain in patterns:
                     self._add_domain(domain)
             else:
