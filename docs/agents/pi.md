@@ -54,6 +54,17 @@ pi
 
 Pi has no built-in permission system, so it runs in auto-approve mode by default.
 
+### Pi packages
+
+Pi's `pi install` and `pi update` commands fetch packages from the npm registry. If you need this, add `registry.npmjs.org` to your policy domains:
+
+```yaml
+domains:
+  - registry.npmjs.org
+```
+
+This is not included by default because it is not required for Pi's core operation.
+
 Afterward, for CLI mode, stop the container:
 
 ```bash
