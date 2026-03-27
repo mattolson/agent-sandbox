@@ -25,8 +25,8 @@ RUN mkdir -p /etc/apt/keyrings && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create XDG directories for OpenCode
-RUN mkdir -p /home/dev/.config/opencode /home/dev/.local/share/opencode /home/dev/.cache/opencode \
-    && chown -R dev:dev /home/dev/.config/opencode /home/dev/.local/share/opencode /home/dev/.cache/opencode
+RUN mkdir -p /home/dev/.config/opencode /home/dev/.local/share/opencode /home/dev/.local/state/opencode /home/dev/.cache/opencode \
+    && chown -R dev:dev /home/dev/.config /home/dev/.local /home/dev/.cache
 
 # Install OpenCode via npm - must be root for global install
 ARG OPENCODE_VERSION=latest
