@@ -20,6 +20,7 @@ env:
   COPILOT_IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-copilot
   FACTORY_IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-factory
   GEMINI_IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-gemini
+  OPENCODE_IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-opencode
   PI_IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-pi
   PROXY_IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-proxy
 
@@ -584,10 +585,79 @@ jobs:
       - name: Output digest
         run: echo "Pi image digest - ${{ steps.build.outputs.digest }}"
 
+  build-opencode:
+    runs-on: ubuntu-latest
+    needs: build-base
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      opencode_version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get latest OpenCode version from npm
+        id: version
+        run: |
+          VERSION=$(npm view opencode-ai@latest version 2>/dev/null)
+          if [ -z "$VERSION" ]; then
+            echo "Failed to fetch OpenCode version from npm"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "OpenCode version: $VERSION"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.OPENCODE_IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=opencode-${{ steps.version.outputs.version }}
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./images/agents/opencode
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}@${{ needs.build-base.outputs.digest }}
+            OPENCODE_VERSION=${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Output digest
+        run: echo "OpenCode image digest - ${{ steps.build.outputs.digest }}"
+
 
   summary:
     runs-on: ubuntu-latest
-    needs: [build-base, build-proxy, build-claude, build-cli, build-copilot, build-codex, build-factory, build-gemini, build-pi]
+    needs: [build-base, build-proxy, build-claude, build-cli, build-copilot, build-codex, build-factory, build-gemini, build-opencode, build-pi]
     steps:
       - name: Summary
         run: |
@@ -599,6 +669,7 @@ jobs:
           echo "**Codex CLI version:** ${{ needs.build-codex.outputs.codex_version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Factory CLI version:** ${{ needs.build-factory.outputs.factory_version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Gemini CLI version:** ${{ needs.build-gemini.outputs.gemini_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**OpenCode version:** ${{ needs.build-opencode.outputs.opencode_version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Pi coding agent version:** ${{ needs.build-pi.outputs.pi_version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Image | Digest |" >> $GITHUB_STEP_SUMMARY
@@ -611,4 +682,5 @@ jobs:
           echo "| agent-sandbox-codex | \`${{ needs.build-codex.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| agent-sandbox-factory | \`${{ needs.build-factory.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| agent-sandbox-gemini | \`${{ needs.build-gemini.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| agent-sandbox-opencode | \`${{ needs.build-opencode.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| agent-sandbox-pi | \`${{ needs.build-pi.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY

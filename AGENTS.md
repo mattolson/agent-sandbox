@@ -6,7 +6,7 @@ This file provides guidance to agents when working with code in this repository.
 
 Agent Sandbox creates locked-down local sandboxes for running AI coding agents with minimal filesystem access and restricted outbound network. Enforcement uses two layers: an mitmproxy sidecar that enforces a domain allowlist at the HTTP/HTTPS level, and iptables rules that block all direct outbound to prevent bypassing the proxy.
 
-Supported agents: `claude`, `codex`, `copilot`, `factory`, `gemini`.
+Supported agents: `claude`, `codex`, `copilot`, `factory`, `gemini`, `opencode`, `pi`.
 
 **Note**: During development of this project, the agent operates inside a locked-down container using the docker compose method. This means git push/pull and other network operations outside the allowlist will fail from within the container. Handle git operations from the host.
 

@@ -28,6 +28,7 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 | [Claude Code](https://code.claude.com/docs/en/overview) | :green_circle: | :green_circle: | :green_circle: |
 | [Codex](https://github.com/openai/codex) | :green_circle: | :large_blue_circle: | :large_blue_circle: |
 | [Gemini](https://github.com/google-gemini/gemini-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
+| [OpenCode](https://github.com/anomalyco/opencode) | :large_blue_circle: | :red_circle: | :red_circle: |
 | [Pi](https://github.com/badlogic/pi-mono) | :large_blue_circle: | :red_circle: | :red_circle: |
 | [Factory](https://docs.factory.ai/cli) | :large_blue_circle: | :large_blue_circle: | :large_blue_circle: |
 | [Copilot](https://github.com/github/copilot-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
@@ -37,7 +38,7 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 * :red_circle: **Not Supported** - known blockers
   * Copilot's IntelliJ plugin [cannot complete auth in a devcontainer](https://github.com/microsoft/copilot-intellij-feedback/issues/1375).
   * No official Google Gemini plugin available for JetBrains
-  * No IDE extensions available for Pi
+  * No IDE extensions available for Pi or OpenCode
 
 ## Quick start (macOS + Colima)
 
@@ -141,6 +142,7 @@ Follow the setup instructions specific to the agent image you are using:
 - [Claude Code](docs/agents/claude.md)
 - [Codex](docs/agents/codex.md)
 - [Gemini](docs/agents/gemini.md)
+- [OpenCode](docs/agents/opencode.md)
 - [Pi](docs/agents/pi.md)
 - [Factory](docs/agents/factory.md)
 - [Copilot](docs/agents/copilot.md)

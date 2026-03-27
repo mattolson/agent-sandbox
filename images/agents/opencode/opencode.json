@@ -1,0 +1,14 @@
+{
+  "permission": {
+    "read": "allow",
+    "edit": "allow",
+    "bash": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "list": "allow",
+    "webfetch": "allow",
+    "task": "allow",
+    "lsp": "allow",
+    "skill": "allow"
+  }
+}

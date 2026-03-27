@@ -82,13 +82,13 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Factory agent installation and configuration
 - Network policy with Factory API domains
 
-## m11: [Pi](https://github.com/badlogic/pi-mono) support (planned)
+## m11: [Pi](https://github.com/badlogic/pi-mono) support (done)
 
 - agent-sandbox-pi image and templates
 - Pi agent installation and configuration
 - Network policy with required API domains
 
-## m12: [OpenCode](https://github.com/anomalyco/opencode) support (planned)
+## m12: [OpenCode](https://github.com/anomalyco/opencode) support (done)
 
 - agent-sandbox-opencode image and templates
 - OpenCode installation and configuration
