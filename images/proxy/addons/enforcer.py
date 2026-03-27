@@ -43,6 +43,11 @@ SERVICE_DOMAINS = {
         "generativelanguage.googleapis.com",
         "oauth2.googleapis.com",
     ],
+    "opencode": [
+        "opencode.ai",
+        "*.opencode.ai",
+        "models.dev",
+    ],
     "pi": [],
     "copilot": [
         "github.com",

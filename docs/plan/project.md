@@ -179,11 +179,16 @@ Add Pi agent support.
 
 **Dependencies:** m6 (CLI and templates established)
 
-### m12-opencode
+### m12-opencode (done)
 
 Add OpenCode agent support.
 
 **Dependencies:** m6 (CLI and templates established)
+
+**Delivered:**
+- OpenCode image, templates, and CLI integration shipped
+- OpenCode proxy domains (opencode.ai, models.dev) and CI version tracking added
+- Provider-agnostic setup documented (same pattern as Pi)
 
 ### m13-go-cli-rewrite
 

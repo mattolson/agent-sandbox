@@ -26,7 +26,7 @@ teardown() {
 @test "init rejects invalid --agent value" {
 	run init --name my-project --agent "invalid" --path "$PROJECT_DIR"
 	assert_failure
-	assert_output --partial "Invalid agent: invalid (expected: claude codex copilot factory gemini pi)"
+	assert_output --partial "Invalid agent: invalid (expected: claude codex copilot factory gemini opencode pi)"
 }
 
 @test "init rejects invalid --mode value" {
@@ -131,7 +131,7 @@ teardown() {
 
 	stub read_line "'Project name [$expected_default]:' : echo my-interactive-project"
 	stub select_option \
-		"'Select agent:' claude codex copilot factory gemini pi : echo claude" \
+		"'Select agent:' claude codex copilot factory gemini opencode pi : echo claude" \
 		"'Select mode:' cli devcontainer : echo cli"
 
 	stub cli "--project-path $PROJECT_DIR --agent claude --name my-interactive-project : :"
@@ -152,7 +152,7 @@ teardown() {
 
 	stub read_line "'Project name [$expected_default]:' : echo ''"
 	stub select_option \
-		"'Select agent:' claude codex copilot factory gemini pi : echo copilot" \
+		"'Select agent:' claude codex copilot factory gemini opencode pi : echo copilot" \
 		"'Select mode:' cli devcontainer : echo devcontainer" \
 		"'Select IDE:' vscode jetbrains none : echo vscode"
 
@@ -175,7 +175,7 @@ teardown() {
 
 	stub read_line "'Project name [$expected_default]:' : echo foo"
 	stub select_option \
-		"'Select agent:' claude codex copilot factory gemini pi : echo copilot" \
+		"'Select agent:' claude codex copilot factory gemini opencode pi : echo copilot" \
 		"'Select mode:' cli devcontainer : echo devcontainer" \
 		"'Select IDE:' vscode jetbrains none : echo vscode"
 
@@ -197,7 +197,7 @@ teardown() {
 
 	stub read_line "'Project name [$expected_default]:' : echo baz"
 	stub select_option \
-		"'Select agent:' claude codex copilot factory gemini pi : echo copilot" \
+		"'Select agent:' claude codex copilot factory gemini opencode pi : echo copilot" \
 		"'Select IDE:' vscode jetbrains none : echo vscode"
 
 	local expected_name="baz"
