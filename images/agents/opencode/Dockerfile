@@ -41,7 +41,6 @@ USER dev
 # Disable auto-update and LSP download inside the sandbox
 ENV OPENCODE_DISABLE_AUTOUPDATE=true
 ENV OPENCODE_DISABLE_LSP_DOWNLOAD=true
-ENV COLORTERM=truecolor
 
 LABEL org.opencontainers.image.description="Agent Sandbox with OpenCode agent"
 LABEL ai.opencode.version="${OPENCODE_VERSION}"

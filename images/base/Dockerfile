@@ -96,6 +96,7 @@ USER ${USERNAME}
 ENV SHELL=/bin/zsh
 ENV EDITOR=vim
 ENV VISUAL=vim
+ENV COLORTERM=truecolor
 
 # Set default lang to support unicode characters
 ENV LANG=C.utf8
