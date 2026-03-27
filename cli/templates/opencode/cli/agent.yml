@@ -7,13 +7,14 @@ services:
   agent:
     image: ghcr.io/mattolson/agent-sandbox-opencode:latest
     volumes:
-      # Persist OpenCode config and permissions state
-      - opencode-config:/home/dev/.config/opencode
-      # Persist OpenCode session data
-      - opencode-data:/home/dev/.local/share/opencode
+      # Persist OpenCode config, permissions, and opentui state
+      - opencode-config:/home/dev/.config
+      - opencode-local-share:/home/dev/.local/share
+      - opencode-local-state:/home/dev/.local/state
       # Persist shell history
       - opencode-history:/commandhistory
 volumes:
   opencode-config:
-  opencode-data:
+  opencode-local-share:
+  opencode-local-state:
   opencode-history:
