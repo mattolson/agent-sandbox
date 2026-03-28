@@ -173,7 +173,7 @@ Add Factory agent support.
 
 **Dependencies:** m6 (CLI and templates established)
 
-### m11-pi
+### m11-pi (done)
 
 Add Pi agent support.
 
