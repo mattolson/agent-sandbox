@@ -44,4 +44,4 @@ ENV OPENCODE_DISABLE_AUTOUPDATE=true
 ENV OPENCODE_DISABLE_LSP_DOWNLOAD=true
 
 LABEL org.opencontainers.image.description="Agent Sandbox with OpenCode agent"
-LABEL ai.opencode.version="${OPENCODE_VERSION}"
+LABEL com.mattolson.agentsandbox.opencode-version="${OPENCODE_VERSION}"
