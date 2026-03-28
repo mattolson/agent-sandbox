@@ -29,7 +29,7 @@ teardown() {
 @test "switch prompts for agent when --agent is omitted" {
 	mkdir -p "$PROJECT_DIR/.agent-sandbox"
 	unset -f select_option
-	stub select_option "'Select agent:' claude codex copilot factory gemini opencode pi : echo copilot"
+	stub select_option "'Select agent:' claude codex gemini opencode pi copilot factory : echo copilot"
 
 	run switch
 
@@ -46,7 +46,7 @@ teardown() {
 	run switch --agent invalid
 
 	assert_failure
-	assert_output --partial "Invalid agent: invalid (expected: claude codex copilot factory gemini opencode pi)"
+	assert_output --partial "Invalid agent: invalid (expected: claude codex gemini opencode pi copilot factory)"
 }
 
 @test "switch validates --agent before legacy layout handling" {
@@ -57,7 +57,7 @@ teardown() {
 	run switch --agent invalid
 
 	assert_failure
-	assert_output --partial "Invalid agent: invalid (expected: claude codex copilot factory gemini opencode pi)"
+	assert_output --partial "Invalid agent: invalid (expected: claude codex gemini opencode pi copilot factory)"
 	refute_output --partial "does not support the legacy single-file layout"
 	refute_output --partial "user.agent.invalid.override.yml"
 }

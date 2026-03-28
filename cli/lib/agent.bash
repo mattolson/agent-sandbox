@@ -10,15 +10,15 @@ source "$AGB_LIBDIR/select.bash"
 source "$AGB_LIBDIR/logging.bash"
 
 supported_agents_display() {
-        echo "claude codex copilot factory gemini opencode pi"
+        echo "claude codex gemini opencode pi copilot factory"
 }
 
 supported_agents() {
-        printf '%s\n' claude codex copilot factory gemini opencode pi
+        printf '%s\n' claude codex gemini opencode pi copilot factory
 }
 
 select_agent() {
-        select_option "Select agent:" claude codex copilot factory gemini opencode pi
+        select_option "Select agent:" claude codex gemini opencode pi copilot factory
 }
 
 validate_agent() {
