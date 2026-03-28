@@ -55,6 +55,7 @@ For each item under review:
 - Docker Sandboxes
 - OpenSandbox
 - Matchlock
+- Leash
 - `kubernetes-sigs/agent-sandbox`
 - CodeSandbox SDK
 - E2B
@@ -1041,6 +1042,10 @@ For each project, review:
   - Experimental CLI and SDK for running AI agents in ephemeral microVMs with host-managed network allowlisting, MITM-based secret injection, and isolated overlay-backed filesystem snapshots
   - Review focus: microVM lifecycle and startup model, host-side secret boundary, allowlist and interception design, volume snapshot semantics, and Linux versus Apple Silicon portability
 
+- [strongdm/leash](https://github.com/strongdm/leash)
+  - Multi-agent sandbox that wraps agents in containers, applies Cedar-defined policy, and combines cgroup-scoped eBPF monitoring with an HTTP MITM proxy plus an experimental native macOS mode
+  - Review focus: Cedar-to-runtime compilation, Record, Shadow, and Enforce workflow, eBPF plus proxy control-plane split, MCP policy surface, and Linux versus macOS capability degradation
+
 - [agent-infra/sandbox](https://github.com/agent-infra/sandbox)
   - All-in-one Docker sandbox with browser, shell, file, MCP, VS Code Server, and Jupyter in one container
   - Review focus: single-container unified environment, browser and MCP primitives, API surface, and what security guarantees are actually enforced versus claimed
@@ -1340,6 +1345,106 @@ When reviewing an item, capture whether it implements any of these primitives:
 - Research consequence:
   - Treat `matchlock` as a leading reference for the optional stronger-isolation backend and for backend-interface design, not as an argument to replace the current local default before we have comparative measurements
   - It should directly inform `m18-backend-interface` and `m20-runtime-spikes-vm`
+
+### strongdm/leash
+
+- Item name: `strongdm/leash`
+- Category:
+  - runtime substrate
+  - control plane
+  - proxy or policy layer
+- Research priority: `P0`
+- Claimed runtime boundary:
+  - `documented`: Leash wraps AI agents in containers, monitors filesystem and network activity, and enforces Cedar-defined policy; on macOS it also offers an experimental native mode with a companion app
+- Verified runtime boundary:
+  - `documented`: Linux path is container-based and cgroup-scoped, not a microVM or alternate guest-kernel boundary
+  - `documented`: Linux enforcement combines eBPF LSM hooks for file open, process exec, and socket connect with a local HTTP MITM proxy for hostname-aware policy and rewrite actions
+  - `documented`: macOS native mode uses Endpoint Security plus Network Extension system extensions and does not launch the local MITM proxy
+- Workspace model:
+  - `documented`: the current working directory is bind-mounted into the target container
+  - `documented`: extra bind mounts can be configured globally or per project in `~/.config/leash/config.toml`
+  - `documented`: agent config directories such as `~/.claude` and `~/.codex` are optional prompt-driven mounts, remembered globally or per project
+- Persistence model:
+  - `documented`: persisted user config lives in `~/.config/leash/config.toml`
+  - `documented`: Cedar policy source is persisted as `/cfg/leash.cedar`, while generated IR stays in memory
+  - `unknown`: public docs do not yet make long-term runtime event retention or export guarantees as explicit as the live Control UI
+- Network control model:
+  - `documented`: Linux uses cgroup-scoped `socket_connect` enforcement plus iptables redirection into a local MITM proxy
+  - `documented`: Cedar supports host and optional host:port matching with leading-wildcard domains, plus `HttpRewrite` header injection for approved hosts
+  - `documented`: MCP traffic is observed in the proxy and specific MCP server or tool denies can be enforced there
+  - `documented`: IPv6 and CIDR resources are not supported in v1 policies
+  - `documented`: macOS native mode has no local MITM proxy, so HTTP header injection or rewrite is unavailable there
+- Runtime control model:
+  - `documented`: eBPF LSM hooks enforce or log file open, process exec, and network connect operations for selected cgroups
+  - `documented`: policies hot-reload through BPF map updates without restarting the target process
+  - `documented`: Record, Shadow, and Enforce modes can be switched live
+  - `inferred`: the privileged Leash manager is part of the trusted computing base; this is not an unprivileged sandbox story
+- Secrets model:
+  - `documented`: Linux proxy can inject secrets at the HTTP layer, with the CA private key stored in a manager-only mount
+  - `documented`: common API keys can also be forwarded directly as environment variables
+  - `documented`: agent config directories can be mounted from the host into the container after an interactive approval flow
+- Observability model:
+  - `documented`: eBPF programs emit structured events through ring buffers, which feed the Control UI over WebSocket
+  - `documented`: the Control UI supports live policy editing and validation, including Cedar autocomplete
+  - `documented`: MCP server and tool metadata are surfaced in observed events on Linux
+  - `unknown`: public docs do not clearly describe a stable external audit-log export or SIEM-friendly event sink
+- Local platform support:
+  - `documented`: Linux, macOS, and WSL are supported
+  - `documented`: native macOS mode requires macOS 14+, admin approval, system extensions, and is still marked experimental
+- Multi-agent compatibility:
+  - `documented`: default images ship `claude`, `codex`, `gemini`, `qwen`, and `opencode`
+  - `documented`: the MCP observer broadens the policy surface beyond just wrapping a single CLI
+- Primitive checklist:
+  - Shared workspace mount: yes
+  - Copy-on-write workspace: no
+  - Patch-only or branch-only writeback: no
+  - Read-only parent or host mounts: partial
+  - Home-directory shadowing: no
+  - Scratch or temp volume isolation: no explicit model
+  - Domain allowlist proxy: yes
+  - Path and method policy: no documented general allow or deny model
+  - Transparent versus explicit proxying: transparent on Linux, none on macOS native mode
+  - DNS allowlist or DNS interception: unknown
+  - Non-HTTP TCP policy: partial
+  - SSH handling: unknown
+  - Secret brokering: yes
+  - Proxy-side secret substitution: partial
+  - Output validation and quarantine: no
+  - Audit logs: partial
+  - Command hooks or deny rules: no
+  - Multi-agent abstraction: yes
+  - Remote execution or gateway fleet support: no
+- Key strengths:
+  - This is one of the clearest open references for combining kernel enforcement, L7 proxy control, and a human-editable policy language in one agent sandbox
+  - The Record, Shadow, and Enforce workflow is a strong model for policy rollout and operator trust-building
+  - Cedar as the persisted authoring format, with linting and in-memory transpilation to runtime-specific controls, is directly relevant to the policy-IR question in this repo
+  - MCP is treated as a first-class policy surface rather than an afterthought
+- Key limits:
+  - Linux isolation is still container and cgroup based, not VM backed
+  - Policy coverage is asymmetric across platforms; macOS native mode loses proxy rewrite features and MCP logging
+  - The documented network policy model is host oriented, not a full path and method allow or deny system for general outbound HTTP
+  - The secrets story is mixed: proxy-side injection exists, but direct env-var forwarding and host config mounts also intentionally place credentials close to the agent
+- Open questions:
+  - Should this project adopt Cedar or only borrow Leash's idea of one authoring language compiled to backend-specific enforcement?
+  - Is eBPF LSM worth evaluating as its own Linux backend candidate, or only as an implementation technique inside a hardened container backend?
+  - How much of Leash's Control UI and live policy workflow should influence the event schema and approval UX here?
+  - What is the minimum acceptable capability degradation between Linux and macOS if the product exposes one nominal policy surface across both?
+- Verdict: `likely core reference`
+
+### Leash implications for this project
+
+- Worth bringing into the vision:
+  - Record, Shadow, and Enforce modes with live policy updates and visible event streams
+  - a clear split between kernel or runtime enforcement, proxy-based L7 enforcement, and policy authoring
+  - treating MCP calls as a first-class event and policy surface
+  - an explicit compile step from a human-authored policy language into backend-specific controls
+- Probably not worth bringing in as-is:
+  - eBPF LSM as the only serious Linux answer, because it is powerful but not portable to macOS or VM-backed backends
+  - optional host credential mounts and direct env-var forwarding as a primary secrets strategy
+  - accepting materially different network semantics on macOS and Linux under one policy name without very clear degradation rules
+- Research consequence:
+  - Treat `leash` as a leading reference for policy IR, rollout modes, and observability, not as proof that a container boundary alone is sufficient for the project's stronger-isolation backend
+  - It should inform `m17-capability-model` and `m18-backend-interface`, especially around event schema, policy compilation, and backend capability degradation
 
 ## Research backlog: commercial products
 
@@ -1697,6 +1802,11 @@ Choose:
 - [jingkaihe/matchlock ADR-001 local image build](https://raw.githubusercontent.com/jingkaihe/matchlock/main/adrs/001-local-image-build.md): guest defense-in-depth details and privileged-mode consequences
 - [jingkaihe/matchlock ADR-003 overlay root](https://raw.githubusercontent.com/jingkaihe/matchlock/main/adrs/003-oci-layer-store-overlay-root.md): proposed OCI layer-aware storage and per-VM writable upper design
 - [jingkaihe/matchlock guest sandbox process](https://raw.githubusercontent.com/jingkaihe/matchlock/main/internal/guestruntime/agent/sandbox_proc.go): in-guest namespace, capability-drop, seccomp, and `no_new_privs` implementation
+- [strongdm/leash](https://github.com/strongdm/leash): multi-agent sandbox with container wrapping, Cedar policy, Control UI, and experimental native macOS mode
+- [strongdm/leash architecture](https://raw.githubusercontent.com/strongdm/leash/main/docs/design/ARCHITECTURE.md): eBPF LSM, MITM proxy, cgroup scoping, MCP observer, and Record, Shadow, and Enforce workflow
+- [strongdm/leash Cedar reference](https://raw.githubusercontent.com/strongdm/leash/main/docs/design/CEDAR.md): supported actions and resources, rewrite semantics, MCP policy semantics, and known policy limits
+- [strongdm/leash config docs](https://raw.githubusercontent.com/strongdm/leash/main/docs/CONFIG.md): remembered host mounts, env-var forwarding, and supported agent CLI integrations
+- [strongdm/leash macOS docs](https://raw.githubusercontent.com/strongdm/leash/main/docs/MACOS.md): Endpoint Security and Network Extension native mode plus macOS feature limits
 - [release-engineers/agent-sandbox](https://github.com/release-engineers/agent-sandbox): container-per-agent sandbox with network proxying and patch-based writeback
 - [craigbalding/safeyolo](https://github.com/craigbalding/safeyolo): sandbox for Claude Code and Codex with network isolation, credential protection, and audit logging
 - [numtide/claudebox](https://github.com/numtide/claudebox): lightweight Claude Code sandbox with Nix integration and shadowed home
