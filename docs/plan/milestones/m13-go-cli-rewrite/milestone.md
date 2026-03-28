@@ -69,6 +69,15 @@ The Go rewrite should live beside the Bash CLI until the final cutover. `cli/` r
 - Local development should run the Go CLI as `go run ./cmd/agentbox` or a separately named binary such as `agentbox-go`. `cli/bin/agentbox` should not be replaced until the final cutover.
 - CI should run three layers in parallel during the transition: existing Bash tests, `go test ./...`, and a parity suite that exercises both CLIs against the same fixtures.
 
+## Future TUI Compatibility
+
+`m13` should future-proof the CLI for `m16`, but it should not choose the `m16` UI architecture prematurely.
+
+- Cobra helps as a command entrypoint for future interactive subcommands, but it is not itself a TUI framework.
+- The Go rewrite should keep Cobra handlers thin and move runtime, policy, logging, and unblock logic into reusable internal packages that can back both standard CLI commands and a future TUI.
+- `m16` should choose its TUI framework independently during milestone planning once the monitoring workflow is better defined.
+- `Bubble Tea` is the most likely default choice for a future full-screen TUI, but that remains a likely direction rather than an `m13` commitment.
+
 ## Tasks
 
 ### m13.1-go-foundation
@@ -80,6 +89,7 @@ The Go rewrite should live beside the Bash CLI until the final cutover. `cli/` r
 - Create the side-by-side repo structure for the rewrite without moving or renaming the existing `cli/` tree
 - Create the Cobra root command and subcommand structure mirroring the current CLI surface
 - Implement shared helpers for runtime discovery, editor resolution, Docker/Compose invocation, logging, and version metadata
+- Keep command handlers thin so core behavior lives in reusable packages rather than inside Cobra wiring
 - Add template-sync plumbing so `cli/templates/` stays the source of truth while `internal/embeddata/templates/` is generated for embedding
 - Embed CLI templates and other static assets needed by `init` and devcontainer generation so the binary works without a repo checkout
 - Keep the Bash CLI available as the reference implementation during the parity phase
@@ -91,6 +101,7 @@ The Go rewrite should live beside the Bash CLI until the final cutover. `cli/` r
 - The Go CLI can be run independently via `go run ./cmd/agentbox` or an equivalent separately named local binary
 - Embedded templates can be loaded from the compiled binary in tests
 - The embedded template mirror is reproducibly generated from `cli/templates/` rather than hand-maintained in two live trees
+- Core runtime logic is callable outside Cobra command handlers so later interactive surfaces are not forced to shell out through the CLI layer
 - The package layout is stable enough that later command ports do not require large-scale refactors
 
 **Dependencies:** None
@@ -244,3 +255,7 @@ Documented GitHub Releases binary downloads as the primary m13 install path, kep
 ### 2026-03-28: Defined side-by-side rewrite layout
 
 Documented that the Go rewrite will live under `cmd/`, `internal/`, `testdata/`, and `scripts/` while `cli/` remains intact as the Bash reference implementation until the final m13 cutover.
+
+### 2026-03-28: Added future TUI note
+
+Documented that m13 should keep core logic reusable for a future m16 interactive TUI, while deferring framework selection to m16 planning with Bubble Tea noted as the likely default.
