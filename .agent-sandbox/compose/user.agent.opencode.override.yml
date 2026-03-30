@@ -4,6 +4,7 @@
 # Claude examples:
 #   - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
 #   - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
-services:
-  agent:
-    volumes: []
+
+#services:
+#  agent:
+#    image: agent-sandbox-opencode:local
