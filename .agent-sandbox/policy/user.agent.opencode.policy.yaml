@@ -5,6 +5,7 @@
 #
 # See docs/policy/schema.md for the full format reference.
 
+# Allow OpenCode to use Codex
 services:
   - codex
 domains: []
