@@ -69,9 +69,10 @@ RUN if [ -n "$EXTRA_PACKAGES" ]; then \
       && apt-get clean && rm -rf /var/lib/apt/lists/*; \
     fi
 
-# Set up non-root user
+# Set up non-root user using uid 501 to match default first user on MacOS
+# to avoid possible bind mount permission problems
 ARG USERNAME=dev
-RUN groupadd --system --gid 500 ${USERNAME} && useradd --system --create-home --uid 500 --gid 500 --shell /bin/bash ${USERNAME}
+RUN groupadd --system --gid 501 ${USERNAME} && useradd --system --create-home --uid 501 --gid 501 --shell /bin/bash ${USERNAME}
 
 # Persist shell history (docker volume)
 RUN mkdir /commandhistory \
