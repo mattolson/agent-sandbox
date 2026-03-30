@@ -4,7 +4,7 @@
 name: agent-sandbox
 services:
   proxy:
-    image: mattolson/agent-sandbox-proxy@sha256:e5e5dd7c24880f93f8901d995751e4e3f549ee7cbbd51c3fb105c3d05711cef4
+    image: ghcr.io/mattolson/agent-sandbox-proxy@sha256:e5e5dd7c24880f93f8901d995751e4e3f549ee7cbbd51c3fb105c3d05711cef4
     cap_drop:
       - ALL
     environment:

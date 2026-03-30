@@ -1,7 +1,7 @@
 FROM mitmproxy/mitmproxy:latest
 
-# Match uid with the default first user on MacOS to avoid permission issues with mounts
-RUN usermod -u 501 mitmproxy
+# Match uid/gid with the default first user on MacOS to avoid permission issues with mounts
+RUN groupmod -g 501 mitmproxy && usermod -u 501 mitmproxy
 
 # nc used for docker compose health check
 RUN apt-get update && apt-get install -y --no-install-recommends \
