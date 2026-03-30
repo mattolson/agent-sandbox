@@ -47,11 +47,11 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 
 You need a VM and Docker (along with docker-compose and docker-buildx) installed. This can be done in a variety of ways.
 
-* Colima
-* Podman
-* OrbStack
-* Docker Desktop
-* Rancher
+* [Colima](https://colima.run/)
+* [Podman](https://podman.io/)
+* [OrbStack](https://orbstack.dev/)
+* [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+* [Rancher Desktop](https://rancherdesktop.io/)
 
 Instructions that follow are for Colima.
 
@@ -62,8 +62,8 @@ Instructions that follow are for Colima.
 # docker-buildx for building images locally
 brew install colima docker docker-compose docker-buildx
 
-# Start the virtual machine - see the colima docs for launching on boot
-colima start --cpu 4 --memory 8 --disk 60
+# Start the virtual machine
+colima start --edit
 ```
 
 ### 2. Install agent-sandbox CLI
