@@ -1,4 +1,5 @@
-FROM ghcr.io/mattolson/agent-sandbox-opencode@sha256:24a214b0d86a39b4450f51dbd78f04d665eeae7e2df8c39aaa1b0fa86cb7b953
+ARG AGENT=opencode
+FROM ghcr.io/mattolson/agent-sandbox-${AGENT}
 
 USER root
 RUN /etc/agent-sandbox/stacks/go.sh 1.26.1
