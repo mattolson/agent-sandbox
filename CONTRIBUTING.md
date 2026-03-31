@@ -7,7 +7,7 @@ This project is security-sensitive. Process matters because design, roadmap alig
 ## Before You Start
 
 - Read the [README](./README.md), [roadmap](./docs/roadmap.md), and [project plan](./docs/plan/project.md).
-- Run `./build-dev-image.sh` to build `Dockerfile.dev` for the active agent from
+- Run `make setup` to build `Dockerfile.dev` for the active agent from
   `.agent-sandbox/active-target.env`.
 - Search existing issues and pull requests before opening a new one.
 - Keep changes agent-agnostic when possible.

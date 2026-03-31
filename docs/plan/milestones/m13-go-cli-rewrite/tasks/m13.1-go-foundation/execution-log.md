@@ -1,5 +1,22 @@
 # Execution Log: m13.1 - Go CLI Foundation
 
+## 2026-03-31 05:33 UTC - Added `make setup` and moved the dev image helper
+
+Moved the local dev image helper from the repo root to `scripts/build-dev-image.bash`, updated it to resolve repo paths from the `scripts/` directory, and added a `setup` target to the root `Makefile` so contributors can run `make setup` instead of invoking the helper directly.
+
+**Issue:** Moving the script with a patch preserved its content but dropped the executable bit, so the first `make setup` invocation failed with `Permission denied`.
+**Solution:** Restore the executable bit and verify the target through `make setup SETUP_ARGS=--help`.
+
+**Decision:** Keep the setup helper in `scripts/` next to the other local repo automation and expose it through `make setup` rather than leaving an extra top-level script entrypoint.
+
+## 2026-03-31 05:01 UTC - Added local Makefile workflow
+
+Added a root `Makefile` for the Go rewrite with `build`, `test`, `run`, `sync-templates`, `verify-templates`, `fmt`, `tidy`, and `clean` targets. The build target writes the compiled binary to `./bin/agentbox`, and `.gitignore` now ignores `/bin/` so local builds do not dirty the repo.
+
+**Decision:** Keep the Make targets thin wrappers around the existing Go commands and `scripts/sync-go-templates.bash` rather than adding a second layer of custom build logic.
+
+**Learning:** The new Make targets work as expected when run sequentially. Parallel invocations that both call the template sync script can race on the generated template directory, so verification should use normal sequential `make` execution rather than forcing those targets in parallel.
+
 ## 2026-03-31 04:43 UTC - Foundation implementation verified
 
 Implemented the initial Go rewrite tree under `cmd/agentbox` and `internal/` with a Cobra root command, explicit placeholders for the unported commands, runtime helpers for supported-agent validation plus repo/state/editor discovery, Docker/Compose invocation wrappers, a build-info-driven version package, embedded template access through `go:embed`, a generated template mirror under `internal/embeddata/templates/`, focused unit tests, and a dedicated `.github/workflows/go-tests.yml` workflow that checks template sync, `go test ./...`, `go build ./cmd/agentbox`, and `go run ./cmd/agentbox version`.
