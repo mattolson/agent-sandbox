@@ -63,16 +63,16 @@ Treat template embedding as first-class foundation work. Keep `cli/templates/` a
 
 Add a dedicated Go workflow instead of overloading the existing Bash-only test workflow. The new workflow should trigger on Go source, `cli/templates/**`, and the sync script, then run template-sync verification, `go test ./...`, and `go build ./cmd/agentbox`. `cli/run-tests.bash` and `.github/workflows/cli-tests.yml` should remain intact so the Bash CLI stays the behavioral oracle during the parity phase.
 
-Do not widen `m13.1` into image or distribution cutover work. The current sandbox container used for development here does not include `go`, so local verification may need either a host Go toolchain or a developer-local Go-enabled custom image. That is a verification prerequisite, not a reason to start modifying `images/cli/Dockerfile`, `images/build.sh`, or the released Bash distribution path in this task.
+Do not widen `m13.1` into image or distribution cutover work. The repo's local Go-enabled dev image landed while this task was in progress, so local verification can run in the current sandbox now. That removes the earlier toolchain blocker, but it still is not a reason to start modifying `images/cli/Dockerfile`, `images/build.sh`, or the released Bash distribution path in this task.
 
 ### Implementation Steps
 
-- [ ] Add the Go module and baseline package layout under `cmd/` and `internal/`
-- [ ] Build the Cobra root command and stub subcommand tree that mirrors the existing CLI surface
-- [ ] Implement shared runtime, subprocess, version, and output helpers with focused unit coverage
-- [ ] Add template-sync plumbing, generated embedded templates, and tests that prove embedded assets load from the compiled binary
-- [ ] Add dedicated Go CI that verifies template sync, `go test ./...`, and `go build ./cmd/agentbox` while leaving Bash tests unchanged
-- [ ] Verify `go run ./cmd/agentbox version` and `go build ./cmd/agentbox`, then update this plan if actual file boundaries or package seams need adjustment during execution
+- [x] Add the Go module and baseline package layout under `cmd/` and `internal/`
+- [x] Build the Cobra root command and stub subcommand tree that mirrors the existing CLI surface
+- [x] Implement shared runtime, subprocess, version, and test helpers with focused unit coverage
+- [x] Add template-sync plumbing, generated embedded templates, and tests that prove embedded assets load from the compiled binary
+- [x] Add dedicated Go CI that verifies template sync, `go test ./...`, and `go build ./cmd/agentbox` while leaving Bash tests unchanged
+- [x] Verify `go run ./cmd/agentbox version` and `go build ./cmd/agentbox`, then update this plan if actual file boundaries or package seams need adjustment during execution
 
 ### Open Questions
 
@@ -82,12 +82,21 @@ None at planning time. If toolchain availability or package seams prove material
 
 ### Acceptance Verification
 
-Pending execution.
+- [x] `go build ./cmd/agentbox` succeeds locally, and `.github/workflows/go-tests.yml` runs the same build in CI.
+- [x] The existing Bash CLI layout remains intact. `cli/run-tests.bash` ran unchanged; only the existing Docker-backed init regression cases could not complete here because `docker` is unavailable in this sandbox.
+- [x] `go run ./cmd/agentbox version` prints version/build metadata from Go build info or git fallback without relying on a sibling `.version` file.
+- [x] The Go CLI runs independently via `go run ./cmd/agentbox version` and `go build ./cmd/agentbox`.
+- [x] Embedded templates load from the compiled binary in tests through `internal/scaffold/templates_test.go` and `go:embed`.
+- [x] `scripts/sync-go-templates.bash` reproducibly generates `internal/embeddata/templates/` from `cli/templates/`, and the Go CI workflow verifies the mirror stays in sync.
+- [x] Core runtime, subprocess, version, and embedded-template logic live in reusable internal packages outside Cobra handlers and have focused unit coverage.
+- [x] The package layout now exists under `cmd/`, `internal/`, and `scripts/`, giving later command ports stable seams without touching the existing Bash CLI tree.
 
 ### Learnings
 
-Pending execution.
+- `runtime/debug.ReadBuildInfo` already exposes VCS revision, timestamp, and dirty state for `go run` and `go build` inside a checkout, so the Go CLI can emit useful version metadata early without depending on a generated `.version` file.
+- `github.com/kballard/go-shellquote` is sufficient for parsing the shell-escaped `active-target.env` values and editor command strings used by the existing Bash CLI, which avoids sourcing shell files from Go.
+- The existing Bash test suite can stay untouched for the rewrite, but a few regression cases still require Docker even when the change under test is host-side only, so local verification needs a Docker-enabled environment for full coverage.
 
 ### Follow-up Items
 
-None yet.
+- Re-run the Docker-backed `cli/test/init/regression.bats` cases in a Docker-enabled environment before merging to capture the remaining Bash-suite coverage that could not run in this sandbox.

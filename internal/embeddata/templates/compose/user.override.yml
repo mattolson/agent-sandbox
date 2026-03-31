@@ -1,0 +1,10 @@
+# User-owned compose overrides applied to all CLI agents.
+# Safe to edit. agentbox will not overwrite this file.
+# Paths are resolved relative to .agent-sandbox/compose/.
+# Common examples:
+#   - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
+#   - ${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro
+#   - ../../.git:/workspace/.git:ro
+services:
+  agent:
+    volumes: []

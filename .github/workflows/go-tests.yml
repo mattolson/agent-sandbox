@@ -1,0 +1,51 @@
+name: Go Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'cli/templates/**'
+      - 'scripts/sync-go-templates.bash'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/go-tests.yml'
+  pull_request:
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'cli/templates/**'
+      - 'scripts/sync-go-templates.bash'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/go-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify embedded templates are in sync
+        run: |
+          ./scripts/sync-go-templates.bash
+          git diff --exit-code -- internal/embeddata/templates
+
+      - name: Run Go tests
+        run: go test ./...
+
+      - name: Build Go CLI
+        run: go build ./cmd/agentbox
+
+      - name: Run Go version command
+        run: go run ./cmd/agentbox version
