@@ -1,10 +1,13 @@
 ARG AGENT=opencode
-FROM ghcr.io/mattolson/agent-sandbox-${AGENT}
+FROM agent-sandbox-${AGENT}:local
 
 USER root
 RUN /etc/agent-sandbox/stacks/go.sh 1.26.1
 
 ENV GOPATH=/home/dev/go
-ENV PATH=/usr/local/go/bin:/home/dev/go/bin:$PATH
+ENV GOBIN=/home/dev/.local/bin
+ENV GOMODCACHE=/home/dev/.cache/go-mod
+ENV GOCACHE=/home/dev/.cache/go-build
+ENV PATH=/usr/local/go/bin:/home/dev/.local/bin:/home/dev/go/bin:$PATH
 
 USER dev

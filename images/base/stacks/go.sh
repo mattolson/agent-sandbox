@@ -1,7 +1,7 @@
 #!/bin/bash
 # Install Go from official tarball with SHA256 verification
 # Usage: go.sh [version]
-#   version: Go version without 'go' prefix (default: 1.23.6)
+#   version: Go version without 'go' prefix (default: 1.26.1)
 set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -10,6 +10,11 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 GO_VERSION="${1:-1.26.1}"
+
+apt-get update && apt-get install -y --no-install-recommends \
+  build-essential \
+  pkg-config \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Detect architecture
 ARCH="$(dpkg --print-architecture)"
@@ -38,20 +43,32 @@ fi
 
 echo "${EXPECTED_SHA256}  ${TMPDIR}/${TARBALL}" | sha256sum -c -
 
+rm -rf /usr/local/go
 tar -C /usr/local -xzf "${TMPDIR}/${TARBALL}"
 
-# GOPATH for dev user
-mkdir -p /home/dev/go
-chown dev:dev /home/dev/go
+# Go directories for dev user
+mkdir -p \
+  /home/dev/go \
+  /home/dev/.cache/go-build \
+  /home/dev/.cache/go-mod \
+  /home/dev/.config/go \
+  /home/dev/.local/bin
+chown -R dev:dev /home/dev/go /home/dev/.cache /home/dev/.config/go /home/dev/.local
 
 cat > /etc/zsh/zshenv.d/go.zsh << 'ZSHENV'
 export GOPATH="$HOME/go"
-export PATH="/usr/local/go/bin:$GOPATH/bin:$PATH"
+export GOBIN="$HOME/.local/bin"
+export GOMODCACHE="$HOME/.cache/go-mod"
+export GOCACHE="$HOME/.cache/go-build"
+export PATH="/usr/local/go/bin:$GOBIN:$GOPATH/bin:$PATH"
 ZSHENV
 
 cat > /etc/profile.d/go.sh << 'PROFILE'
 export GOPATH="$HOME/go"
-export PATH="/usr/local/go/bin:$GOPATH/bin:$PATH"
+export GOBIN="$HOME/.local/bin"
+export GOMODCACHE="$HOME/.cache/go-mod"
+export GOCACHE="$HOME/.cache/go-build"
+export PATH="/usr/local/go/bin:$GOBIN:$GOPATH/bin:$PATH"
 PROFILE
 
 echo "Go stack installed: $(/usr/local/go/bin/go version)"

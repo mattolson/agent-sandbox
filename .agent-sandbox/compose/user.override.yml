@@ -12,3 +12,12 @@ services:
     volumes:
       - ${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro
       - ${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro
+      - go-bin:/home/dev/.local/bin
+      - go-mod-cache:/home/dev/.cache/go-mod
+      - go-build-cache:/home/dev/.cache/go-build
+      - go-env:/home/dev/.config/go
+volumes:
+  go-bin:
+  go-mod-cache:
+  go-build-cache:
+  go-env:
