@@ -5,6 +5,6 @@
 #   - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
 #   - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
 
-#services:
-#  agent:
-#    image: agent-sandbox-codex:local
+services:
+  agent:
+    image: agent-sandbox-dev:codex
