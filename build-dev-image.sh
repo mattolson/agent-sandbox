@@ -5,16 +5,31 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 METADATA_FILE="${METADATA_FILE:-$SCRIPT_DIR/.agent-sandbox/active-target.env}"
 DOCKERFILE_PATH="${DOCKERFILE_PATH:-$SCRIPT_DIR/Dockerfile.dev}"
 BUILD_CONTEXT="${BUILD_CONTEXT:-$SCRIPT_DIR}"
+IMAGE_BUILDER="${IMAGE_BUILDER:-$SCRIPT_DIR/images/build.sh}"
+
+is_supported_agent() {
+	case "$1" in
+		claude|copilot|codex|gemini|factory|opencode|pi)
+			return 0
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
 
 usage() {
 	cat <<'EOF'
 Usage: ./build-dev-image.sh [docker build options...]
 
 Builds the local development image from Dockerfile.dev for the active agent.
+Before building Dockerfile.dev, it builds the matching local base image and
+agent image via ./images/build.sh.
 
 Optional environment variables:
   AGENT            Agent name to build for (default: ACTIVE_AGENT from .agent-sandbox)
   IMAGE_TAG        Docker tag to publish (default: agent-sandbox-dev:<agent>)
+  IMAGE_BUILDER    Image build helper (default: ./images/build.sh)
   METADATA_FILE    Agent metadata file (default: ./.agent-sandbox/active-target.env)
   DOCKERFILE_PATH  Dockerfile to build (default: ./Dockerfile.dev)
   BUILD_CONTEXT    Docker build context (default: repo root)
@@ -36,6 +51,11 @@ if [ ! -f "$DOCKERFILE_PATH" ]; then
 	exit 1
 fi
 
+if [ ! -x "$IMAGE_BUILDER" ]; then
+	printf 'Image build helper not found or not executable: %s\n' "$IMAGE_BUILDER" >&2
+	exit 1
+fi
+
 ACTIVE_AGENT=""
 if [ -f "$METADATA_FILE" ]; then
 	# shellcheck disable=SC1090
@@ -49,8 +69,17 @@ if [ -z "$AGENT" ]; then
 	exit 1
 fi
 
+if ! is_supported_agent "$AGENT"; then
+	printf 'Unsupported agent for local dev image: %s\n' "$AGENT" >&2
+	exit 1
+fi
+
 IMAGE_TAG="${IMAGE_TAG:-agent-sandbox-dev:$AGENT}"
 OVERRIDE_FILE="$SCRIPT_DIR/.agent-sandbox/compose/user.agent.$AGENT.override.yml"
+
+printf 'Building prerequisite local images for %s\n' "$AGENT"
+"$IMAGE_BUILDER" base "$@"
+"$IMAGE_BUILDER" "$AGENT" "$@"
 
 printf 'Building %s from %s\n' "$IMAGE_TAG" "$DOCKERFILE_PATH"
 printf 'Active agent: %s\n' "$AGENT"

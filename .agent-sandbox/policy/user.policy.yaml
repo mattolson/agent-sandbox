@@ -7,5 +7,7 @@
 
 services: []
 domains:
-  - "raw.githubusercontent.com"
-  - "mcp.linear.app"
+  - raw.githubusercontent.com
+  - mcp.linear.app
+  - proxy.golang.org
+  - sum.golang.org
