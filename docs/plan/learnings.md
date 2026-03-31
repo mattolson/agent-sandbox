@@ -24,6 +24,8 @@ Lessons learned during project execution. Review at the start of each planning s
 - Transparent proxy (iptables REDIRECT) works for same-container proxy but is complex for cross-container (requires TPROXY or custom routing)
 - SSH allows tunneling (-D, -L, -R) which can bypass other network restrictions; blocking SSH entirely is simpler than trying to restrict it
 - Shared shell helpers that use `mapfile` must source `compat.bash` or macOS Bash 3.2 support regresses silently
+- `runtime/debug.ReadBuildInfo` exposes VCS revision, timestamp, and dirty state for local Go builds in a checkout, so early Go CLIs can print useful version metadata without depending on a generated `.version` file
+- Shell-escaped state files written with Bash `%q` can be parsed safely in Go with a shell-style splitter instead of sourcing them
 
 ## Architecture
 

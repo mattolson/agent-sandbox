@@ -1,5 +1,16 @@
 # Execution Log: m13.1 - Go CLI Foundation
 
+## 2026-03-31 04:43 UTC - Foundation implementation verified
+
+Implemented the initial Go rewrite tree under `cmd/agentbox` and `internal/` with a Cobra root command, explicit placeholders for the unported commands, runtime helpers for supported-agent validation plus repo/state/editor discovery, Docker/Compose invocation wrappers, a build-info-driven version package, embedded template access through `go:embed`, a generated template mirror under `internal/embeddata/templates/`, focused unit tests, and a dedicated `.github/workflows/go-tests.yml` workflow that checks template sync, `go test ./...`, `go build ./cmd/agentbox`, and `go run ./cmd/agentbox version`.
+
+**Issue:** This sandbox now has Go available thanks to the local Go-enabled dev image work, but it still does not have Docker. `cli/run-tests.bash` therefore ran unchanged but stopped on the existing Docker-backed init regression cases with `docker: command not found`.
+**Solution:** Keep the Bash suite untouched, record the environment-specific verification gap in the task outcome, and rely on the existing CLI workflow plus a Docker-enabled local or CI environment for the remaining Bash-only regression coverage.
+
+**Decision:** Use `runtime/debug.ReadBuildInfo` as the primary version metadata source with git fallback for local developer builds, and use `github.com/kballard/go-shellquote` to parse shell-escaped state-file values plus editor command strings without sourcing shell from Go.
+
+**Learning:** Go build metadata already carries `vcs.revision`, `vcs.time`, and `vcs.modified` for local builds in a checkout, so the rewrite can print useful version information long before the release pipeline starts stamping explicit `-ldflags` values.
+
 ## 2026-03-30 23:27 UTC - Planning complete
 
 Reviewed `docs/plan/milestones/m13-go-cli-rewrite/milestone.md`, `docs/plan/learnings.md`, decision `004`, and the current Bash CLI layout in `cli/bin/agentbox`, `cli/lib/run-compose`, `cli/lib/agent.bash`, `cli/lib/path.bash`, `cli/lib/select.bash`, `cli/lib/logging.bash`, `cli/libexec/version/version`, `cli/templates/`, `images/cli/Dockerfile`, and `.github/workflows/cli-tests.yml`.
