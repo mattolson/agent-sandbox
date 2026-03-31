@@ -16,7 +16,7 @@ type Options struct {
 func NewRootCommand(opts Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "agentbox",
-		Short:         "Manage layered local agent sandboxes",
+		Short:         "Manage secure local agent sandboxes",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
@@ -74,7 +74,7 @@ func newPolicyCommand() *cobra.Command {
 
 	cmd.AddCommand(
 		newPendingLeafCommand("config", "Render the effective policy"),
-		newPendingLeafCommand("render", "Render policy inputs through the proxy helper"),
+		newPendingLeafCommand("render", "Alias for 'policy config' - deprecated"),
 	)
 
 	return cmd

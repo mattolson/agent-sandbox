@@ -40,6 +40,8 @@ Establish the Go module, Cobra command skeleton, shared infrastructure, and embe
 
 - `go.mod` - define the Go module and direct dependencies such as Cobra
 - `go.sum` - lock Go module dependency versions once the module is initialized
+- `Makefile` - local build, test, run, and template-sync entrypoints for the Go CLI
+- `scripts/build-dev-image.bash` - local Go-enabled dev image builder used by `make setup`
 - `cmd/agentbox/main.go` - thin Go entrypoint that constructs and executes the Cobra root command
 - `internal/cli/root.go` - root command wiring and shared command construction helpers
 - `internal/cli/*.go` - top-level and nested Cobra commands that mirror the current CLI surface while keeping handlers thin

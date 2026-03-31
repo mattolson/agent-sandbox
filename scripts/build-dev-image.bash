@@ -2,10 +2,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-METADATA_FILE="${METADATA_FILE:-$SCRIPT_DIR/.agent-sandbox/active-target.env}"
-DOCKERFILE_PATH="${DOCKERFILE_PATH:-$SCRIPT_DIR/Dockerfile.dev}"
-BUILD_CONTEXT="${BUILD_CONTEXT:-$SCRIPT_DIR}"
-IMAGE_BUILDER="${IMAGE_BUILDER:-$SCRIPT_DIR/images/build.sh}"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+METADATA_FILE="${METADATA_FILE:-$REPO_ROOT/.agent-sandbox/active-target.env}"
+DOCKERFILE_PATH="${DOCKERFILE_PATH:-$REPO_ROOT/Dockerfile.dev}"
+BUILD_CONTEXT="${BUILD_CONTEXT:-$REPO_ROOT}"
+IMAGE_BUILDER="${IMAGE_BUILDER:-$REPO_ROOT/images/build.sh}"
 
 is_supported_agent() {
 	case "$1" in
@@ -20,7 +21,7 @@ is_supported_agent() {
 
 usage() {
 	cat <<'EOF'
-Usage: ./build-dev-image.sh [docker build options...]
+Usage: ./scripts/build-dev-image.bash [docker build options...]
 
 Builds the local development image from Dockerfile.dev for the active agent.
 Before building Dockerfile.dev, it builds the matching local base image and
@@ -75,7 +76,7 @@ if ! is_supported_agent "$AGENT"; then
 fi
 
 IMAGE_TAG="${IMAGE_TAG:-agent-sandbox-dev:$AGENT}"
-OVERRIDE_FILE="$SCRIPT_DIR/.agent-sandbox/compose/user.agent.$AGENT.override.yml"
+OVERRIDE_FILE="$REPO_ROOT/.agent-sandbox/compose/user.agent.$AGENT.override.yml"
 
 printf 'Building prerequisite local images for %s\n' "$AGENT"
 "$IMAGE_BUILDER" base "$@"
