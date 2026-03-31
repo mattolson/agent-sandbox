@@ -9,7 +9,7 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-GO_VERSION="${1:-1.23.6}"
+GO_VERSION="${1:-1.26.1}"
 
 # Detect architecture
 ARCH="$(dpkg --print-architecture)"
