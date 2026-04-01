@@ -1,5 +1,13 @@
 # Execution Log: m13.1 - Go CLI Foundation
 
+## 2026-04-01 03:30 UTC - Finalized local Make workflow and committed it
+
+Committed the local Go CLI workflow updates in `4fd7419`. The repo now has a root `Makefile` with `build`, `test`, `run`, `setup`, `sync-templates`, `verify-templates`, `fmt`, `tidy`, and `clean` targets; `build` is the default target; and the local dev image helper now lives at `scripts/build-dev-image.bash`. Contributor docs were updated to point at `make setup`, and the placeholder Cobra command text was tightened while the Make workflow work was being finalized.
+
+**Decision:** Use `make build` as the default entrypoint so a plain `make` does the most common Go CLI developer action without introducing a separate bootstrap command as the primary workflow.
+
+**Learning:** `make build`, `make test`, `make run ARGS=version`, `make setup SETUP_ARGS=--help`, and `make -n` provide enough coverage to validate the local workflow wiring without requiring a full Docker-backed runtime test in this sandbox.
+
 ## 2026-03-31 05:33 UTC - Added `make setup` and moved the dev image helper
 
 Moved the local dev image helper from the repo root to `scripts/build-dev-image.bash`, updated it to resolve repo paths from the `scripts/` directory, and added a `setup` target to the root `Makefile` so contributors can run `make setup` instead of invoking the helper directly.

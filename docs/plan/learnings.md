@@ -38,6 +38,7 @@ Lessons learned during project execution. Review at the start of each planning s
 - Relative paths in docker-compose files are resolved from the compose file's directory, not the project root; `.devcontainer/docker-compose.yml` needs `../` to reach repo root, not `../../`
 - Devcontainer-specific policy rules should be additive layers on top of the shared `.agent-sandbox` policy files, not a second standalone source of truth
 - When legacy layouts need a cleanup-compatible exception, put guardrails in user-facing entrypoints instead of deleting every low-level fallback helper
+- A reusable runtime-layout resolver plus an injectable Docker runner makes CLI parity testing practical without a live Docker daemon for every command-path test
 
 ## Security
 
