@@ -63,6 +63,22 @@ func ActiveTargetFile(repoRoot string) string {
 	return filepath.Join(AgentSandboxDir(repoRoot), "active-target.env")
 }
 
+func PolicyDir(repoRoot string) string {
+	return filepath.Join(AgentSandboxDir(repoRoot), "policy")
+}
+
+func SharedPolicyFile(repoRoot string) string {
+	return filepath.Join(PolicyDir(repoRoot), "user.policy.yaml")
+}
+
+func UserAgentPolicyFile(repoRoot string, agent string) string {
+	return filepath.Join(PolicyDir(repoRoot), "user.agent."+agent+".policy.yaml")
+}
+
+func DevcontainerManagedPolicyFile(repoRoot string) string {
+	return filepath.Join(PolicyDir(repoRoot), "policy.devcontainer.yaml")
+}
+
 func DeriveBaseProjectName(projectPath string) string {
 	return filepath.Base(projectPath) + "-sandbox"
 }
