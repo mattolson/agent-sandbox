@@ -39,6 +39,8 @@ Lessons learned during project execution. Review at the start of each planning s
 - Devcontainer-specific policy rules should be additive layers on top of the shared `.agent-sandbox` policy files, not a second standalone source of truth
 - When legacy layouts need a cleanup-compatible exception, put guardrails in user-facing entrypoints instead of deleting every low-level fallback helper
 - A reusable runtime-layout resolver plus an injectable Docker runner makes CLI parity testing practical without a live Docker daemon for every command-path test
+- The current `devcontainer.user.json` merge behavior is a recursive object merge with array-append semantics, so native Go replacements need explicit tests for extension/plugin lists instead of assuming overwrite semantics
+- Local image refs such as `:local` or short local names are useful for end-to-end CLI verification in restricted environments because they bypass pull-and-pin network work while still exercising the full command path
 
 ## Security
 
