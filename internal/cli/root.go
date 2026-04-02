@@ -16,6 +16,8 @@ type Options struct {
 	Version       version.Info
 	Runner        docker.Runner
 	RuntimeSyncer RuntimeSyncer
+	Prompter      Prompter
+	LookupEnv     func(string) string
 }
 
 func NewRootCommand(opts Options) *cobra.Command {
@@ -39,7 +41,7 @@ func NewRootCommand(opts Options) *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newPendingLeafCommand("init", "Initialize a project sandbox"),
+		newInitCommand(opts, deps),
 		newPendingLeafCommand("switch", "Switch the active agent"),
 		newEditCommand(),
 		newPolicyCommand(deps),

@@ -58,11 +58,11 @@ func TestVersionCommandPrintsBuildMetadata(t *testing.T) {
 func TestPendingCommandAllowsUnknownFlagsBeforeReturningPlaceholder(t *testing.T) {
 	cmd := NewRootCommand(Options{})
 
-	_, _, err := testutil.ExecuteCommand(cmd, "init", "--batch", "--agent", "claude")
+	_, _, err := testutil.ExecuteCommand(cmd, "switch", "--agent", "claude")
 	if err == nil {
 		t.Fatal("expected placeholder error")
 	}
-	if got := err.Error(); got != "agentbox init is not implemented in the Go CLI yet; use ./cli/bin/agentbox for now" {
+	if got := err.Error(); got != "agentbox switch is not implemented in the Go CLI yet; use ./cli/bin/agentbox for now" {
 		t.Fatalf("unexpected error: %q", got)
 	}
 }
