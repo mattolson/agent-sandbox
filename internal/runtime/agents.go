@@ -21,5 +21,5 @@ func ValidateAgent(agent string) error {
 		return nil
 	}
 
-	return fmt.Errorf("invalid agent: %s (expected: %s)", agent, SupportedAgentsDisplay())
+	return fmt.Errorf("Invalid agent: %s (expected: %s)", agent, SupportedAgentsDisplay())
 }

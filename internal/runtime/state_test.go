@@ -46,3 +46,20 @@ func TestReadActiveTargetRequiresActiveAgent(t *testing.T) {
 		t.Fatal("expected missing ACTIVE_AGENT to fail")
 	}
 }
+
+func TestWriteTargetStateRoundTripsShellEscapedValues(t *testing.T) {
+	repoRoot := t.TempDir()
+	target := ActiveTarget{ActiveAgent: "opencode", DevcontainerIDE: "jetbrains", ProjectName: "hello world"}
+
+	if err := WriteTargetState(repoRoot, target); err != nil {
+		t.Fatalf("WriteTargetState failed: %v", err)
+	}
+
+	parsed, err := ReadActiveTarget(repoRoot)
+	if err != nil {
+		t.Fatalf("ReadActiveTarget failed: %v", err)
+	}
+	if parsed != target {
+		t.Fatalf("unexpected round-trip target: got %+v want %+v", parsed, target)
+	}
+}

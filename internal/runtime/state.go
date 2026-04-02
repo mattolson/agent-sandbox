@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/kballard/go-shellquote"
@@ -19,6 +20,11 @@ type ActiveTarget struct {
 func (target ActiveTarget) Validate() error {
 	if target.ActiveAgent == "" {
 		return fmt.Errorf("ACTIVE_AGENT is required")
+	}
+	if target.DevcontainerIDE != "" {
+		if err := ValidateDevcontainerIDE(target.DevcontainerIDE); err != nil {
+			return err
+		}
 	}
 
 	return ValidateAgent(target.ActiveAgent)
@@ -80,4 +86,43 @@ func ParseTargetState(data []byte) (ActiveTarget, error) {
 	}
 
 	return target, nil
+}
+
+func WriteTargetState(repoRoot string, target ActiveTarget) error {
+	if err := target.Validate(); err != nil {
+		return err
+	}
+
+	stateFile := ActiveTargetFile(repoRoot)
+	tmpFile := stateFile + ".tmp"
+	if err := os.MkdirAll(filepath.Dir(stateFile), 0o755); err != nil {
+		return err
+	}
+
+	var builder strings.Builder
+	builder.WriteString("# Managed by agentbox. Tracks the active agent and related runtime metadata for this project.\n")
+	builder.WriteString("ACTIVE_AGENT=")
+	builder.WriteString(shellquote.Join(target.ActiveAgent))
+	builder.WriteString("\n")
+	if target.DevcontainerIDE != "" {
+		builder.WriteString("DEVCONTAINER_IDE=")
+		builder.WriteString(shellquote.Join(target.DevcontainerIDE))
+		builder.WriteString("\n")
+	}
+	if target.ProjectName != "" {
+		builder.WriteString("PROJECT_NAME=")
+		builder.WriteString(shellquote.Join(target.ProjectName))
+		builder.WriteString("\n")
+	}
+
+	content := []byte(builder.String())
+	if err := os.WriteFile(tmpFile, content, 0o644); err != nil {
+		return err
+	}
+	if existing, err := os.ReadFile(stateFile); err == nil && bytes.Equal(existing, content) {
+		_ = os.Remove(tmpFile)
+		return nil
+	}
+
+	return os.Rename(tmpFile, stateFile)
 }
