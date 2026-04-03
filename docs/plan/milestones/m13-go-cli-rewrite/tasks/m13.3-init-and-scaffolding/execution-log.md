@@ -1,5 +1,16 @@
 # Execution Log: m13.3 - Init And Scaffolding
 
+## 2026-04-02 05:15 UTC - Added cross-platform host build workflow
+
+Updated the root `Makefile` so `make build` now produces macOS and Linux binaries in `dist/` and creates `bin/agentbox` as a relative symlink to the caller's detected platform binary. This gives a straightforward path for validating the standalone Go CLI on a macOS host after cross-compiling from the sandbox container.
+
+**Issue:** The first Makefile pass used shell `case` expressions inside `$(shell ...)`, which rendered badly through make and produced an invalid symlink target even though the cross-compilation loop itself worked.
+**Solution:** Switch host platform detection to pure Make conditionals and point `bin/agentbox` at a relative `../dist/agentbox-<goos>-<goarch>` symlink target.
+
+**Decision:** Keep `dist/` as the full cross-platform artifact directory and reserve `bin/` for the host-selected convenience entrypoint rather than mixing both roles in one directory.
+
+**Learning:** Relative symlinks are a better fit than absolute links for this workflow because the built tree remains movable between the sandbox workspace and host-side copies without rewriting the link target.
+
 ## 2026-04-02 04:10 UTC - Init and native scaffold generation implemented
 
 Implemented a native Go scaffold layer under `internal/scaffold` for managed compose files, user override scaffolds, layered policy files, devcontainer JSON rendering, and active-target state writes; added reusable Docker image pinning helpers in `internal/docker/images.go`; and replaced the `init` placeholder with a real Cobra command in `internal/cli/init.go` that preserves batch validation, interactive prompting, legacy-layout failures, and state-file updates. Added Go tests for representative CLI and devcontainer scaffolds, devcontainer JSON merge semantics, image pinning behavior, active-target state round trips, interactive and batch init flows, and IDE validation.
