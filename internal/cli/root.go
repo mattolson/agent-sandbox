@@ -42,8 +42,8 @@ func NewRootCommand(opts Options) *cobra.Command {
 
 	cmd.AddCommand(
 		newInitCommand(opts, deps),
-		newPendingLeafCommand("switch", "Switch the active agent"),
-		newEditCommand(),
+		newSwitchCommand(opts, deps),
+		newEditCommand(opts, deps),
 		newPolicyCommand(deps),
 		newPendingLeafCommand("bump", "Refresh managed image digests"),
 		newRuntimeComposeCommand("up", "Start the sandbox runtime", "up", []string{"up"}, deps),
@@ -51,25 +51,8 @@ func NewRootCommand(opts Options) *cobra.Command {
 		newRuntimeComposeCommand("logs", "Show runtime logs", "logs", []string{"logs"}, deps),
 		newRuntimeComposeCommand("compose", "Run docker compose against the sandbox stack", "compose", nil, deps),
 		newExecCommand(deps),
-		newPendingLeafCommand("destroy", "Remove sandbox files and resources"),
+		newDestroyCommand(opts, deps),
 		newVersionCommand(opts.Version),
-	)
-
-	return cmd
-}
-
-func newEditCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "edit",
-		Short: "Edit user-owned runtime configuration",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return cmd.Help()
-		},
-	}
-
-	cmd.AddCommand(
-		newPendingLeafCommand("compose", "Edit compose overrides"),
-		newPendingLeafCommand("policy", "Edit policy overrides"),
 	)
 
 	return cmd
