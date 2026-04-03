@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/mattolson/agent-sandbox/internal/docker"
@@ -133,6 +134,89 @@ func loadComposeTemplate(templateName string) (composeDocument, string, error) {
 	}
 
 	return doc, leadingCommentBlock(string(data)), nil
+}
+
+func loadComposeFile(path string) (composeDocument, string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return composeDocument{}, "", err
+	}
+
+	var doc composeDocument
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return composeDocument{}, "", err
+	}
+
+	return doc, leadingCommentBlock(string(data)), nil
+}
+
+func readComposeProjectNameIfExists(path string) (string, error) {
+	doc, _, err := loadComposeFile(path)
+	if err != nil {
+		return "", err
+	}
+
+	return doc.Name, nil
+}
+
+func readComposeServiceImageIfExists(path string, service string) (string, error) {
+	doc, _, err := loadComposeFile(path)
+	if err != nil {
+		return "", err
+	}
+
+	switch service {
+	case "proxy":
+		if doc.Services.Proxy == nil {
+			return "", nil
+		}
+		return doc.Services.Proxy.Image, nil
+	case "agent":
+		if doc.Services.Agent == nil {
+			return "", nil
+		}
+		return doc.Services.Agent.Image, nil
+	default:
+		return "", fmt.Errorf("unsupported compose service %q", service)
+	}
+}
+
+func setComposeProjectName(path string, projectName string) error {
+	doc, header, err := loadComposeFile(path)
+	if err != nil {
+		return err
+	}
+	doc.Name = projectName
+
+	return writeComposeDocument(path, header, doc)
+}
+
+func ensureCLIBasePolicyRuntimeConfig(repoRoot string) error {
+	path := runtime.CLIBaseComposeFile(repoRoot)
+	doc, header, err := loadComposeFile(path)
+	if err != nil {
+		return err
+	}
+	ensureProxyService(&doc)
+	doc.Services.Proxy.Volumes = ensureString(doc.Services.Proxy.Volumes, "../policy/user.policy.yaml:/etc/agent-sandbox/policy/user.policy.yaml:ro")
+
+	return writeComposeDocument(path, header, doc)
+}
+
+func ensureCLIAgentPolicyRuntimeConfig(repoRoot string, agent string) error {
+	path := runtime.CLIAgentComposeFile(repoRoot, agent)
+	doc, header, err := loadComposeFile(path)
+	if err != nil {
+		return err
+	}
+	ensureProxyService(&doc)
+	legacyVolume := fmt.Sprintf("../policy-cli-%s.yaml:/etc/mitmproxy/policy.yaml:ro", agent)
+	policyVolume := fmt.Sprintf("../policy/%s:/etc/agent-sandbox/policy/user.agent.policy.yaml:ro", filepath.Base(runtime.UserAgentPolicyFile(repoRoot, agent)))
+	doc.Services.Proxy.Volumes = removeString(doc.Services.Proxy.Volumes, legacyVolume)
+	doc.Services.Proxy.Volumes = ensureString(doc.Services.Proxy.Volumes, policyVolume)
+	doc.Services.Proxy.Environment = setEnvironmentVar(doc.Services.Proxy.Environment, "AGENTBOX_ACTIVE_AGENT", agent)
+
+	return writeComposeDocument(path, header, doc)
 }
 
 func writeComposeDocument(path string, header string, doc composeDocument) error {
