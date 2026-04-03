@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -63,6 +64,28 @@ func TestComposeCommandCallsRuntimeSyncOnlyForMutatingCommands(t *testing.T) {
 	if syncer.calls != 0 {
 		t.Fatalf("expected no sync calls for read-only compose command, got %d", syncer.calls)
 	}
+}
+
+func TestComposeCommandReResolvesFilesAfterDefaultRuntimeSync(t *testing.T) {
+	repoRoot := t.TempDir()
+	testutil.WriteFile(t, repoRoot, ".git", "gitdir: /tmp/worktree\n")
+	testutil.WriteFile(t, repoRoot, ".agent-sandbox/active-target.env", "ACTIVE_AGENT=codex\n")
+	testutil.WriteFile(t, repoRoot, ".agent-sandbox/compose/base.yml", "services:\n  proxy:\n    image: agent-sandbox-proxy:local\n")
+	testutil.WriteFile(t, repoRoot, ".agent-sandbox/compose/agent.codex.yml", "services:\n  proxy:\n    environment: []\n  agent:\n    image: agent-sandbox-codex:local\n")
+
+	runner := &fakeRunner{}
+	cmd := NewRootCommand(Options{WorkingDir: repoRoot, Runner: runner})
+	_, _, err := testutil.ExecuteCommand(cmd, "compose", "up", "-d")
+	if err != nil {
+		t.Fatalf("compose up failed: %v", err)
+	}
+	for _, path := range []string{runtime.CLIUserOverrideFile(repoRoot), runtime.CLIUserAgentOverrideFile(repoRoot, "codex")} {
+		if _, statErr := os.Stat(path); statErr != nil {
+			t.Fatalf("expected %s to exist after sync: %v", path, statErr)
+		}
+	}
+	want := []string{"docker", "compose", "-f", runtime.CLIBaseComposeFile(repoRoot), "-f", runtime.CLIAgentComposeFile(repoRoot, "codex"), "-f", runtime.CLIUserOverrideFile(repoRoot), "-f", runtime.CLIUserAgentOverrideFile(repoRoot, "codex"), "up", "-d"}
+	assertSingleRunCall(t, runner, want)
 }
 
 func TestComposeCommandFailsForLegacyLayout(t *testing.T) {

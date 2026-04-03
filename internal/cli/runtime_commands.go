@@ -41,7 +41,7 @@ func newCommandDeps(opts Options) commandDeps {
 
 	syncer := opts.RuntimeSyncer
 	if syncer == nil {
-		syncer = noopRuntimeSyncer{}
+		syncer = scaffoldRuntimeSyncer{runner: runner, lookupEnv: opts.LookupEnv}
 	}
 
 	return commandDeps{
@@ -71,6 +71,10 @@ func runComposePassthrough(cmd *cobra.Command, deps commandDeps, commandName str
 
 	if len(composeArgs) > 0 && runtime.ComposeCommandRequiresRuntimeSync(composeArgs[0], shouldSkipRuntimeSync()) {
 		if err := deps.syncer.Sync(cmd.Context(), stack); err != nil {
+			return err
+		}
+		stack, err = resolveComposeStackForCommand(deps, commandName)
+		if err != nil {
 			return err
 		}
 	}
@@ -107,6 +111,10 @@ func newExecCommand(deps commandDeps) *cobra.Command {
 			if running == "" {
 				if runtime.ComposeCommandRequiresRuntimeSync("up", shouldSkipRuntimeSync()) {
 					if err := deps.syncer.Sync(cmd.Context(), stack); err != nil {
+						return err
+					}
+					stack, err = resolveComposeStackForCommand(deps, "exec")
+					if err != nil {
 						return err
 					}
 				}
