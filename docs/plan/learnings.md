@@ -59,3 +59,5 @@ Lessons learned during project execution. Review at the start of each planning s
 - For user-facing runtime config, one clear ownership directory is better than a "cleaner" split across `.agent-sandbox/` and `.devcontainer/`; keep `.devcontainer/` as a thin IDE shim when possible
 - Keep CLI stderr concise for large migrations; point users at a dedicated upgrade guide instead of trying to explain the whole layout change inline
 - Regression tests over `docker compose config --no-interpolate` should assert semantic invariants, not one YAML shape; env and volume nodes vary across Compose and `yq` versions
+- If runtime sync can recreate missing compose layers, resolve the compose file list after sync instead of before it or Docker will run with a stale stack that omits the freshly restored files
+- Native scaffold refresh helpers can safely power lifecycle commands as long as they only rewrite agentbox-managed layers and never overwrite user-owned override or policy files during sync
