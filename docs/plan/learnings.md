@@ -61,3 +61,5 @@ Lessons learned during project execution. Review at the start of each planning s
 - Regression tests over `docker compose config --no-interpolate` should assert semantic invariants, not one YAML shape; env and volume nodes vary across Compose and `yq` versions
 - If runtime sync can recreate missing compose layers, resolve the compose file list after sync instead of before it or Docker will run with a stale stack that omits the freshly restored files
 - Native scaffold refresh helpers can safely power lifecycle commands as long as they only rewrite agentbox-managed layers and never overwrite user-owned override or policy files during sync
+- Bash `edit` flows are not fully batch-friendly because `open_editor` binds stdio to `/dev/tty`; parity automation needs a pseudo-tty when exercising the real Bash path
+- Bash edit commands use second-resolution mtimes for change detection, so parity fixtures need a deliberate delay before writing file changes or real edits may be misclassified as unchanged
