@@ -24,6 +24,29 @@ func TestResolvePinnedImageSkipsLocalRefs(t *testing.T) {
 	}
 }
 
+func TestIsLocalImageRef(t *testing.T) {
+	for _, image := range []string{"agent-sandbox-proxy:local", "alpine", "local/image"} {
+		if image == "local/image" {
+			if IsLocalImageRef(image) {
+				t.Fatalf("did not expect %q to be treated as local", image)
+			}
+			continue
+		}
+		if !IsLocalImageRef(image) {
+			t.Fatalf("expected %q to be treated as local", image)
+		}
+	}
+}
+
+func TestBaseImageRefStripsDigest(t *testing.T) {
+	if got := BaseImageRef("ghcr.io/foo/bar@sha256:abc123"); got != "ghcr.io/foo/bar" {
+		t.Fatalf("unexpected base image: %q", got)
+	}
+	if got := BaseImageRef("ghcr.io/foo/bar:latest"); got != "ghcr.io/foo/bar:latest" {
+		t.Fatalf("unexpected base image: %q", got)
+	}
+}
+
 func TestResolvePinnedImageReturnsDigestAfterPull(t *testing.T) {
 	runner := &stubRunner{outputs: []stubOutput{{stdout: []byte("ghcr.io/foo/bar@sha256:abc123\n")}}}
 	got, err := ResolvePinnedImage(context.Background(), runner, "ghcr.io/foo/bar:latest", nil)

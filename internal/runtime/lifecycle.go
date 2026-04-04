@@ -2,6 +2,11 @@ package runtime
 
 import "os"
 
+type ManagedAgentLayer struct {
+	Agent string
+	File  string
+}
+
 func AgentSandboxInitialized(repoRoot string) bool {
 	info, err := os.Stat(AgentSandboxDir(repoRoot))
 	return err == nil && info.IsDir()
@@ -46,4 +51,16 @@ func LegacyDestroyComposeFile(repoRoot string) (string, bool) {
 	}
 
 	return "", false
+}
+
+func ExistingManagedAgentLayers(repoRoot string) []ManagedAgentLayer {
+	layers := make([]ManagedAgentLayer, 0, len(SupportedAgents()))
+	for _, agent := range SupportedAgents() {
+		file := CLIAgentComposeFile(repoRoot, agent)
+		if fileExists(file) {
+			layers = append(layers, ManagedAgentLayer{Agent: agent, File: file})
+		}
+	}
+
+	return layers
 }
