@@ -1,0 +1,3 @@
+services:
+  proxy:
+    image: ghcr.io/example/proxy:latest

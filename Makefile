@@ -7,6 +7,7 @@ ARGS ?=
 SETUP_ARGS ?=
 CGO_ENABLED ?= 0
 TARGETS ?= darwin/amd64 darwin/arm64 linux/amd64 linux/arm64
+PARITY_ARGS ?=
 
 HOST_UNAME_S := $(shell uname -s)
 HOST_UNAME_M := $(shell uname -m)
@@ -17,7 +18,7 @@ HOST_BINARY_LINK := ../$(patsubst ./%,%,$(HOST_BINARY))
 
 .DEFAULT_GOAL := build
 
-.PHONY: setup build test run sync-templates verify-templates fmt tidy clean
+.PHONY: setup build test parity run sync-templates verify-templates fmt tidy clean
 
 setup:
 	./scripts/build-dev-image.bash $(SETUP_ARGS)
@@ -39,6 +40,9 @@ build: sync-templates
 
 test: verify-templates
 	$(GO) test ./...
+
+parity: sync-templates
+	./scripts/parity.bash $(PARITY_ARGS)
 
 run: sync-templates
 	$(GO) run $(CMD_PACKAGE) $(ARGS)

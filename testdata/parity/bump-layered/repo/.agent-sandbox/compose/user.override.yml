@@ -1,0 +1,4 @@
+services:
+  agent:
+    environment:
+      - SHARED=1

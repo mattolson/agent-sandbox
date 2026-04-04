@@ -1,0 +1,62 @@
+name: Parity Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'cli/**'
+      - 'cli/templates/**'
+      - 'scripts/parity.bash'
+      - 'scripts/sync-go-templates.bash'
+      - 'testdata/parity/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/parity-tests.yml'
+  pull_request:
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'cli/**'
+      - 'cli/templates/**'
+      - 'scripts/parity.bash'
+      - 'scripts/sync-go-templates.bash'
+      - 'testdata/parity/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/parity-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Ensure yq is available
+        run: |
+          if command -v yq >/dev/null 2>&1; then
+            yq --version
+            exit 0
+          fi
+
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.52.4/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Verify embedded templates are in sync
+        run: |
+          ./scripts/sync-go-templates.bash
+          git diff --exit-code -- internal/embeddata/templates
+
+      - name: Run Bash-vs-Go parity suite
+        run: ./scripts/parity.bash

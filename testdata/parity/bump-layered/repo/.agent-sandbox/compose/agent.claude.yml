@@ -1,0 +1,3 @@
+services:
+  agent:
+    image: ghcr.io/example/claude:latest

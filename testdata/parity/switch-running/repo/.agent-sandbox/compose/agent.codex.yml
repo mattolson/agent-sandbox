@@ -1,0 +1,5 @@
+services:
+  proxy:
+    environment: []
+  agent:
+    image: agent-sandbox-codex:local
