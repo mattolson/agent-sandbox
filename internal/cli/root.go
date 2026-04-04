@@ -45,7 +45,7 @@ func NewRootCommand(opts Options) *cobra.Command {
 		newSwitchCommand(opts, deps),
 		newEditCommand(opts, deps),
 		newPolicyCommand(deps),
-		newPendingLeafCommand("bump", "Refresh managed image digests"),
+		newBumpCommand(deps),
 		newRuntimeComposeCommand("up", "Start the sandbox runtime", "up", []string{"up"}, deps),
 		newRuntimeComposeCommand("down", "Stop the sandbox runtime", "down", []string{"down"}, deps),
 		newRuntimeComposeCommand("logs", "Show runtime logs", "logs", []string{"logs"}, deps),
