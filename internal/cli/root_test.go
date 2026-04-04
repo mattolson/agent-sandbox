@@ -55,14 +55,16 @@ func TestVersionCommandPrintsBuildMetadata(t *testing.T) {
 	}
 }
 
-func TestPendingBumpCommandAllowsUnknownFlagsBeforeReturningPlaceholder(t *testing.T) {
-	cmd := NewRootCommand(Options{})
+func TestBumpCommandIsImplemented(t *testing.T) {
+	repoRoot := t.TempDir()
+	testutil.WriteFile(t, repoRoot, ".git", "gitdir: /tmp/worktree\n")
+	cmd := NewRootCommand(Options{WorkingDir: repoRoot})
 
-	_, _, err := testutil.ExecuteCommand(cmd, "bump", "--agent", "claude")
+	_, _, err := testutil.ExecuteCommand(cmd, "bump")
 	if err == nil {
-		t.Fatal("expected placeholder error")
+		t.Fatal("expected missing-layout error")
 	}
-	if got := err.Error(); got != "agentbox bump is not implemented in the Go CLI yet; use ./cli/bin/agentbox for now" {
+	if got := err.Error(); !strings.Contains(got, "Run 'agentbox init' first.") {
 		t.Fatalf("unexpected error: %q", got)
 	}
 }
