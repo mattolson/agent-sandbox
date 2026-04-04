@@ -181,6 +181,41 @@ func readComposeServiceImageIfExists(path string, service string) (string, error
 	}
 }
 
+func ReadComposeServiceImage(path string, service string) (string, error) {
+	return readComposeServiceImageIfExists(path, service)
+}
+
+func SetComposeServiceImage(path string, service string, image string) (bool, error) {
+	doc, header, err := loadComposeFile(path)
+	if err != nil {
+		return false, err
+	}
+
+	changed := false
+	switch service {
+	case "proxy":
+		ensureProxyService(&doc)
+		if doc.Services.Proxy.Image != image {
+			doc.Services.Proxy.Image = image
+			changed = true
+		}
+	case "agent":
+		ensureAgentService(&doc)
+		if doc.Services.Agent.Image != image {
+			doc.Services.Agent.Image = image
+			changed = true
+		}
+	default:
+		return false, fmt.Errorf("unsupported compose service %q", service)
+	}
+
+	if !changed {
+		return false, nil
+	}
+
+	return true, writeComposeDocument(path, header, doc)
+}
+
 func setComposeProjectName(path string, projectName string) error {
 	doc, header, err := loadComposeFile(path)
 	if err != nil {

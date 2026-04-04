@@ -7,6 +7,19 @@ import (
 	"strings"
 )
 
+func IsLocalImageRef(image string) bool {
+	return strings.HasSuffix(image, ":local") || !strings.Contains(image, "/")
+}
+
+func BaseImageRef(image string) string {
+	base, _, ok := strings.Cut(image, "@sha256:")
+	if ok {
+		return base
+	}
+
+	return image
+}
+
 func ResolvePinnedImage(ctx context.Context, runner Runner, image string, stderr io.Writer) (string, error) {
 	if image == "" {
 		return "", fmt.Errorf("image reference is required")
@@ -18,7 +31,7 @@ func ResolvePinnedImage(ctx context.Context, runner Runner, image string, stderr
 		stderr = io.Discard
 	}
 
-	if strings.HasSuffix(image, ":local") || !strings.Contains(image, "/") {
+	if IsLocalImageRef(image) {
 		return image, nil
 	}
 
