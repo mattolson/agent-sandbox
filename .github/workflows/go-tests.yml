@@ -41,8 +41,29 @@ jobs:
           ./scripts/sync-go-templates.bash
           git diff --exit-code -- internal/embeddata/templates
 
-      - name: Run Go tests
-        run: go test ./...
+      - name: Run Go tests with coverage
+        run: go test -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Generate Go coverage reports
+        run: |
+          go tool cover -func=coverage.out | tee coverage.txt
+          go tool cover -html=coverage.out -o coverage.html
+
+          total="$(awk '/^total:/ {print $3}' coverage.txt)"
+          {
+            printf '## Go Coverage\n\n'
+            printf -- '- Total statement coverage: `%s`\n' "$total"
+            printf -- '- Coverage artifacts uploaded: `coverage.out`, `coverage.txt`, `coverage.html`\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Go coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: |
+            coverage.out
+            coverage.txt
+            coverage.html
 
       - name: Build Go CLI
         run: go build ./cmd/agentbox
