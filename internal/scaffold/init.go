@@ -1,6 +1,7 @@
 package scaffold
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -181,13 +182,17 @@ func writeTemplateIfMissing(path string, templateName string) error {
 }
 
 func writeFileIfChanged(path string, data []byte, mode os.FileMode) error {
-	if existing, err := os.ReadFile(path); err == nil && string(existing) == string(data) {
+	if existing, err := os.ReadFile(path); err == nil && bytes.Equal(existing, data) {
 		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, mode)
+	tmpFile := path + ".tmp"
+	if err := os.WriteFile(tmpFile, data, mode); err != nil {
+		return err
+	}
+	return os.Rename(tmpFile, path)
 }
 
 func wrapLookupIgnoringIDE(lookup func(string) string) func(string) string {
