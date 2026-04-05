@@ -81,7 +81,10 @@ func newInitCommand(opts Options, deps commandDeps) *cobra.Command {
 				if err := scaffold.InitializeCLI(cmd.Context(), params); err != nil {
 					return err
 				}
-				target, _ := runtime.ReadActiveTarget(projectPath)
+				target, err := currentTargetIfExists(projectPath)
+				if err != nil {
+					return err
+				}
 				target.ActiveAgent = agent
 				target.ProjectName = name
 				if err := runtime.WriteTargetState(projectPath, target); err != nil {

@@ -107,6 +107,23 @@ func TestInitInteractiveDevcontainerFlowUsesPromptDefaultsAndWritesState(t *test
 	}
 }
 
+func TestInitCLIPropagatesMalformedExistingTargetState(t *testing.T) {
+	repoRoot := t.TempDir()
+	testutil.WriteFile(t, repoRoot, ".agent-sandbox/active-target.env", "not valid state\n")
+	cmd := NewRootCommand(Options{WorkingDir: repoRoot, LookupEnv: mapLookup(map[string]string{
+		"AGENTBOX_PROXY_IMAGE": "agent-sandbox-proxy:local",
+		"AGENTBOX_AGENT_IMAGE": "agent-sandbox-claude:local",
+	})})
+
+	_, _, err := testutil.ExecuteCommand(cmd, "init", "--batch", "--agent", "claude", "--mode", "cli", "--name", "test", "--path", repoRoot)
+	if err == nil {
+		t.Fatal("expected malformed target state to fail")
+	}
+	if !strings.Contains(err.Error(), "parse target state line 1") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 type fakePrompter struct {
 	readLineResponses []string
 	selectResponses   []string
