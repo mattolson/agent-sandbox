@@ -85,13 +85,6 @@ func runComposeCommand(ctx context.Context, runner docker.Runner, stack runtime.
 	})
 }
 
-func outputComposeCommand(ctx context.Context, runner docker.Runner, stack runtime.ComposeStack, args ...string) ([]byte, error) {
-	return runner.Output(ctx, "docker", docker.ComposeArgs(stack.Files, args...), docker.CommandOptions{
-		Dir:    stack.RepoRoot,
-		Stderr: os.Stderr,
-	})
-}
-
 func resolveEditorFromLookup(lookup func(string) string) (runtime.Editor, error) {
 	if lookup == nil {
 		return runtime.ResolveEditor()

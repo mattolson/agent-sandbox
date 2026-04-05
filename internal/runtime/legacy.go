@@ -167,7 +167,7 @@ func inferLegacyLayoutAgent(repoRoot string, files []string, preferredAgent stri
 func legacyLayoutFileMode(repoRoot string, file string) string {
 	relative := legacyLayoutRelativePath(repoRoot, file)
 	switch relative {
-	case filepath.ToSlash(filepath.Join(AgentSandboxDirName, "docker-compose.yml")), filepath.ToSlash(filepath.Join(AgentSandboxDirName, "policy-cli-*.yaml")):
+	case filepath.ToSlash(filepath.Join(AgentSandboxDirName, "docker-compose.yml")):
 		return ModeCLI
 	}
 
