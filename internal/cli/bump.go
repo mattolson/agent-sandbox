@@ -88,6 +88,10 @@ func bumpComposeService(cmd *cobra.Command, deps commandDeps, composeFile string
 	if err != nil {
 		return err
 	}
+	if newImage == baseImage && image != baseImage {
+		_, _ = fmt.Fprintf(stderr, "    -> Pull failed, keeping current pinned image: %s\n", image)
+		return nil
+	}
 
 	if newImage == image {
 		_, _ = fmt.Fprintln(stderr, "    -> Already at latest digest")

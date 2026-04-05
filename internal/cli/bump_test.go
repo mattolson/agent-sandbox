@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"os"
 	"reflect"
 	"strings"
@@ -120,6 +121,50 @@ func TestBumpHandlesExistingDigestImages(t *testing.T) {
 	if got := callArgs(runner.calls); !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected docker calls: got %v want %v", got, want)
 	}
+}
+
+func TestBumpKeepsPinnedDigestWhenPullFailsButBaseImageExistsLocally(t *testing.T) {
+	repoRoot := t.TempDir()
+	baseFile := testutil.WriteFile(t, repoRoot, ".agent-sandbox/compose/base.yml", "services:\n  proxy:\n    image: ghcr.io/example/proxy@sha256:old123\n")
+	testutil.WriteFile(t, repoRoot, ".git", "gitdir: /tmp/worktree\n")
+
+	runner := &fakeRunner{
+		runErr:  errors.New("pull failed"),
+		outputs: []fakeOutput{{stdout: []byte("[]")}},
+	}
+	cmd := NewRootCommand(Options{WorkingDir: repoRoot, Runner: runner})
+	_, stderr, err := testutil.ExecuteCommand(cmd, "bump")
+	if err != nil {
+		t.Fatalf("bump failed: %v", err)
+	}
+	assertFileContains(t, baseFile, "ghcr.io/example/proxy@sha256:old123")
+	if strings.Contains(readFile(t, baseFile), "ghcr.io/example/proxy\n") {
+		t.Fatalf("expected compose file to keep pinned digest, got %q", readFile(t, baseFile))
+	}
+	for _, snippet := range []string{
+		"Pull failed but 'ghcr.io/example/proxy' exists locally; using local image.",
+		"-> Pull failed, keeping current pinned image: ghcr.io/example/proxy@sha256:old123",
+	} {
+		if !strings.Contains(stderr, snippet) {
+			t.Fatalf("expected stderr to contain %q, got %q", snippet, stderr)
+		}
+	}
+	want := [][]string{
+		{"docker", "pull", "ghcr.io/example/proxy"},
+		{"docker", "image", "inspect", "ghcr.io/example/proxy"},
+	}
+	if got := callArgs(runner.calls); !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected docker calls: got %v want %v", got, want)
+	}
+}
+
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(data)
 }
 
 func assertFileContains(t *testing.T, path string, want string) {
