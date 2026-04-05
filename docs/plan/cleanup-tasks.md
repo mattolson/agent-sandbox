@@ -70,7 +70,7 @@ Design decisions that may or may not need action.
   - **README.md** (keep short): What it does, Supported agents, Quick start, Network policy overview, Security, Contributing, License
   - **docs/git.md**: Git configuration (git from host vs container, credential setup, SSH blocking)
   - **docs/dotfiles.md**: Dotfiles support and shell customization (merge the two sections)
-  - **docs/stacks.md**: Extending with language stacks
+  - **docs/stacks/**: Extending with language stacks
   - **docs/images.md**: Image versioning, building custom images
   Each extracted section gets a one-line summary and link in the README.
 

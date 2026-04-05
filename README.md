@@ -206,7 +206,7 @@ See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format 
 
 - **[Git inside the container](docs/git.md)** - Credential setup and SSH-to-HTTPS rewriting
 - **[Dotfiles and shell customization](docs/dotfiles.md)** - Mount dotfiles and shell.d scripts
-- **[Language stacks](docs/stacks.md)** - Extend the base image with Python, Node, Go, Rust
+- **[Language stacks](docs/stacks/)** - Extend the base image with Python, Node, Go, Rust and stack-specific guides
 - **[Image versioning](docs/images.md)** - Pin and bump image digests
 - **[Troubleshooting](docs/troubleshooting.md)** - Common issues and fixes
 
