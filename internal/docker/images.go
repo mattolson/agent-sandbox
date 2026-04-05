@@ -7,8 +7,13 @@ import (
 	"strings"
 )
 
+// Unqualified names remain an intentional local-image escape hatch to match the Bash CLI.
 func IsLocalImageRef(image string) bool {
 	return strings.HasSuffix(image, ":local") || !strings.Contains(image, "/")
+}
+
+func IsUnqualifiedImageRef(image string) bool {
+	return image != "" && !strings.Contains(image, "/") && !strings.HasSuffix(image, ":local")
 }
 
 func BaseImageRef(image string) string {
@@ -32,6 +37,9 @@ func ResolvePinnedImage(ctx context.Context, runner Runner, image string, stderr
 	}
 
 	if IsLocalImageRef(image) {
+		if IsUnqualifiedImageRef(image) {
+			_, _ = fmt.Fprintf(stderr, "Treating unqualified image ref %q as local; use a registry-qualified ref to enable pull-and-pin.\n", image)
+		}
 		return image, nil
 	}
 

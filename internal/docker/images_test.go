@@ -38,6 +38,19 @@ func TestIsLocalImageRef(t *testing.T) {
 	}
 }
 
+func TestIsUnqualifiedImageRef(t *testing.T) {
+	for _, image := range []string{"alpine", "agent-sandbox-dev:claude"} {
+		if !IsUnqualifiedImageRef(image) {
+			t.Fatalf("expected %q to be treated as unqualified", image)
+		}
+	}
+	for _, image := range []string{"agent-sandbox-proxy:local", "ghcr.io/foo/bar:latest"} {
+		if IsUnqualifiedImageRef(image) {
+			t.Fatalf("did not expect %q to be treated as unqualified", image)
+		}
+	}
+}
+
 func TestBaseImageRefStripsDigest(t *testing.T) {
 	if got := BaseImageRef("ghcr.io/foo/bar@sha256:abc123"); got != "ghcr.io/foo/bar" {
 		t.Fatalf("unexpected base image: %q", got)
@@ -78,6 +91,25 @@ func TestResolvePinnedImageFallsBackToLocalImageAfterPullFailure(t *testing.T) {
 	}
 	if stderr.String() != "Pull failed but 'ghcr.io/foo/bar:latest' exists locally; using local image.\n" {
 		t.Fatalf("unexpected stderr: %q", stderr.String())
+	}
+}
+
+func TestResolvePinnedImageWarnsForUnqualifiedRefs(t *testing.T) {
+	stderr := new(bytes.Buffer)
+	runner := &stubRunner{}
+
+	got, err := ResolvePinnedImage(context.Background(), runner, "alpine", stderr)
+	if err != nil {
+		t.Fatalf("ResolvePinnedImage failed: %v", err)
+	}
+	if got != "alpine" {
+		t.Fatalf("unexpected image: got %q want %q", got, "alpine")
+	}
+	if stderr.String() != "Treating unqualified image ref \"alpine\" as local; use a registry-qualified ref to enable pull-and-pin.\n" {
+		t.Fatalf("unexpected stderr: %q", stderr.String())
+	}
+	if len(runner.calls) != 0 {
+		t.Fatalf("expected no docker calls, got %v", runner.calls)
 	}
 }
 
