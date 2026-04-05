@@ -13,9 +13,16 @@ import (
 )
 
 type composeDocument struct {
-	Name     string          `yaml:"name,omitempty"`
-	Services composeServices `yaml:"services,omitempty"`
-	Volumes  map[string]any  `yaml:"volumes,omitempty"`
+	Name     string              `yaml:"name,omitempty"`
+	Services composeServices     `yaml:"services,omitempty"`
+	Volumes  composeNamedVolumes `yaml:"volumes,omitempty"`
+}
+
+type composeNamedVolumes []composeNamedVolumeEntry
+
+type composeNamedVolumeEntry struct {
+	Name  string
+	Value *yaml.Node
 }
 
 type composeServices struct {
@@ -45,6 +52,63 @@ type composeHealthcheck struct {
 	Interval string   `yaml:"interval,omitempty"`
 	Timeout  string   `yaml:"timeout,omitempty"`
 	Retries  int      `yaml:"retries,omitempty"`
+}
+
+func (volumes *composeNamedVolumes) UnmarshalYAML(node *yaml.Node) error {
+	if node == nil || node.Kind == 0 || (node.Kind == yaml.ScalarNode && node.Tag == "!!null") {
+		*volumes = nil
+		return nil
+	}
+	if node.Kind != yaml.MappingNode {
+		return fmt.Errorf("compose volumes must be a mapping")
+	}
+
+	entries := make(composeNamedVolumes, 0, len(node.Content)/2)
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		entries = append(entries, composeNamedVolumeEntry{
+			Name:  node.Content[i].Value,
+			Value: cloneYAMLNode(node.Content[i+1]),
+		})
+	}
+
+	*volumes = entries
+	return nil
+}
+
+func (volumes composeNamedVolumes) MarshalYAML() (any, error) {
+	node := &yaml.Node{Kind: yaml.MappingNode}
+	for _, entry := range volumes {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: entry.Name},
+			normalizeComposeVolumeNode(entry.Value),
+		)
+	}
+
+	return node, nil
+}
+
+func cloneYAMLNode(node *yaml.Node) *yaml.Node {
+	if node == nil {
+		return nil
+	}
+
+	clone := *node
+	if len(node.Content) > 0 {
+		clone.Content = make([]*yaml.Node, len(node.Content))
+		for i, child := range node.Content {
+			clone.Content[i] = cloneYAMLNode(child)
+		}
+	}
+
+	return &clone
+}
+
+func normalizeComposeVolumeNode(node *yaml.Node) *yaml.Node {
+	if node == nil || (node.Kind == yaml.ScalarNode && node.Tag == "!!null") {
+		return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!null", Value: ""}
+	}
+
+	return cloneYAMLNode(node)
 }
 
 func writeCLIBaseComposeFile(ctx context.Context, params InitParams, env EnvConfig) error {

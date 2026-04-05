@@ -50,6 +50,8 @@ func cleanupLegacyDevcontainerManagedFiles(repoRoot string) {
 	_ = os.Remove(filepath.Join(repoRoot, ".devcontainer", "policy.override.yaml"))
 }
 
+// mergeJSON overlays objects recursively and appends arrays so user config extends
+// the generated devcontainer template instead of replacing list-valued defaults.
 func mergeJSON(base any, overlay any) any {
 	switch baseTyped := base.(type) {
 	case map[string]any:
