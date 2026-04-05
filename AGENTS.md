@@ -209,7 +209,7 @@ See the `add-agent` skill at `.agents/skills/add-agent/SKILL.md`, or follow the 
 
 ## Customization
 
-For shell customization and dotfiles, see `docs/dotfiles.md`. For language stacks (Python, Node, Go, Rust), see `docs/stacks.md`.
+For shell customization and dotfiles, see `docs/dotfiles.md`. For language stacks (Python, Node, Go, Rust), see `docs/stacks/`.
 
 ## Target Platform
 
