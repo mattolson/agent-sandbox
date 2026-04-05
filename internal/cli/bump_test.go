@@ -158,6 +158,31 @@ func TestBumpKeepsPinnedDigestWhenPullFailsButBaseImageExistsLocally(t *testing.
 	}
 }
 
+func TestBumpWarnsWhenSkippingUnqualifiedImageRefs(t *testing.T) {
+	repoRoot := t.TempDir()
+	baseFile := testutil.WriteFile(t, repoRoot, ".agent-sandbox/compose/base.yml", "services:\n  proxy:\n    image: alpine\n")
+	testutil.WriteFile(t, repoRoot, ".git", "gitdir: /tmp/worktree\n")
+
+	runner := &fakeRunner{}
+	cmd := NewRootCommand(Options{WorkingDir: repoRoot, Runner: runner})
+	_, stderr, err := testutil.ExecuteCommand(cmd, "bump")
+	if err != nil {
+		t.Fatalf("bump failed: %v", err)
+	}
+	assertFileContains(t, baseFile, "image: alpine")
+	for _, snippet := range []string{
+		"-> Treating unqualified image ref \"alpine\" as local; use a registry-qualified ref to enable pull-and-pin.",
+		"-> Skipping local image",
+	} {
+		if !strings.Contains(stderr, snippet) {
+			t.Fatalf("expected stderr to contain %q, got %q", snippet, stderr)
+		}
+	}
+	if len(runner.calls) != 0 {
+		t.Fatalf("expected no docker calls, got %v", runner.calls)
+	}
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)

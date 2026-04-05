@@ -78,6 +78,9 @@ func bumpComposeService(cmd *cobra.Command, deps commandDeps, composeFile string
 
 	_, _ = fmt.Fprintf(stderr, "  %s: %s\n", service, image)
 	if docker.IsLocalImageRef(image) {
+		if docker.IsUnqualifiedImageRef(image) {
+			_, _ = fmt.Fprintf(stderr, "    -> Treating unqualified image ref %q as local; use a registry-qualified ref to enable pull-and-pin.\n", image)
+		}
 		_, _ = fmt.Fprintln(stderr, "    -> Skipping local image")
 		return nil
 	}
