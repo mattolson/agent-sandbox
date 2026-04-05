@@ -11,10 +11,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// editComposeArgs captures flags for edit compose.
 type editComposeArgs struct {
 	NoRestart bool
 }
 
+// editPolicyArgs captures flags for edit policy.
 type editPolicyArgs struct {
 	Mode  string
 	Agent string

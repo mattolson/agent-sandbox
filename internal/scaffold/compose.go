@@ -12,24 +12,29 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// composeDocument is the YAML shape used for managed compose files.
 type composeDocument struct {
 	Name     string              `yaml:"name,omitempty"`
 	Services composeServices     `yaml:"services,omitempty"`
 	Volumes  composeNamedVolumes `yaml:"volumes,omitempty"`
 }
 
+// composeNamedVolumes preserves top-level named volume ordering and blank-value encoding.
 type composeNamedVolumes []composeNamedVolumeEntry
 
+// composeNamedVolumeEntry records one named volume mapping entry.
 type composeNamedVolumeEntry struct {
 	Name  string
 	Value *yaml.Node
 }
 
+// composeServices models the compose services block used by managed files.
 type composeServices struct {
 	Proxy *composeService `yaml:"proxy,omitempty"`
 	Agent *composeService `yaml:"agent,omitempty"`
 }
 
+// composeService models the subset of service fields the scaffold code reads and writes.
 type composeService struct {
 	Image       string                      `yaml:"image,omitempty"`
 	DependsOn   map[string]composeCondition `yaml:"depends_on,omitempty"`
@@ -43,10 +48,12 @@ type composeService struct {
 	Healthcheck *composeHealthcheck         `yaml:"healthcheck,omitempty"`
 }
 
+// composeCondition models a depends_on condition entry.
 type composeCondition struct {
 	Condition string `yaml:"condition,omitempty"`
 }
 
+// composeHealthcheck models the subset of healthcheck fields used in templates.
 type composeHealthcheck struct {
 	Test     []string `yaml:"test,omitempty"`
 	Interval string   `yaml:"interval,omitempty"`

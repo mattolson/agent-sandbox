@@ -11,6 +11,7 @@ import (
 	"github.com/kballard/go-shellquote"
 )
 
+// ActiveTarget captures the persisted runtime state for the active agent and related metadata.
 type ActiveTarget struct {
 	ActiveAgent     string
 	DevcontainerIDE string

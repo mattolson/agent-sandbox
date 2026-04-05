@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// destroyArgs captures flags for destroy.
 type destroyArgs struct {
 	Force bool
 }

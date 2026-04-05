@@ -10,11 +10,13 @@ import (
 	"github.com/kballard/go-shellquote"
 )
 
+// Editor describes an editor command resolved from environment or platform defaults.
 type Editor struct {
 	Args        []string
 	UsesMacOpen bool
 }
 
+// LookPathFunc abstracts exec.LookPath for editor resolution and tests.
 type LookPathFunc func(string) (string, error)
 
 func ResolveEditor() (Editor, error) {

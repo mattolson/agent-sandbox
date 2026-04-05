@@ -2,6 +2,7 @@ package runtime
 
 import "os"
 
+// ManagedAgentLayer identifies an agent-specific managed compose layer on disk.
 type ManagedAgentLayer struct {
 	Agent string
 	File  string

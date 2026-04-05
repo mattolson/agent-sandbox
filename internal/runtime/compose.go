@@ -6,13 +6,17 @@ import (
 	"path/filepath"
 )
 
+// Layout identifies the managed compose topology present for a repo.
 type Layout string
 
 const (
-	LayoutLayeredCLI              Layout = "layered-cli"
+	LayoutLayeredCLI Layout = "layered-cli"
+	// LayoutCentralizedDevcontainer distinguishes the current .agent-sandbox-backed
+	// devcontainer runtime from the older .devcontainer sidecar layout.
 	LayoutCentralizedDevcontainer Layout = "centralized-devcontainer"
 )
 
+// ComposeStack describes the resolved compose files and active target for a runtime invocation.
 type ComposeStack struct {
 	RepoRoot string
 	Layout   Layout

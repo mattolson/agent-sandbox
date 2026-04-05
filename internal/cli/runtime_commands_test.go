@@ -167,6 +167,7 @@ func devcontainerRepo(t *testing.T) string {
 	return repoRoot
 }
 
+// spySyncer records runtime sync calls in command tests.
 type spySyncer struct{ calls int }
 
 func (syncer *spySyncer) Sync(context.Context, runtime.ComposeStack) error {
@@ -174,17 +175,20 @@ func (syncer *spySyncer) Sync(context.Context, runtime.ComposeStack) error {
 	return nil
 }
 
+// fakeRunner records runner interactions and returns queued outputs for CLI tests.
 type fakeRunner struct {
 	calls   []runnerCall
 	outputs []fakeOutput
 	runErr  error
 }
 
+// fakeOutput is one queued Output result for fakeRunner.
 type fakeOutput struct {
 	stdout []byte
 	err    error
 }
 
+// runnerCall captures one recorded fakeRunner invocation.
 type runnerCall struct {
 	method string
 	args   []string

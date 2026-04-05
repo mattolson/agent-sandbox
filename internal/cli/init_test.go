@@ -124,6 +124,7 @@ func TestInitCLIPropagatesMalformedExistingTargetState(t *testing.T) {
 	}
 }
 
+// fakePrompter records scripted prompt responses for init tests.
 type fakePrompter struct {
 	readLineResponses []string
 	selectResponses   []string

@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// switchArgs captures flags for switch.
 type switchArgs struct {
 	Agent string
 }

@@ -13,16 +13,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Prompter abstracts the interactive prompts used by CLI commands.
 type Prompter interface {
+	// ReadLine prompts for free-form text input.
 	ReadLine(prompt string) (string, error)
+	// SelectOption prompts for one value from the provided options.
 	SelectOption(prompt string, options []string) (string, error)
 }
 
+// ioPrompter reads prompt responses from an input stream and writes prompts to an output stream.
 type ioPrompter struct {
 	reader *bufio.Reader
 	writer io.Writer
 }
 
+// initArgs captures the hand-parsed arguments for the init command.
 type initArgs struct {
 	Name  string
 	Path  string

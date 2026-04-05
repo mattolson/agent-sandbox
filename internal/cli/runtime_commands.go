@@ -12,16 +12,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// RuntimeSyncer refreshes managed runtime files before mutating compose operations.
 type RuntimeSyncer interface {
 	Sync(context.Context, runtime.ComposeStack) error
 }
 
+// noopRuntimeSyncer disables runtime sync when callers do not supply a real implementation.
 type noopRuntimeSyncer struct{}
 
 func (noopRuntimeSyncer) Sync(context.Context, runtime.ComposeStack) error {
 	return nil
 }
 
+// commandDeps bundles shared command dependencies derived from root options.
 type commandDeps struct {
 	workingDir string
 	runner     docker.Runner

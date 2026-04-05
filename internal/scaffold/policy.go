@@ -7,6 +7,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// policyDocument is the YAML shape used for managed and user-owned policy files.
 type policyDocument struct {
 	Services []string `yaml:"services"`
 	Domains  []string `yaml:"domains"`
