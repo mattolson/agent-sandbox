@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Options configures the root CLI command and its shared dependencies.
 type Options struct {
 	Stdout        io.Writer
 	Stderr        io.Writer

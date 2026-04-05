@@ -13,6 +13,7 @@ import (
 	"github.com/mattolson/agent-sandbox/internal/runtime"
 )
 
+// InitParams describes the inputs needed to scaffold a sandbox runtime.
 type InitParams struct {
 	RepoRoot    string
 	Agent       string
@@ -23,6 +24,7 @@ type InitParams struct {
 	LookupEnv   func(string) string
 }
 
+// EnvConfig captures env-driven image selection and optional scaffold features.
 type EnvConfig struct {
 	ProxyImage                string
 	AgentImage                string

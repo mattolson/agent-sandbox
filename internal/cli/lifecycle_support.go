@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// fileSignature records the filesystem state used to detect user edits.
 type fileSignature struct {
 	exists  bool
 	modTime time.Time

@@ -170,6 +170,7 @@ func readFile(t *testing.T, path string) []byte {
 	return data
 }
 
+// syncStubRunner returns canned image digests for scaffold sync tests.
 type syncStubRunner struct {
 	digestByImage map[string]string
 }

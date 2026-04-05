@@ -176,6 +176,7 @@ func TestSwitchSameAgentRefreshesDevcontainerRuntimeFiles(t *testing.T) {
 	}
 }
 
+// switchOrderRunner records state observed across down and up calls during switch tests.
 type switchOrderRunner struct {
 	repoRoot  string
 	calls     []runnerCall

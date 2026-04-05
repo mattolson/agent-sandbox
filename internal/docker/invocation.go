@@ -8,13 +8,21 @@ import (
 	"os/exec"
 )
 
+// Runner models the subset of exec.Cmd behavior this package needs.
+//
+// It follows the same split as exec.Cmd: Run streams through configured stdio,
+// while Output captures stdout for command results the caller needs to inspect.
 type Runner interface {
+	// Run executes the command with the provided stdio wiring and returns only an error status.
 	Run(ctx context.Context, name string, args []string, opts CommandOptions) error
+	// Output executes the command and returns captured stdout while honoring the provided stderr wiring.
 	Output(ctx context.Context, name string, args []string, opts CommandOptions) ([]byte, error)
 }
 
+// ExecRunner executes commands with os/exec.
 type ExecRunner struct{}
 
+// CommandOptions configures command execution and stdio wiring.
 type CommandOptions struct {
 	Dir    string
 	Env    []string

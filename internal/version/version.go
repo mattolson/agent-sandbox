@@ -16,6 +16,7 @@ var (
 	BuildDirty   = ""
 )
 
+// Source identifies where version metadata was discovered.
 type Source string
 
 const (
@@ -25,6 +26,7 @@ const (
 	SourceDefault   Source = "default"
 )
 
+// Info reports the version metadata surfaced by the CLI.
 type Info struct {
 	Version    string
 	Commit     string
@@ -34,6 +36,7 @@ type Info struct {
 	Source     Source
 }
 
+// Options configures version detection.
 type Options struct {
 	WorkingDir string
 }

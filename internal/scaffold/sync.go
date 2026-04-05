@@ -11,6 +11,7 @@ import (
 	"github.com/mattolson/agent-sandbox/internal/runtime"
 )
 
+// SyncParams describes the inputs needed to refresh managed runtime files.
 type SyncParams struct {
 	RepoRoot     string
 	Agent        string

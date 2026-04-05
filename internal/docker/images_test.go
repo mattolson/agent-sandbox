@@ -125,17 +125,20 @@ func TestResolvePinnedImageFailsWhenNoRemoteOrLocalImageExists(t *testing.T) {
 	}
 }
 
+// stubRunner records Docker calls for image resolution tests.
 type stubRunner struct {
 	calls   []stubCall
 	runErrs []error
 	outputs []stubOutput
 }
 
+// stubCall describes one recorded stub runner invocation.
 type stubCall struct {
 	method string
 	args   []string
 }
 
+// stubOutput is one queued Output result from stubRunner.
 type stubOutput struct {
 	stdout []byte
 	err    error

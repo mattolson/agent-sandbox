@@ -9,6 +9,7 @@ import (
 	"github.com/mattolson/agent-sandbox/internal/scaffold"
 )
 
+// scaffoldRuntimeSyncer uses scaffold ensure helpers to refresh managed runtime files.
 type scaffoldRuntimeSyncer struct {
 	runner    docker.Runner
 	lookupEnv func(string) string
