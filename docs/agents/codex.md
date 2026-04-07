@@ -30,6 +30,8 @@ codex
 codex --full-auto
 ```
 
+The image includes system `bubblewrap` so Codex's Linux startup check finds `/usr/bin/bwrap` and does not warn at launch. Codex still defaults to `danger-full-access` via the baked-in config, with isolation handled by the surrounding container, proxy, and firewall.
+
 Afterward, for CLI mode, stop the container:
 
 ```bash

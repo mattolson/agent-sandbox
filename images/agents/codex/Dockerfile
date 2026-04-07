@@ -4,15 +4,19 @@
 ARG BASE_IMAGE=agent-sandbox-base:local
 FROM ${BASE_IMAGE}
 
-# Optional extra packages
+# Install bubblewrap so Codex's startup probe finds /usr/bin/bwrap.
+# Optional extra packages can be layered on top via EXTRA_PACKAGES.
 ARG EXTRA_PACKAGES=""
 USER root
-RUN if [ -n "$EXTRA_PACKAGES" ]; then \
+RUN set -e && \
+    PACKAGES="bubblewrap" && \
+    if [ -n "$EXTRA_PACKAGES" ]; then \
       printf '%s' "$EXTRA_PACKAGES" | grep -qE '^[a-zA-Z0-9][a-zA-Z0-9.+ :-]*$' \
         || { echo "ERROR: EXTRA_PACKAGES contains invalid characters: $EXTRA_PACKAGES" >&2; exit 1; }; \
-      apt-get update && apt-get install -y --no-install-recommends $EXTRA_PACKAGES \
-      && apt-get clean && rm -rf /var/lib/apt/lists/*; \
-    fi
+      PACKAGES="$PACKAGES $EXTRA_PACKAGES"; \
+    fi && \
+    apt-get update && apt-get install -y --no-install-recommends $PACKAGES \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Bake in the system codex config (can be overridden at user or project level)
 RUN mkdir -p /etc/codex
