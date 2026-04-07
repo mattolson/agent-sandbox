@@ -8,7 +8,7 @@ services:
     environment:
       - AGENTBOX_ACTIVE_AGENT=opencode
   agent:
-    image: ghcr.io/mattolson/agent-sandbox-opencode@sha256:24a214b0d86a39b4450f51dbd78f04d665eeae7e2df8c39aaa1b0fa86cb7b953
+    image: ghcr.io/mattolson/agent-sandbox-opencode@sha256:eef1ac767a7fee441fabf17c8c37f5a35cd06d72ccbfbcfa97e12a3838eaa421
     volumes:
       # Persist OpenCode config, permissions, and opentui state
       - opencode-config:/home/dev/.config

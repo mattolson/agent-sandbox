@@ -8,7 +8,7 @@ services:
     environment:
       - AGENTBOX_ACTIVE_AGENT=claude
   agent:
-    image: ghcr.io/mattolson/agent-sandbox-claude@sha256:665d30d42257bb1ac9c0e1738ec27e6f11238baf3f8ca322828404f9e3b29720
+    image: ghcr.io/mattolson/agent-sandbox-claude@sha256:971573126a0f9222ac37379b73a9e9bf5cf2c3a435c5238359c712cf70b70e66
     volumes:
       # Persist Claude credentials
       - claude-state:/home/dev/.claude
