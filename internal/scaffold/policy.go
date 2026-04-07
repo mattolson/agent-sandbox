@@ -25,7 +25,7 @@ func WritePolicyFile(path string, services ...string) error {
 	}
 	doc.Services = compactStrings(services)
 
-	body, err := yaml.Marshal(doc)
+	body, err := marshalYAML(doc)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func writeDevcontainerPolicyFile(path string, ide string) error {
 		doc.Services = []string{ide}
 	}
 
-	body, err := yaml.Marshal(doc)
+	body, err := marshalYAML(doc)
 	if err != nil {
 		return err
 	}

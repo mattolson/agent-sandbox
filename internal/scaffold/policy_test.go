@@ -18,6 +18,9 @@ func TestWritePolicyFileCompactsServicesAndPreservesHeader(t *testing.T) {
 	if !strings.HasPrefix(data, "# Agent sandbox network policy") {
 		t.Fatalf("expected template header to be preserved, got %q", data)
 	}
+	if !strings.Contains(data, "services:\n  - vscode\n  - github\n") {
+		t.Fatalf("expected two-space YAML indentation, got %q", data)
+	}
 
 	policy := readPolicy(t, path)
 	want := []string{"vscode", "github"}

@@ -25,7 +25,7 @@ func TestSetComposeServiceImagePreservesHeaderAndUpdatesService(t *testing.T) {
 	if !strings.HasPrefix(string(data), "# Managed by agentbox\n\n") {
 		t.Fatalf("expected header to be preserved, got %q", string(data))
 	}
-	if !strings.Contains(string(data), "ghcr.io/example/proxy@sha256:abc123") {
+	if !strings.Contains(string(data), "services:\n  proxy:\n    image: ghcr.io/example/proxy@sha256:abc123\n") {
 		t.Fatalf("expected updated image, got %q", string(data))
 	}
 }
@@ -61,7 +61,7 @@ func TestSetComposeServiceImagePreservesBlankNamedVolumeEntries(t *testing.T) {
 	if strings.Contains(body, ": null") {
 		t.Fatalf("expected blank named volume entries, got %q", body)
 	}
-	if !strings.Contains(body, "volumes:\n    claude-state:\n    claude-history:\n") {
+	if !strings.Contains(body, "volumes:\n  claude-state:\n  claude-history:\n") {
 		t.Fatalf("expected named volumes to stay blank and ordered, got %q", body)
 	}
 }
