@@ -326,7 +326,7 @@ func ensureCLIAgentPolicyRuntimeConfig(repoRoot string, agent string) error {
 }
 
 func writeComposeDocument(path string, header string, doc composeDocument) error {
-	body, err := yaml.Marshal(doc)
+	body, err := marshalYAML(doc)
 	if err != nil {
 		return err
 	}

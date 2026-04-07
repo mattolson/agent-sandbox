@@ -1,6 +1,11 @@
 package scaffold
 
 import (
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	gruntime "runtime"
 	"strings"
 	"testing"
 )
@@ -23,4 +28,75 @@ func TestReadTemplateLoadsNestedAgentTemplate(t *testing.T) {
 	if !strings.Contains(string(data), "agent-sandbox-opencode") {
 		t.Fatalf("unexpected nested template contents: %q", string(data))
 	}
+}
+
+func TestYAMLTemplatesUseTwoSpaceIndentation(t *testing.T) {
+	checkYAMLTemplateIndentation(t, "embedded", TemplatesFS())
+	checkYAMLTemplateIndentation(t, "bash-cli", os.DirFS(sourceTemplateDir(t)))
+}
+
+func checkYAMLTemplateIndentation(t *testing.T, label string, templates fs.FS) {
+	t.Helper()
+
+	err := fs.WalkDir(templates, ".", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		if ext := filepath.Ext(path); ext != ".yml" && ext != ".yaml" {
+			return nil
+		}
+
+		data, err := fs.ReadFile(templates, path)
+		if err != nil {
+			return err
+		}
+
+		for lineNumber, line := range strings.Split(string(data), "\n") {
+			whitespaceWidth := leadingIndentWidth(line)
+			if whitespaceWidth == 0 {
+				continue
+			}
+
+			prefix := line[:whitespaceWidth]
+			if strings.Contains(prefix, "\t") {
+				return fmt.Errorf("%s:%d uses tab indentation", path, lineNumber+1)
+			}
+			if strings.Count(prefix, " ")%2 != 0 {
+				return fmt.Errorf("%s:%d uses %d leading spaces", path, lineNumber+1, strings.Count(prefix, " "))
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("%s YAML template indentation check failed: %v", label, err)
+	}
+}
+
+func leadingIndentWidth(line string) int {
+	width := 0
+	for width < len(line) {
+		switch line[width] {
+		case ' ', '\t':
+			width++
+		default:
+			return width
+		}
+	}
+
+	return width
+}
+
+func sourceTemplateDir(t *testing.T) string {
+	t.Helper()
+
+	_, filename, _, ok := gruntime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+
+	return filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", "cli", "templates"))
 }
