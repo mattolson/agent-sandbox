@@ -1,5 +1,21 @@
 # Execution Log: m13.6 - Release Cutover And Docs
 
+## 2026-04-07 05:48 UTC - Deprecated fallback stays unchanged for m13.6
+
+Chose to keep the deprecated Docker CLI fallback as-is for `m13.6`. This task will cut over the primary distribution path to GitHub Releases binaries and documentation, but it will not repoint `images/cli/Dockerfile` at the Go binary or start removing the old Bash CLI yet.
+
+**Decision:** Leave the fallback image and old CLI implementation unchanged during `m13.6`, and create follow-up work to remove the old CLI and decide whether the fallback image should switch codepaths first or disappear entirely.
+
+**Rationale:** Mixing distribution cutover, fallback-image implementation changes, and legacy CLI removal in one task would blur the acceptance boundary and raise rollback risk. Keeping the fallback untouched makes `m13.6` narrower: ship the Go binary, update the docs, and deprecate the old path without changing its runtime behavior.
+
+## 2026-04-07 05:47 UTC - Release trigger direction chosen
+
+Chose the two-step release model for `m13.6`: tag push builds versioned archives and checksums, uploads them to a draft or otherwise unpublished GitHub release, and a separate human publish step makes the release public after notes and assets are confirmed.
+
+**Decision:** Use a two-step release flow instead of triggering binary packaging from `release.published`. The tag remains the build source of truth, but publication waits until artifacts exist.
+
+**Rationale:** This avoids the main failure mode of `release.published`: a public release page with missing or partial assets if packaging fails halfway through. It also keeps recovery simpler because draft assets can be rebuilt or re-uploaded without retagging.
+
 ## 2026-04-07 05:46 UTC - Planning complete
 
 Reviewed the `m13.6` section of `docs/plan/milestones/m13-go-cli-rewrite/milestone.md`, `docs/plan/project.md`, `docs/plan/learnings.md`, decision `004`, the completed `m13.4` and `m13.5` task artifacts, the current Go CI and parity workflows in `.github/workflows/go-tests.yml` and `.github/workflows/parity-tests.yml`, the current image-publishing workflow in `.github/workflows/build-images.yml`, the existing Bash CLI image in `images/cli/Dockerfile`, and the user-facing install/docs surfaces in `README.md`, `cli/README.md`, `docs/troubleshooting.md`, `docs/roadmap.md`, and `CHANGELOG.md`.
