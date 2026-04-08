@@ -45,7 +45,7 @@ Make the Go binary the supported distribution path and update project docs, CI, 
 - `docs/troubleshooting.md` - update the Docker CLI image section so it is explicitly a deprecated fallback and add any binary-install troubleshooting that becomes necessary during execution
 - `CHANGELOG.md` - add an unreleased or release entry documenting the Go-binary cutover, removal of documented host `yq` dependency, and deprecated Docker CLI fallback
 - `docs/roadmap.md` - update the m13 summary so it reflects Go binary distribution as the primary path rather than the old Docker CLI image
-- `images/cli/Dockerfile` - only if the fallback image needs a minimal update to wrap or invoke the Go binary instead of the Bash tree; avoid broad image churn unless required by the chosen fallback design
+- `images/cli/Dockerfile` - not expected to change in `m13.6`; keep the deprecated fallback image as-is for this transition task and defer any switch or removal to follow-up work
 - `docs/plan/milestones/m13-go-cli-rewrite/tasks/m13.6-release-cutover-and-docs/*.md` - living task plan and execution log
 
 ### Approach
@@ -56,27 +56,24 @@ Use a dedicated Go-binary release workflow rather than overloading `build-images
 
 Prefer plain GitHub Actions plus a small repo-owned packaging script over introducing GoReleaser in this task. GoReleaser would solve the mechanics, but it would also add a substantial new config surface right at cutover time. This repo already leans on explicit shell and workflow scripts for build logic, and the required artifact matrix is narrow. Unless implementation proves unexpectedly awkward, a small packaging helper plus a focused workflow is the lower-risk option. If that assumption turns out wrong during execution, capture the tradeoff explicitly before adding a new release tool.
 
-The release workflow should build `agentbox` for `darwin/amd64`, `darwin/arm64`, `linux/amd64`, and `linux/arm64`, stamp each binary with version metadata derived from the tag and commit, archive them under a stable naming convention, generate a checksum manifest, and upload the assets to the tagged GitHub release. It should also run a minimal smoke check on each built binary, at least `agentbox version`, before publishing. It does not need to rerun the entire parity suite if the branch protections already require that before merge, but it should not create a path where a maintainer can publish a tag from an unvalidated commit without noticing.
+Use a two-step release flow. Step one should trigger on a version-tag push, build `agentbox` for `darwin/amd64`, `darwin/arm64`, `linux/amd64`, and `linux/arm64`, stamp each binary with version metadata derived from the tag and commit, archive them under a stable naming convention, generate a checksum manifest, run at least a minimal smoke check such as `agentbox version`, and upload the assets to a draft GitHub release or an equivalent unpublished release shell. Step two is the human publish action after assets and notes are ready. This keeps the tag as the build source of truth while avoiding a public release page with missing or partial assets. It does not need to rerun the entire parity suite if the branch protections already require that before merge, but it should not create a path where a maintainer can publish a tag from an unvalidated commit without noticing.
 
 For documentation, change the default narrative everywhere that currently points users to the Bash checkout or Docker CLI image. README should show direct binary download and PATH setup as the recommended path, remove the host `yq` prerequisite, and move the Docker image to a clearly marked fallback subsection with its tradeoffs. `cli/README.md` should stop reading like the primary install guide and instead become a command reference plus maintenance note for the legacy Bash path that still exists for parity and fallback. `docs/troubleshooting.md` should be updated to reflect that the Docker CLI image is now exceptional rather than normal. `CHANGELOG.md` and `docs/roadmap.md` should make the cutover explicit so the repo history and roadmap do not keep advertising the old distribution model.
 
-Be careful about what "clean up Bash-only distribution plumbing" means. The wrong interpretation is deleting `cli/`, `cli-tests.yml`, or the parity harness as soon as the first binary workflow lands. The right interpretation is removing Bash-first install guidance and any release-path machinery that makes the Bash or Docker image look like the primary user distribution. Keep the Bash implementation in-repo as the oracle until a released Go-first path has been validated in practice. The Docker CLI image should remain buildable and documented only as a deprecated fallback until a later task deliberately removes it.
+Be careful about what "clean up Bash-only distribution plumbing" means. The wrong interpretation is deleting `cli/`, `cli-tests.yml`, or the parity harness as soon as the first binary workflow lands. The right interpretation is removing Bash-first install guidance and any release-path machinery that makes the Bash or Docker image look like the primary user distribution. Keep the Bash implementation in-repo as the oracle until a released Go-first path has been validated in practice. For `m13.6`, keep the Docker CLI image build and implementation path unchanged and document it only as a deprecated fallback. Any switch of that image to the Go binary, or removal of the old CLI entirely, belongs in explicit follow-up work.
 
 ### Implementation Steps
 
-- [ ] Confirm the release artifact contract: file naming, archive format, checksum format, tag pattern, and whether release upload attaches to pre-created GitHub releases or creates them directly from the workflow
+- [ ] Confirm the release artifact contract: file naming, archive format, checksum format, tag pattern, and the exact two-step mechanics for creating a draft release on tag push before human publication
 - [ ] Add a dedicated Go-binary release workflow, plus a small packaging helper script if that materially reduces duplication across matrix jobs
 - [ ] Wire release-time version stamping through `-ldflags` and add or extend tests/smoke checks so downloaded binaries report stable release metadata
 - [ ] Add release verification that exercises the built binary through at least `agentbox version` and one documented install-flow smoke path
 - [ ] Rewrite README install guidance around GitHub Releases binaries, remove documented host `yq` dependency, and move the Docker CLI image to an explicitly deprecated fallback section
 - [ ] Update `cli/README.md`, `docs/troubleshooting.md`, `CHANGELOG.md`, and `docs/roadmap.md` so they all reflect the same Go-first distribution story and the same fast-follow deferrals
-- [ ] Decide whether the deprecated Docker CLI image should stay Bash-backed temporarily or should wrap the Go binary; implement only the minimum change needed to keep the fallback honest and working
 - [ ] Verify the release workflow in a non-destructive way if possible, then run `go test ./...`, `go build ./cmd/agentbox`, and a local binary-install smoke test that follows the updated docs
 
 ### Open Questions
 
-- Should the release workflow trigger on tag push, on `release.published`, or as a two-step flow where one event creates the release shell and the other uploads assets? The choice affects how easy it is to recover from failed uploads without retagging.
-- Do we want the deprecated Docker CLI fallback to continue shipping the Bash tree for one transition release, or should `images/cli/Dockerfile` pivot immediately to running the Go binary inside the image so fallback users also exercise the new codepath?
 - Is a dedicated upgrade note needed for users currently relying on `cli/bin/agentbox` in PATH, or are README plus changelog updates sufficient for this release?
 
 ## Outcome
@@ -97,4 +94,4 @@ Pending execution.
 
 ### Follow-up Items
 
-Pending execution.
+- Plan a follow-up task to remove the old Bash CLI distribution path and decide whether the deprecated Docker CLI image should switch to the Go binary first or be removed entirely.
