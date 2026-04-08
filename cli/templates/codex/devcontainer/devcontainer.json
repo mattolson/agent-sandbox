@@ -9,6 +9,13 @@
 	],
 	"service": "agent",
 	"workspaceFolder": "/workspace",
+	// VS Code forwards host credential sockets into containers by default.
+	// Clear the envs, but the actual socket is still mounted.
+	"remoteEnv": {
+		"SSH_AUTH_SOCK": "",
+		"GPG_AGENT_INFO": "",
+		"GIT_ASKPASS": ""
+	},
 	"customizations": {
 		"vscode": {
 			"settings": {
@@ -16,7 +23,16 @@
 				"remote.forwardOnOpen": false,
 				"remote.autoForwardPortsSource": "output",
 				"security.promptForRemoteFileProtocolHandling": true,
-				"terminal.integrated.defaultProfile.linux": "zsh"
+				"terminal.integrated.defaultProfile.linux": "zsh",
+				// Prevent VS Code from copying host .gitconfig into the
+				// container, which can leak credential helpers and signing
+				// key references.
+				"dev.containers.copyGitConfig": false,
+				// Block container extensions from opening a host-side
+				// terminal, which would bypass the WireGuard tunnel entirely.
+				// For maximum protection, also set this in your host user
+				// settings (workspace settings could theoretically override it).
+				"terminal.integrated.allowLocalTerminal": false,
 			}
 		},
 		"jetbrains": {
