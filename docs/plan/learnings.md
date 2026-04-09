@@ -26,6 +26,8 @@ Lessons learned during project execution. Review at the start of each planning s
 - Shared shell helpers that use `mapfile` must source `compat.bash` or macOS Bash 3.2 support regresses silently
 - `runtime/debug.ReadBuildInfo` exposes VCS revision, timestamp, and dirty state for local Go builds in a checkout, so early Go CLIs can print useful version metadata without depending on a generated `.version` file
 - Shell-escaped state files written with Bash `%q` can be parsed safely in Go with a shell-style splitter instead of sourcing them
+- `go version -m` is a practical way to validate embedded build metadata in cross-compiled Go release binaries without having to execute every target artifact on the current host
+- Stable `releases/latest/download/...` URLs require stable artifact names and stable archive contents; an unversioned filename is not enough if the tarball still unpacks into a versioned directory
 
 ## Architecture
 
@@ -63,3 +65,4 @@ Lessons learned during project execution. Review at the start of each planning s
 - Native scaffold refresh helpers can safely power lifecycle commands as long as they only rewrite agentbox-managed layers and never overwrite user-owned override or policy files during sync
 - Bash `edit` flows are not fully batch-friendly because `open_editor` binds stdio to `/dev/tty`; parity automation needs a pseudo-tty when exercising the real Bash path
 - Bash edit commands use second-resolution mtimes for change detection, so parity fixtures need a deliberate delay before writing file changes or real edits may be misclassified as unchanged
+- Draft-first binary release workflows are safer than publishing first and attaching assets later because they avoid public releases with missing or partial artifacts while keeping the tag as the build source of truth

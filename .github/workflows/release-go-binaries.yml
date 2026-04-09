@@ -1,0 +1,128 @@
+name: Release Go Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Ensure yq is available
+        run: |
+          if command -v yq >/dev/null 2>&1; then
+            yq --version
+            exit 0
+          fi
+
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.52.4/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Verify embedded templates are in sync
+        run: |
+          ./scripts/sync-go-templates.bash
+          git diff --exit-code -- internal/embeddata/templates
+
+      - name: Run Go tests
+        run: go test ./...
+
+      - name: Run Bash-vs-Go parity suite
+        run: ./scripts/parity.bash
+
+  build:
+    runs-on: ubuntu-latest
+    needs: verify
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build release archives
+        run: ./scripts/build-release-artifacts.bash --version "${GITHUB_REF_NAME}" --out-dir dist/release
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-go-binaries
+          path: dist/release/*
+
+      - name: Summarize built archives
+        run: |
+          {
+            printf '## Go Release Artifacts\n\n'
+            printf 'Built from tag `%s`.\n\n' "${GITHUB_REF_NAME}"
+            printf '| Asset |\n'
+            printf '| --- |\n'
+            for asset in dist/release/*; do
+              printf '| `%s` |\n' "$(basename "$asset")"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  draft-release:
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Download built archives
+        uses: actions/download-artifact@v4
+        with:
+          name: release-go-binaries
+          path: dist/release
+
+      - name: Create or update draft release
+        run: |
+          set -euo pipefail
+
+          tag="${GITHUB_REF_NAME}"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            if [ "$(gh release view "$tag" --json isDraft --jq .isDraft)" != "true" ]; then
+              printf 'refusing to modify non-draft release %s\n' "$tag" >&2
+              exit 1
+            fi
+          else
+            gh release create "$tag" \
+              --draft \
+              --title "$tag" \
+              --target "${GITHUB_SHA}" \
+              --generate-notes
+          fi
+
+          gh release upload "$tag" dist/release/* --clobber
+
+      - name: Summarize draft release
+        run: |
+          url="$(gh release view "${GITHUB_REF_NAME}" --json url --jq .url)"
+          {
+            printf '## Draft Release Ready\n\n'
+            printf 'Draft release: %s\n' "$url"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -68,31 +68,35 @@ colima start --edit
 
 ### 2. Install agent-sandbox CLI
 
-The [CLI](cli/README.md) is a set of helper scripts that simplify the process of initializing and managing the sandbox.
+Download the `agentbox` binary from GitHub Releases.
 
-#### Local install (recommended)
-
-```bash
-# Clone the repo
-git clone https://github.com/mattolson/agent-sandbox.git
-
-# Add agenbox bin directory to your path (add this to your .bashrc or .zshrc)
-export PATH="$PWD/agent-sandbox/cli/bin:$PATH"
-```
-
-`yq` is required for certain CLI functionality. Install with `brew install yq`.
-
-#### Run through docker image
-
-You can also run the agentbox CLI through a published docker image if you don't want to install anything locally:
+#### GitHub Releases binary
 
 ```bash
-# Pull the image to local docker
-docker pull ghcr.io/mattolson/agent-sandbox-cli
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+ARCH="$(uname -m)"
 
-# Add to your .bashrc or .zshrc
-alias agentbox='docker run --rm -it -v "/var/run/docker.sock:/var/run/docker.sock" -v"$PWD:$PWD" -w"$PWD" -e TERM -e HOME --network none ghcr.io/mattolson/agent-sandbox-cli'
+case "$ARCH" in
+  x86_64) ARCH=amd64 ;;
+  arm64|aarch64) ARCH=arm64 ;;
+  *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;;
+esac
+
+ASSET="agentbox_${OS}_${ARCH}.tar.gz"
+
+cd /tmp
+curl -fsSLO \
+  "https://github.com/mattolson/agent-sandbox/releases/latest/download/${ASSET}"
+tar -xzf "${ASSET}"
+sudo install "/tmp/agentbox_${OS}_${ARCH}/agentbox" /usr/local/bin/agentbox
+agentbox version
 ```
+
+If you want to verify the archive before installing it, download `agentbox_checksums.txt` from the same release and
+compare the checksum for `${ASSET}` against `shasum -a 256 "${ASSET}"` on macOS or `sha256sum "${ASSET}"` on Linux.
+
+If you want a pinned install instead of "latest", use the versioned assets attached to a specific release tag such as
+`agentbox_<version>_<os>_<arch>.tar.gz` together with `agentbox_<version>_checksums.txt`.
 
 ### 3. Initialize the sandbox for your project
 
@@ -108,7 +112,7 @@ For scripted use, you can pass flags to skip the selection prompts. Use `--batch
 agentbox init --batch --agent claude --mode cli
 ```
 
-See the [CLI README](cli/README.md) for the full list of flags and environment variables.
+See the [CLI README](cli/README.md) for the full list of commands, flags, and environment variables.
 
 To inspect the configuration after init, use `agentbox policy config` to output the effective network policy and
 `agentbox compose config` for the fully combined docker compose stack.
