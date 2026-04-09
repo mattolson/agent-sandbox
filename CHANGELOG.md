@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Draft-first Go binary release flow.** Version tags now build macOS and Linux `agentbox` archives plus checksums and upload them to a draft GitHub release before human publication.
+- **Stable latest-download asset names.** Releases now include unversioned archives like `agentbox_linux_arm64.tar.gz` plus `agentbox_checksums.txt`, so users can install the latest binary for their architecture via GitHub's `releases/latest/download/...` shortcut.
+
+### Changed
+
+- **Go binary is now the primary documented install path.** README and CLI docs now point users to GitHub Releases binaries instead of telling them to clone `cli/bin`.
+- **Documented host-side `yq` requirement removed from the primary install flow.** The Go binary handles YAML and JSON natively, so users no longer need `brew install yq` just to install `agentbox`.
+- **Docker CLI image is now documented as a deprecated fallback.** The image remains available during the transition, but it is no longer presented as the primary way to install the CLI.
+
 ## [0.8.0] - 2026-03-14 (f422f7a)
 
 Agent switching without data loss, plus a new layered runtime model from `m8`.

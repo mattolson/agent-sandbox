@@ -64,34 +64,42 @@ Be careful about what "clean up Bash-only distribution plumbing" means. The wron
 
 ### Implementation Steps
 
-- [ ] Confirm the release artifact contract: file naming, archive format, checksum format, tag pattern, and the exact two-step mechanics for creating a draft release on tag push before human publication
-- [ ] Add a dedicated Go-binary release workflow, plus a small packaging helper script if that materially reduces duplication across matrix jobs
-- [ ] Wire release-time version stamping through `-ldflags` and add or extend tests/smoke checks so downloaded binaries report stable release metadata
-- [ ] Add release verification that exercises the built binary through at least `agentbox version` and one documented install-flow smoke path
-- [ ] Rewrite README install guidance around GitHub Releases binaries, remove documented host `yq` dependency, and move the Docker CLI image to an explicitly deprecated fallback section
-- [ ] Update `cli/README.md`, `docs/troubleshooting.md`, `CHANGELOG.md`, and `docs/roadmap.md` so they all reflect the same Go-first distribution story and the same fast-follow deferrals
-- [ ] Verify the release workflow in a non-destructive way if possible, then run `go test ./...`, `go build ./cmd/agentbox`, and a local binary-install smoke test that follows the updated docs
+- [x] Confirm the release artifact contract: file naming, archive format, checksum format, tag pattern, and the exact two-step mechanics for creating a draft release on tag push before human publication
+- [x] Add a dedicated Go-binary release workflow, plus a small packaging helper script if that materially reduces duplication across matrix jobs
+- [x] Wire release-time version stamping through `-ldflags` and add or extend tests/smoke checks so downloaded binaries report stable release metadata
+- [x] Add release verification that exercises the built binary through at least `agentbox version` and one documented install-flow smoke path
+- [x] Rewrite README install guidance around GitHub Releases binaries, remove documented host `yq` dependency, and move the Docker CLI image to an explicitly deprecated fallback section
+- [x] Update `cli/README.md`, `docs/troubleshooting.md`, `CHANGELOG.md`, and `docs/roadmap.md` so they all reflect the same Go-first distribution story and the same fast-follow deferrals
+- [x] Verify the release workflow in a non-destructive way if possible, then run `go test ./...`, `go build ./cmd/agentbox`, and a local binary-install smoke test that follows the updated docs
 
 ### Open Questions
 
-- Is a dedicated upgrade note needed for users currently relying on `cli/bin/agentbox` in PATH, or are README plus changelog updates sufficient for this release?
+None after implementation. README plus changelog updates are sufficient for this release cutover; if users report migration confusion, add a dedicated upgrade note in follow-up work rather than widening `m13.6`.
 
 ## Outcome
 
-Pending execution.
+Implemented a draft-first Go binary release path with a reusable packaging helper and a dedicated GitHub Actions workflow that runs Go tests plus parity before creating or updating a draft release for version tags. The packaging helper builds macOS and Linux archives, injects explicit `ldflags` version metadata, includes `LICENSE`, emits versioned checksum manifests, and also emits stable unversioned archives plus `agentbox_checksums.txt` so `releases/latest/download/...` works cleanly for a given OS and architecture. User-facing docs now point to GitHub Releases binaries as the primary install path, remove the documented host-side `yq` dependency from that path, and demote the Docker CLI image to an explicitly deprecated fallback without changing its implementation.
 
 ### Acceptance Verification
 
-- [ ] A tagged release produces downloadable archives and checksums for all supported platforms and architectures
-- [ ] README, `cli/README.md`, troubleshooting docs, and changelog document manual binary install from GitHub Releases as the primary path and no longer instruct users to install `yq`
-- [ ] The Go binary can manage a project end-to-end using the documented install flow
-- [ ] The Docker CLI image path remains available only as a clearly deprecated fallback during the transition
-- [ ] Homebrew and installer-script work are called out as fast-follow, not hidden inside m13 scope
+- [ ] A tagged release produces downloadable archives and checksums for all supported platforms and architectures.
+  Implemented in `.github/workflows/release-go-binaries.yml` and `scripts/build-release-artifacts.bash`, but not yet exercised from a real GitHub tag in Actions.
+- [x] README, `cli/README.md`, troubleshooting docs, and changelog document manual binary install from GitHub Releases as the primary path and no longer instruct users to install `yq`.
+  Verified in `README.md`, `cli/README.md`, `docs/troubleshooting.md`, and `CHANGELOG.md`.
+- [x] The Go binary can manage a project end-to-end using the documented install flow.
+  Verified locally by building release archives with `scripts/build-release-artifacts.bash`, extracting both the versioned native archive and the stable latest-download archive, running `agentbox version`, and using the extracted binary to run `agentbox init --batch` successfully against a temp repo with local image refs.
+- [x] The Docker CLI image path remains available only as a clearly deprecated fallback during the transition.
+  Verified in `README.md` and `docs/troubleshooting.md`; `images/cli/Dockerfile` was intentionally left unchanged.
+- [x] Homebrew and installer-script work are called out as fast-follow, not hidden inside m13 scope.
+  Verified in the task plan and the updated Go-first install framing.
 
 ### Learnings
 
-Pending execution.
+- `go version -m` is a useful release-packaging check for cross-compiled Go binaries because it validates embedded build metadata without needing to execute every target binary on the current host.
+- Draft-first tag workflows are safer than `release.published` for binary assets because they keep the tag as the build source of truth while avoiding public releases with missing or partial artifacts.
+- Stable latest-download asset names also need stable archive contents. Copying a versioned tarball to an unversioned filename is not enough if the unpacked directory still changes every release.
 
 ### Follow-up Items
 
+- Exercise `.github/workflows/release-go-binaries.yml` from the first real version tag and capture any workflow-specific fixes that only show up in GitHub Actions.
 - Plan a follow-up task to remove the old Bash CLI distribution path and decide whether the deprecated Docker CLI image should switch to the Go binary first or be removed entirely.

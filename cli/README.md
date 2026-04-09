@@ -1,8 +1,25 @@
 # Agent Sandbox CLI
 
-Command-line tool for managing agent-sandbox configurations and Docker Compose setups.
+Install `agentbox` from GitHub Releases. See the [main README](../README.md#2-install-agent-sandbox-cli) for the
+download steps.
 
-Requires `docker` (and `docker compose`) and [`yq`](https://github.com/mikefarah/yq).
+This document is the command reference for the current `agentbox` surface and the maintenance guide for the legacy Bash
+implementation that still lives under `cli/` during the transition. That legacy path still depends on `docker`, `docker
+compose`, and [`yq`](https://github.com/mikefarah/yq).
+
+## Docker Image Fallback
+
+The old Docker CLI image is still available during the transition:
+
+```bash
+docker pull ghcr.io/mattolson/agent-sandbox-cli
+alias agentbox='docker run --rm -it -v "/var/run/docker.sock:/var/run/docker.sock" -v"$PWD:$PWD" -w"$PWD" -e TERM -e HOME --network none ghcr.io/mattolson/agent-sandbox-cli'
+```
+
+Tradeoffs:
+- Commands such as `agentbox edit policy` use `vi` inside the container rather than your host editor
+- Host environment variables are not automatically visible to Docker Compose unless you forward them explicitly
+- The image remains on the old CLI implementation until follow-up work removes that path
 
 ## Modules and Commands
 

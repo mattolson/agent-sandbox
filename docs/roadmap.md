@@ -97,7 +97,8 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 ## m13: Go CLI rewrite (planned)
 
 - Rewrite agentbox CLI in Go using Cobra
-- Single static binary distribution (replace Docker CLI image)
+- GitHub Releases binaries become the primary install path
+- Docker CLI image remains temporarily as a deprecated fallback until old CLI removal follow-up work lands
 - Native YAML handling (drop yq dependency)
 - Cross-compile for macOS (arm64, amd64) and Linux
 - Port all existing commands with improved testing
