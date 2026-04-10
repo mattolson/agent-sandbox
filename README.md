@@ -68,7 +68,7 @@ colima start --edit
 
 ### 2. Install agent-sandbox CLI
 
-Download the `agentbox` binary from GitHub Releases.
+Download the `agentbox` binary from [GitHub Releases](https://github.com/mattolson/agent-sandbox/releases).
 
 #### GitHub Releases binary
 
@@ -105,12 +105,6 @@ agentbox init
 ```
 
 This prompts interactively for the project name, agent, mode, and IDE when needed, then generates the docker compose and network policy files for the sandbox.
-
-For scripted use, you can pass flags to skip the selection prompts. Use `--batch` to disable all prompts:
-
-```bash
-agentbox init --batch --agent claude --mode cli
-```
 
 See the [CLI README](cli/README.md) for the full list of commands, flags, and environment variables.
 
