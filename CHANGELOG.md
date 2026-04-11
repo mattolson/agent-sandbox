@@ -4,10 +4,6 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Added
-
-- **Install script for agentbox.** Releases now include `install.sh`, a convenience installer that detects OS and architecture, verifies checksums, and installs `agentbox` without requiring users to assemble release URLs by hand.
-
 ## [0.13.0] - 2026-04-10 (eb04cbc)
 
 CLI rewrite from `m13`.
@@ -19,6 +15,7 @@ CLI rewrite from `m13`.
 - **GitHub Releases binary distribution.** `agentbox` now ships as macOS and Linux binaries for `amd64` and `arm64`.
 - **Draft-first Go release workflow.** Version tags now build archives plus checksums and upload them to a draft GitHub release before human publication.
 - **Stable latest-download asset names.** Releases include unversioned archives like `agentbox_linux_arm64.tar.gz` plus `agentbox_checksums.txt`, so users can install the latest binary for their architecture via GitHub's `releases/latest/download/...` shortcut.
+- **Install script for agentbox.** Releases now include `install.sh`, a convenience installer that detects OS and architecture, verifies checksums, and installs `agentbox` without requiring users to assemble release URLs by hand.
 - **Go CLI reference.** Added `docs/cli.md` as the current command reference for `agentbox`.
 
 ### Changed
