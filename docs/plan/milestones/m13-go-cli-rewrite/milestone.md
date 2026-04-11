@@ -19,7 +19,7 @@ legacy Bash CLI, parity harness, and Docker CLI image distribution were removed 
 - Documentation and release workflow updates that make the Go binary the primary installation path
 
 **Excluded:**
-- New CLI features from later milestones (`m14` through `m17`)
+- New CLI features from later milestones (`m14` through `m18`)
 - Changes to the layered runtime ownership model or proxy policy format
 - Windows support
 - Replacing the proxy-side `render-policy` helper with a separate host-side policy merge implementation
@@ -74,11 +74,11 @@ The Go rewrite should live beside the Bash CLI until the final cutover. `cli/` r
 
 ## Future TUI Compatibility
 
-`m13` should future-proof the CLI for `m16`, but it should not choose the `m16` UI architecture prematurely.
+`m13` should future-proof the CLI for `m17`, but it should not choose the `m17` UI architecture prematurely.
 
 - Cobra helps as a command entrypoint for future interactive subcommands, but it is not itself a TUI framework.
 - The Go rewrite should keep Cobra handlers thin and move runtime, policy, logging, and unblock logic into reusable internal packages that can back both standard CLI commands and a future TUI.
-- `m16` should choose its TUI framework independently during milestone planning once the monitoring workflow is better defined.
+- `m17` should choose its TUI framework independently during milestone planning once the monitoring workflow is better defined.
 - `Bubble Tea` is the most likely default choice for a future full-screen TUI, but that remains a likely direction rather than an `m13` commitment.
 
 ## Tasks
@@ -266,4 +266,4 @@ Documented that the Go rewrite will live under `cmd/`, `internal/`, `testdata/`,
 
 ### 2026-03-28: Added future TUI note
 
-Documented that m13 should keep core logic reusable for a future m16 interactive TUI, while deferring framework selection to m16 planning with Bubble Tea noted as the likely default.
+Documented that m13 should keep core logic reusable for a future m17 interactive TUI, while deferring framework selection to m17 planning with Bubble Tea noted as the likely default.

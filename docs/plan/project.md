@@ -222,7 +222,26 @@ Extend proxy enforcement beyond domain-level rules to support path, method, and 
 
 **Dependencies:** m3 (proxy established)
 
-### m15-proxy-secret-injection
+### m15-github-rest-wrapper
+
+Provide an officially supported GitHub wrapper built on Oktokit that uses REST-only endpoints so repo identity stays
+visible in request URLs and can be constrained by `m14` policies.
+
+**Goals:**
+- Support a curated set of common, repo-scoped GitHub workflows using REST-only endpoints
+- Keep repo identity explicit in URL paths so single-repo allowlists are practical under `m14`
+- Prefer a thin wrapper over full parity with stock `gh`
+- Define and document the supported subset plus unsupported GraphQL- or body-dependent flows
+- Start with existing/manual auth flows and leave tighter credential-path integration to later milestones
+
+**Out of scope:**
+- Full parity with stock `gh`
+- GraphQL-backed GitHub operations
+- Re-implementing every GitHub workflow behind one generic wrapper surface
+
+**Dependencies:** m14 (fine-grained proxy and repo/path-aware policy matching)
+
+### m16-proxy-secret-injection
 
 Make the proxy the primary credential path for HTTP-native auth by keeping real secrets out of the agent container and injecting them into matched outbound requests.
 
@@ -241,7 +260,7 @@ Make the proxy the primary credential path for HTTP-native auth by keeping real 
 
 **Dependencies:** m14 (request-phase MITM matching), m3 (proxy foundation)
 
-### m16-cli-monitoring
+### m17-cli-monitoring
 
 CLI tools for monitoring proxy activity and managing policy interactively.
 
@@ -253,17 +272,17 @@ CLI tools for monitoring proxy activity and managing policy interactively.
 
 **Dependencies:** m13 (Go CLI), m14 (fine-grained proxy and hot reload)
 
-### m17-host-credential-service
+### m18-host-credential-service
 
 Add a narrower, secondary credential path for tools and auth flows that cannot be handled cleanly by proxy-side injection.
 
 **Goals:**
 - Host-side credential helper bridge for clients that must obtain a credential locally
-- Support non-HTTP or helper-protocol-shaped auth workflows that `m15` cannot cover
+- Support non-HTTP or helper-protocol-shaped auth workflows that `m16` cannot cover
 - Keep credentials off disk inside the container even when the client must receive them
 - Integrate the helper lifecycle with the Go CLI
 
-**Dependencies:** m13 (Go CLI manages service lifecycle), m15 (primary proxy-based credential path defined first)
+**Dependencies:** m13 (Go CLI manages service lifecycle), m16 (primary proxy-based credential path defined first)
 
 ## Decisions
 
