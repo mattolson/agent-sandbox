@@ -164,11 +164,6 @@ for target in "${TARGETS[@]}"; do
 done
 
 versioned_checksum_file="$OUT_DIR/agentbox_${VERSION_NUMBER}_checksums.txt"
-: >"$versioned_checksum_file"
-for archive in "$OUT_DIR"/agentbox_"$VERSION_NUMBER"_*.tar.gz; do
-	sha256_line "$archive" >>"$versioned_checksum_file"
-done
-
 latest_checksum_file="$OUT_DIR/agentbox_checksums.txt"
 (
 	cd "$OUT_DIR"
