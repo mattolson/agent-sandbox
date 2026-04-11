@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-AGENTBOX_RUNTIME_COMMAND_NAME="compose" exec "$AGB_LIBDIR/run-compose" "$@"
