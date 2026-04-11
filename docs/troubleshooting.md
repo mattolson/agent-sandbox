@@ -36,7 +36,8 @@ as a deprecated fallback during the transition, and it has a few limitations.
 If you installed the Go binary successfully but your shell still cannot find `agentbox`, check where you installed it
 and whether that directory is on your `PATH`.
 
-- `sudo install ... /usr/local/bin/agentbox` works on most macOS and Linux setups because `/usr/local/bin` is already on `PATH`
+- The install script defaults to `~/.local/bin`
+- The manual install example also uses `~/.local/bin`
 - If you install somewhere else, add that directory to your shell profile and start a new shell
 - If your shell still resolves an older command path, run `hash -r` before trying again
 

@@ -70,7 +70,20 @@ colima start --edit
 
 Download the `agentbox` binary from [GitHub Releases](https://github.com/mattolson/agent-sandbox/releases).
 
-#### GitHub Releases binary
+#### Quick install
+
+```bash
+curl -fsSL https://github.com/mattolson/agent-sandbox/releases/latest/download/install.sh | sh
+```
+
+The installer defaults to `~/.local/bin`. To choose a version or install directory:
+
+```bash
+curl -fsSL https://github.com/mattolson/agent-sandbox/releases/latest/download/install.sh | \
+  sh -s -- --version v0.13.0 --install-dir /usr/local/bin
+```
+
+#### Manual install
 
 ```bash
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -88,8 +101,9 @@ cd /tmp
 curl -fsSLO \
   "https://github.com/mattolson/agent-sandbox/releases/latest/download/${ASSET}"
 tar -xzf "${ASSET}"
-sudo install "/tmp/agentbox_${OS}_${ARCH}/agentbox" /usr/local/bin/agentbox
-agentbox version
+mkdir -p "${HOME}/.local/bin"
+install -m 755 "/tmp/agentbox_${OS}_${ARCH}/agentbox" "${HOME}/.local/bin/agentbox"
+"${HOME}/.local/bin/agentbox" version
 ```
 
 If you want to verify the archive before installing it, download `agentbox_checksums.txt` from the same release and
@@ -97,6 +111,8 @@ compare the checksum for `${ASSET}` against `shasum -a 256 "${ASSET}"` on macOS 
 
 If you want a pinned install instead of "latest", use the versioned assets attached to a specific release tag such as
 `agentbox_<version>_<os>_<arch>.tar.gz` together with `agentbox_<version>_checksums.txt`.
+
+If `~/.local/bin` is not already on your `PATH`, add it in your shell profile before running `agentbox` directly.
 
 ### 3. Initialize the sandbox for your project
 
