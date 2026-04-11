@@ -1,8 +1,8 @@
 # Milestone: m15 - GitHub REST Wrapper
 
-Provide an officially supported GitHub wrapper built on Oktokit that uses REST-only endpoints so repo identity stays
-visible in request URLs and can be constrained by `m14` policies. The goal is not to replace stock `gh` wholesale; it
-is to provide a practical, repo-scoped GitHub tool surface that works with the fine-grained proxy model.
+Provide an officially supported GitHub wrapper that uses REST-only endpoints so repo identity stays visible in request
+URLs and can be constrained by `m14` policies. The goal is not to replace stock `gh` wholesale; it is to provide a
+practical, repo-scoped GitHub tool surface that works with the fine-grained proxy model.
 
 ## Problem
 
@@ -11,9 +11,9 @@ operations use GraphQL, where repo identity lives in the request body rather tha
 matched URL as a trusted endpoint and does not inspect request bodies. That makes broad `gh` support a poor match for
 repo-scoped URL policies.
 
-GitHub's REST API covers a large set of repo-centric workflows with repo identity encoded in the URL path. A wrapper on
-Oktokit can use that property directly instead of trying to coerce stock `gh` into a policy model it was not designed
-for.
+GitHub's REST API covers a large set of repo-centric workflows with repo identity encoded in the URL path. A thin
+wrapper on a REST-focused client library can use that property directly instead of trying to coerce stock `gh` into a
+policy model it was not designed for.
 
 ## Goals
 
@@ -36,7 +36,7 @@ for.
 
 ### Shape of the wrapper
 
-The wrapper should stay thin. The likely form is a small CLI on top of Oktokit REST calls that exposes a curated set of
+The wrapper should stay thin. The likely form is a small CLI on top of GitHub REST calls that exposes a curated set of
 repo-scoped commands such as repository view, issue list/create, pull-request list/view/create/merge where REST
 coverage is sufficient, release view, and workflow dispatch.
 
@@ -46,6 +46,21 @@ The wrapper should not try to perfectly mimic `gh` UX. It should optimize for:
 - repo scoping
 - policy compatibility
 - predictable mapping from command to REST endpoint family
+
+### Client library and language
+
+Go is now the leading implementation candidate because it would produce a standalone binary and fit the repo's existing
+Go-first CLI direction. The leading Go option is `google/go-github`.
+
+Node plus Octokit remains a viable fallback if implementation planning shows materially better REST coverage or lower
+integration cost for the initial supported command set.
+
+The selection criteria should be:
+
+- REST endpoint coverage for the supported workflows
+- ability to ship a standalone binary versus requiring a runtime
+- fit with the existing Go-based `agentbox` toolchain and release process
+- ease of keeping repo identity explicit in URL-based requests
 
 ### Repo scoping
 
@@ -65,9 +80,23 @@ flows that are already available in the environment. Later milestones can improv
 
 ### Distribution
 
-Because Oktokit is a JavaScript client, the wrapper will likely be Node-based unless implementation planning turns up a
-stronger alternative. Milestone planning should decide whether it belongs in the base image, a specific agent image, or
-as an optional tool installation path.
+If the wrapper is implemented in Go, it can ship as a standalone binary. If implementation planning chooses Node plus
+Octokit instead, then the runtime footprint and image/distribution story need to be justified explicitly.
+
+Milestone planning should decide whether the wrapper belongs in the base image, a specific agent image, or as an
+optional tool installation path.
+
+### Project boundary
+
+This milestone may later become its own open-source project. The current rationale is that there does not appear to be
+an obvious standalone-binary equivalent to `gh` that intentionally stays on REST-only endpoints for use in constrained
+environments with network proxy inspection.
+
+That project-boundary decision is deferred for now. `m15` should proceed in a way that keeps extraction feasible later:
+
+- keep the wrapper surface narrow and well documented
+- avoid coupling the command surface too tightly to Agent Sandbox internals
+- prefer packaging and tests that would still make sense if the wrapper moved into its own repository later
 
 ## Tasks
 
@@ -75,7 +104,9 @@ To be broken down when work begins. Rough outline:
 
 - Select the supported command subset based on real repo-scoped workflows that map cleanly to REST
 - Design the wrapper CLI surface and repo-scoping model
-- Implement the wrapper on Oktokit REST calls only
+- Choose the implementation language and client library (`go-github` is the leading candidate; Octokit remains the main
+  alternative)
+- Implement the wrapper on REST calls only
 - Add policy examples showing single-repo access under `m14`
 - Document unsupported workflows that still require stock `gh` or broader trust
 - Test the wrapper against representative GitHub workflows and failure modes
@@ -85,7 +116,11 @@ To be broken down when work begins. Rough outline:
 - Which top 10 repo-centric workflows are important enough to support in the first cut?
 - Should the wrapper require explicit `--repo`, or is deriving repo from the current checkout acceptable if it remains
   single-repo scoped?
+- Is Go plus `google/go-github` sufficient for the supported workflow set, or do any required workflows push the
+  milestone toward Node plus Octokit?
 - Should the wrapper live in the base image, selected agent images, or be user-installed?
+- Should the wrapper remain inside Agent Sandbox long term, or does the standalone binary use case justify spinning it
+  out after the first useful version?
 - Which workflows that look repo-scoped on the surface still fan out into broader trust assumptions in practice?
 - Is the wrapper's output primarily human-oriented, script-oriented, or both?
 
