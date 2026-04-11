@@ -224,13 +224,14 @@ Extend proxy enforcement beyond domain-level rules to support path, method, and 
 
 ### m15-github-rest-wrapper
 
-Provide an officially supported GitHub wrapper built on Oktokit that uses REST-only endpoints so repo identity stays
-visible in request URLs and can be constrained by `m14` policies.
+Provide an officially supported GitHub wrapper that uses REST-only endpoints so repo identity stays visible in request
+URLs and can be constrained by `m14` policies.
 
 **Goals:**
 - Support a curated set of common, repo-scoped GitHub workflows using REST-only endpoints
 - Keep repo identity explicit in URL paths so single-repo allowlists are practical under `m14`
 - Prefer a thin wrapper over full parity with stock `gh`
+- Prefer a standalone binary if practical; Go plus `google/go-github` is the leading candidate
 - Define and document the supported subset plus unsupported GraphQL- or body-dependent flows
 - Start with existing/manual auth flows and leave tighter credential-path integration to later milestones
 

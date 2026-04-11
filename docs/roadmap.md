@@ -113,9 +113,10 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 
 ## m15: GitHub REST wrapper (planned)
 
-- Repo-scoped GitHub wrapper built on Oktokit using REST-only endpoints
+- Repo-scoped GitHub wrapper using REST-only endpoints
 - Keep repo identity visible in request URLs so m14 policies can constrain access to one repo
 - Support a curated set of high-value GitHub workflows that fit REST plus URL-based policy matching
+- Prefer a standalone binary if practical; Go plus `google/go-github` is the leading candidate
 - Define and document the supported subset and explicitly exclude GraphQL-dependent `gh` flows
 - Initial auth can reuse existing/manual token flows; tighter integration can come later
 
