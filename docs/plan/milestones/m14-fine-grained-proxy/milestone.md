@@ -21,6 +21,8 @@ and preserving CONNECT-time blocking as a fast path when full request inspection
 - Secret injection, header substitution, or other credential features from `m15`
 - Monitoring UI or interactive unblock workflows from `m16`
 - Non-HTTP protocols
+- Header matching and request body inspection. For now, a matched URL rule implies the endpoint is trusted to receive
+  the full request.
 - Request or response body mutation, response shaping, or full content filtering
 - A separate host-side policy renderer or a new policy ownership model
 
@@ -173,6 +175,8 @@ Critical path: `m14.1 -> m14.2 -> (m14.3, m14.4) -> m14.5`.
   accidentally weaken the existing simple allowlist model if CONNECT fast-path behavior regresses.
 - **Overly expressive matching in v1:** Path and query filters can spiral into a mini policy language. Keep the first
   version narrow, explicit, and testable.
+- **Trusted-endpoint assumption for matched URL rules:** `m14` narrows URL shape, not full request contents. A matched
+  rule still implies trust in the endpoint for headers and body until deeper inspection exists.
 - **Hot reload safety:** Reload must be atomic. Partial matcher updates or silent fallback to allow-all semantics would
   be unacceptable.
 - **Service catalog drift into one-off product logic:** GitHub is a useful proving ground, but the service model must
