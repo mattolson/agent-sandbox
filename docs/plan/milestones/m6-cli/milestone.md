@@ -25,7 +25,7 @@ Give developers a single command-line tool that handles the full lifecycle of an
 **Excluded:**
 - Go rewrite (m13)
 - Fine-grained proxy rules (m14)
-- Interactive monitoring/unblocking (m16)
+- Interactive monitoring/unblocking (m17)
 
 ## Applicable Learnings
 

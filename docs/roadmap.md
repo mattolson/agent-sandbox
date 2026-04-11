@@ -111,7 +111,15 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Domain-only rules remain as fast-path (block at CONNECT)
 - SIGHUP-based hot reload for policy changes
 
-## m15: Proxy-side secret injection (planned)
+## m15: GitHub REST wrapper (planned)
+
+- Repo-scoped GitHub wrapper built on Oktokit using REST-only endpoints
+- Keep repo identity visible in request URLs so m14 policies can constrain access to one repo
+- Support a curated set of high-value GitHub workflows that fit REST plus URL-based policy matching
+- Define and document the supported subset and explicitly exclude GraphQL-dependent `gh` flows
+- Initial auth can reuse existing/manual token flows; tighter integration can come later
+
+## m16: Proxy-side secret injection (planned)
 
 - Make proxy injection the primary mechanism for HTTP-native credentials
 - Store raw secret values in a host-only source and mount them into the proxy only
@@ -119,14 +127,14 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - First rollout: git over HTTPS with repo-level scoping
 - Evaluate env-token clients such as `gh` where placeholder substitution is sufficient
 
-## m16: CLI monitoring and policy management (planned)
+## m17: CLI monitoring and policy management (planned)
 
 - Filtered log view for blocked requests
 - Interactive unblock workflow
 - Integration with hot reload for immediate policy updates
 - UI approach TBD (filtered stream, TUI, or hybrid)
 
-## m17: Host credential service (planned)
+## m18: Host credential service (planned)
 
 - Secondary credential path for flows that cannot be handled by proxy injection
 - Host-side service bridging container to native credential store or helper backend
