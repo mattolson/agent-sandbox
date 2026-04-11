@@ -4,19 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-04-10 (eb04cbc)
+
+CLI rewrite from `m13`.
+
 ### Added
 
-- **Draft-first Go binary release flow.** Version tags now build macOS and Linux `agentbox` archives plus checksums and upload them to a draft GitHub release before human publication.
-- **Stable latest-download asset names.** Releases now include unversioned archives like `agentbox_linux_arm64.tar.gz` plus `agentbox_checksums.txt`, so users can install the latest binary for their architecture via GitHub's `releases/latest/download/...` shortcut.
+- **Go `agentbox` CLI implementation.** The CLI has been rewritten in Go and now covers the current user-facing command surface: `init`, `switch`, `edit compose`, `edit policy`, `policy config` / `render`, `bump`, `up`, `down`, `logs`, `compose`, `exec`, `destroy`, `version`, and shell completion.
+- **Native YAML and JSON handling.** Compose, policy, and devcontainer generation now use native Go handling instead of host-side `yq`.
+- **GitHub Releases binary distribution.** `agentbox` now ships as macOS and Linux binaries for `amd64` and `arm64`.
+- **Draft-first Go release workflow.** Version tags now build archives plus checksums and upload them to a draft GitHub release before human publication.
+- **Stable latest-download asset names.** Releases include unversioned archives like `agentbox_linux_arm64.tar.gz` plus `agentbox_checksums.txt`, so users can install the latest binary for their architecture via GitHub's `releases/latest/download/...` shortcut.
+- **Go CLI reference.** Added `docs/cli.md` as the current command reference for `agentbox`.
 
 ### Changed
 
-- **Go binary is now the primary documented install path.** README and CLI docs now point users to GitHub Releases binaries instead of telling them to clone `cli/bin`.
-- **Documented host-side `yq` requirement removed from the primary install flow.** The Go binary handles YAML and JSON natively, so users no longer need `brew install yq` just to install `agentbox`.
+- **Go binary is now the documented install path.** README and related docs now point users to GitHub Releases binaries instead of the old Bash checkout flow.
+- **Generated YAML now uses two-space indentation consistently.** Native scaffold writers and template checks now align Go-generated YAML with the repository templates.
+- **Codex image now includes `bubblewrap`.** Codex's Linux startup probe finds `/usr/bin/bwrap` without warning, while isolation remains handled by the surrounding container, proxy, and firewall.
+- **Repository tooling is Go-only.** Build scripts, CI, contributor docs, and repo guidance now assume the Go CLI implementation and embedded templates as the only live source of truth.
 
 ### Removed
 
-- **Legacy Bash CLI implementation.** The old `cli/` tree, parity harness, and shell-based CLI test workflow have been removed now that the Go CLI is the only supported implementation.
+- **Legacy Bash CLI implementation.** The old `cli/` tree, parity harness, shell-based test workflow, and transition-only template-sync plumbing have been removed now that the Go CLI is the only supported implementation.
 - **Docker-based CLI image distribution.** `agent-sandbox-cli` is no longer built or documented as an install path.
 
 ## [0.12.0] - 2026-03-28 (01b39fe)
