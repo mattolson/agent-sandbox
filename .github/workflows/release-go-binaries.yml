@@ -33,6 +33,7 @@ jobs:
           fi
 
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.52.4/yq_linux_amd64
+          echo "8649e57e96f97757a1a45e1af1b51f6cd2697bfa9e5e0ed7dcbc2e9ab90ac2f3  /usr/local/bin/yq" | sha256sum --check
           sudo chmod +x /usr/local/bin/yq
           yq --version
 
