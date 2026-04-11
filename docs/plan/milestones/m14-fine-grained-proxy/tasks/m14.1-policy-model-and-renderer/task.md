@@ -64,7 +64,7 @@ current renderer assumes `domains` is a list of strings and merges it by simple 
 objects, list position becomes ambiguous and layered merge behavior becomes underspecified. That ambiguity has to be
 resolved here or every later task will inherit it.
 
-The recommended approach is:
+The working approach is:
 
 1. Keep the existing top-level `services` and `domains` fields for backward compatibility. Do not turn this task into a
    broader migration to a new top-level `egress:` shape.
@@ -72,12 +72,19 @@ The recommended approach is:
    - a string, for the legacy host-only allowlist path
    - a mapping, for a host entry that also carries nested request rules
 3. Normalize all authored inputs into a canonical rendered policy IR before enforcement. In that IR, every `domains`
-   entry should be an object with a normalized host key plus an explicit rules collection, even when the authored input
-   was a plain string.
+   entry should be an object with a normalized `host` key plus an explicit rules collection, even when the authored
+   input was a plain string.
 4. Keep `services` symbolic in the rendered policy for now. Expanding them into richer semantic bundles belongs to
    `m14.3`; this task should not solve that problem early.
-5. Merge rich domain entries by normalized host identity, not by list position. Within a host entry, prefer append with
-   stable order and de-duplication for equivalent rules over positional deep-merge of rule arrays.
+5. Merge rich domain entries by normalized host identity, not by list position. Within a host entry, default to
+   additive rule merging with stable order and de-duplication for equivalent rules.
+6. Add an authored-only escape hatch for host-level override via `merge_mode: replace`. The renderer should consume that
+   directive during layering and strip it from the rendered output.
+7. Include `schemes` as a rule dimension now rather than treating `http` and `https` as equivalent by omission.
+8. Treat headers and request bodies as out of scope for `m14.1`. A matched URL rule currently means the endpoint is
+   trusted to receive the full request; deeper inspection is future work.
+9. Keep the policy model allow-only. Do not add `allow`/`deny` rule polarity or "allow everything on this host except
+   these" semantics in `m14.1`.
 
 That gives `m14.2` one policy shape to consume while still letting authored YAML stay readable and backward compatible.
 It also confines the merge contract to something humans can reason about in code review: host entries are keyed by
@@ -85,7 +92,185 @@ host, and rules are accumulated deterministically.
 
 Testing should target `render-policy` directly. Relying only on `agentbox policy config` would prove that the CLI can
 invoke the helper, but it would not prove the policy merge semantics themselves. This is security-sensitive enough that
-the renderer needs its own direct coverage for legacy, mixed, layered, and invalid inputs.
+the renderer needs its own direct coverage for legacy, mixed, layered, and invalid inputs. The test direction is now
+Python unit tests for proxy-image Python code, plus a GitHub workflow that runs them on merge paths.
+
+### Proposed Policy Record Shape
+
+This is the current proposal for review before renderer work begins.
+
+#### Authored policy input
+
+Legacy host-only authored input remains valid:
+
+```yaml
+services:
+  - github
+
+domains:
+  - api.openai.com
+  - "*.example.com"
+```
+
+Rich authored host entries use `host` as the canonical key:
+
+```yaml
+services:
+  - github
+
+domains:
+  - api.openai.com
+
+  - host: api.github.com
+    rules:
+      - schemes: [https]
+        methods: [GET]
+        path:
+          prefix: /repos/example/
+        query:
+          exact: {}
+
+      - schemes: [https]
+        path:
+          exact: /meta
+```
+
+Layered authored input can replace the entire accumulated host record with an explicit merge directive:
+
+```yaml
+domains:
+  - host: api.github.com
+    merge_mode: replace
+    rules:
+      - scheme: https
+        method: get
+        path:
+          prefix: /repos/my-org/
+```
+
+Notes:
+
+- `merge_mode: replace` is an authoring directive, not part of the rendered IR
+- absence of `merge_mode` means additive host merge with rule de-duplication
+- `schemes` should live on rules, not on the host record, so match semantics stay in one place
+- authored omission of `schemes` and `scheme` means both `http` and `https`
+- authored `scheme` is a singular shorthand for `schemes`
+- if both `scheme` and `schemes` are supplied, the renderer should warn on `stderr`, merge the values, normalize them,
+  and de-duplicate them
+- authored method names should be accepted case-insensitively and normalized to uppercase in the rendered policy
+- authored omission of `methods` and `method` means any method
+- authored `method` is a singular shorthand for `methods`
+- if both `method` and `methods` are supplied, the renderer should warn on `stderr`, merge the values, normalize them
+  to uppercase, and de-duplicate them
+- rendered policy should prefer explicit catch-all rules over `rules: []`, so scheme intent remains expressible even for
+  host-wide allows
+- each rule should carry at most one path matcher; multiple allowed path alternatives should be written as multiple
+  rules rather than one compound path list
+- in examples and docs, list rule fields in request-matching order: `schemes`, `methods`, `path`, then `query`
+- `path`, `schemes`, `methods`, and `query` are each optional individually
+- a rule must not be empty after normalization; host-wide trust must be expressed explicitly, for example via
+  `schemes: [https]` or an explicit catch-all rule emitted by the renderer
+- the policy model is allow-only for `m14.1`; "all requests on this host except these" is intentionally out of scope
+- for `m14.1`, the recommended query-record shape is an explicit query match mode rather than implicit per-param
+  constraints, because "no query params" must be distinguishable from "I do not care about query params"
+
+#### Proposed query record shape
+
+The current recommendation is to keep the first query shape narrow and conservative:
+
+```yaml
+rules:
+  - schemes: [https]
+    methods: [GET]
+    path:
+      exact: /meta
+    query:
+      exact: {}
+```
+
+That expresses "GET request with no query params."
+
+Specific query-param values can be expressed with the same exact-match form:
+
+```yaml
+rules:
+  - schemes: [https]
+    methods: [GET]
+    path:
+      exact: /meta
+    query:
+      exact:
+        ref: docs
+```
+
+Notes:
+
+- `query` omitted means query string is not constrained by that rule
+- `query.exact: {}` means the request must have no query params
+- authored `query.exact.<name>: value` should be accepted as shorthand for a single-item list
+- `query.exact.<name>` uses a list of string values in the canonical rendered form so repeated params are representable
+- exact query matching should ignore pair ordering and compare normalized per-key value lists
+- the first version should prefer exact query matching over looser subset matching; it covers the current requirement
+  without introducing ambiguity about extra params
+- if we later need "must contain this param/value but may include extras," that should be an explicit future match mode,
+  not an overloaded interpretation of `exact`
+
+#### Rendered policy IR
+
+Rendered policy should normalize all `domains` entries to the rich object form, even when authored input used legacy
+strings. It should also normalize host-wide allows to an explicit catch-all rule rather than `rules: []`:
+
+```yaml
+services:
+  - github
+
+domains:
+  - host: api.openai.com
+    rules:
+      - schemes:
+          - http
+          - https
+
+  - host: "*.example.com"
+    rules:
+      - schemes:
+          - http
+          - https
+
+  - host: api.github.com
+    rules:
+      - schemes:
+          - https
+        methods:
+          - GET
+        path:
+          prefix: /repos/example/
+        query:
+          exact: {}
+      - schemes:
+          - https
+        path:
+          exact: /meta
+```
+
+The renderer should:
+
+- preserve authored compatibility for string entries
+- normalize host records into one rendered shape
+- normalize rule records into one rendered shape with explicit `schemes`
+- treat omitted authored `schemes` as `[http, https]` and always emit explicit rendered `schemes`
+- treat omitted authored `methods` as wildcard-any and leave `methods` absent in the rendered policy unless the rule
+  actually constrains methods
+- normalize `scheme` plus `schemes` into one rendered `schemes` list and warn on `stderr` if both forms were supplied
+- normalize `method` plus `methods` into one rendered uppercase `methods` list and warn on `stderr` if both forms were
+  supplied
+- normalize `query.exact` scalar values into single-item lists in the rendered policy
+- reject empty authored rule objects rather than silently treating them as host-wide allow
+- apply `merge_mode: replace` before output
+- emit no merge-control directives in the rendered policy
+- keep service names symbolic for now; richer service expansions are deferred to `m14.3`
+- not add `allow`/`deny` polarity to rules in `m14.1`
+- not add header or request-body match dimensions in `m14.1`
 
 ### Implementation Steps
 
@@ -103,17 +288,8 @@ the renderer needs its own direct coverage for legacy, mixed, layered, and inval
 
 ### Open Questions
 
-- Should the rich host entry use `domain:` or `host:` as its canonical key? The current code and docs say "domain," but
-  request matching is hostname-based and `host` may be clearer.
-- Should the rendered policy preserve mixed string or object input forms, or always normalize to an object-only IR?
-  The stronger recommendation is object-only IR.
-- Do we want rule lists to append with de-duplication across layers, or should later layers replace the entire rule set
-  for a host? Append plus de-duplication is more consistent with the current union semantics, but it should be chosen
-  explicitly.
-- Does `internal/scaffold/policy.go` need to become more schema-tolerant in `m14.1`, or can that wait because current
-  scaffold paths mostly write empty default policy files and do not round-trip user-edited rich entries?
-- What is the lightest-weight direct test harness for `render-policy` that the repo will maintain comfortably: a small
-  Go subprocess test, or a Python-native unit test module?
+- No current blocker in Go scaffolding: keep rich-schema work focused on user-owned policy files plus the proxy-side
+  renderer unless managed policy generation later needs to emit or preserve rich rules during `m14`.
 
 ## Outcome
 

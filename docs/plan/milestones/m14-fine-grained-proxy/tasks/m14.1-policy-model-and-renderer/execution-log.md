@@ -1,5 +1,165 @@
 # Execution Log: m14.1 - Policy Model and Renderer
 
+## 2026-04-11 05:44 UTC - Kept the policy model allow-only
+
+Recorded an explicit scope boundary after discussing whether the rule model should support `allow` versus `deny`.
+
+**Decision:** Keep `m14.1` allow-only. Do not add rule polarity or "allow everything on this host except these"
+semantics.
+
+**Rationale:** The current security posture is default-deny plus explicit allow. Adding deny semantics early would
+weaken that mental model, complicate merge behavior, and make policy precedence harder to explain before the allow-only
+shape is even implemented.
+
+## 2026-04-11 05:44 UTC - Narrowed the remaining Go-scaffolding note
+
+Cleaned up the last stale open question about Go schema tolerance.
+
+**Decision:** Do not treat Go scaffolding as an active `m14.1` blocker. Keep the richer schema work focused on
+user-owned policy files and the proxy-side renderer unless managed policy generation later proves it needs to emit or
+preserve rich rules inside `m14`.
+
+## 2026-04-11 05:44 UTC - Closed most remaining schema-shape open questions
+
+Updated the draft policy spec with the user's answers on merge directives, wildcard semantics, shorthands, and query
+normalization.
+
+**Decision:** Rename the authored host-merge directive to `merge_mode: replace`.
+
+**Decision:** Omitted authored `scheme` or `schemes` means both `http` and `https`. Omitted authored `method` or
+`methods` means any method.
+
+**Decision:** Add singular shorthands `scheme` and `method`. If the singular and plural forms are both supplied, the
+renderer should warn on `stderr`, merge them, normalize them, and de-duplicate them.
+
+**Decision:** Accept scalar shorthand for `query.exact.<name>: value` and normalize it to a single-item list in the
+rendered policy.
+
+**Decision:** Exact query matching should ignore pair ordering and compare normalized per-key value lists.
+
+**Issue:** Warnings during rendering can corrupt machine-readable output if they go to `stdout`.
+
+**Solution:** Any renderer warnings for conflicting shorthand forms should go to `stderr` so `agentbox policy config`
+can still emit valid YAML on `stdout`.
+
+## 2026-04-11 05:44 UTC - Made authored method names case-insensitive
+
+Updated the draft policy spec after the user asked for case-insensitive method matching to make authoring easier.
+
+**Decision:** Accept authored method names case-insensitively and normalize them to uppercase in the rendered policy.
+
+**Rationale:** This keeps authoring forgiving while still giving the renderer one canonical form for merge behavior,
+deduplication, and downstream enforcement.
+
+**Decision:** Keep the field name plural as `methods`. Do not add a separate `method` alias unless review later shows a
+strong reason for it.
+
+## 2026-04-11 05:44 UTC - Switched rule example ordering to schemes, methods, path, query
+
+Updated the draft examples after the user reversed the earlier preference for listing `path` first.
+
+**Decision:** In examples and docs, list rule fields in request-matching order: `schemes`, `methods`, `path`, then
+`query`.
+
+**Note:** `method` is not part of the URI strictly speaking, but the new ordering is still the clearer request-matcher
+presentation for this policy format.
+
+## 2026-04-11 05:44 UTC - Made the non-empty rule requirement explicit
+
+Clarified the draft rule contract after the user asked whether `path` is optional and whether all rule elements are
+optional.
+
+**Decision:** `path`, `schemes`, `methods`, and `query` are each optional individually, but a rule must not be empty
+after normalization.
+
+**Rationale:** An all-optional rule would act like silent host-wide trust. That is too broad to encode as an empty
+object. If the policy wants broad trust, it should say so explicitly.
+
+**Decision:** Host-wide allow remains representable, but only through an explicit catch-all rule shape such as
+`schemes: [https]` or the renderer-generated catch-all for legacy string host entries.
+
+## 2026-04-11 05:44 UTC - Made path primary in the rule examples
+
+Refined the draft policy examples after the user asked whether each rule is implicitly for a single path and requested
+that `path` be listed first when present.
+
+**Decision:** Treat each rule as one conjunction of constraints with at most one path matcher. If a host needs multiple
+allowed path alternatives, express them as multiple rules instead of a compound path list inside one rule.
+
+**Decision:** In examples and docs, list `path` first in rule objects when present, since it is the primary
+rule-shaping field in the current policy design.
+
+## 2026-04-11 05:44 UTC - Added schemes to the policy-record proposal
+
+Updated the draft policy spec after the user asked whether protocol should be part of the rule shape.
+
+**Decision:** Add `schemes` to rule records now rather than treating `http` and `https` as equivalent by omission.
+Use `schemes` rather than `protocol` so the field stays aligned with HTTP policy rather than implying broader
+transport-level support.
+
+**Issue:** The earlier draft used `rules: []` as the rendered meaning of "allow the whole host." That shape becomes
+awkward once `schemes` exists, because there is nowhere to say "allow the whole host, but only for HTTPS."
+
+**Solution:** The updated proposal treats rendered host-wide allow as an explicit catch-all rule with concrete
+`schemes`, usually `[http, https]` for legacy string entries.
+
+**Decision:** This is still a spec-only update. No renderer or enforcement implementation has started yet.
+
+## 2026-04-11 05:44 UTC - Recorded the trust boundary for matched URL rules
+
+Recorded a formal planning decision after discussing exfiltration risk on allowed endpoints.
+
+**Decision:** For `m14`, a matched URL rule implies that the endpoint is trusted to receive the full request. `m14`
+will constrain host, method, path, and query only. Header and request-body inspection are explicitly deferred to future
+work.
+
+**Rationale:** Treating headers as mandatory for exfiltration control while still ignoring request bodies would create a
+misleading boundary. The cleaner line is to keep `m14` focused on URL-shape restriction and record the trust
+assumption explicitly.
+
+**Follow-up:** Added decision record `005-trust-url-matches-until-deeper-request-inspection.md` and updated the `m14`
+milestone/task plans to match it.
+
+## 2026-04-11 05:44 UTC - Policy record proposal updated from user feedback
+
+Folded the user's schema-direction answers into the task plan and turned them into a concrete record-shape proposal for
+review before renderer changes.
+
+**Decision:** Use `host` as the canonical key for rich domain entries. The old authored string form stays as a
+compatibility input, but rendered policy should normalize `domains` entries to rich objects.
+
+**Decision:** Keep additive merge semantics by default for host records, with rule de-duplication. Add a host-level
+escape hatch via authored `merge: replace`, which the renderer consumes during layering and strips from the rendered
+output.
+
+**Decision:** Add Python unit tests for proxy-image Python code and a GitHub workflow for them, but defer that work
+until after the policy record shape is approved.
+
+**Issue:** The escape hatch needs a concrete spelling now. A vague "special-purpose key" is not enough to implement or
+document.
+
+**Solution:** Proposed `merge: replace` as the authored-only control field. It is short, readable in YAML, and leaves
+room for future merge modes without forcing a boolean one-off like `replace: true`.
+
+## 2026-04-11 05:44 UTC - Query matching requirement added to the schema proposal
+
+Added a concrete query-record proposal after the user called out two required cases:
+
+- "GET request with no query params"
+- "GET request with a specific value for a specific query param"
+
+**Issue:** A vague `query` object is not enough. The schema has to distinguish between "no query constraint" and "the
+query string must be empty," or the first requested case cannot be expressed safely.
+
+**Solution:** Propose an explicit query match mode with `query.exact`. In this shape:
+
+- omitted `query` means no query constraint
+- `query.exact: {}` means no query params allowed
+- `query.exact.<name>: [value]` means an exact query match on that param map
+
+**Decision:** Keep the first version query semantics narrow and exact-only. That satisfies the current requirement
+without prematurely adding looser subset or contains modes that would complicate merge and enforcement semantics.
+
 ## 2026-04-11 05:44 UTC - Initial planning completed
 
 Reviewed the `m14` milestone plan, accumulated project learnings, and the current policy implementation surfaces in the
