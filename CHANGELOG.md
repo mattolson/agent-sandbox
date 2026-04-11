@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Install script for agentbox.** Releases now include `install.sh`, a convenience installer that detects OS and architecture, verifies checksums, and installs `agentbox` without requiring users to assemble release URLs by hand.
+
 ## [0.13.0] - 2026-04-10 (eb04cbc)
 
 CLI rewrite from `m13`.

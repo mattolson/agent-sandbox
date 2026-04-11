@@ -21,6 +21,7 @@ Each archive contains:
 The script writes:
   - versioned archives and `agentbox_<version>_checksums.txt`
   - stable latest-download archives and `agentbox_checksums.txt`
+  - `install.sh`
 EOF
 }
 
@@ -73,6 +74,11 @@ if ! command -v tar >/dev/null 2>&1; then
 	exit 1
 fi
 
+if [ ! -f "$REPO_ROOT/scripts/install-agentbox.sh" ]; then
+	printf '%s\n' 'scripts/install-agentbox.sh is required' >&2
+	exit 1
+fi
+
 sha256_line() {
 	if command -v shasum >/dev/null 2>&1; then
 		shasum -a 256 "$1"
@@ -121,7 +127,8 @@ rm -f \
 	"$OUT_DIR"/agentbox_darwin_arm64.tar.gz \
 	"$OUT_DIR"/agentbox_linux_amd64.tar.gz \
 	"$OUT_DIR"/agentbox_linux_arm64.tar.gz \
-	"$OUT_DIR"/agentbox_checksums.txt
+	"$OUT_DIR"/agentbox_checksums.txt \
+	"$OUT_DIR"/install.sh
 
 LD_FLAGS="-X github.com/mattolson/agent-sandbox/internal/version.BuildVersion=$VERSION"
 LD_FLAGS="$LD_FLAGS -X github.com/mattolson/agent-sandbox/internal/version.BuildCommit=$BUILD_COMMIT"
@@ -181,4 +188,6 @@ latest_checksum_file="$OUT_DIR/agentbox_checksums.txt"
 		sha256_line "$archive" >>"$(basename "$latest_checksum_file")"
 	done
 )
+
+cp "$REPO_ROOT/scripts/install-agentbox.sh" "$OUT_DIR/install.sh"
 printf 'Built release artifacts in %s\n' "$OUT_DIR"
