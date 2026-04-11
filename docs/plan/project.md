@@ -190,7 +190,7 @@ Add OpenCode agent support.
 - OpenCode proxy domains (opencode.ai, models.dev) and CI version tracking added
 - Provider-agnostic setup documented (same pattern as Pi)
 
-### m13-go-cli-rewrite
+### m13-go-cli-rewrite (done)
 
 Rewrite the `agentbox` CLI in Go using Cobra. Single static binary for easier distribution, testing, and feature development.
 
@@ -202,6 +202,12 @@ Rewrite the `agentbox` CLI in Go using Cobra. Single static binary for easier di
 - Replace Docker CLI image distribution with binary releases
 
 **Dependencies:** m6 (existing CLI defines the feature set to port)
+
+**Delivered:**
+- Go `agentbox` implementation now covers the current command surface
+- GitHub Releases binaries replaced the old Bash distribution path
+- Embedded Go templates are the only live template source tree
+- Legacy Bash CLI, parity harness, and Docker CLI image distribution were removed after cutover
 
 ### m14-fine-grained-proxy
 

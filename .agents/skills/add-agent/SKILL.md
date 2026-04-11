@@ -67,9 +67,9 @@ If the agent needs default config files, create them alongside the Dockerfile (e
 
 #### 2.2: Agent Compose Layer
 
-Create `cli/templates/{agent}/cli/agent.yml`.
+Create `internal/embeddata/templates/{agent}/cli/agent.yml`.
 
-This is a compose overlay that layers on top of the shared `cli/templates/compose/base.yml`. It contains only agent-specific configuration. Read an existing agent.yml for the exact format.
+This is a compose overlay that layers on top of the shared `internal/embeddata/templates/compose/base.yml`. It contains only agent-specific configuration. Read an existing agent.yml for the exact format.
 
 Contents:
 - Managed-by comment header
@@ -83,7 +83,7 @@ Do NOT include proxy config, HTTP_PROXY, HTTPS_PROXY, capabilities, or other sha
 
 #### 2.3: devcontainer.json
 
-Create `cli/templates/{agent}/devcontainer/devcontainer.json`.
+Create `internal/embeddata/templates/{agent}/devcontainer/devcontainer.json`.
 
 This file references a layered array of compose files. Read an existing devcontainer.json for the exact format.
 
@@ -198,7 +198,7 @@ After creating all files:
    - Build and test locally: `./images/build.sh {agent}`
    - Verify the binary works: `docker run --rm agent-sandbox-{agent}:local {agent} --version`
    - Test init flow: `agentbox init --agent {agent} --mode cli --path /tmp/test-project`
-   - Run CLI tests: `cli/run-tests.bash`
+   - Run CLI tests: `go test ./...`
    - Test proxy enforcement after starting containers:
      - Allowed domain returns 200: `curl -x http://proxy:8080 https://{api-domain}`
      - Blocked domain returns 403: `curl -x http://proxy:8080 https://example.com`
@@ -211,12 +211,12 @@ When generating files, read these for the exact patterns:
 - `images/agents/copilot/Dockerfile` (npm install with Node.js pattern)
 - `images/agents/codex/Dockerfile` (direct binary download pattern, multi-arch, config file baking)
 - `images/agents/codex/config.toml` (baked config file example)
-- `cli/templates/compose/base.yml` (shared compose base layer with proxy and agent skeleton)
-- `cli/templates/compose/mode.devcontainer.yml` (devcontainer mode overlay)
-- `cli/templates/claude/cli/agent.yml` (agent compose layer with env vars)
-- `cli/templates/copilot/cli/agent.yml` (simplest agent compose layer)
-- `cli/templates/claude/devcontainer/devcontainer.json` (devcontainer with extensions and JetBrains plugins)
-- `cli/templates/codex/devcontainer/devcontainer.json` (CLI-only agent, no extensions)
+- `internal/embeddata/templates/compose/base.yml` (shared compose base layer with proxy and agent skeleton)
+- `internal/embeddata/templates/compose/mode.devcontainer.yml` (devcontainer mode overlay)
+- `internal/embeddata/templates/claude/cli/agent.yml` (agent compose layer with env vars)
+- `internal/embeddata/templates/copilot/cli/agent.yml` (simplest agent compose layer)
+- `internal/embeddata/templates/claude/devcontainer/devcontainer.json` (devcontainer with extensions and JetBrains plugins)
+- `internal/embeddata/templates/codex/devcontainer/devcontainer.json` (CLI-only agent, no extensions)
 - `cli/lib/agent.bash` (agent registry: supported list, validation, selection)
 - `cli/lib/cli-compose.bash` (CLI mode init flow, agent override scaffolding)
 - `cli/lib/devcontainer.bash` (devcontainer mode init flow)

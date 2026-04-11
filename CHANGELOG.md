@@ -13,7 +13,11 @@ All notable changes to this project will be documented in this file.
 
 - **Go binary is now the primary documented install path.** README and CLI docs now point users to GitHub Releases binaries instead of telling them to clone `cli/bin`.
 - **Documented host-side `yq` requirement removed from the primary install flow.** The Go binary handles YAML and JSON natively, so users no longer need `brew install yq` just to install `agentbox`.
-- **Docker CLI image is now documented as a deprecated fallback.** The image remains available during the transition, but it is no longer presented as the primary way to install the CLI.
+
+### Removed
+
+- **Legacy Bash CLI implementation.** The old `cli/` tree, parity harness, and shell-based CLI test workflow have been removed now that the Go CLI is the only supported implementation.
+- **Docker-based CLI image distribution.** `agent-sandbox-cli` is no longer built or documented as an install path.
 
 ## [0.12.0] - 2026-03-28 (01b39fe)
 

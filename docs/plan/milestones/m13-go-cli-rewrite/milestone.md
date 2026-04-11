@@ -4,6 +4,9 @@
 
 Replace the Bash `agentbox` CLI with a Go implementation built on Cobra, while preserving the current layered runtime model and command behavior. The end state is a self-contained binary distribution for macOS and Linux, stronger automated testing, and no host-side `yq` dependency.
 
+Current status: completed. The side-by-side transition described below is historical context from the rewrite phase; the
+legacy Bash CLI, parity harness, and Docker CLI image distribution were removed in the final cleanup after cutover.
+
 ## Scope
 
 **Included:**
@@ -243,10 +246,15 @@ Critical path: `m13.1 -> m13.2 -> m13.3 -> m13.4 -> m13.5 -> m13.6`.
 - GitHub Releases is the documented primary install path, with checksums and manual install instructions
 - CI covers Go unit tests plus integration/parity verification for the rewrite
 - Project documentation points users to the Go binary as the primary installation path
-- The old Docker CLI image distribution path is explicitly deprecated and retained only as a temporary fallback during rollout
+- The old Bash CLI and Docker CLI image distribution paths are removed after the Go cutover is validated
 - Homebrew and installer-script automation are explicitly deferred to fast-follow work
 
 ## Changes
+
+### 2026-04-10: Removed the legacy Bash CLI path
+
+Removed the old `cli/` implementation, parity harness, template-sync plumbing, and Docker CLI image distribution after
+the Go binary release path was established.
 
 ### 2026-03-28: Clarified installation strategy
 

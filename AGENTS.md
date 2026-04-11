@@ -34,7 +34,7 @@ Build local images:
 
 ### Templates vs Runtime Config
 
-`cli/templates/` contains source templates used by `agentbox init` to generate per-project files. Editing a template affects all future `init` runs across all projects.
+`internal/embeddata/templates/` contains the embedded templates used by `agentbox init` to generate per-project files. Editing a template affects all future `init` runs across all projects.
 
 `.agent-sandbox/` at the repo root is the generated runtime config for developing this specific project. Editing files here only affects the local dev environment.
 
@@ -44,8 +44,8 @@ Do not confuse the two. When changing how `init` generates files, edit templates
 
 Three components:
 
-1. **CLI** (`cli/`) - The `agentbox` command-line tool for initializing and managing sandboxed projects. Includes per-agent, per-mode compose file and devcontainer templates under `cli/templates/`.
-2. **Images** (`images/`) - Base image, agent-specific images, proxy image, and CLI image.
+1. **CLI** (`cmd/agentbox`, `internal/`) - The Go `agentbox` command-line tool plus its runtime, scaffold, docker, version, and embedded-template packages.
+2. **Images** (`images/`) - Base image, agent-specific images, and proxy image.
 3. **Runtime** (`.agent-sandbox/compose/*.yml`) - Layered Docker Compose stack for developing this project.
 
 The base image contains the firewall script and common tools. Agent images extend it with agent-specific software. The proxy image runs mitmproxy with the policy enforcement addon.
@@ -64,7 +64,6 @@ images/
 │   └── gemini/
 ├── proxy/             # mitmproxy + policy enforcement
 │   └── addons/        # enforcer.py (domain allowlist enforcement)
-├── cli/               # CLI Docker image
 └── build.sh           # Image build script
 ```
 
@@ -80,36 +79,34 @@ Available services and their domain allowlists are hardcoded in `images/proxy/ad
 
 ### Code Conventions
 
-The CLI is written in Bash, targeting Bash 3.2 compatibility (macOS default shell). `cli/lib/compat.bash` provides shims for features unavailable in Bash 3.2 (e.g., `mapfile`).
+The CLI is written in Go with Cobra entrypoints under `cmd/agentbox` and implementation packages under `internal/`.
 
-Style rules (from `.editorconfig`):
-- Tabs for indentation
-- LF line endings
-- 120 character max line length
+Style rules:
+- Format Go changes with `gofmt`
+- Keep command handlers thin and push behavior into reusable packages such as `internal/runtime`, `internal/scaffold`, and `internal/docker`
+- Treat `internal/embeddata/templates/` as the live template source of truth
 
-Lint with ShellCheck before submitting CLI changes. The project has `cli/shellcheck.sh` and `cli/.shellcheckrc`.
-
-`yq` is a required dependency, used heavily for YAML manipulation throughout the CLI.
-
-### Module Structure
+### Package Structure
 
 ```
-cli/
-├── bin/agentbox              # Main entry point
-├── lib/*.bash                # Shared library functions (12 modules)
-├── libexec/<module>/<command> # Module implementations
-├── templates/                # Config templates for agentbox init
-├── support/                  # BATS and extensions
-└── test/                     # BATS tests
-```
+cmd/
+└── agentbox/
 
-The entry point extends `PATH` with the current module's libexec directory, so commands within a module can call sibling commands by name.
+internal/
+├── cli/
+├── docker/
+├── embeddata/
+├── runtime/
+├── scaffold/
+├── testutil/
+└── version/
+```
 
 ### Commands
 
-`init`, `switch`, `exec`, `up`, `down`, `logs`, `compose`, `bump`, `edit` (`compose`|`policy`), `policy` (`config`|`render`), `destroy`, `version`.
+`init`, `switch`, `exec`, `up`, `down`, `logs`, `compose`, `bump`, `edit` (`compose`|`policy`), `policy` (`config`|`render`), `destroy`, `version`, and `completion`.
 
-See `cli/README.md` for full documentation of flags and environment variables.
+See `docs/cli.md` for command documentation.
 
 ## Network Policy
 
@@ -174,17 +171,15 @@ After modifying a policy file or proxy addon:
 2. Restart: `docker compose up -d proxy`
 3. Check proxy logs: `docker compose logs proxy`
 
-CLI tests use BATS. Run from the repo root:
+CLI tests use Go. Run from the repo root:
 ```bash
-cli/run-tests.bash
+go test ./...
 ```
-
-See `cli/test/TEST_CONVENTIONS.md` for BATS test structure, assertion patterns, stubbing rules, and yq usage.
 
 ## Image Versioning
 
 GitHub Actions builds images on:
-- Push to main (when `images/**` or `cli/**` changes)
+- Push to main (when `images/**` changes)
 - Daily crons that check for new agent releases (`check-claude-version.yml`, `check-codex-version.yml`, `check-copilot-version.yml`, `check-gemini-version.yml`, `check-factory-version.yml`)
 - Manual workflow dispatch
 
@@ -199,7 +194,7 @@ To update images in a user project: `agentbox bump`.
 
 See the `add-agent` skill at `.agents/skills/add-agent/SKILL.md`, or follow the pattern of an existing agent. A new agent requires:
 - `images/agents/<name>/Dockerfile`
-- `cli/templates/<name>/` (CLI and devcontainer templates)
+- `internal/embeddata/templates/<name>/` (CLI and devcontainer templates)
 - `.github/workflows/check-<name>-version.yml`
 - Entries in `images/proxy/render-policy` (`KNOWN_AGENTS`) and `images/proxy/addons/enforcer.py` (service domains)
 
