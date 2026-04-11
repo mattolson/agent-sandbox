@@ -7,8 +7,6 @@ ARGS ?=
 SETUP_ARGS ?=
 CGO_ENABLED ?= 0
 TARGETS ?= darwin/amd64 darwin/arm64 linux/amd64 linux/arm64
-PARITY_ARGS ?=
-
 HOST_UNAME_S := $(shell uname -s)
 HOST_UNAME_M := $(shell uname -m)
 HOST_GOOS := $(if $(filter Darwin,$(HOST_UNAME_S)),darwin,$(if $(filter Linux,$(HOST_UNAME_S)),linux,unknown))
@@ -18,12 +16,12 @@ HOST_BINARY_LINK := ../$(patsubst ./%,%,$(HOST_BINARY))
 
 .DEFAULT_GOAL := build
 
-.PHONY: setup build test parity run sync-templates verify-templates fmt tidy clean
+.PHONY: setup build test run fmt tidy clean
 
 setup:
 	./scripts/build-dev-image.bash $(SETUP_ARGS)
 
-build: sync-templates
+build:
 	mkdir -p "$(DIST_DIR)" "$(BIN_DIR)"
 	set -eu; \
 	for target in $(TARGETS); do \
@@ -38,20 +36,11 @@ build: sync-templates
 	fi
 	ln -sfn "$(HOST_BINARY_LINK)" "$(BINARY)"
 
-test: verify-templates
+test:
 	$(GO) test ./...
 
-parity: sync-templates
-	./scripts/parity.bash $(PARITY_ARGS)
-
-run: sync-templates
+run:
 	$(GO) run $(CMD_PACKAGE) $(ARGS)
-
-sync-templates:
-	./scripts/sync-go-templates.bash
-
-verify-templates: sync-templates
-	git diff --exit-code -- internal/embeddata/templates
 
 fmt:
 	$(GO) fmt ./...
