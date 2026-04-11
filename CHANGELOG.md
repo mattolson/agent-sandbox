@@ -15,6 +15,46 @@ All notable changes to this project will be documented in this file.
 - **Documented host-side `yq` requirement removed from the primary install flow.** The Go binary handles YAML and JSON natively, so users no longer need `brew install yq` just to install `agentbox`.
 - **Docker CLI image is now documented as a deprecated fallback.** The image remains available during the transition, but it is no longer presented as the primary way to install the CLI.
 
+## [0.12.0] - 2026-03-28 (01b39fe)
+
+OpenCode agent support from `m12`.
+
+### Added
+
+- **OpenCode agent support.** Added the `agent-sandbox-opencode` image, layered CLI and devcontainer templates, CLI agent registry integration, and end-user docs for running OpenCode through the standard `agentbox` workflow.
+- **OpenCode proxy and CI wiring.** Added OpenCode service support in the proxy, image build support in `images/build.sh`, GitHub Actions image publishing, and daily version checks for new OpenCode releases.
+- **Provider-agnostic OpenCode documentation.** Documented provider policy setup for Anthropic, OpenAI, Google, and similar backends, plus the sandbox-specific env vars that disable auto-update and LSP downloads.
+
+## [0.11.0] - 2026-03-25 (fc29431)
+
+Pi agent support from `m11`.
+
+### Added
+
+- **Pi agent support.** Added the `agent-sandbox-pi` image, layered CLI and devcontainer templates, CLI agent registry integration, and end-user docs for running Pi through the standard `agentbox` workflow.
+- **Pi proxy and CI wiring.** Added Pi support in the proxy agent registry, image build support in `images/build.sh`, GitHub Actions image publishing, and daily version checks for new Pi releases.
+- **Provider-agnostic Pi documentation.** Documented provider policy setup, API-key and OAuth-based authentication flows, and the optional npm allowlist needed for `pi install` and `pi update`.
+
+## [0.10.0] - 2026-03-22 (32b5d2d)
+
+Factory agent support from `m10`.
+
+### Added
+
+- **Factory agent support.** Added the `agent-sandbox-factory` image, layered CLI and devcontainer templates, CLI agent registry integration, and end-user docs for running Factory through the standard `agentbox` workflow.
+- **Factory proxy and CI wiring.** Added Factory service domains in the proxy, image build support in `images/build.sh`, GitHub Actions image publishing, and daily version checks for new Factory CLI releases.
+- **Factory auth and usage documentation.** Documented the OAuth-based login flow and the CLI's auto-approve usage mode inside the sandbox.
+
+## [0.9.0] - 2026-03-15 (549b2d5)
+
+Gemini agent support from `m9`.
+
+### Added
+
+- **Gemini agent support.** Added the `agent-sandbox-gemini` image, layered CLI and devcontainer templates, CLI agent registry integration, and end-user docs for running Gemini through the standard `agentbox` workflow.
+- **Gemini proxy and CI wiring.** Added Gemini service domains in the proxy, image build support in `images/build.sh`, GitHub Actions image publishing, and daily version checks for new Gemini CLI releases.
+- **Gemini IDE companion support.** Added VS Code devcontainer integration for the Gemini IDE companion extension while documenting JetBrains as unsupported.
+
 ## [0.8.0] - 2026-03-14 (f422f7a)
 
 Agent switching without data loss, plus a new layered runtime model from `m8`.
