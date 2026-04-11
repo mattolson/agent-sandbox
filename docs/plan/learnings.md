@@ -28,6 +28,7 @@ Lessons learned during project execution. Review at the start of each planning s
 - Shell-escaped state files written with Bash `%q` can be parsed safely in Go with a shell-style splitter instead of sourcing them
 - `go version -m` is a practical way to validate embedded build metadata in cross-compiled Go release binaries without having to execute every target artifact on the current host
 - Stable `releases/latest/download/...` URLs require stable artifact names and stable archive contents; an unversioned filename is not enough if the tarball still unpacks into a versioned directory
+- Keeping the live template source of truth inside the shipped Go codebase is simpler than synchronizing from a legacy tree that exists only for transition compatibility
 
 ## Architecture
 
@@ -66,3 +67,4 @@ Lessons learned during project execution. Review at the start of each planning s
 - Bash `edit` flows are not fully batch-friendly because `open_editor` binds stdio to `/dev/tty`; parity automation needs a pseudo-tty when exercising the real Bash path
 - Bash edit commands use second-resolution mtimes for change detection, so parity fixtures need a deliberate delay before writing file changes or real edits may be misclassified as unchanged
 - Draft-first binary release workflows are safer than publishing first and attaching assets later because they avoid public releases with missing or partial artifacts while keeping the tag as the build source of truth
+- Once the cutover is complete, keeping the legacy implementation around quickly turns into duplicated docs, workflows, and asset pipelines rather than meaningful safety

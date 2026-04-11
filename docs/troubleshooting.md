@@ -39,3 +39,6 @@ and whether that directory is on your `PATH`.
 - `sudo install ... /usr/local/bin/agentbox` works on most macOS and Linux setups because `/usr/local/bin` is already on `PATH`
 - If you install somewhere else, add that directory to your shell profile and start a new shell
 - If your shell still resolves an older command path, run `hash -r` before trying again
+
+If you previously used a shell alias that pointed `agentbox` at the retired Docker CLI image, remove that alias before
+retrying the binary install.

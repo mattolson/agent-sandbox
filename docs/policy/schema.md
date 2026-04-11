@@ -103,7 +103,9 @@ effective policy at startup, so changes require a human-initiated restart.
 
 ## Examples
 
-The single-file base policy template is at [cli/templates/policy.yaml](../../cli/templates/policy.yaml). Layered shared
-and agent-specific user-owned scaffolds are at [cli/templates/user.policy.yaml](../../cli/templates/user.policy.yaml)
-and [cli/templates/user.agent.policy.yaml](../../cli/templates/user.agent.policy.yaml). The managed devcontainer policy
-template is at [cli/templates/policy.devcontainer.yaml](../../cli/templates/policy.devcontainer.yaml).
+The single-file base policy template is at [internal/embeddata/templates/policy.yaml](../../internal/embeddata/templates/policy.yaml).
+Layered shared and agent-specific user-owned scaffolds are at
+[internal/embeddata/templates/user.policy.yaml](../../internal/embeddata/templates/user.policy.yaml) and
+[internal/embeddata/templates/user.agent.policy.yaml](../../internal/embeddata/templates/user.agent.policy.yaml). The
+managed devcontainer policy template is at
+[internal/embeddata/templates/policy.devcontainer.yaml](../../internal/embeddata/templates/policy.devcontainer.yaml).

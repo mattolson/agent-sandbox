@@ -106,7 +106,7 @@ agentbox init
 
 This prompts interactively for the project name, agent, mode, and IDE when needed, then generates the docker compose and network policy files for the sandbox.
 
-See the [CLI README](cli/README.md) for the full list of commands, flags, and environment variables.
+See the [CLI reference](docs/cli.md) for the full list of commands, flags, and environment variables.
 
 To inspect the configuration after init, use `agentbox policy config` to output the effective network policy and
 `agentbox compose config` for the fully combined docker compose stack.

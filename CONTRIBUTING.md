@@ -140,7 +140,7 @@ Run the checks that match your change before asking for review.
 
 Examples:
 
-- `cli/run-tests.bash` for CLI changes
+- `go test ./...` for CLI changes
 - `./images/build.sh` for image changes
 - Focused manual verification for template, proxy, and documentation changes
 

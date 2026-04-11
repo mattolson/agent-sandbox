@@ -31,8 +31,8 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 
 ## m4: Multi-agent support (done)
 
-- Claude Code support (`cli/templates/claude/`)
-- GitHub Copilot CLI support (`cli/templates/copilot/`)
+- Claude Code support
+- GitHub Copilot CLI support
 - Remaining agents promoted to individual milestones (m7, m9-m12)
 
 ## m5: Deep customization (done)
@@ -52,7 +52,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - `agentbox <command>` - pass-through to docker compose
 - `agentbox destroy` - remove containers, volumes, and config
 - `agentbox version` - show version info
-- Docker-based CLI distribution (`ghcr.io/mattolson/agent-sandbox-cli`)
+- Initial Docker-based CLI distribution (retired after the Go CLI cutover)
 - Bash 3.2 compatibility (macOS default shell)
 
 ## m7: [Codex](https://github.com/openai/codex) support (done)
@@ -94,11 +94,11 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - OpenCode installation and configuration
 - Network policy with required API domains
 
-## m13: Go CLI rewrite (planned)
+## m13: Go CLI rewrite (done)
 
 - Rewrite agentbox CLI in Go using Cobra
-- GitHub Releases binaries become the primary install path
-- Docker CLI image remains temporarily as a deprecated fallback until old CLI removal follow-up work lands
+- GitHub Releases binaries are the install path
+- Legacy Bash CLI, parity harness, and Docker CLI image distribution removed after cutover
 - Native YAML handling (drop yq dependency)
 - Cross-compile for macOS (arm64, amd64) and Linux
 - Port all existing commands with improved testing
