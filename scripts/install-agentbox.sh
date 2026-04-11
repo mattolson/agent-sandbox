@@ -45,6 +45,7 @@ normalize_version() {
 VERSION=""
 INSTALL_DIR="${HOME}/.local/bin"
 BASE_URL="${AGENTBOX_RELEASE_BASE_URL:-https://github.com/mattolson/agent-sandbox/releases}"
+START_DIR="$(pwd)"
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
@@ -71,6 +72,11 @@ while [ "$#" -gt 0 ]; do
 		;;
 	esac
 done
+
+case "$INSTALL_DIR" in
+/*) ;;
+*) INSTALL_DIR="${START_DIR}/${INSTALL_DIR}" ;;
+esac
 
 require_command curl
 require_command tar
