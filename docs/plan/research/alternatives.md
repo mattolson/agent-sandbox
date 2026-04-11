@@ -1314,7 +1314,7 @@ When reviewing an item, capture whether it implements any of these primitives:
   - Remote execution or gateway fleet support: no
 - Key strengths:
   - This is a genuine stronger-isolation reference, not just a container-plus-proxy variant
-  - The split between host policy engine, host VFS service, and microVM runtime is directly relevant to `m19-backend-interface`
+  - The split between host policy engine, host VFS service, and microVM runtime is directly relevant to `m20-backend-interface`
   - Network policy is materially richer than our current baseline: host allow-listing, path and method matching, request or response mutation, runtime allow-list edits, and offline mode
   - The VFS layer is more interesting than it first appears; it creates a host-side place to enforce or observe filesystem operations without bind-mounting the host repo directly into the guest
   - Lifecycle persistence and reconciliation are stronger than most research repos in this space
@@ -1335,7 +1335,7 @@ When reviewing an item, capture whether it implements any of these primitives:
 
 - Worth bringing into the vision:
   - a real microVM-backed stronger-isolation backend candidate
-  - host-side VFS and exec control-plane separation as input to `m19-backend-interface`
+  - host-side VFS and exec control-plane separation as input to `m20-backend-interface`
   - richer HTTP policy concepts for `m14`, especially method and path matching plus response shaping
   - lifecycle persistence and explicit garbage-collection or reconcile workflows for leaked sandbox resources
 - Probably not worth bringing in as-is:
@@ -1344,7 +1344,7 @@ When reviewing an item, capture whether it implements any of these primitives:
   - assuming a FUSE or VFS workspace model is the right default for local developer ergonomics before measuring it against a shared mount model
 - Research consequence:
   - Treat `matchlock` as a leading reference for the optional stronger-isolation backend and for backend-interface design, not as an argument to replace the current local default before we have comparative measurements
-  - It should directly inform `m19-backend-interface` and `m21-runtime-spikes-vm`
+  - It should directly inform `m20-backend-interface` and `m22-runtime-spikes-vm`
 
 ### strongdm/leash
 
@@ -1444,7 +1444,7 @@ When reviewing an item, capture whether it implements any of these primitives:
   - accepting materially different network semantics on macOS and Linux under one policy name without very clear degradation rules
 - Research consequence:
   - Treat `leash` as a leading reference for policy IR, rollout modes, and observability, not as proof that a container boundary alone is sufficient for the project's stronger-isolation backend
-  - It should inform `m18-capability-model` and `m19-backend-interface`, especially around event schema, policy compilation, and backend capability degradation
+  - It should inform `m19-capability-model` and `m20-backend-interface`, especially around event schema, policy compilation, and backend capability degradation
 
 ## Research backlog: commercial products
 
@@ -1644,15 +1644,15 @@ Deliverable:
 
 ## Proposed milestones
 
-### m18-capability-model
+### m19-capability-model
 
 Define the threat model, capability matrix, and backend scorecard.
 
-### m19-backend-interface
+### m20-backend-interface
 
 Define a backend-agnostic runner contract, event schema, and policy compiler boundary.
 
-### m20-runtime-spikes-lite
+### m21-runtime-spikes-lite
 
 Build and compare:
 
@@ -1660,21 +1660,21 @@ Build and compare:
 - OS-native backend
 - gVisor backend
 
-### m21-runtime-spikes-vm
+### m22-runtime-spikes-vm
 
 Build and compare:
 
 - Kata backend
 - One heavy-isolation backend such as Firecracker or full VM
 
-### m21-kubernetes-track
+### m23-kubernetes-track
 
 Only if earlier milestones justify it:
 
 - KubeVirt or Kata on Kubernetes
 - Cilium or similar for L7 policy and observability experiments
 
-### m22-decision-and-integration
+### m24-decision-and-integration
 
 Choose:
 
