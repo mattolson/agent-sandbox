@@ -6,8 +6,6 @@ on:
     paths:
       - 'cmd/**'
       - 'internal/**'
-      - 'cli/templates/**'
-      - 'scripts/sync-go-templates.bash'
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/go-tests.yml'
@@ -15,8 +13,6 @@ on:
     paths:
       - 'cmd/**'
       - 'internal/**'
-      - 'cli/templates/**'
-      - 'scripts/sync-go-templates.bash'
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/go-tests.yml'
@@ -35,11 +31,6 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-
-      - name: Verify embedded templates are in sync
-        run: |
-          ./scripts/sync-go-templates.bash
-          git diff --exit-code -- internal/embeddata/templates
 
       - name: Run Go tests with coverage
         run: go test -covermode=atomic -coverprofile=coverage.out ./...

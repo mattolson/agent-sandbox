@@ -3,9 +3,7 @@ package scaffold
 import (
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
-	gruntime "runtime"
 	"strings"
 	"testing"
 )
@@ -32,7 +30,6 @@ func TestReadTemplateLoadsNestedAgentTemplate(t *testing.T) {
 
 func TestYAMLTemplatesUseTwoSpaceIndentation(t *testing.T) {
 	checkYAMLTemplateIndentation(t, "embedded", TemplatesFS())
-	checkYAMLTemplateIndentation(t, "bash-cli", os.DirFS(sourceTemplateDir(t)))
 }
 
 func checkYAMLTemplateIndentation(t *testing.T, label string, templates fs.FS) {
@@ -88,15 +85,4 @@ func leadingIndentWidth(line string) int {
 	}
 
 	return width
-}
-
-func sourceTemplateDir(t *testing.T) string {
-	t.Helper()
-
-	_, filename, _, ok := gruntime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-
-	return filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", "cli", "templates"))
 }

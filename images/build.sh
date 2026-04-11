@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Build agent-sandbox images locally
 #
-# Usage: ./build.sh [base|proxy|claude|copilot|codex|gemini|factory|opencode|pi|cli|all] [docker build options...]
+# Usage: ./build.sh [base|proxy|claude|copilot|codex|gemini|factory|opencode|pi|all] [docker build options...]
 #
 # Environment variables (all optional):
 #   TZ                      - Timezone (default: America/Los_Angeles)
@@ -41,7 +41,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Parse target and extra args
 # If first arg is a known target, use it; otherwise default to 'all'
 case "${1:-}" in
-  base|claude|proxy|copilot|codex|gemini|factory|opencode|pi|cli|all)
+  base|claude|proxy|copilot|codex|gemini|factory|opencode|pi|all)
     TARGET="$1"
     shift
     ;;
@@ -206,16 +206,6 @@ build_opencode() {
     "$SCRIPT_DIR/agents/opencode"
 }
 
-build_cli() {
-  echo "Building agent-sandbox-cli..."
-  [ "$TAG" != "local" ] && echo "  TAG=$TAG"
-  docker build \
-    ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \
-    -f "$SCRIPT_DIR/cli/Dockerfile" \
-    -t agent-sandbox-cli:$TAG \
-    "$SCRIPT_DIR/.."
-}
-
 case "$TARGET" in
   base)
     build_base
@@ -244,9 +234,6 @@ case "$TARGET" in
   pi)
     build_pi
     ;;
-  cli)
-    build_cli
-    ;;
   all)
     build_base
     build_proxy
@@ -257,10 +244,9 @@ case "$TARGET" in
     build_factory
     build_opencode
     build_pi
-    build_cli
     ;;
   *)
-    echo "Usage: $0 [base|proxy|claude|copilot|codex|factory|gemini|opencode|pi|cli|all] [docker build options...]"
+    echo "Usage: $0 [base|proxy|claude|copilot|codex|factory|gemini|opencode|pi|all] [docker build options...]"
     echo ""
     echo "Any additional arguments are passed to docker build."
     echo ""

@@ -7,8 +7,6 @@ import (
 	"strings"
 )
 
-//go:generate ../../scripts/sync-go-templates.bash
-
 //go:embed templates/**
 var embeddedFiles embed.FS
 

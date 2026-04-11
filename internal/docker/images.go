@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Unqualified names remain an intentional local-image escape hatch to match the Bash CLI.
+// Unqualified names remain an intentional local-image escape hatch to preserve current CLI behavior.
 func IsLocalImageRef(image string) bool {
 	return strings.HasSuffix(image, ":local") || !strings.Contains(image, "/")
 }
