@@ -3,14 +3,14 @@
 ## Goal
 
 Extend proxy enforcement from host-only allowlists to request-aware policy rules for HTTP and HTTPS, without weakening
-the current default-deny model or the layered policy ownership model. `m14` should make path, method, and
+the current default-deny model or the layered policy ownership model. `m14` should make scheme, path, method, and
 query-parameter filtering available to later milestones while keeping existing domain-only policies working unchanged
 and preserving CONNECT-time blocking as a fast path when full request inspection is unnecessary.
 
 ## Scope
 
 **Included:**
-- Request-aware matching for HTTP and HTTPS based on host, path, method, and query parameters
+- Request-aware matching for HTTP and HTTPS based on host, scheme, path, method, and query parameters
 - Backward-compatible domain-only behavior, including CONNECT-time fast-path blocking for host-only rules
 - Policy schema and `render-policy` changes needed to express and merge nested request rules under domain entries
 - Rich service definitions that can expand to semantic rule bundles, starting with GitHub restriction use cases
@@ -67,7 +67,7 @@ Do not rely on list position as the merge key.
 
 ### m14.2-request-phase-enforcement
 
-**Summary:** Move enforcement to a matcher that can inspect decrypted HTTPS requests and apply method, path, and query
+**Summary:** Move enforcement to a matcher that can inspect decrypted HTTPS requests and apply scheme, method, path, and query
 rules while preserving the existing host-only CONNECT fast path.
 
 **Scope:**
@@ -79,7 +79,7 @@ rules while preserving the existing host-only CONNECT fast path.
 
 **Acceptance Criteria:**
 - Host-only rules still block at CONNECT when possible
-- HTTPS requests for rule-bearing hosts are allowed or blocked at request time based on method, path, and query rules
+- HTTPS requests for rule-bearing hosts are allowed or blocked at request time based on scheme, method, path, and query rules
 - HTTP and HTTPS matching semantics are aligned for the same policy
 - Block logs carry enough detail to diagnose why a request failed without opening packet traces
 
@@ -186,7 +186,7 @@ Critical path: `m14.1 -> m14.2 -> (m14.3, m14.4) -> m14.5`.
 ## Definition of Done
 
 - Existing domain-only policies still work unchanged, and host-only denies still happen at CONNECT when possible
-- Policy rules can constrain HTTP and HTTPS requests by method, path, and query parameters
+- Policy rules can constrain HTTP and HTTPS requests by scheme, method, path, and query parameters
 - The rendered policy format and merge behavior are documented, deterministic, and validated
 - Service definitions can express at least one GitHub restriction use case through the generic matcher
 - Sending `SIGHUP` reloads policy in place with last-known-good fallback on failure
