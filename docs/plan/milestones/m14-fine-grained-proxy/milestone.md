@@ -18,8 +18,9 @@ and preserving CONNECT-time blocking as a fast path when full request inspection
 - Structured logging, docs, examples, and automated coverage for the new behavior
 
 **Excluded:**
-- Secret injection, header substitution, or other credential features from `m15`
-- Monitoring UI or interactive unblock workflows from `m16`
+- GitHub REST wrapper work from `m15`
+- Secret injection, header substitution, or other credential features from `m16`
+- Monitoring UI or interactive unblock workflows from `m17`
 - Non-HTTP protocols
 - Header matching and request body inspection. For now, a matched URL rule implies the endpoint is trusted to receive
   the full request.
