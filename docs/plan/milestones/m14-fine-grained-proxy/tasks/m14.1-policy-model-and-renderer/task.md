@@ -22,6 +22,17 @@ existing `services` plus string `domains` policies.
 - [ ] New request-aware rules render into a predictable canonical structure consumed by the enforcer
 - [ ] Layered policy inputs compose without duplicate or ambiguous host or rule behavior
 - [ ] Invalid rich-rule configs fail fast with actionable errors
+- [ ] `services` are compiled away into the same rendered host-record IR as authored `domains` entries
+- [ ] Layer merge order is explicit and tested: service expansion or baseline, shared policy, agent policy, then
+      devcontainer policy
+- [ ] Same-identity host records merge additively by default and `merge_mode: replace` replaces earlier same-host
+      records
+- [ ] Overlapping host-pattern matches resolve by specificity: exact host before wildcard host, then longest wildcard
+      suffix
+- [ ] Authored `scheme` plus `schemes` and `method` plus `methods` shorthands normalize deterministically, with
+      warnings emitted on `stderr` when both forms are supplied
+- [ ] Authored method names are case-insensitive and normalize to uppercase in the rendered policy
+- [ ] Authored scalar `query.exact.<name>: value` entries normalize to single-item lists in the rendered policy
 
 ## Applicable Learnings
 
