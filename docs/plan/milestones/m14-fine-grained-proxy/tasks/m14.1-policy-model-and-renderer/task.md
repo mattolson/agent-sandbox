@@ -74,16 +74,24 @@ The working approach is:
 3. Normalize all authored inputs into a canonical rendered policy IR before enforcement. In that IR, every `domains`
    entry should be an object with a normalized `host` key plus an explicit rules collection, even when the authored
    input was a plain string.
-4. Keep `services` symbolic in the rendered policy for now. Expanding them into richer semantic bundles belongs to
-   `m14.3`; this task should not solve that problem early.
-5. Merge rich domain entries by normalized host identity, not by list position. Within a host entry, default to
-   additive rule merging with stable order and de-duplication for equivalent rules.
-6. Add an authored-only escape hatch for host-level override via `merge_mode: replace`. The renderer should consume that
+4. Treat `services` as semantic authored shortcuts, not as another spelling of host records. The renderer should expand
+   service declarations into the same canonical host-record IR as authored `domains` entries, so downstream enforcement
+   sees one policy shape.
+5. Service declarations are allowed to have service-specific authored schemas and options. They do not need to share the
+   same input shape as rich `domains` records as long as they compile into the same rendered IR.
+6. Existing simple services may still expand to catch-all host records, but richer service-specific option schemas such
+   as GitHub repo scoping are deferred to `m14.3`.
+7. Merge all host records, whether authored directly or expanded from services, by normalized host identity rather than
+   by list position. Within a host entry, default to additive rule merging with stable order and de-duplication for
+   equivalent rules.
+8. User-authored host records should be able to override service-expanded host records through the same
+   `merge_mode: replace` behavior used for layered policy inputs.
+9. Add an authored-only escape hatch for host-level override via `merge_mode: replace`. The renderer should consume that
    directive during layering and strip it from the rendered output.
-7. Include `schemes` as a rule dimension now rather than treating `http` and `https` as equivalent by omission.
-8. Treat headers and request bodies as out of scope for `m14.1`. A matched URL rule currently means the endpoint is
+10. Include `schemes` as a rule dimension now rather than treating `http` and `https` as equivalent by omission.
+11. Treat headers and request bodies as out of scope for `m14.1`. A matched URL rule currently means the endpoint is
    trusted to receive the full request; deeper inspection is future work.
-9. Keep the policy model allow-only. Do not add `allow`/`deny` rule polarity or "allow everything on this host except
+12. Keep the policy model allow-only. Do not add `allow`/`deny` rule polarity or "allow everything on this host except
    these" semantics in `m14.1`.
 
 That gives `m14.2` one policy shape to consume while still letting authored YAML stay readable and backward compatible.
@@ -152,6 +160,9 @@ Notes:
 
 - `merge_mode: replace` is an authoring directive, not part of the rendered IR
 - absence of `merge_mode` means additive host merge with rule de-duplication
+- rendered policy should not retain symbolic `services`; they are compiled away into canonical host records
+- service declarations are semantic shortcuts and may use service-specific option schemas
+- service-specific authored schemas are deferred beyond `m14.1`; this task only fixes the rendered IR contract
 - `schemes` should live on rules, not on the host record, so match semantics stay in one place
 - authored omission of `schemes` and `scheme` means both `http` and `https`
 - authored `scheme` is a singular shorthand for `schemes`
@@ -221,9 +232,6 @@ Rendered policy should normalize all `domains` entries to the rich object form, 
 strings. It should also normalize host-wide allows to an explicit catch-all rule rather than `rules: []`:
 
 ```yaml
-services:
-  - github
-
 domains:
   - host: api.openai.com
     rules:
@@ -257,6 +265,8 @@ The renderer should:
 
 - preserve authored compatibility for string entries
 - normalize host records into one rendered shape
+- expand `services` into host records so downstream enforcement consumes one canonical IR
+- treat service declarations as semantic inputs that compile into host records rather than as generic host-record syntax
 - normalize rule records into one rendered shape with explicit `schemes`
 - treat omitted authored `schemes` as `[http, https]` and always emit explicit rendered `schemes`
 - treat omitted authored `methods` as wildcard-any and leave `methods` absent in the rendered policy unless the rule
@@ -268,7 +278,6 @@ The renderer should:
 - reject empty authored rule objects rather than silently treating them as host-wide allow
 - apply `merge_mode: replace` before output
 - emit no merge-control directives in the rendered policy
-- keep service names symbolic for now; richer service expansions are deferred to `m14.3`
 - not add `allow`/`deny` polarity to rules in `m14.1`
 - not add header or request-body match dimensions in `m14.1`
 
@@ -276,10 +285,14 @@ The renderer should:
 
 - [ ] Lock the canonical authored shape and rendered IR shape with concrete examples before touching merge code
 - [ ] Extend `images/proxy/render-policy` to validate, normalize, and merge mixed string and object `domains` entries
-- [ ] Define deterministic host-entry merge rules for layered policy files and implement rule append plus de-duplication
-      without positional list semantics
+- [ ] Define deterministic host-entry merge rules for layered policy files and service-expanded host records, and
+      implement rule append plus de-duplication without positional list semantics
 - [ ] Add direct renderer tests for legacy string domains, mixed authored inputs, layered merges, invalid configs, and
       single-file versus layered rendering
+- [ ] Add direct renderer tests proving that symbolic `services` compile into the same host-record IR as authored
+      `domains` entries
+- [ ] Defer service-specific authored option schemas such as repo-scoped GitHub declarations to `m14.3` while keeping
+      the rendered IR stable
 - [ ] Update `docs/policy/schema.md` and policy templates so the new format is documented without breaking the simple
       host-only path
 - [ ] Make only the downstream compatibility changes needed for `m14.2` to consume the rendered IR cleanly
