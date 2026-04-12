@@ -1,5 +1,34 @@
 # Execution Log: m14.1 - Policy Model and Renderer
 
+## 2026-04-11 05:44 UTC - Separated layer merge order from host-pattern precedence
+
+Updated the task plan after reviewing how overlapping host records from different policy layers should behave.
+
+**Decision:** Distinguish merge-time and match-time behavior explicitly.
+
+- Layers merge first in the existing order: service expansion or baseline, shared policy, agent policy, then
+  devcontainer policy.
+- Host records with the same normalized host identity merge across layers, with additive behavior by default and
+  `merge_mode: replace` as the escape hatch.
+- Host records with different identities coexist in the rendered policy.
+- Only after rendering do match-precedence rules apply: exact host beats wildcard host, and among wildcards the longest
+  suffix wins.
+
+**Example:** If shared policy contains `api.github.com` and agent policy contains `*.github.com`, both records survive
+rendering. Requests to `api.github.com` use the exact-host record; requests to other matching subdomains use the
+wildcard record.
+
+## 2026-04-11 05:44 UTC - Defined precedence for overlapping host patterns
+
+Updated the task plan after reviewing how overlapping exact and wildcard host records should behave.
+
+**Decision:** Allow overlapping host patterns, but resolve them by specificity at match time. Exact host records beat
+wildcard host records, and among wildcard records the longest matching suffix wins.
+
+**Rationale:** In an allow-only model, naive union semantics would let broad wildcard rules silently widen narrow
+exact-host restrictions. Specificity-based matching keeps wildcard convenience without weakening repo- or host-specific
+policy.
+
 ## 2026-04-11 05:44 UTC - Unified service expansion with the canonical rendered host IR
 
 Updated the task plan after a review pass surfaced a real dual-model risk: keeping symbolic `services` in the rendered

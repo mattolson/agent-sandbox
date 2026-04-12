@@ -81,17 +81,23 @@ The working approach is:
    same input shape as rich `domains` records as long as they compile into the same rendered IR.
 6. Existing simple services may still expand to catch-all host records, but richer service-specific option schemas such
    as GitHub repo scoping are deferred to `m14.3`.
-7. Merge all host records, whether authored directly or expanded from services, by normalized host identity rather than
-   by list position. Within a host entry, default to additive rule merging with stable order and de-duplication for
-   equivalent rules.
-8. User-authored host records should be able to override service-expanded host records through the same
+7. Merge layers in existing order: service expansion or baseline first, then shared policy, then agent policy, then
+   devcontainer policy.
+8. Host records with the same normalized host identity should merge across layers rather than by list position. Within a
+   host entry, default to additive rule merging with stable order and de-duplication for equivalent rules.
+9. Host records with different identities should coexist across layers, even if more than one of them can match a given
+   request.
+10. Resolve overlapping host-pattern matches at request-evaluation time by specificity. Exact host records beat wildcard
+   host records, and among wildcard host records the longest matching suffix wins.
+11. User-authored host records should be able to override service-expanded host records or earlier-layer host records
+   with the same normalized host identity through the same
    `merge_mode: replace` behavior used for layered policy inputs.
-9. Add an authored-only escape hatch for host-level override via `merge_mode: replace`. The renderer should consume that
+12. Add an authored-only escape hatch for host-level override via `merge_mode: replace`. The renderer should consume that
    directive during layering and strip it from the rendered output.
-10. Include `schemes` as a rule dimension now rather than treating `http` and `https` as equivalent by omission.
-11. Treat headers and request bodies as out of scope for `m14.1`. A matched URL rule currently means the endpoint is
+13. Include `schemes` as a rule dimension now rather than treating `http` and `https` as equivalent by omission.
+14. Treat headers and request bodies as out of scope for `m14.1`. A matched URL rule currently means the endpoint is
    trusted to receive the full request; deeper inspection is future work.
-12. Keep the policy model allow-only. Do not add `allow`/`deny` rule polarity or "allow everything on this host except
+15. Keep the policy model allow-only. Do not add `allow`/`deny` rule polarity or "allow everything on this host except
    these" semantics in `m14.1`.
 
 That gives `m14.2` one policy shape to consume while still letting authored YAML stay readable and backward compatible.
@@ -159,10 +165,15 @@ domains:
 Notes:
 
 - `merge_mode: replace` is an authoring directive, not part of the rendered IR
-- absence of `merge_mode` means additive host merge with rule de-duplication
+- absence of `merge_mode` means additive host merge with rule de-duplication when the same normalized host identity
+  appears in multiple layers
 - rendered policy should not retain symbolic `services`; they are compiled away into canonical host records
 - service declarations are semantic shortcuts and may use service-specific option schemas
 - service-specific authored schemas are deferred beyond `m14.1`; this task only fixes the rendered IR contract
+- layers merge first, then host-pattern specificity is applied when evaluating a request
+- overlapping host patterns are allowed, but only the most specific matching host record should participate at
+  enforcement time
+- exact host records outrank wildcard host records; among wildcards, the longest matching suffix wins
 - `schemes` should live on rules, not on the host record, so match semantics stay in one place
 - authored omission of `schemes` and `scheme` means both `http` and `https`
 - authored `scheme` is a singular shorthand for `schemes`
@@ -267,6 +278,9 @@ The renderer should:
 - normalize host records into one rendered shape
 - expand `services` into host records so downstream enforcement consumes one canonical IR
 - treat service declarations as semantic inputs that compile into host records rather than as generic host-record syntax
+- apply the existing layer order before request-matching precedence is considered
+- preserve enough host-pattern information in the rendered policy for the matcher to resolve overlapping exact and
+  wildcard records by specificity
 - normalize rule records into one rendered shape with explicit `schemes`
 - treat omitted authored `schemes` as `[http, https]` and always emit explicit rendered `schemes`
 - treat omitted authored `methods` as wildcard-any and leave `methods` absent in the rendered policy unless the rule
@@ -285,8 +299,11 @@ The renderer should:
 
 - [ ] Lock the canonical authored shape and rendered IR shape with concrete examples before touching merge code
 - [ ] Extend `images/proxy/render-policy` to validate, normalize, and merge mixed string and object `domains` entries
-- [ ] Define deterministic host-entry merge rules for layered policy files and service-expanded host records, and
-      implement rule append plus de-duplication without positional list semantics
+- [ ] Define deterministic cross-layer merge rules for same-identity host records, and implement rule append plus
+      de-duplication without positional list semantics
+- [ ] Define and test the layer-order model separately from host-pattern match precedence
+- [ ] Define and test host-pattern precedence so overlapping exact and wildcard records resolve by specificity rather
+      than broadening each other implicitly
 - [ ] Add direct renderer tests for legacy string domains, mixed authored inputs, layered merges, invalid configs, and
       single-file versus layered rendering
 - [ ] Add direct renderer tests proving that symbolic `services` compile into the same host-record IR as authored
