@@ -1,5 +1,23 @@
 # Execution Log: m14.1 - Policy Model and Renderer
 
+## 2026-04-11 05:44 UTC - Unified service expansion with the canonical rendered host IR
+
+Updated the task plan after a review pass surfaced a real dual-model risk: keeping symbolic `services` in the rendered
+policy while normalizing `domains` into rich host records would leave `m14.2` with two policy shapes to interpret.
+
+**Decision:** Treat `services` as an authored convenience only. The renderer should expand them into the same canonical
+host-record IR used for authored `domains` entries.
+
+**Decision:** Refined that model further: `services` are semantic authored shortcuts, not another spelling of generic
+host records. Service declarations may have service-specific option schemas, while the renderer still compiles them into
+the same flattened host-record IR.
+
+**Decision:** Rich service-specific authored schemas, such as GitHub repo scoping, are deferred to `m14.3`. `m14.1`
+only fixes the rendered IR contract and the expansion boundary.
+
+**Decision:** User-authored host records should be able to override service-expanded host records through the same
+`merge_mode: replace` behavior used elsewhere in the layered merge model.
+
 ## 2026-04-11 05:44 UTC - Kept the policy model allow-only
 
 Recorded an explicit scope boundary after discussing whether the rule model should support `allow` versus `deny`.
