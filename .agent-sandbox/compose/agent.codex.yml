@@ -10,9 +10,7 @@ services:
   agent:
     image: ghcr.io/mattolson/agent-sandbox-codex@sha256:883ec21664c410b3943fdca146990e93e91426737cc83b8b6321cdee0ca454ae
     volumes:
-      # Persist Codex config and credentials
       - codex-state:/home/dev/.codex
-      # Persist shell history
       - codex-history:/commandhistory
 volumes:
   codex-state:
