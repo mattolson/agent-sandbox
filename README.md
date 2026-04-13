@@ -25,17 +25,17 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 
 | Agent | CLI | VS Code | JetBrains |
 |-------|-----|---------|-----------|
-| [Claude Code](https://code.claude.com/docs/en/overview) | :green_circle: | :green_circle: | :green_circle: |
-| [Codex](https://github.com/openai/codex) | :green_circle: | :large_blue_circle: | :large_blue_circle: |
-| [Gemini](https://github.com/google-gemini/gemini-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
-| [OpenCode](https://github.com/anomalyco/opencode) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
-| [Pi](https://github.com/badlogic/pi-mono) | :large_blue_circle: | :red_circle: | :red_circle: |
-| [Factory](https://docs.factory.ai/cli) | :large_blue_circle: | :large_blue_circle: | :large_blue_circle: |
-| [Copilot](https://github.com/github/copilot-cli) | :large_blue_circle: | :large_blue_circle: | :red_circle: |
+| [Claude Code](https://code.claude.com/docs/en/overview) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [Codex](https://github.com/openai/codex) | :white_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| [Gemini](https://github.com/google-gemini/gemini-cli) | :heavy_check_mark: | :heavy_check_mark: | :no_entry_sign: |
+| [OpenCode](https://github.com/anomalyco/opencode) | :heavy_check_mark: | :heavy_check_mark: | :no_entry_sign: |
+| [Pi](https://github.com/badlogic/pi-mono) | :heavy_check_mark: | :no_entry_sign: | :no_entry_sign: |
+| [Factory](https://docs.factory.ai/cli) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| [Copilot](https://github.com/github/copilot-cli) | :heavy_check_mark: | :heavy_check_mark: | :no_entry_sign: |
 
-* :green_circle: **Full Support** - stable, heavily used by maintainers
-* :large_blue_circle: **Preview** - tested during initial integration, but not heavily used by maintainers. Contributions, documentation, and bug reports welcome.
-* :red_circle: **Not Supported** - known blockers
+* :white_check_mark: **Full Support** - stable, heavily used by maintainers
+* :heavy_check_mark: **Preview** - tested during initial integration, but not heavily used by maintainers. Contributions, documentation, and bug reports welcome.
+* :no_entry_sign: **Not Supported** - known blockers
   * Copilot's IntelliJ plugin [cannot complete auth in a devcontainer](https://github.com/microsoft/copilot-intellij-feedback/issues/1375).
   * No official Google Gemini plugin available for JetBrains
   * No JetBrains extension available for OpenCode
