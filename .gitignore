@@ -3,6 +3,10 @@
 .env
 .idea
 .vscode
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
 __pycache__/
 *.pyc
 .DS_Store

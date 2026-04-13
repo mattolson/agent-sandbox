@@ -209,8 +209,10 @@ services:
 
 domains:
   - registry.npmjs.org
-  - pypi.org
 ```
+
+Public package registries such as PyPI are intentionally not allowed by default. If you need them, add them explicitly
+to your user or per-agent policy. Prefer a private mirror or proxy when you have one.
 
 If you want to make customizations that apply to a single agent, you can edit the file `.agent-sandbox/policy/user.agent.<agent>.policy.yaml`. For example, to add a domain to the allowlist, but only when using Claude Code, add it to the file `user.agent.claude.policy.yaml`.
 

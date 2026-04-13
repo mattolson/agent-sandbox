@@ -49,26 +49,26 @@ tar -C /usr/local -xzf "${TMPDIR}/${TARBALL}"
 # Go directories for dev user
 mkdir -p \
   /home/dev/go \
+  /home/dev/go/bin \
   /home/dev/.cache/go-build \
   /home/dev/.cache/go-mod \
-  /home/dev/.config/go \
-  /home/dev/.local/bin
-chown -R dev:dev /home/dev/go /home/dev/.cache /home/dev/.config/go /home/dev/.local
+  /home/dev/.config/go
+chown -R dev:dev /home/dev/go /home/dev/.cache /home/dev/.config/go
 
 cat > /etc/zsh/zshenv.d/go.zsh << 'ZSHENV'
 export GOPATH="$HOME/go"
-export GOBIN="$HOME/.local/bin"
+export GOBIN="$HOME/go/bin"
 export GOMODCACHE="$HOME/.cache/go-mod"
 export GOCACHE="$HOME/.cache/go-build"
-export PATH="/usr/local/go/bin:$GOBIN:$GOPATH/bin:$PATH"
+export PATH="$HOME/.local/bin:/usr/local/go/bin:$PATH:$GOBIN:$GOPATH/bin"
 ZSHENV
 
 cat > /etc/profile.d/go.sh << 'PROFILE'
 export GOPATH="$HOME/go"
-export GOBIN="$HOME/.local/bin"
+export GOBIN="$HOME/go/bin"
 export GOMODCACHE="$HOME/.cache/go-mod"
 export GOCACHE="$HOME/.cache/go-build"
-export PATH="/usr/local/go/bin:$GOBIN:$GOPATH/bin:$PATH"
+export PATH="$HOME/.local/bin:/usr/local/go/bin:$PATH:$GOBIN:$GOPATH/bin"
 PROFILE
 
 echo "Go stack installed: $(/usr/local/go/bin/go version)"
