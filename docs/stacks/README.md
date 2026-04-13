@@ -25,7 +25,7 @@ agentbox up -d
 
 | Stack | Script | Version arg | Default | Guide |
 |-------|--------|-------------|---------|-------|
-| Python | `python.sh` | (ignored, uses apt) | System Python 3 | - |
+| Python | `python.sh` | (ignored, uses apt) | System Python 3, pipx, and native build toolchain | [Python stack](./python.md) |
 | Node.js | `node.sh` | Major version | 22 | - |
 | Go | `go.sh` | Full version | 1.26.1 | [Go stack](./go.md) |
 | Rust | `rust.sh` | Toolchain | stable | - |
@@ -34,6 +34,7 @@ Each script handles both amd64 and arm64 architectures.
 
 ## Stack-Specific Guides
 
+- [Python stack](./python.md) - Python build deps, user-local tool paths, and opt-in package registry policy
 - [Go stack](./go.md) - Go environment variables, persistent local dev mounts, and policy requirements
 
 ## Advanced
