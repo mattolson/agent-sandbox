@@ -4,6 +4,7 @@
 # Changes take effect on proxy restart: agentbox compose restart proxy
 #
 # See docs/policy/schema.md for the full format reference.
+# Rich host entries can add request-aware rules under `domains`.
 
 services: []
 domains: []

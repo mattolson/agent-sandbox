@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 import sys
 
@@ -11,6 +12,81 @@ DEFAULT_SHARED_POLICY_PATH = "/etc/agent-sandbox/policy/user.policy.yaml"
 DEFAULT_AGENT_POLICY_PATH = "/etc/agent-sandbox/policy/user.agent.policy.yaml"
 DEFAULT_DEVCONTAINER_POLICY_PATH = "/etc/agent-sandbox/policy/devcontainer.policy.yaml"
 KNOWN_AGENTS = {"claude", "codex", "copilot", "factory", "gemini", "opencode", "pi"}
+SERVICE_DOMAINS = {
+    "github": [
+        "github.com",
+        "*.github.com",
+        "githubusercontent.com",
+        "*.githubusercontent.com",
+    ],
+    "claude": [
+        "*.anthropic.com",
+        "*.claude.ai",
+        "*.claude.com",
+    ],
+    "codex": [
+        "*.openai.com",
+        "chatgpt.com",
+        "*.chatgpt.com",
+    ],
+    "factory": [
+        "api.factory.ai",
+        "api.workos.com",
+    ],
+    "gemini": [
+        "cloudcode-pa.googleapis.com",
+        "generativelanguage.googleapis.com",
+        "oauth2.googleapis.com",
+    ],
+    "opencode": [
+        "opencode.ai",
+        "*.opencode.ai",
+        "models.dev",
+    ],
+    "pi": [],
+    "copilot": [
+        "github.com",
+        "api.github.com",
+        "copilot-telemetry.githubusercontent.com",
+        "collector.github.com",
+        "default.exp-tas.com",
+        "copilot-proxy.githubusercontent.com",
+        "origin-tracker.githubusercontent.com",
+        "*.githubcopilot.com",
+        "*.individual.githubcopilot.com",
+        "*.business.githubcopilot.com",
+        "*.enterprise.githubcopilot.com",
+        "*.githubassets.com",
+    ],
+    "vscode": [
+        "update.code.visualstudio.com",
+        "marketplace.visualstudio.com",
+        "mobile.events.data.microsoft.com",
+        "main.vscode-cdn.net",
+        "*.vsassets.io",
+    ],
+    "jetbrains": [
+        "plugins.jetbrains.com",
+        "downloads.marketplace.jetbrains.com",
+    ],
+    "jetbrains-ai": [
+        "api.jetbrains.ai",
+        "api.app.prod.grazie.aws.intellij.net",
+        "www.jetbrains.com",
+        "account.jetbrains.com",
+        "oauth.account.jetbrains.com",
+        "frameworks.jetbrains.com",
+        "cloudconfig.jetbrains.com",
+        "download.jetbrains.com",
+        "download-cf.jetbrains.com",
+        "download-cdn.jetbrains.com",
+        "resources.jetbrains.com",
+        "cdn.agentclientprotocol.com",
+    ],
+}
+ALLOWED_SCHEMES = ("http", "https")
+DEFAULT_RULE_SCHEMES = ["http", "https"]
+MISSING = object()
 
 
 def fail(message):
@@ -18,24 +94,8 @@ def fail(message):
     sys.exit(1)
 
 
-def normalize_list(values, field_name="list"):
-    items = []
-    seen = set()
-
-    for value in values or []:
-        if value is None:
-            continue
-        if not isinstance(value, str):
-            fail(
-                f"Policy field '{field_name}' must contain only strings, "
-                f"got {type(value).__name__}: {value!r}"
-            )
-        if value in seen:
-            continue
-        seen.add(value)
-        items.append(value)
-
-    return items
+def warn(message):
+    print(f"warning: {message}", file=sys.stderr)
 
 
 def load_policy_file(path, required=False):
@@ -63,14 +123,12 @@ def load_policy_file(path, required=False):
     return data
 
 
-def merge_policy(base, overlay):
+def merge_other_fields(base, overlay):
     merged = dict(base)
 
     for key, value in overlay.items():
-        if key in ("services", "domains"):
-            merged[key] = normalize_list((merged.get(key) or []) + (value or []), key)
-        elif isinstance(merged.get(key), dict) and isinstance(value, dict):
-            merged[key] = merge_policy(merged[key], value)
+        if isinstance(merged.get(key), dict) and isinstance(value, dict):
+            merged[key] = merge_other_fields(merged[key], value)
         elif isinstance(value, list):
             merged[key] = list(value)
         else:
@@ -79,11 +137,417 @@ def merge_policy(base, overlay):
     return merged
 
 
-def normalize_policy(policy):
-    normalized = dict(policy)
-    normalized["services"] = normalize_list(normalized.get("services") or [], "services")
-    normalized["domains"] = normalize_list(normalized.get("domains") or [], "domains")
+def remove_policy_list_fields(policy):
+    return {
+        key: value
+        for key, value in policy.items()
+        if key not in ("services", "domains")
+    }
+
+
+def normalize_string(value, context):
+    if not isinstance(value, str):
+        fail(f"{context} must be a string, got {type(value).__name__}: {value!r}")
+
+    normalized = value.strip()
+    if not normalized:
+        fail(f"{context} must not be empty")
+
     return normalized
+
+
+def normalize_host_pattern(value, context):
+    host = normalize_string(value, context).lower()
+
+    if "://" in host or "/" in host or "?" in host or "#" in host:
+        fail(f"{context} must be a bare host or wildcard host, got {value!r}")
+    if ":" in host:
+        fail(f"{context} must not include a port, got {value!r}")
+
+    if host.startswith("*."):
+        suffix = host[2:]
+        if not suffix or suffix.startswith(".") or "*" in suffix:
+            fail(f"{context} has an invalid wildcard host {value!r}")
+        return f"*.{suffix}"
+
+    if "*" in host:
+        fail(
+            f"{context} uses unsupported wildcard syntax {value!r}; "
+            "only a leading '*.' wildcard is supported"
+        )
+
+    return host
+
+
+def make_catch_all_rule():
+    return {"schemes": list(DEFAULT_RULE_SCHEMES)}
+
+
+def normalize_service_name(value, context):
+    service = normalize_string(value, context)
+    if service not in SERVICE_DOMAINS:
+        fail(
+            f"{context} references unknown service {service!r}; "
+            f"expected one of {sorted(SERVICE_DOMAINS)}"
+        )
+    return service
+
+
+def normalize_merge_mode(value, context):
+    if value is MISSING:
+        return None
+
+    merge_mode = normalize_string(value, f"{context}.merge_mode").lower()
+    if merge_mode != "replace":
+        fail(
+            f"{context}.merge_mode must be 'replace' when set, got {value!r}"
+        )
+
+    return merge_mode
+
+
+def normalize_scheme_values(values, context, field_name):
+    seen = set()
+
+    for index, value in enumerate(values):
+        scheme = normalize_string(value, f"{context}.{field_name}[{index}]").lower()
+        if scheme not in ALLOWED_SCHEMES:
+            fail(
+                f"{context}.{field_name}[{index}] must be one of {sorted(ALLOWED_SCHEMES)}, "
+                f"got {value!r}"
+            )
+        seen.add(scheme)
+
+    if not seen:
+        fail(f"{context}.{field_name} must not be empty")
+
+    return [scheme for scheme in ALLOWED_SCHEMES if scheme in seen]
+
+
+def normalize_method_values(values, context, field_name):
+    seen = set()
+
+    for index, value in enumerate(values):
+        method = normalize_string(value, f"{context}.{field_name}[{index}]").upper()
+        if any(character.isspace() for character in method):
+            fail(
+                f"{context}.{field_name}[{index}] must not contain whitespace, got {value!r}"
+            )
+        seen.add(method)
+
+    if not seen:
+        fail(f"{context}.{field_name} must not be empty")
+
+    return sorted(seen)
+
+
+def normalize_rule_schemes(rule, context):
+    singular = rule.get("scheme", MISSING)
+    plural = rule.get("schemes", MISSING)
+
+    if singular is not MISSING and plural is not MISSING:
+        warn(
+            f"{context} supplied both 'scheme' and 'schemes'; "
+            "merging them into the rendered 'schemes' list"
+        )
+
+    values = []
+    saw_field = False
+
+    if singular is not MISSING:
+        saw_field = True
+        values.extend(normalize_scheme_values([singular], context, "scheme"))
+    if plural is not MISSING:
+        saw_field = True
+        if not isinstance(plural, list):
+            fail(
+                f"{context}.schemes must be a YAML list, got {type(plural).__name__}: {plural!r}"
+            )
+        values.extend(normalize_scheme_values(plural, context, "schemes"))
+
+    if not saw_field:
+        return list(DEFAULT_RULE_SCHEMES)
+
+    seen = set(values)
+    return [scheme for scheme in ALLOWED_SCHEMES if scheme in seen]
+
+
+def normalize_rule_methods(rule, context):
+    singular = rule.get("method", MISSING)
+    plural = rule.get("methods", MISSING)
+
+    if singular is not MISSING and plural is not MISSING:
+        warn(
+            f"{context} supplied both 'method' and 'methods'; "
+            "merging them into the rendered 'methods' list"
+        )
+
+    values = []
+    saw_field = False
+
+    if singular is not MISSING:
+        saw_field = True
+        values.extend(normalize_method_values([singular], context, "method"))
+    if plural is not MISSING:
+        saw_field = True
+        if not isinstance(plural, list):
+            fail(
+                f"{context}.methods must be a YAML list, got {type(plural).__name__}: {plural!r}"
+            )
+        values.extend(normalize_method_values(plural, context, "methods"))
+
+    if not saw_field:
+        return None
+
+    return sorted(set(values))
+
+
+def normalize_path_matcher(value, context):
+    if not isinstance(value, dict):
+        fail(f"{context}.path must be a YAML mapping, got {type(value).__name__}: {value!r}")
+
+    unknown_keys = sorted(set(value) - {"exact", "prefix"})
+    if unknown_keys:
+        fail(f"{context}.path contains unsupported keys: {unknown_keys}")
+
+    match_keys = [key for key in ("exact", "prefix") if key in value]
+    if len(match_keys) != 1:
+        fail(f"{context}.path must contain exactly one of 'exact' or 'prefix'")
+
+    match_key = match_keys[0]
+    path_value = normalize_string(value[match_key], f"{context}.path.{match_key}")
+    if not path_value.startswith("/"):
+        fail(
+            f"{context}.path.{match_key} must start with '/', got {value[match_key]!r}"
+        )
+
+    return {match_key: path_value}
+
+
+def normalize_query_matcher(value, context):
+    if not isinstance(value, dict):
+        fail(f"{context}.query must be a YAML mapping, got {type(value).__name__}: {value!r}")
+
+    unknown_keys = sorted(set(value) - {"exact"})
+    if unknown_keys:
+        fail(f"{context}.query contains unsupported keys: {unknown_keys}")
+
+    if "exact" not in value:
+        fail(f"{context}.query must contain an 'exact' matcher")
+
+    exact = value["exact"]
+    if not isinstance(exact, dict):
+        fail(
+            f"{context}.query.exact must be a YAML mapping, got {type(exact).__name__}: {exact!r}"
+        )
+
+    normalized_exact = {}
+
+    for name in sorted(exact):
+        if not isinstance(name, str) or not name:
+            fail(f"{context}.query.exact keys must be non-empty strings, got {name!r}")
+
+        raw_values = exact[name]
+        if isinstance(raw_values, str):
+            normalized_exact[name] = [raw_values]
+            continue
+
+        if not isinstance(raw_values, list):
+            fail(
+                f"{context}.query.exact.{name} must be a string or YAML list of strings, "
+                f"got {type(raw_values).__name__}: {raw_values!r}"
+            )
+
+        if not raw_values:
+            fail(f"{context}.query.exact.{name} must not be an empty list")
+
+        values = []
+        for index, item in enumerate(raw_values):
+            if not isinstance(item, str):
+                fail(
+                    f"{context}.query.exact.{name}[{index}] must be a string, "
+                    f"got {type(item).__name__}: {item!r}"
+                )
+            values.append(item)
+        normalized_exact[name] = sorted(values)
+
+    return {"exact": normalized_exact}
+
+
+def normalize_rule(rule, context):
+    if not isinstance(rule, dict):
+        fail(f"{context} must be a YAML mapping, got {type(rule).__name__}: {rule!r}")
+
+    supported_keys = {"scheme", "schemes", "method", "methods", "path", "query"}
+    unknown_keys = sorted(set(rule) - supported_keys)
+    if unknown_keys:
+        fail(f"{context} contains unsupported keys: {unknown_keys}")
+
+    if not rule:
+        fail(
+            f"{context} must not be empty; "
+            "use an explicit catch-all rule such as 'scheme: https' for host-wide trust"
+        )
+
+    normalized = {
+        "schemes": normalize_rule_schemes(rule, context),
+    }
+
+    methods = normalize_rule_methods(rule, context)
+    if methods is not None:
+        normalized["methods"] = methods
+
+    if "path" in rule:
+        normalized["path"] = normalize_path_matcher(rule["path"], context)
+
+    if "query" in rule:
+        normalized["query"] = normalize_query_matcher(rule["query"], context)
+
+    return normalized
+
+
+def rule_identity(rule):
+    return json.dumps(rule, sort_keys=True, separators=(",", ":"))
+
+
+def dedupe_rules(rules):
+    result = []
+    seen = set()
+
+    for rule in rules:
+        identity = rule_identity(rule)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        result.append(rule)
+
+    return result
+
+
+def normalize_rules(value, context):
+    if not isinstance(value, list):
+        fail(f"{context}.rules must be a YAML list, got {type(value).__name__}: {value!r}")
+
+    if not value:
+        fail(
+            f"{context}.rules must not be empty; "
+            "use a string domain entry or an explicit catch-all rule instead"
+        )
+
+    normalized = []
+    for index, rule in enumerate(value):
+        normalized.append(normalize_rule(rule, f"{context}.rules[{index}]"))
+
+    return dedupe_rules(normalized)
+
+
+def make_host_record(host, rules=None):
+    return {
+        "host": host,
+        "rules": list(rules or [make_catch_all_rule()]),
+    }
+
+
+def normalize_domain_entry(entry, context):
+    if isinstance(entry, str):
+        host = normalize_host_pattern(entry, context)
+        return make_host_record(host), None
+
+    if not isinstance(entry, dict):
+        fail(
+            f"{context} must be either a string host or a YAML mapping, "
+            f"got {type(entry).__name__}: {entry!r}"
+        )
+
+    supported_keys = {"host", "merge_mode", "rules"}
+    unknown_keys = sorted(set(entry) - supported_keys)
+    if unknown_keys:
+        fail(f"{context} contains unsupported keys: {unknown_keys}")
+
+    if "host" not in entry:
+        fail(f"{context} must contain 'host'")
+    if "rules" not in entry:
+        fail(
+            f"{context} must contain 'rules'; "
+            "use a string domain entry for a catch-all host allow"
+        )
+
+    host = normalize_host_pattern(entry["host"], f"{context}.host")
+    merge_mode = normalize_merge_mode(entry.get("merge_mode", MISSING), context)
+    rules = normalize_rules(entry["rules"], context)
+    return make_host_record(host, rules), merge_mode
+
+
+def host_sort_key(record, original_index):
+    host = record["host"]
+    if host.startswith("*."):
+        return (1, -len(host[2:]), original_index)
+    return (0, 0, original_index)
+
+
+def make_render_state():
+    return {
+        "hosts": {},
+        "order": [],
+        "other": {},
+    }
+
+
+def apply_host_record(state, record, merge_mode=None):
+    host = record["host"]
+
+    if host in state["hosts"]:
+        if merge_mode == "replace":
+            state["hosts"][host] = {
+                "host": host,
+                "rules": list(record["rules"]),
+            }
+            return
+
+        state["hosts"][host]["rules"] = dedupe_rules(
+            state["hosts"][host]["rules"] + list(record["rules"])
+        )
+        return
+
+    state["order"].append(host)
+    state["hosts"][host] = {
+        "host": host,
+        "rules": list(record["rules"]),
+    }
+
+
+def apply_policy_layer(state, policy, context):
+    state["other"] = merge_other_fields(
+        state["other"],
+        remove_policy_list_fields(policy),
+    )
+
+    for index, service_value in enumerate(policy.get("services") or []):
+        service = normalize_service_name(service_value, f"{context}.services[{index}]")
+        for host_index, host_value in enumerate(SERVICE_DOMAINS[service]):
+            host = normalize_host_pattern(
+                host_value,
+                f"{context}.services[{index}] expansion[{host_index}]",
+            )
+            apply_host_record(state, make_host_record(host))
+
+    for index, domain_value in enumerate(policy.get("domains") or []):
+        record, merge_mode = normalize_domain_entry(
+            domain_value,
+            f"{context}.domains[{index}]",
+        )
+        apply_host_record(state, record, merge_mode)
+
+
+def finalize_render_state(state):
+    rendered = dict(state["other"])
+    ordered_records = [state["hosts"][host] for host in state["order"]]
+    order_by_host = {host: index for index, host in enumerate(state["order"])}
+    rendered["domains"] = sorted(
+        ordered_records,
+        key=lambda record: host_sort_key(record, order_by_host[record["host"]]),
+    )
+    return rendered
 
 
 def render_layered_policy(active_agent):
@@ -91,19 +555,23 @@ def render_layered_policy(active_agent):
     agent_policy_path = os.getenv("AGENTBOX_AGENT_POLICY_PATH", DEFAULT_AGENT_POLICY_PATH)
     devcontainer_policy_path = os.getenv("AGENTBOX_DEVCONTAINER_POLICY_PATH", DEFAULT_DEVCONTAINER_POLICY_PATH)
 
-    merged = {
-        "services": [active_agent],
-        "domains": [],
-    }
-    merged = merge_policy(merged, load_policy_file(shared_policy_path))
-    merged = merge_policy(merged, load_policy_file(agent_policy_path))
-    merged = merge_policy(merged, load_policy_file(devcontainer_policy_path))
-    return normalize_policy(merged)
+    state = make_render_state()
+    apply_policy_layer(state, {"services": [active_agent], "domains": []}, "baseline")
+    apply_policy_layer(state, load_policy_file(shared_policy_path), shared_policy_path)
+    apply_policy_layer(state, load_policy_file(agent_policy_path), agent_policy_path)
+    apply_policy_layer(state, load_policy_file(devcontainer_policy_path), devcontainer_policy_path)
+    return finalize_render_state(state)
 
 
 def render_single_policy():
     policy_source_path = os.getenv("AGENTBOX_POLICY_SOURCE_PATH", DEFAULT_SINGLE_POLICY_PATH)
-    return normalize_policy(load_policy_file(policy_source_path, required=True))
+    state = make_render_state()
+    apply_policy_layer(
+        state,
+        load_policy_file(policy_source_path, required=True),
+        policy_source_path,
+    )
+    return finalize_render_state(state)
 
 
 def render_policy():

@@ -18,7 +18,8 @@ existing `services` plus string `domains` policies.
 
 ## Acceptance Criteria
 
-- [ ] Existing policies that only use `services` and string `domains` render unchanged
+- [ ] Existing policies that only use `services` and string `domains` require no authoring changes and preserve their
+      host-allow semantics after rendering
 - [ ] New request-aware rules render into a predictable canonical structure consumed by the enforcer
 - [ ] Layered policy inputs compose without duplicate or ambiguous host or rule behavior
 - [ ] Invalid rich-rule configs fail fast with actionable errors
@@ -308,23 +309,23 @@ The renderer should:
 
 ### Implementation Steps
 
-- [ ] Lock the canonical authored shape and rendered IR shape with concrete examples before touching merge code
-- [ ] Extend `images/proxy/render-policy` to validate, normalize, and merge mixed string and object `domains` entries
-- [ ] Define deterministic cross-layer merge rules for same-identity host records, and implement rule append plus
+- [x] Lock the canonical authored shape and rendered IR shape with concrete examples before touching merge code
+- [x] Extend `images/proxy/render-policy` to validate, normalize, and merge mixed string and object `domains` entries
+- [x] Define deterministic cross-layer merge rules for same-identity host records, and implement rule append plus
       de-duplication without positional list semantics
-- [ ] Define and test the layer-order model separately from host-pattern match precedence
-- [ ] Define and test host-pattern precedence so overlapping exact and wildcard records resolve by specificity rather
+- [x] Define and test the layer-order model separately from host-pattern match precedence
+- [x] Define and test host-pattern precedence so overlapping exact and wildcard records resolve by specificity rather
       than broadening each other implicitly
-- [ ] Add direct renderer tests for legacy string domains, mixed authored inputs, layered merges, invalid configs, and
+- [x] Add direct renderer tests for legacy string domains, mixed authored inputs, layered merges, invalid configs, and
       single-file versus layered rendering
-- [ ] Add direct renderer tests proving that symbolic `services` compile into the same host-record IR as authored
+- [x] Add direct renderer tests proving that symbolic `services` compile into the same host-record IR as authored
       `domains` entries
-- [ ] Defer service-specific authored option schemas such as repo-scoped GitHub declarations to `m14.3` while keeping
+- [x] Defer service-specific authored option schemas such as repo-scoped GitHub declarations to `m14.3` while keeping
       the rendered IR stable
-- [ ] Update `docs/policy/schema.md` and policy templates so the new format is documented without breaking the simple
+- [x] Update `docs/policy/schema.md` and policy templates so the new format is documented without breaking the simple
       host-only path
-- [ ] Make only the downstream compatibility changes needed for `m14.2` to consume the rendered IR cleanly
-- [ ] Verify `agentbox policy config` still exposes the rendered policy and existing domain-only projects remain
+- [x] Make only the downstream compatibility changes needed for `m14.2` to consume the rendered IR cleanly
+- [x] Verify `agentbox policy config` still exposes the rendered policy and existing domain-only projects remain
       semantically unchanged
 
 ### Open Questions
@@ -336,12 +337,43 @@ The renderer should:
 
 ### Acceptance Verification
 
-- Pending execution.
+- [x] Existing policies that only use `services` and string `domains` require no authoring changes and preserve their
+      host-allow semantics after rendering
+- [x] New request-aware rules render into a predictable canonical structure consumed by the enforcer
+- [x] Layered policy inputs compose without duplicate or ambiguous host or rule behavior
+- [x] Invalid rich-rule configs fail fast with actionable errors
+- [x] `services` are compiled away into the same rendered host-record IR as authored `domains` entries
+- [x] Layer merge order is explicit and tested: service expansion or baseline, shared policy, agent policy, then
+      devcontainer policy
+- [x] Same-identity host records merge additively by default and `merge_mode: replace` replaces earlier same-host
+      records
+- [x] Overlapping host-pattern matches resolve by specificity: exact host before wildcard host, then longest wildcard
+      suffix
+- [x] Authored `scheme` plus `schemes` and `method` plus `methods` shorthands normalize deterministically, with
+      warnings emitted on `stderr` when both forms are supplied
+- [x] Authored method names are case-insensitive and normalize to uppercase in the rendered policy
+- [x] Authored scalar `query.exact.<name>: value` entries normalize to single-item lists in the rendered policy
+
+Verification notes:
+
+- Added direct renderer unit tests under `images/proxy/tests/` plus a dedicated GitHub Actions workflow at
+  `.github/workflows/proxy-tests.yml`
+- `go test ./...` passed locally
+- The current workspace does not have a Python runtime or Docker CLI, so the new proxy-side Python tests could not be
+  executed locally from this container and are expected to run in CI
 
 ### Learnings
 
-- None yet. Planning only.
+- Proxy-image Python code needs its own direct test path and CI workflow; the Go suite does not exercise
+  `images/proxy/render-policy`.
+- Compiling `services` away into canonical host records removes the downstream dual-shape parsing problem and keeps the
+  enforcer aligned with the rendered IR contract.
+- This container cannot execute Python- or Docker-based proxy verification locally, so task verification has to be
+  split between local Go coverage and CI for proxy-image Python code.
 
 ### Follow-up Items
 
-- Resolve the schema and merge-contract open questions before approving implementation.
+- `m14.2` should consume the canonical rendered `domains` host-record IR and use the rendered specificity order for
+  request-phase evaluation.
+- If `m14.3` introduces richer service schemas, move the service catalog out of `render-policy` into a shared proxy-side
+  module instead of duplicating service knowledge again.

@@ -4,6 +4,10 @@ Proxy policy enforcement addon for mitmproxy.
 Logs HTTP/HTTPS traffic to stdout in JSON format.
 In enforce mode, blocks requests to domains not on the allowlist.
 
+The addon reads the rendered policy IR emitted by `render-policy`. In `m14.1`
+that IR is canonicalized to a single top-level `domains` list where each entry
+is a host record with a `host` field and normalized `rules`.
+
 Environment variables:
   PROXY_MODE: log (allow all) or enforce (block non-allowed)
   PROXY_LOG_LEVEL: quiet (errors only) or normal (default, one line per request)
@@ -17,79 +21,6 @@ from datetime import datetime, timezone
 import yaml
 from mitmproxy import http
 
-SERVICE_DOMAINS = {
-    "github": [
-        "github.com",
-        "*.github.com",
-        "githubusercontent.com",
-        "*.githubusercontent.com",
-    ],
-    "claude": [
-        "*.anthropic.com",
-        "*.claude.ai",
-        "*.claude.com",
-    ],
-    "codex": [
-        "*.openai.com",
-        "chatgpt.com",
-        "*.chatgpt.com",
-    ],
-    "factory": [
-        "api.factory.ai",
-        "api.workos.com",
-    ],
-    "gemini": [
-        "cloudcode-pa.googleapis.com",
-        "generativelanguage.googleapis.com",
-        "oauth2.googleapis.com",
-    ],
-    "opencode": [
-        "opencode.ai",
-        "*.opencode.ai",
-        "models.dev",
-    ],
-    "pi": [],
-    "copilot": [
-        "github.com",
-        "api.github.com",
-        "copilot-telemetry.githubusercontent.com",
-        "collector.github.com",
-        "default.exp-tas.com",
-        "copilot-proxy.githubusercontent.com",
-        "origin-tracker.githubusercontent.com",
-        "*.githubcopilot.com",
-        "*.individual.githubcopilot.com",
-        "*.business.githubcopilot.com",
-        "*.enterprise.githubcopilot.com",
-        "*.githubassets.com",
-    ],
-    "vscode": [
-        "update.code.visualstudio.com",
-        "marketplace.visualstudio.com",
-        "mobile.events.data.microsoft.com",
-        "main.vscode-cdn.net",
-        "*.vsassets.io",
-    ],
-    "jetbrains": [
-       "plugins.jetbrains.com",
-       "downloads.marketplace.jetbrains.com",
-    ],
-    "jetbrains-ai": [
-        "api.jetbrains.ai",
-        "api.app.prod.grazie.aws.intellij.net",
-        "www.jetbrains.com",
-        "account.jetbrains.com",
-        "oauth.account.jetbrains.com",
-        "frameworks.jetbrains.com",
-        "cloudconfig.jetbrains.com",
-        "download.jetbrains.com",
-        "download-cf.jetbrains.com",
-        "download-cdn.jetbrains.com",
-        "resources.jetbrains.com",
-        "cdn.agentclientprotocol.com",
-    ],
-}
-
 
 class PolicyEnforcer:
     def __init__(self):
@@ -97,6 +28,7 @@ class PolicyEnforcer:
         self.log_level = os.getenv("PROXY_LOG_LEVEL", "normal")
         self.allowed_exact = set()
         self.allowed_wildcards = []
+        self.domain_records = []
 
         if self.mode == "enforce":
             self._load_policy()
@@ -116,32 +48,68 @@ class PolicyEnforcer:
         with open(policy_path) as f:
             policy = yaml.safe_load(f) or {}
 
-        for svc in policy.get("services") or []:
-            patterns = SERVICE_DOMAINS.get(svc)
-            if patterns is not None:
-                for domain in patterns:
-                    self._add_domain(domain)
-            else:
-                self._log_info(f"Unknown service '{svc}' in policy, skipping")
+        if not isinstance(policy, dict):
+            self._log_info(f"Policy at {policy_path} must be a YAML mapping")
+            sys.exit(1)
 
-        for domain in policy.get("domains") or []:
-            self._add_domain(domain)
+        self.domain_records = self._load_domain_records(policy.get("domains") or [])
+
+        for domain in self.domain_records:
+            self._add_domain(domain["host"])
 
         self._log_info(
-            f"Policy loaded from {policy_path}: {len(self.allowed_exact)} exact, "
-            f"{len(self.allowed_wildcards)} wildcard"
+            f"Policy loaded from {policy_path}: {len(self.domain_records)} host records, "
+            f"{len(self.allowed_exact)} exact, {len(self.allowed_wildcards)} wildcard"
         )
 
     def _add_domain(self, domain):
+        domain = domain.lower()
         self._log_info(f"Adding '{domain}' to allowlist")
         if domain.startswith("*."):
             self.allowed_wildcards.append(domain[2:])
         else:
             self.allowed_exact.add(domain)
 
+    def _load_domain_records(self, domains):
+        records = []
+
+        for index, domain in enumerate(domains):
+            if isinstance(domain, str):
+                records.append({"host": domain})
+                continue
+
+            if not isinstance(domain, dict):
+                self._log_info(
+                    f"Policy domains[{index}] must be a string or mapping, "
+                    f"got {type(domain).__name__}: {domain!r}"
+                )
+                sys.exit(1)
+
+            host = domain.get("host")
+            if not isinstance(host, str) or not host:
+                self._log_info(
+                    f"Policy domains[{index}].host must be a non-empty string, got {host!r}"
+                )
+                sys.exit(1)
+
+            records.append(domain)
+
+        indexed_records = list(enumerate(records))
+        sorted_records = sorted(
+            indexed_records,
+            key=lambda item: self._host_sort_key(item[1]["host"], item[0]),
+        )
+        return [record for _, record in sorted_records]
+
+    def _host_sort_key(self, host, original_index):
+        if host.startswith("*."):
+            return (1, -len(host[2:]), original_index)
+        return (0, 0, original_index)
+
     def _is_allowed(self, host):
         if self.mode == "log":
             return True
+        host = host.lower()
         if host in self.allowed_exact:
             return True
         for suffix in self.allowed_wildcards:

@@ -1,5 +1,44 @@
 # Execution Log: m14.1 - Policy Model and Renderer
 
+## 2026-04-12 06:07 UTC - Renderer, tests, and docs updated for the canonical host-record IR
+
+Implemented the `m14.1` renderer contract in `images/proxy/render-policy`, added direct renderer tests under
+`images/proxy/tests/`, added a dedicated `proxy-tests.yml` workflow, updated the minimal enforcer loader compatibility
+in `images/proxy/addons/enforcer.py`, and rewrote the policy schema docs and templates to match the new authored and
+rendered shapes.
+
+**Decision:** Treat legacy `services` plus string `domains` policies as authoring-compatible and semantically stable,
+not byte-for-byte rendered-output stable. The renderer now intentionally compiles `services` away into canonical host
+records.
+
+**Decision:** Fail fast on unknown service names and invalid rich-rule shapes instead of silently skipping them. This is
+the safer boundary for a security-sensitive renderer.
+
+**Issue:** The current workspace does not have a Python runtime or Docker CLI, so the new proxy-side Python tests
+cannot be executed locally here.
+
+**Solution:** Added direct renderer unit tests plus a dedicated GitHub Actions workflow for them, and used `go test
+./...` as the executable local verification that was still available in this container.
+
+## 2026-04-12 05:55 UTC - Execution started from the approved task plan
+
+Revalidated the current worktree after the interrupted start and confirmed the only pending change was the prior
+planning-approval log entry. Began implementation with the renderer as the primary surface, since the current
+`render-policy` still treats `domains` as a simple string union and cannot support rich host records safely.
+
+**Decision:** Start by replacing the renderer merge model with a canonical host-record IR and only then make the
+minimal enforcer and documentation changes needed around it.
+
+## 2026-04-12 05:38 UTC - Planning approved, implementation intentionally deferred
+
+The user approved the current `m14.1` task plan after the schema review passes on services, layer precedence, host
+specificity, shorthands, and trust boundaries.
+
+**Decision:** Treat the current task plan as the approved execution baseline for `m14.1`.
+
+**Decision:** Do not begin implementation yet. The task is ready to start, but execution remains explicitly paused until
+the user asks to proceed.
+
 ## 2026-04-11 05:44 UTC - Separated layer merge order from host-pattern precedence
 
 Updated the task plan after reviewing how overlapping host records from different policy layers should behave.
