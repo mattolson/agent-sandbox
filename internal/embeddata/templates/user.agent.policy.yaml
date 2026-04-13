@@ -4,6 +4,8 @@
 # Changes take effect after switching to this agent and restarting the proxy.
 #
 # See docs/policy/schema.md for the full format reference.
+# Use `merge_mode: replace` on a domain entry here to replace the accumulated
+# record for the same host from earlier layers.
 
 services: []
 domains: []

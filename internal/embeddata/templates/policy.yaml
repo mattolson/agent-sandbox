@@ -6,8 +6,16 @@
 # See docs/policy/schema.md for the full format reference.
 
 # Services allowed through the proxy.
-# See images/proxy/addons/enforcer.py for definitions.
+# See images/proxy/render-policy for definitions.
 services: []
 
-# Additional domains allowed through the proxy
+# Additional hosts allowed through the proxy.
+# Rich entries can carry request-aware rules, for example:
+# domains:
+#   - host: api.github.com
+#     rules:
+#       - scheme: https
+#         method: get
+#         path:
+#           prefix: /repos/example/
 domains: []

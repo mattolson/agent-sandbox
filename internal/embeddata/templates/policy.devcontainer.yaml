@@ -4,6 +4,8 @@
 #
 # This file holds agentbox-managed devcontainer policy additions, such as IDE service allowlists.
 # See docs/policy/schema.md for the full format reference.
+# Managed files stay on the simple `services` and string `domains` path; richer
+# request-aware rules belong in the user-owned policy layers.
 
 services: []
 domains: []
