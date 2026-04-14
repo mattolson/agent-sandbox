@@ -17,11 +17,9 @@ services:
       - go-build-cache:/home/dev/.cache/go-build
       - go-env:/home/dev/.config/go
       - pip-cache:/home/dev/.cache/pip
-      - pipx-home:/home/dev/.local/pipx
 volumes:
   go-tool-bin:
   go-mod-cache:
   go-build-cache:
   go-env:
   pip-cache:
-  pipx-home:

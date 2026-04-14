@@ -13,7 +13,6 @@ apt-get update && apt-get install -y --no-install-recommends \
   build-essential \
   libffi-dev \
   libssl-dev \
-  pipx \
   pkg-config \
   python3 \
   python3-dev \
@@ -31,27 +30,69 @@ ln -sf /usr/bin/pip3 /usr/local/bin/pip
 mkdir -p \
   /home/dev/.cache/pip \
   /home/dev/.config/pip \
-  /home/dev/.local/pipx/bin \
   /home/dev/.local/bin
 chown -R dev:dev /home/dev/.cache /home/dev/.config/pip /home/dev/.local
 
 # PATH entry for Python-managed tools plus shared cache/tooling defaults.
-# Keep agent binaries in ~/.local/bin ahead of pipx-installed tools so a
-# user-installed CLI cannot accidentally shadow the active agent binary.
+# Keep agent binaries in ~/.local/bin ahead of any later user-installed tools.
 cat > /etc/zsh/zshenv.d/python.zsh << 'ZSHENV'
-export PATH="$HOME/.local/bin:$HOME/.local/pipx/bin:/usr/local/bin:$PATH"
+path_prepend() {
+  PATH="$1${PATH:+:$PATH}"
+}
+
+path_dedupe() {
+  local old_path="$PATH"
+  local new_path=""
+  local entry
+  local IFS=':'
+
+  for entry in $old_path; do
+    [ -n "$entry" ] || continue
+    case ":$new_path:" in
+      *":$entry:"*) ;;
+      *) new_path="${new_path:+$new_path:}$entry" ;;
+    esac
+  done
+
+  PATH="$new_path"
+}
+
+path_prepend "/usr/local/bin"
+path_prepend "$HOME/.local/bin"
+path_dedupe
+export PATH
 export PIP_CACHE_DIR="$HOME/.cache/pip"
 export PIP_DISABLE_PIP_VERSION_CHECK=1
-export PIPX_HOME="$HOME/.local/pipx"
-export PIPX_BIN_DIR="$HOME/.local/pipx/bin"
 ZSHENV
 
 cat > /etc/profile.d/python.sh << 'PROFILE'
-export PATH="$HOME/.local/bin:$HOME/.local/pipx/bin:/usr/local/bin:$PATH"
+path_prepend() {
+  PATH="$1${PATH:+:$PATH}"
+}
+
+path_dedupe() {
+  local old_path="$PATH"
+  local new_path=""
+  local entry
+  local IFS=':'
+
+  for entry in $old_path; do
+    [ -n "$entry" ] || continue
+    case ":$new_path:" in
+      *":$entry:"*) ;;
+      *) new_path="${new_path:+$new_path:}$entry" ;;
+    esac
+  done
+
+  PATH="$new_path"
+}
+
+path_prepend "/usr/local/bin"
+path_prepend "$HOME/.local/bin"
+path_dedupe
+export PATH
 export PIP_CACHE_DIR="$HOME/.cache/pip"
 export PIP_DISABLE_PIP_VERSION_CHECK=1
-export PIPX_HOME="$HOME/.local/pipx"
-export PIPX_BIN_DIR="$HOME/.local/pipx/bin"
 PROFILE
 
 echo "Python stack installed: $(python3 --version)"
