@@ -73,9 +73,8 @@ path_dedupe() {
   local old_path="$PATH"
   local new_path=""
   local entry
-  local IFS=':'
 
-  for entry in $old_path; do
+  for entry in ${(s/:/)old_path}; do
     [ -n "$entry" ] || continue
     case ":$new_path:" in
       *":$entry:"*) ;;
