@@ -109,6 +109,7 @@ COPY --chown=${USERNAME}:${USERNAME} tmux.conf /home/${USERNAME}/.tmux.conf
 # Copy firewall script, shell init, and utilities
 # Files in /etc/agent-sandbox are root-owned to prevent agent tampering
 COPY shell-init.sh /etc/agent-sandbox/shell-init.sh
+COPY path-helpers.sh /etc/agent-sandbox/path-helpers.sh
 COPY stacks/ /etc/agent-sandbox/stacks/
 COPY init-firewall.sh /usr/local/bin/
 COPY install-proxy-ca.sh /usr/local/bin/
@@ -126,8 +127,9 @@ USER root
 RUN mkdir -p /usr/local/etc
 COPY system-gitconfig /usr/local/etc/gitconfig
 
-RUN chmod 644 /etc/agent-sandbox/shell-init.sh /etc/zsh/zshrc /usr/local/etc/gitconfig && \
+RUN chmod 644 /etc/agent-sandbox/shell-init.sh /etc/agent-sandbox/path-helpers.sh /etc/zsh/zshrc /usr/local/etc/gitconfig && \
   chown root:root /etc/agent-sandbox/shell-init.sh && \
+  chown root:root /etc/agent-sandbox/path-helpers.sh && \
   chown root:root /etc/zsh/zshrc && \
   chown root:root /usr/local/etc/gitconfig && \
   chmod -R 755 /etc/agent-sandbox/stacks && \
