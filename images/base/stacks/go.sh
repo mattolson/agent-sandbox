@@ -64,7 +64,6 @@ export GOCACHE="$HOME/.cache/go-build"
 
 path_prepend "/usr/local/go/bin"
 path_append "$GOBIN"
-path_append "$GOPATH/bin"
 path_dedupe
 export PATH
 ZSHENV
@@ -78,7 +77,6 @@ export GOCACHE="$HOME/.cache/go-build"
 
 path_prepend "/usr/local/go/bin"
 path_append "$GOBIN"
-path_append "$GOPATH/bin"
 path_dedupe
 export PATH
 PROFILE
