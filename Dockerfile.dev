@@ -12,10 +12,12 @@ ENV GOCACHE=/home/dev/.cache/go-build
 
 # Setup python
 RUN /etc/agent-sandbox/stacks/python.sh
+RUN python3 -m venv /opt/proxy-python && \
+  /opt/proxy-python/bin/pip install --no-cache-dir mitmproxy pytest PyYAML
 ENV PIP_CACHE_DIR=/home/dev/.cache/pip
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
-ENV PIPX_HOME=/home/dev/.local/pipx
-ENV PIPX_BIN_DIR=/home/dev/.local/pipx/bin
-ENV PATH=/home/dev/.local/bin:/home/dev/.local/pipx/bin:/home/dev/go/bin:/usr/local/bin:/usr/local/go/bin:$PATH
+
+# Keep agent binaries ahead of the proxy test env and Go-installed tools.
+ENV PATH=/home/dev/.local/bin:/opt/proxy-python/bin:/usr/local/go/bin:$PATH:/home/dev/go/bin
 
 USER dev
