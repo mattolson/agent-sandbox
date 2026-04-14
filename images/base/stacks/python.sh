@@ -36,25 +36,7 @@ chown -R dev:dev /home/dev/.cache /home/dev/.config/pip /home/dev/.local
 # PATH entry for Python-managed tools plus shared cache/tooling defaults.
 # Keep agent binaries in ~/.local/bin ahead of any later user-installed tools.
 cat > /etc/zsh/zshenv.d/python.zsh << 'ZSHENV'
-path_prepend() {
-  PATH="$1${PATH:+:$PATH}"
-}
-
-path_dedupe() {
-  local old_path="$PATH"
-  local new_path=""
-  local entry
-
-  for entry in ${(s/:/)old_path}; do
-    [ -n "$entry" ] || continue
-    case ":$new_path:" in
-      *":$entry:"*) ;;
-      *) new_path="${new_path:+$new_path:}$entry" ;;
-    esac
-  done
-
-  PATH="$new_path"
-}
+. /etc/agent-sandbox/path-helpers.sh
 
 path_prepend "/usr/local/bin"
 path_prepend "$HOME/.local/bin"
@@ -65,26 +47,7 @@ export PIP_DISABLE_PIP_VERSION_CHECK=1
 ZSHENV
 
 cat > /etc/profile.d/python.sh << 'PROFILE'
-path_prepend() {
-  PATH="$1${PATH:+:$PATH}"
-}
-
-path_dedupe() {
-  local old_path="$PATH"
-  local new_path=""
-  local entry
-  local IFS=':'
-
-  for entry in $old_path; do
-    [ -n "$entry" ] || continue
-    case ":$new_path:" in
-      *":$entry:"*) ;;
-      *) new_path="${new_path:+$new_path:}$entry" ;;
-    esac
-  done
-
-  PATH="$new_path"
-}
+. /etc/agent-sandbox/path-helpers.sh
 
 path_prepend "/usr/local/bin"
 path_prepend "$HOME/.local/bin"

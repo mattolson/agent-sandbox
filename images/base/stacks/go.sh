@@ -60,30 +60,7 @@ export GOPATH="$HOME/go"
 export GOBIN="$HOME/go/bin"
 export GOMODCACHE="$HOME/.cache/go-mod"
 export GOCACHE="$HOME/.cache/go-build"
-
-path_prepend() {
-  PATH="$1${PATH:+:$PATH}"
-}
-
-path_append() {
-  PATH="${PATH:+$PATH:}$1"
-}
-
-path_dedupe() {
-  local old_path="$PATH"
-  local new_path=""
-  local entry
-
-  for entry in ${(s/:/)old_path}; do
-    [ -n "$entry" ] || continue
-    case ":$new_path:" in
-      *":$entry:"*) ;;
-      *) new_path="${new_path:+$new_path:}$entry" ;;
-    esac
-  done
-
-  PATH="$new_path"
-}
+. /etc/agent-sandbox/path-helpers.sh
 
 path_prepend "/usr/local/go/bin"
 path_append "$GOBIN"
@@ -97,31 +74,7 @@ export GOPATH="$HOME/go"
 export GOBIN="$HOME/go/bin"
 export GOMODCACHE="$HOME/.cache/go-mod"
 export GOCACHE="$HOME/.cache/go-build"
-
-path_prepend() {
-  PATH="$1${PATH:+:$PATH}"
-}
-
-path_append() {
-  PATH="${PATH:+$PATH:}$1"
-}
-
-path_dedupe() {
-  local old_path="$PATH"
-  local new_path=""
-  local entry
-  local IFS=':'
-
-  for entry in $old_path; do
-    [ -n "$entry" ] || continue
-    case ":$new_path:" in
-      *":$entry:"*) ;;
-      *) new_path="${new_path:+$new_path:}$entry" ;;
-    esac
-  done
-
-  PATH="$new_path"
-}
+. /etc/agent-sandbox/path-helpers.sh
 
 path_prepend "/usr/local/go/bin"
 path_append "$GOBIN"
