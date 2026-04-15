@@ -28,5 +28,5 @@ jobs:
       - name: Install test dependencies
         run: pip install PyYAML
 
-      - name: Run proxy renderer tests
+      - name: Run proxy Python tests
         run: python -m unittest discover -s images/proxy/tests -p 'test_*.py'
