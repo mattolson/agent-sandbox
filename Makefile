@@ -1,5 +1,5 @@
 GO ?= go
-PYTHON ?= /opt/proxy-python/bin/python
+PYTHON ?= python
 CMD_PACKAGE ?= ./cmd/agentbox
 DIST_DIR ?= ./dist
 BIN_DIR ?= ./bin
