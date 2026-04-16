@@ -1,5 +1,19 @@
 # Execution Log: m14.2 - Request-Phase Enforcement
 
+## 2026-04-16 00:10 UTC - Confirmed m14.2 is complete after follow-up verification
+
+Reviewed the finished task record and the implemented matcher runtime. `m14.2` is complete: the request-phase matcher,
+CONNECT classification, shared HTTP and HTTPS rule evaluation, structured decision logging, and direct unit coverage
+all landed and the task acceptance criteria are satisfied.
+
+**Decision:** Treat later follow-up changes such as wiring the proxy Python suite into `make test` and excluding proxy
+tests from the image build context as post-task maintenance, not additional `m14.2` scope.
+
+**Rationale:** Those changes improve repo workflow and image hygiene, but they do not change the request-phase
+enforcement behavior defined by this task.
+
+**Verification:** `make test` now passes, including both `go test ./...` and the proxy Python suite.
+
 ## 2026-04-15 06:32 UTC - Request-phase matcher landed and proxy Python suite passed
 
 Implemented the pure runtime matcher in `images/proxy/addons/policy_matcher.py`, rewired `enforcer.py` to delegate
