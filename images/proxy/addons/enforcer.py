@@ -19,8 +19,19 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
-import yaml
+
+ADDON_DIR = Path(__file__).resolve().parent
+if str(ADDON_DIR) not in sys.path:
+    sys.path.insert(0, str(ADDON_DIR))
+
+from policy_matcher import (  # noqa: E402
+    DEFAULT_POLICY_PATH,
+    PolicyDecision,
+    PolicyError,
+    PolicyMatcher,
+)
 
 try:
     from mitmproxy import http
@@ -28,11 +39,7 @@ except ImportError:  # pragma: no cover - unit tests intentionally import withou
     http = None
 
 
-DEFAULT_POLICY_PATH = "/etc/mitmproxy/policy.yaml"
-
-
-class PolicyError(Exception):
-    """Raised when rendered proxy policy cannot be loaded safely."""
+FLOW_DECISION_METADATA_KEY = "agent_sandbox_policy_decision"
 
 
 class JsonLogger:
@@ -60,103 +67,13 @@ class JsonLogger:
         print(json.dumps(entry), file=self.stream, flush=True)
 
 
-class HostAllowlist:
-    def __init__(self, domain_records, source_description="rendered policy"):
-        self.domain_records = list(domain_records)
-        self.source_description = source_description
-        self.allowed_exact = set()
-        self.allowed_wildcards = []
-
-        for record in self.domain_records:
-            host = record["host"].lower()
-            if host.startswith("*."):
-                self.allowed_wildcards.append(host[2:])
-            else:
-                self.allowed_exact.add(host)
-
-    @classmethod
-    def from_policy_path(cls, path):
-        if not os.path.exists(path):
-            raise PolicyError(f"PROXY_MODE=enforce but no policy file at {path}")
-
-        with open(path, encoding="utf-8") as handle:
-            policy = yaml.safe_load(handle) or {}
-
-        return cls.from_policy_data(policy, path=path)
-
-    @classmethod
-    def from_policy_data(cls, policy, path=None):
-        policy_context = f"Policy at {path}" if path else "Policy"
-        if not isinstance(policy, dict):
-            raise PolicyError(f"{policy_context} must be a YAML mapping")
-
-        domains = policy.get("domains") or []
-        if not isinstance(domains, list):
-            raise PolicyError(
-                f"{policy_context} field 'domains' must be a YAML list"
-            )
-
-        source_description = path or "rendered policy"
-        return cls(
-            cls._load_domain_records(domains),
-            source_description=source_description,
-        )
-
-    @staticmethod
-    def _load_domain_records(domains):
-        records = []
-
-        for index, domain in enumerate(domains):
-            if isinstance(domain, str):
-                records.append({"host": domain})
-                continue
-
-            if not isinstance(domain, dict):
-                raise PolicyError(
-                    f"Policy domains[{index}] must be a string or mapping, "
-                    f"got {type(domain).__name__}: {domain!r}"
-                )
-
-            host = domain.get("host")
-            if not isinstance(host, str) or not host:
-                raise PolicyError(
-                    f"Policy domains[{index}].host must be a non-empty string, got {host!r}"
-                )
-
-            records.append(dict(domain))
-
-        indexed_records = list(enumerate(records))
-        sorted_records = sorted(
-            indexed_records,
-            key=lambda item: HostAllowlist._host_sort_key(item[1]["host"], item[0]),
-        )
-        return [record for _, record in sorted_records]
-
-    @staticmethod
-    def _host_sort_key(host, original_index):
-        if host.startswith("*."):
-            return (1, -len(host[2:]), original_index)
-        return (0, 0, original_index)
-
-    def is_allowed(self, host):
-        normalized_host = host.lower()
-        if normalized_host in self.allowed_exact:
-            return True
-
-        for suffix in self.allowed_wildcards:
-            if normalized_host == suffix or normalized_host.endswith("." + suffix):
-                return True
-
-        return False
-
-
 class PolicyEnforcer:
     def __init__(
         self,
         mode=None,
         log_level=None,
         policy_path=None,
-        allowlist=None,
+        matcher=None,
         logger=None,
         response_factory=None,
     ):
@@ -164,26 +81,26 @@ class PolicyEnforcer:
         self.log_level = log_level or os.getenv("PROXY_LOG_LEVEL", "normal")
         self.logger = logger or JsonLogger(log_level=self.log_level)
         self.response_factory = response_factory
-        self.allowlist = None
-        self.allowed_exact = set()
-        self.allowed_wildcards = []
+        self.matcher = None
         self.domain_records = []
+        self.exact_host_count = 0
+        self.wildcard_host_count = 0
 
         if self.mode == "enforce":
-            resolved_allowlist = allowlist
-            if resolved_allowlist is None:
+            resolved_matcher = matcher
+            if resolved_matcher is None:
                 resolved_policy_path = policy_path or os.getenv(
                     "POLICY_PATH", DEFAULT_POLICY_PATH
                 )
                 try:
-                    resolved_allowlist = HostAllowlist.from_policy_path(
+                    resolved_matcher = PolicyMatcher.from_policy_path(
                         resolved_policy_path
                     )
                 except PolicyError as error:
                     self.logger.info(str(error))
                     sys.exit(1)
 
-            self._set_allowlist(resolved_allowlist)
+            self._set_matcher(resolved_matcher)
             self._log_loaded_policy()
         elif self.mode == "log":
             self.logger.info("Running in log mode (no enforcement)")
@@ -200,80 +117,157 @@ class PolicyEnforcer:
             )
         return http.Response.make
 
-    def _set_allowlist(self, allowlist):
-        self.allowlist = allowlist
-        self.domain_records = list(allowlist.domain_records)
-        self.allowed_exact = set(allowlist.allowed_exact)
-        self.allowed_wildcards = list(allowlist.allowed_wildcards)
+    def _set_matcher(self, matcher):
+        self.matcher = matcher
+        self.domain_records = [{"host": record.host} for record in matcher.host_records]
+        self.exact_host_count = matcher.exact_host_count
+        self.wildcard_host_count = matcher.wildcard_host_count
 
     def _log_loaded_policy(self):
         for domain in self.domain_records:
             self.logger.info(f"Adding '{domain['host']}' to allowlist")
 
         self.logger.info(
-            f"Policy loaded from {self.allowlist.source_description}: {len(self.domain_records)} host records, "
-            f"{len(self.allowed_exact)} exact, {len(self.allowed_wildcards)} wildcard"
+            f"Policy loaded from {self.matcher.source_description}: {len(self.domain_records)} host records, "
+            f"{self.exact_host_count} exact, {self.wildcard_host_count} wildcard"
         )
 
     def _make_response(self, status_code, body):
         factory = self.response_factory or self._default_response_factory()
         return factory(status_code, body)
 
-    def _is_allowed(self, host):
-        if self.mode == "log":
-            return True
-        return self.allowlist.is_allowed(host)
+    def _get_flow_metadata(self, flow):
+        metadata = getattr(flow, "metadata", None)
+        if metadata is None:
+            metadata = {}
+            flow.metadata = metadata
+        return metadata
+
+    def _store_decision(self, flow, decision):
+        self._get_flow_metadata(flow)[FLOW_DECISION_METADATA_KEY] = decision.to_metadata()
+
+    def _get_stored_decision(self, flow):
+        metadata = self._get_flow_metadata(flow)
+        payload = metadata.get(FLOW_DECISION_METADATA_KEY)
+        if payload is None:
+            return None
+        return PolicyDecision.from_metadata(payload)
+
+    def _clear_stored_decision(self, flow):
+        self._get_flow_metadata(flow).pop(FLOW_DECISION_METADATA_KEY, None)
+
+    def _decision_log_entry(self, decision):
+        entry = {
+            "ts": self.logger.timestamp(),
+            "phase": decision.phase,
+            "action": decision.action,
+            "reason": decision.reason,
+            "host": decision.host,
+            "scheme": decision.scheme,
+        }
+
+        if decision.matched_host is not None:
+            entry["matched_host"] = decision.matched_host
+        if decision.method is not None:
+            entry["method"] = decision.method
+        if decision.path is not None:
+            entry["path"] = decision.path
+
+        return entry
 
     def http_connect(self, flow):
         """Handle HTTPS CONNECT - block disallowed hosts before tunnel established."""
-        host = flow.request.host
-        if self._is_allowed(host):
+        if self.mode != "enforce":
             return
 
-        self.logger.event({
-            "ts": self.logger.timestamp(),
-            "host": host,
-            "action": "blocked",
-        })
-        flow.response = self._make_response(403, f"Blocked by proxy policy: {host}")
+        decision = self.matcher.evaluate_connect(flow.request.host)
+        if decision.is_blocked():
+            self.logger.event(self._decision_log_entry(decision))
+            self._store_decision(flow, decision)
+            flow.response = self._make_response(
+                403,
+                f"Blocked by proxy policy: {flow.request.host}",
+            )
+            return
+
+        self._clear_stored_decision(flow)
 
     def request(self, flow):
-        """Handle HTTP requests - block disallowed hosts."""
-        if flow.request.scheme != "http":
+        """Handle HTTP and decrypted HTTPS requests."""
+        if self.mode != "enforce":
             return
 
-        host = flow.request.host
-        if self._is_allowed(host):
+        decision = self.matcher.evaluate_request(
+            host=flow.request.host,
+            scheme=flow.request.scheme,
+            method=flow.request.method,
+            request_target=flow.request.path,
+        )
+
+        if decision.is_blocked():
+            self.logger.event(self._decision_log_entry(decision))
+            self._store_decision(flow, decision)
+            flow.response = self._make_response(
+                403,
+                f"Blocked by proxy policy: {flow.request.host}",
+            )
             return
 
-        self.logger.event({
-            "ts": self.logger.timestamp(),
-            "method": flow.request.method,
-            "host": host,
-            "path": flow.request.path,
-            "action": "blocked",
-        })
-        flow.response = self._make_response(403, f"Blocked by proxy policy: {host}")
+        self._store_decision(flow, decision)
 
     def response(self, flow):
         """Log completed requests with full details."""
-        self.logger.event({
-            "ts": self.logger.timestamp(),
-            "method": flow.request.method,
-            "host": flow.request.host,
-            "path": flow.request.path,
-            "status": flow.response.status_code,
-            "action": "allowed",
-        })
+        if self.mode != "enforce":
+            self.logger.event({
+                "ts": self.logger.timestamp(),
+                "method": flow.request.method,
+                "host": flow.request.host,
+                "path": flow.request.path,
+                "status": flow.response.status_code,
+                "action": "allowed",
+            })
+            return
+
+        decision = self._get_stored_decision(flow)
+        if decision is None:
+            self.logger.event({
+                "ts": self.logger.timestamp(),
+                "phase": "response",
+                "action": "allowed",
+                "reason": "untracked_response",
+                "host": flow.request.host,
+                "scheme": flow.request.scheme,
+                "method": flow.request.method,
+                "path": flow.request.path,
+                "status": flow.response.status_code,
+            })
+            return
+
+        if decision.is_blocked():
+            return
+
+        entry = self._decision_log_entry(decision)
+        entry["status"] = flow.response.status_code
+        self.logger.event(entry)
 
     def error(self, flow):
         """Log errors."""
-        self.logger.event({
+        entry = {
             "ts": self.logger.timestamp(),
             "host": flow.request.host if flow.request else "unknown",
             "path": flow.request.path if flow.request else "unknown",
             "error": str(flow.error) if flow.error else "unknown",
-        })
+        }
+
+        if self.mode == "enforce":
+            decision = self._get_stored_decision(flow)
+            if decision is not None:
+                entry["phase"] = decision.phase
+                entry["reason"] = decision.reason
+                if decision.matched_host is not None:
+                    entry["matched_host"] = decision.matched_host
+
+        self.logger.event(entry)
 
 
 def build_addons():
