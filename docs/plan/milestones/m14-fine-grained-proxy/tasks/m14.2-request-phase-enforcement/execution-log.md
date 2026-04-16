@@ -1,5 +1,31 @@
 # Execution Log: m14.2 - Request-Phase Enforcement
 
+## 2026-04-15 06:32 UTC - Request-phase matcher landed and proxy Python suite passed
+
+Implemented the pure runtime matcher in `images/proxy/addons/policy_matcher.py`, rewired `enforcer.py` to delegate
+CONNECT and request decisions through it, expanded the addon wiring tests, and added matcher-focused unit coverage for
+host precedence, CONNECT classification, shared HTTP and HTTPS evaluation, path parsing, and exact query semantics.
+
+**Decision:** Keep policy interpretation in the matcher module and keep `enforcer.py` focused on mitmproxy flow wiring,
+structured logs, and response creation.
+
+**Rationale:** This preserves one testable policy engine while avoiding duplicated CONNECT and request logic in the
+addon hooks.
+
+**Issue:** Direct file-loader tests for the new dataclass-based matcher failed because `exec_module` was not inserting
+the module into `sys.modules`, which `dataclasses` expects during class creation.
+
+**Solution:** Updated the direct-loader test helpers to register the module in `sys.modules` before calling
+`exec_module`.
+
+**Decision:** Do not log full query payloads in structured decision logs for `m14.2`.
+
+**Rationale:** The reason, host, scheme, method, path, and matched host are enough to explain allow or block outcomes
+for the current rule surface, and full query logging would add noise and potentially widen log exposure without a clear
+need.
+
+**Verification:** `/opt/proxy-python/bin/python -m unittest discover -s images/proxy/tests -v` passed with 28 tests.
+
 ## 2026-04-14 06:12 UTC - Expanded m14.2 into a full implementation plan and paused for approval
 
 Revisited the milestone plan, the `m14.1` rendered-policy contract, decision record `005`, and the freshly refactored

@@ -185,40 +185,49 @@ Split coverage by concern:
 - [x] Create a testable host-policy loading and matching seam in the proxy addon
 - [x] Add unit tests for host-record normalization, wildcard matching, and current HTTP or CONNECT blocking behavior
 - [x] Run the proxy Python tests locally and confirm the workflow still covers the suite
-- [ ] Introduce a pure runtime matcher module for rendered host-record policies and route addon decisions through it
-- [ ] Implement single-record host selection and CONNECT classification for HTTPS
-- [ ] Implement shared HTTP and HTTPS request-rule evaluation for scheme, method, path, and exact query matching
-- [ ] Add matcher-focused unit tests for precedence, CONNECT semantics, and request evaluation
-- [ ] Expand addon wiring tests to cover request-phase allow or block decisions and structured reasons
-- [ ] Run the full proxy Python suite locally and verify no host-only regressions were introduced
+- [x] Introduce a pure runtime matcher module for rendered host-record policies and route addon decisions through it
+- [x] Implement single-record host selection and CONNECT classification for HTTPS
+- [x] Implement shared HTTP and HTTPS request-rule evaluation for scheme, method, path, and exact query matching
+- [x] Add matcher-focused unit tests for precedence, CONNECT semantics, and request evaluation
+- [x] Expand addon wiring tests to cover request-phase allow or block decisions and structured reasons
+- [x] Run the full proxy Python suite locally and verify no host-only regressions were introduced
 
 ### Open Questions
 
-- Whether the structured decision log should include a sanitized query representation for debugging, or whether that is
-  too noisy and should stay out until we see a concrete need. Current recommendation: omit full query payloads by
-  default and log only the reason plus host, method, and path.
-- Whether the request matcher should cache the CONNECT-time host selection in `flow.metadata` for HTTPS requests.
-  Current recommendation: start without caching unless mitmproxy flow behavior makes recomputation awkward.
+- Whether future troubleshooting needs justify logging a sanitized query representation. `m14.2` intentionally omits
+  full query payloads from decision logs and logs reason, host, scheme, method, path, and matched host instead.
+- Whether CONNECT-time host selection ever needs caching in `flow.metadata`. `m14.2` currently recomputes selection at
+  request time and does not cache it because the runtime matcher stays small and deterministic.
 
 ## Outcome
 
 ### Acceptance Verification
 
 - [x] Host-only rules still block at CONNECT when possible through direct unit coverage in
-      `images/proxy/tests/test_enforcer.py`
-- [ ] HTTPS requests for rule-bearing hosts are allowed or blocked at request time based on scheme, method, path, and
-      query rules
-- [ ] HTTP and HTTPS matching semantics are aligned for the same policy
-- [ ] Block logs carry enough detail to diagnose why a request failed without opening packet traces
+      `images/proxy/tests/test_enforcer.py` and `images/proxy/tests/test_policy_matcher.py`
+- [x] HTTPS requests for rule-bearing hosts are allowed or blocked at request time based on scheme, method, path, and
+      query rules through the matcher runtime in `images/proxy/addons/policy_matcher.py` plus direct unit coverage in
+      `images/proxy/tests/test_policy_matcher.py`
+- [x] HTTP and HTTPS matching semantics are aligned for the same policy, verified by shared matcher tests in
+      `images/proxy/tests/test_policy_matcher.py`
+- [x] Block logs carry enough detail to diagnose why a request failed without opening packet traces via structured
+      `phase`, `reason`, `host`, `scheme`, `method`, `path`, and `matched_host` fields emitted by
+      `images/proxy/addons/enforcer.py`
 - [x] Direct unit coverage exists for the current host-only policy-loading and host-matching behavior so later matcher
-      work can refactor safely via `images/proxy/tests/test_enforcer.py`
+      work can refactor safely via `images/proxy/tests/test_enforcer.py` and
+      `images/proxy/tests/test_policy_matcher.py`
 
 ### Learnings
 
 - Keeping mitmproxy-specific response creation lazy lets the addon stay importable in plain Python test environments
   without adding a full mitmproxy dependency to the unit-test workflow.
+- mitmproxy `Request.path` can include the query string, so the runtime matcher must split path and query explicitly
+  instead of assuming the proxy has already separated them.
+- Logging blocked decisions at request or CONNECT time and storing the decision in flow metadata prevents later response
+  hooks from misreporting blocked requests as allowed.
 
 ### Follow-up Items
 
-- Extend the test seam from host-only allowlist evaluation to full request-rule matching once the `m14.2` matcher
-  semantics are implemented.
+- `m14.3` should compile richer service definitions into the same runtime matcher inputs without adding service-specific
+  branches inside the matcher.
+- `m14.4` can reuse the matcher boundary to swap in reloaded policy state atomically after render and validation.

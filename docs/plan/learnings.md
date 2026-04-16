@@ -29,6 +29,7 @@ Lessons learned during project execution. Review at the start of each planning s
 - `go version -m` is a practical way to validate embedded build metadata in cross-compiled Go release binaries without having to execute every target artifact on the current host
 - Stable `releases/latest/download/...` URLs require stable artifact names and stable archive contents; an unversioned filename is not enough if the tarball still unpacks into a versioned directory
 - Keeping the live template source of truth inside the shipped Go codebase is simpler than synchronizing from a legacy tree that exists only for transition compatibility
+- mitmproxy `Request.path` can include the query string, so request-aware proxy matching should split path and query explicitly instead of assuming the framework already separated them
 
 ## Architecture
 
@@ -44,6 +45,7 @@ Lessons learned during project execution. Review at the start of each planning s
 - A reusable runtime-layout resolver plus an injectable Docker runner makes CLI parity testing practical without a live Docker daemon for every command-path test
 - The current `devcontainer.user.json` merge behavior is a recursive object merge with array-append semantics, so native Go replacements need explicit tests for extension/plugin lists instead of assuming overwrite semantics
 - Local image refs such as `:local` or short local names are useful for end-to-end CLI verification in restricted environments because they bypass pull-and-pin network work while still exercising the full command path
+- For proxy addons that can block requests before a response hook runs, storing the policy decision on the flow avoids later response logging from accidentally relabeling blocked requests as allowed
 
 ## Security
 
