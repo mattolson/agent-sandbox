@@ -8,11 +8,9 @@ services:
     environment:
       - AGENTBOX_ACTIVE_AGENT=gemini
   agent:
-    image: ghcr.io/mattolson/agent-sandbox-gemini@sha256:0298d1d3b18df43ae1e4bef8e13449042d2ce83ef320933c4425ed056e4f0a1b
+    image: ghcr.io/mattolson/agent-sandbox-gemini@sha256:d51ec9013684260e296d8ae104d390929ef9345756316fd4c8621f438aca8e07
     volumes:
-      # Persist Gemini credentials
       - gemini-state:/home/dev/.gemini
-      # Persist shell history
       - gemini-history:/commandhistory
 volumes:
   gemini-state:

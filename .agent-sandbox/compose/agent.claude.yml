@@ -8,11 +8,9 @@ services:
     environment:
       - AGENTBOX_ACTIVE_AGENT=claude
   agent:
-    image: ghcr.io/mattolson/agent-sandbox-claude@sha256:971573126a0f9222ac37379b73a9e9bf5cf2c3a435c5238359c712cf70b70e66
+    image: ghcr.io/mattolson/agent-sandbox-claude@sha256:d4cd4bac9cb16609dc5592e3ad16d19ae808b06b8d399b966df16737dce5e88d
     volumes:
-      # Persist Claude credentials
       - claude-state:/home/dev/.claude
-      # Persist shell history
       - claude-history:/commandhistory
     environment:
       - CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
