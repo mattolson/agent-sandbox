@@ -1,5 +1,19 @@
 # Execution Log: m14.3 - Semantic Service Catalog
 
+## 2026-04-17 04:55 UTC - Closed the remaining planning questions
+
+Updated the `m14.3` task plan to remove the remaining open design questions. The plan now explicitly keeps the service
+catalog as Python-backed renderer logic for this task, requires `m14.3` docs to cover the authored service surface
+users need to rely on, and defers migration polish and broader documentation lock-down to `m14.5`.
+
+**Decision:** Keep the catalog in Python for `m14.3`. Do not add a separate declarative catalog file yet.
+
+**Decision:** Document the authored service surface in `m14.3`, including `repos`, `surfaces`, `readonly`,
+service-level `merge_mode: replace`, merge semantics, and the GitHub `git` readonly exception.
+
+**Decision:** Do not invent a broader abstraction beyond per-service semantic expansion for `m14.3`. Revisit only if
+later services show the boolean `readonly` model is no longer sufficient.
+
 ## 2026-04-17 04:36 UTC - Switched the GitHub selector from singular `repo` to a `repos` list
 
 Updated the `m14.3` task plan to support a `repos` list instead of a singular `repo` field. The common case is still a

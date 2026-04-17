@@ -205,7 +205,11 @@ either service-level `merge_mode: replace` or authored host-level replacement un
 
 #### Catalog Representation
 
-Keep the catalog data-driven, but do not force every service into the same oversimplified shape. A practical split is:
+Keep the catalog as Python-backed renderer logic for `m14.3`. Do not add a separate declarative catalog file yet. The
+hard part of this task is still service-specific validation and expansion logic, so introducing a second schema now
+would add loader and validation complexity without removing the real implementation work.
+
+A practical split inside the Python catalog is:
 
 - simple services: static host patterns that expand to catch-all host records
 - rich services: definitions with a validator plus an expander that emits canonical host-record fragments from
@@ -213,6 +217,29 @@ Keep the catalog data-driven, but do not force every service into the same overs
 
 The renderer should not construct matcher objects directly. It should keep emitting rendered YAML in the same canonical
 IR that `policy_matcher.py` already knows how to load.
+
+Revisit a declarative catalog only if later rich services start duplicating the same expansion patterns enough to make
+the Python-backed structure awkward.
+
+#### Documentation Boundary
+
+`m14.3` should document the authored surface that users must rely on to write policy safely:
+
+- rich `services` entry shape
+- `name`
+- `repos`
+- `surfaces`
+- `readonly`
+- service-level `merge_mode: replace`
+- additive versus replace semantics
+- the GitHub `git` readonly exception
+- at least one focused example policy
+
+What stays out of `m14.3` and belongs in `m14.5`:
+
+- broader migration guidance
+- final docs polish and troubleshooting coverage
+- lock-down of the complete example set once behavior has stopped moving
 
 #### Test Strategy
 
@@ -252,11 +279,10 @@ into a hidden helper inside the renderer script.
 
 ### Open Questions
 
-- Does the catalog live as Python data structures only, or is there enough value in a declarative data file to justify
-  the extra loader surface now?
-- How much authored schema should be documented in `m14.3` versus deferred to the broader lock-down pass in `m14.5`?
-- Do we later need a more formal abstraction than a boolean `readonly` flag for protocol-shaped services, or is
-  per-service semantic expansion at render time enough for the foreseeable surfaces?
+None for the planned `m14.3` slice.
+
+Revisit only if additional rich services show that the Python-backed catalog or the boolean `readonly` model is no
+longer a clean fit.
 
 ## Outcome
 
