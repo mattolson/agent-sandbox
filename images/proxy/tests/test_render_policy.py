@@ -275,6 +275,186 @@ services:
 
         self.assertIn("unknown service", stderr.getvalue())
 
+    def test_rich_github_repo_scoped_service_renders_to_repo_paths(self):
+        rendered = self.render_single(
+            """
+services:
+  - name: github
+    repos:
+      - owner/repo
+    surfaces:
+      - api
+      - git
+    readonly: true
+"""
+        )
+
+        records = {record["host"]: record for record in rendered["domains"]}
+        self.assertIn("api.github.com", records)
+        self.assertIn("github.com", records)
+
+        self.assertEqual(
+            records["api.github.com"]["rules"],
+            [
+                {
+                    "schemes": ["http", "https"],
+                    "methods": ["GET", "HEAD"],
+                    "path": {"exact": "/repos/owner/repo"},
+                },
+                {
+                    "schemes": ["http", "https"],
+                    "methods": ["GET", "HEAD"],
+                    "path": {"prefix": "/repos/owner/repo/"},
+                },
+            ],
+        )
+
+        self.assertEqual(
+            records["github.com"]["rules"],
+            [
+                {
+                    "schemes": ["http", "https"],
+                    "methods": ["GET", "HEAD"],
+                    "path": {"exact": "/owner/repo.git/info/refs"},
+                    "query": {"exact": {"service": ["git-upload-pack"]}},
+                },
+                {
+                    "schemes": ["http", "https"],
+                    "methods": ["POST"],
+                    "path": {"exact": "/owner/repo.git/git-upload-pack"},
+                },
+            ],
+        )
+
+    def test_same_name_service_entries_are_additive(self):
+        rendered = self.render_single(
+            """
+services:
+  - name: github
+    repos:
+      - owner/a
+    surfaces:
+      - api
+  - name: github
+    repos:
+      - owner/b
+    surfaces:
+      - api
+"""
+        )
+
+        records = {record["host"]: record for record in rendered["domains"]}
+        api_paths = [rule["path"] for rule in records["api.github.com"]["rules"]]
+        self.assertEqual(
+            api_paths,
+            [
+                {"exact": "/repos/owner/a"},
+                {"prefix": "/repos/owner/a/"},
+                {"exact": "/repos/owner/b"},
+                {"prefix": "/repos/owner/b/"},
+            ],
+        )
+        # Plain-string github baseline catch-all hosts should not appear when
+        # the user authored only rich service entries.
+        self.assertNotIn("github.com", records)
+
+    def test_service_merge_mode_replace_discards_baseline_expansion(self):
+        rendered = self.render_layered(
+            "pi",
+            shared="""
+services:
+  - github
+""",
+            agent="""
+services:
+  - name: github
+    merge_mode: replace
+    repos:
+      - owner/repo
+    surfaces:
+      - api
+    readonly: true
+""",
+        )
+
+        records = {record["host"]: record for record in rendered["domains"]}
+        self.assertEqual(set(records), {"api.github.com"})
+        self.assertEqual(
+            records["api.github.com"]["rules"],
+            [
+                {
+                    "schemes": ["http", "https"],
+                    "methods": ["GET", "HEAD"],
+                    "path": {"exact": "/repos/owner/repo"},
+                },
+                {
+                    "schemes": ["http", "https"],
+                    "methods": ["GET", "HEAD"],
+                    "path": {"prefix": "/repos/owner/repo/"},
+                },
+            ],
+        )
+
+    def test_service_merge_mode_replace_preserves_unrelated_domain_rules(self):
+        rendered = self.render_layered(
+            "pi",
+            shared="""
+services:
+  - github
+domains:
+  - host: github.com
+    rules:
+      - path:
+          exact: /custom
+""",
+            agent="""
+services:
+  - name: github
+    merge_mode: replace
+    repos:
+      - owner/repo
+    surfaces:
+      - api
+""",
+        )
+
+        records = {record["host"]: record for record in rendered["domains"]}
+        self.assertIn("github.com", records)
+        self.assertEqual(
+            records["github.com"]["rules"],
+            [
+                {
+                    "schemes": ["http", "https"],
+                    "path": {"exact": "/custom"},
+                }
+            ],
+        )
+        self.assertIn("api.github.com", records)
+        self.assertNotIn("*.github.com", records)
+
+    def test_rich_github_baseline_hosts_emit_catch_all_when_no_repos(self):
+        rendered = self.render_single(
+            """
+services:
+  - name: github
+"""
+        )
+
+        hosts = [record["host"] for record in rendered["domains"]]
+        self.assertEqual(
+            sorted(hosts),
+            sorted(
+                [
+                    "github.com",
+                    "*.github.com",
+                    "githubusercontent.com",
+                    "*.githubusercontent.com",
+                ]
+            ),
+        )
+        for record in rendered["domains"]:
+            self.assertEqual(record["rules"], [{"schemes": ["http", "https"]}])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -26,22 +26,22 @@ starting with GitHub restriction use cases.
 
 ## Acceptance Criteria
 
-- [ ] Repo-scoped GitHub restriction scenarios can be expressed through `services` for both `api` and `git` surfaces,
+- [x] Repo-scoped GitHub restriction scenarios can be expressed through `services` for both `api` and `git` surfaces,
       with one or more `repos`, without ad hoc proxy logic
-- [ ] Existing baseline services still render to equivalent behavior when they only need host-wide domain access
-- [ ] Service entries can be authored in a richer form without breaking existing plain-string `services` declarations
-- [ ] Generic service-level `readonly: true` can narrow emitted rules at render time, with false or omission defaulting
+- [x] Existing baseline services still render to equivalent behavior when they only need host-wide domain access
+- [x] Service entries can be authored in a richer form without breaking existing plain-string `services` declarations
+- [x] Generic service-level `readonly: true` can narrow emitted rules at render time, with false or omission defaulting
       to readwrite behavior, while keeping the matcher unchanged
-- [ ] The GitHub `git` surface maps `readonly: true` to clone or fetch-capable smart-HTTP rules, including
+- [x] The GitHub `git` surface maps `readonly: true` to clone or fetch-capable smart-HTTP rules, including
       `git-upload-pack`, while still excluding push-oriented `git-receive-pack`
-- [ ] Invalid service-specific config fails rendering with actionable errors
-- [ ] Service definitions are testable in isolation from the rest of `render-policy`
-- [ ] The matcher and addon continue to consume only the canonical rendered host-record IR; no GitHub-specific matcher
+- [x] Invalid service-specific config fails rendering with actionable errors
+- [x] Service definitions are testable in isolation from the rest of `render-policy`
+- [x] The matcher and addon continue to consume only the canonical rendered host-record IR; no GitHub-specific matcher
       branches are introduced
-- [ ] Same-name service entries are additive after expansion when `merge_mode` is omitted
-- [ ] `merge_mode: replace` on a service entry discards prior expansions for that service name before the new service
+- [x] Same-name service entries are additive after expansion when `merge_mode` is omitted
+- [x] `merge_mode: replace` on a service entry discards prior expansions for that service name before the new service
       fragments enter host-record merging
-- [ ] Docs and examples make the new authored service shape understandable in code review
+- [x] Docs and examples make the new authored service shape understandable in code review
 
 ## Applicable Learnings
 
@@ -256,26 +256,26 @@ into a hidden helper inside the renderer script.
 
 ### Implementation Steps
 
-- [ ] Decide and document the normalized authored shape for richer service entries, including the `readonly` boolean and
+- [x] Decide and document the normalized authored shape for richer service entries, including the `readonly` boolean and
       service-level `merge_mode: replace`
-- [ ] Extract the flat `SERVICE_DOMAINS` map into a dedicated renderer-side service catalog boundary
-- [ ] Keep simple services data-only and equivalent to current host-wide behavior
-- [ ] Implement generic `readonly` handling at render time, with false or omission preserving existing behavior and
+- [x] Extract the flat `SERVICE_DOMAINS` map into a dedicated renderer-side service catalog boundary
+- [x] Keep simple services data-only and equivalent to current host-wide behavior
+- [x] Implement generic `readonly` handling at render time, with false or omission preserving existing behavior and
       `readonly: true` narrowing emitted rules to `GET` plus `HEAD`
-- [ ] Implement GitHub `git` readonly semantics at render time so `readonly: true` emits clone or fetch-capable
+- [x] Implement GitHub `git` readonly semantics at render time so `readonly: true` emits clone or fetch-capable
       `git-upload-pack` rules and omitted or false `readonly` adds push-capable `git-receive-pack` rules
-- [ ] Implement the first GitHub repo-scoped service expansion around a `repos` list and explicit `api` plus `git`
+- [x] Implement the first GitHub repo-scoped service expansion around a `repos` list and explicit `api` plus `git`
       surfaces that keep repo identity visible in request URLs
-- [ ] Validate and test multi-repo list expansion so each listed repo emits deterministic rule fragments without
+- [x] Validate and test multi-repo list expansion so each listed repo emits deterministic rule fragments without
       changing merge semantics
-- [ ] Make same-name service entries additive after expansion by default and implement `merge_mode: replace` by service
+- [x] Make same-name service entries additive after expansion by default and implement `merge_mode: replace` by service
       name
-- [ ] Route service expansion output through the existing host-record normalization and merge path instead of creating a
+- [x] Route service expansion output through the existing host-record normalization and merge path instead of creating a
       second policy pipeline
-- [ ] Add direct unit tests for service validation and expansion behavior
-- [ ] Add renderer integration tests for backward compatibility and GitHub-specific rendered output
-- [ ] Add one runtime integration test proving the generated fragments enforce correctly through the generic matcher
-- [ ] Update schema docs, templates, and at least one focused example policy
+- [x] Add direct unit tests for service validation and expansion behavior
+- [x] Add renderer integration tests for backward compatibility and GitHub-specific rendered output
+- [x] Add one runtime integration test proving the generated fragments enforce correctly through the generic matcher
+- [x] Update schema docs, templates, and at least one focused example policy
 
 ### Open Questions
 
@@ -288,12 +288,70 @@ longer a clean fit.
 
 ### Acceptance Verification
 
-Pending execution.
+- [x] Repo-scoped GitHub restriction renders for both `api` and `git` surfaces with multi-repo support
+      (`ServiceCatalogExpansionTests` covers `api`-only, `git`-only, combined surfaces, readonly plus readwrite, and
+      deterministic multi-repo expansion; `test_rich_github_repo_scoped_service_renders_to_repo_paths` confirms the
+      renderer emits the expected `api.github.com` and `github.com` host records end-to-end)
+- [x] Plain-string services still render to equivalent baseline hosts
+      (existing `test_render_policy.py` cases remained green; the legacy `SIMPLE_SERVICE_HOSTS` table preserves the
+      prior flat mapping behavior)
+- [x] Rich mapping entries coexist with plain strings
+      (`test_same_name_service_entries_are_additive` shows a string-first then mapping-second authoring pattern renders
+      into a superset of hosts without replacing the baseline)
+- [x] Generic `readonly: true` narrows emitted rules to `GET`/`HEAD` and omission keeps readwrite behavior
+      (service catalog emits `methods: [GET, HEAD]` for simple services when `readonly: true`; matcher remains generic)
+- [x] GitHub `git` readonly keeps clone/fetch working (`git-upload-pack`) and excludes push (`git-receive-pack`)
+      (`test_readonly_github_repo_scoped_policy_enforces_clone_and_blocks_push` exercises the full matcher path using
+      the rendered policy IR)
+- [x] Invalid service config produces actionable errors
+      (catalog validates `name`, `merge_mode`, `readonly`, `repos`, and `surfaces` with context-aware messages; covered
+      by `ServiceCatalogNormalizeTests`)
+- [x] Service definitions are testable in isolation
+      (`images/proxy/tests/test_service_catalog.py` loads the catalog directly and does not import the renderer)
+- [x] Matcher and addon remain service-agnostic
+      (no GitHub branches added to `policy_matcher.py`; the catalog emits only canonical host-record fragments that feed
+      into the existing merge pipeline)
+- [x] Same-name service entries are additive by default
+      (covered by `test_same_name_service_entries_are_additive`)
+- [x] `merge_mode: replace` discards prior expansions for the service name
+      (covered by `test_service_merge_mode_replace_discards_baseline_expansion` and
+      `test_service_merge_mode_replace_preserves_unrelated_domain_rules`)
+- [x] Docs and examples describe the richer shape
+      (`docs/policy/schema.md` services section rewritten; `docs/policy/examples/github-repos.yaml` added;
+      `internal/embeddata/templates/policy.yaml` points at the new catalog module)
+
+Test runs after the simplify pass:
+
+- `go test ./...` - all packages pass
+- `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'` - 56 tests pass
 
 ### Learnings
 
-Pending execution.
+- A Python-backed service catalog earns its keep as soon as one rich service needs semantic expansion; a declarative
+  catalog file would have added loader complexity without changing where the hard validation logic has to live.
+- Normalizing service entries into a single `{name, merge_mode, options}` shape keeps the renderer call site tiny: the
+  catch-all host expander and the GitHub expander both consume the same normalized record, and the renderer only has to
+  know how to fold expansion output back through its existing host-record merge.
+- Tracking `state["service_rules"][name][host] = [rule_identity, ...]` is the right grain for service-level
+  `merge_mode: replace`. Per-rule identities let the renderer drop just the fragments a service contributed without
+  touching neighboring authored `domains` rules, and empty hosts get pruned from the iteration order so the replacement
+  looks like the service never ran.
+- The GitHub `git` readonly exception is cheaply contained inside the catalog: readonly clone/fetch expands to the
+  smart-HTTP `git-upload-pack` rules (`info/refs?service=git-upload-pack` plus `POST /{owner}/{name}.git/git-upload-pack`),
+  and readwrite adds the matching `git-receive-pack` pair. Keeping that mapping service-local avoided inventing a new
+  matcher concept.
+- The catalog output is canonical on purpose; re-normalizing it inside the renderer is wasteful defensive code and
+  muddies the abstraction boundary between "catalog emits canonical IR" and "renderer normalizes authored input."
+- Splitting copy-pasted per-repo rule construction into `_github_api_rules_for_repo` / `_github_smart_http_pair` /
+  `_github_git_rules_for_repo` made the readonly-vs-readwrite branches legible without introducing an unnecessary
+  abstraction layer.
 
 ### Follow-up Items
 
-Pending execution.
+- `m14.5` should pick up broader migration guidance, lock-down of the complete example set, and troubleshooting
+  coverage for the richer `services` shape.
+- If future services duplicate the pattern of "named surfaces plus scoped selectors," revisit whether the per-service
+  Python expander can be factored into a shared helper; `m14.3` deliberately resisted that abstraction until a second
+  rich service exists.
+- Downstream `m15` still owns the GitHub REST wrapper work; the repo-scoped `api` surface added here intentionally
+  stops at URL-shape filtering and leaves credential-aware behavior to that milestone.

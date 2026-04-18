@@ -128,13 +128,15 @@ Both assertions and the stub match the output of `supported_agents_display()` / 
 
 Two files in the proxy image need updating:
 
-**`images/proxy/addons/enforcer.py`**: add a new entry to `SERVICE_DOMAINS` dict.
+**`images/proxy/service_catalog.py`**: add a new entry to the `SIMPLE_SERVICE_HOSTS` dict.
 
 Guidelines:
 - Place alphabetically among existing entries
 - Prefer wildcards over listing subdomains individually (e.g., `*.openai.com` covers `api.openai.com`, `auth.openai.com`, regional endpoints)
 - Only use separate entries for different TLDs (e.g., `chatgpt.com` is separate from `openai.com`)
 - Include both API domains and auth/OAuth domains so authentication works through the proxy
+
+If the service needs rule-level semantics (repo scoping, method narrowing beyond the generic `readonly` mapping), add a dedicated expander function following the GitHub pattern instead of using `SIMPLE_SERVICE_HOSTS`.
 
 **`images/proxy/render-policy`**: add the new agent name to the `KNOWN_AGENTS` set. This script renders the effective proxy policy at startup and validates the `AGENTBOX_ACTIVE_AGENT` env var against this set. If the agent is missing, the proxy will refuse to start with an "Unknown agent" error.
 

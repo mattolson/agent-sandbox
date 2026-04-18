@@ -30,6 +30,11 @@ Lessons learned during project execution. Review at the start of each planning s
 - Stable `releases/latest/download/...` URLs require stable artifact names and stable archive contents; an unversioned filename is not enough if the tarball still unpacks into a versioned directory
 - Keeping the live template source of truth inside the shipped Go codebase is simpler than synchronizing from a legacy tree that exists only for transition compatibility
 - mitmproxy `Request.path` can include the query string, so request-aware proxy matching should split path and query explicitly instead of assuming the framework already separated them
+- A renderer-side service catalog that emits canonical host-record fragments keeps service semantics out of the matcher; the matcher stays generic and every new rich service compiles into the same IR the authored `domains` already use
+- Service-level `merge_mode: replace` works cleanly when the renderer tracks which rule identities a service contributed per host; replacement then becomes a targeted drop of those identities instead of a full host-level override
+- GitHub `git` readonly semantics belong inside the catalog, not the matcher: readonly expands to the `git-upload-pack` clone/fetch pair and readwrite adds the matching `git-receive-pack` pair, so the authored `readonly` flag stays generic while the protocol-specific expansion stays local to the GitHub service
+- Canonical catalog output should not be re-normalized inside the renderer; re-running host/rule normalization is wasteful defensive code and blurs the "catalog emits IR, renderer merges IR" boundary
+- `/opt/proxy-python/bin/python3` is the canonical interpreter for proxy test runs; system Python lacks the `yaml` module that `render-policy` depends on
 
 ## Architecture
 

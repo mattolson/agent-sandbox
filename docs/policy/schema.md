@@ -53,18 +53,99 @@ in the rendered policy.
 
 ## services
 
-`services` is still a list of predefined symbolic service names. The renderer
-expands them into the same canonical host-record intermediate representation
-(IR) used for authored `domains` entries, so the proxy runtime sees one policy
-shape.
+`services` is a list of predefined symbolic service names. The renderer
+expands each entry into the same canonical host-record intermediate
+representation (IR) used for authored `domains` entries, so the proxy runtime
+sees one policy shape.
 
-Available services are defined in
-[images/proxy/render-policy](../../images/proxy/render-policy).
-
-For `m14.1`, `services` entries are still plain strings only. Rich
-service-specific option schemas are deferred to `m14.3`.
-
+Available services and their expansions are defined in the catalog module at
+[images/proxy/service_catalog.py](../../images/proxy/service_catalog.py).
 Unknown service names fail rendering immediately.
+
+### String entries
+
+Plain-string `services` entries preserve the simple authoring path and expand
+to the service's default set of catch-all host records:
+
+```yaml
+services:
+  - github
+  - claude
+```
+
+### Mapping entries
+
+Mapping entries take a richer shape:
+
+```yaml
+services:
+  - name: github
+    merge_mode: replace
+    readonly: true
+    repos:
+      - owner/repo
+    surfaces:
+      - api
+      - git
+```
+
+Supported keys common to every service:
+
+- `name`: required service name; must match a catalog entry.
+- `merge_mode`: optional; only `replace` is accepted. When set, the renderer
+  discards prior expansions emitted by earlier entries with the same `name`
+  before applying the new entry's fragments. `merge_mode` is authoring-only and
+  is stripped from the rendered policy.
+- `readonly`: optional boolean. `true` narrows emitted rules to read-only
+  methods. `false` or omission preserves the service's default readwrite
+  behavior. Applied at render time; the matcher is never taught what
+  `readonly` means.
+
+For most services, `readonly: true` maps literally to `methods: [GET, HEAD]`.
+Git smart-HTTP is the exception (see the GitHub section below).
+
+Unknown keys on a mapping entry fail rendering.
+
+### Merge semantics across entries
+
+- Same-name service entries are additive after expansion by default. Each entry
+  expands independently to host-record fragments, and those fragments flow
+  through the existing host-level merge path.
+- Service option mappings are **not** merged field by field. The renderer does
+  not synthesize a combined service config from multiple authored entries.
+- `merge_mode: replace` on a service entry discards prior expansions for that
+  service name, then applies the new fragments. Authored `domains` entries and
+  unrelated services are not affected. After service expansion completes,
+  emitted records still participate in `domains`-layer merging, including
+  host-level `merge_mode: replace`.
+
+### GitHub service
+
+The GitHub catalog entry supports repo-scoped restriction through two
+additional keys:
+
+- `repos`: required when `surfaces` is set. A non-empty list of `owner/name`
+  strings. Multi-repo entries expand to linear rule fragments in input order.
+  Duplicate repos are deduplicated.
+- `surfaces`: required when `repos` is set. A non-empty list naming the
+  surfaces to emit rules for. Supported values: `api` (the REST API on
+  `api.github.com`) and `git` (Git smart-HTTP on `github.com`).
+
+If neither `repos` nor `surfaces` is set, a mapping entry expands to the same
+default catch-all host records as the plain-string entry.
+
+`readonly` on the GitHub `api` surface narrows methods literally to
+`GET` and `HEAD`. On the `git` surface, `readonly` is semantic enough to
+support clone and fetch even though those operations use `POST`:
+
+- `readonly: true` emits repo-scoped rules for
+  `info/refs?service=git-upload-pack` (GET, HEAD) and POST to
+  `/{owner}/{repo}.git/git-upload-pack`.
+- Omitted or `readonly: false` adds the matching `git-receive-pack` discovery
+  and POST endpoints used by push.
+
+See [examples/github-repos.yaml](examples/github-repos.yaml) for a focused
+repo-scoped policy example.
 
 ## domains
 
