@@ -7,83 +7,14 @@ import sys
 
 import yaml
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import service_catalog  # noqa: E402
+
 DEFAULT_SINGLE_POLICY_PATH = "/etc/mitmproxy/policy.yaml"
 DEFAULT_SHARED_POLICY_PATH = "/etc/agent-sandbox/policy/user.policy.yaml"
 DEFAULT_AGENT_POLICY_PATH = "/etc/agent-sandbox/policy/user.agent.policy.yaml"
 DEFAULT_DEVCONTAINER_POLICY_PATH = "/etc/agent-sandbox/policy/devcontainer.policy.yaml"
 KNOWN_AGENTS = {"claude", "codex", "copilot", "factory", "gemini", "opencode", "pi"}
-SERVICE_DOMAINS = {
-    "github": [
-        "github.com",
-        "*.github.com",
-        "githubusercontent.com",
-        "*.githubusercontent.com",
-    ],
-    "claude": [
-        "*.anthropic.com",
-        "*.claude.ai",
-        "*.claude.com",
-    ],
-    "codex": [
-        "*.openai.com",
-        "chatgpt.com",
-        "*.chatgpt.com",
-    ],
-    "factory": [
-        "api.factory.ai",
-        "api.workos.com",
-    ],
-    "gemini": [
-        "cloudcode-pa.googleapis.com",
-        "generativelanguage.googleapis.com",
-        "oauth2.googleapis.com",
-    ],
-    "opencode": [
-        "opencode.ai",
-        "*.opencode.ai",
-        "models.dev",
-    ],
-    "pi": [],
-    "copilot": [
-        "github.com",
-        "api.github.com",
-        "copilot-telemetry.githubusercontent.com",
-        "collector.github.com",
-        "default.exp-tas.com",
-        "copilot-proxy.githubusercontent.com",
-        "origin-tracker.githubusercontent.com",
-        "*.githubcopilot.com",
-        "*.individual.githubcopilot.com",
-        "*.business.githubcopilot.com",
-        "*.enterprise.githubcopilot.com",
-        "*.githubassets.com",
-    ],
-    "vscode": [
-        "update.code.visualstudio.com",
-        "marketplace.visualstudio.com",
-        "mobile.events.data.microsoft.com",
-        "main.vscode-cdn.net",
-        "*.vsassets.io",
-    ],
-    "jetbrains": [
-        "plugins.jetbrains.com",
-        "downloads.marketplace.jetbrains.com",
-    ],
-    "jetbrains-ai": [
-        "api.jetbrains.ai",
-        "api.app.prod.grazie.aws.intellij.net",
-        "www.jetbrains.com",
-        "account.jetbrains.com",
-        "oauth.account.jetbrains.com",
-        "frameworks.jetbrains.com",
-        "cloudconfig.jetbrains.com",
-        "download.jetbrains.com",
-        "download-cf.jetbrains.com",
-        "download-cdn.jetbrains.com",
-        "resources.jetbrains.com",
-        "cdn.agentclientprotocol.com",
-    ],
-}
 ALLOWED_SCHEMES = ("http", "https")
 DEFAULT_RULE_SCHEMES = ["http", "https"]
 MISSING = object()
@@ -181,16 +112,6 @@ def normalize_host_pattern(value, context):
 
 def make_catch_all_rule():
     return {"schemes": list(DEFAULT_RULE_SCHEMES)}
-
-
-def normalize_service_name(value, context):
-    service = normalize_string(value, context)
-    if service not in SERVICE_DOMAINS:
-        fail(
-            f"{context} references unknown service {service!r}; "
-            f"expected one of {sorted(SERVICE_DOMAINS)}"
-        )
-    return service
 
 
 def normalize_merge_mode(value, context):
@@ -490,6 +411,7 @@ def make_render_state():
         "hosts": {},
         "order": [],
         "other": {},
+        "service_rules": {},
     }
 
 
@@ -516,6 +438,41 @@ def apply_host_record(state, record, merge_mode=None):
     }
 
 
+def discard_service_contributions(state, service_name):
+    contributions = state["service_rules"].pop(service_name, None)
+    if not contributions:
+        return
+
+    for host, identities in contributions.items():
+        record = state["hosts"].get(host)
+        if record is None:
+            continue
+        identity_set = set(identities)
+        remaining = [
+            rule for rule in record["rules"]
+            if rule_identity(rule) not in identity_set
+        ]
+        if remaining:
+            state["hosts"][host]["rules"] = remaining
+        else:
+            del state["hosts"][host]
+            state["order"] = [existing for existing in state["order"] if existing != host]
+
+
+def apply_service_expansion(state, expansion):
+    service_name = expansion["name"]
+    if expansion["merge_mode"] == "replace":
+        discard_service_contributions(state, service_name)
+
+    contributions = state["service_rules"].setdefault(service_name, {})
+    for record in expansion["records"]:
+        host = record["host"]
+        apply_host_record(state, record)
+        host_contributions = contributions.setdefault(host, [])
+        for rule in record["rules"]:
+            host_contributions.append(rule_identity(rule))
+
+
 def apply_policy_layer(state, policy, context):
     state["other"] = merge_other_fields(
         state["other"],
@@ -523,13 +480,13 @@ def apply_policy_layer(state, policy, context):
     )
 
     for index, service_value in enumerate(policy.get("services") or []):
-        service = normalize_service_name(service_value, f"{context}.services[{index}]")
-        for host_index, host_value in enumerate(SERVICE_DOMAINS[service]):
-            host = normalize_host_pattern(
-                host_value,
-                f"{context}.services[{index}] expansion[{host_index}]",
-            )
-            apply_host_record(state, make_host_record(host))
+        service_context = f"{context}.services[{index}]"
+        expansion = service_catalog.expand_service_entry(
+            service_value,
+            service_context,
+            fail,
+        )
+        apply_service_expansion(state, expansion)
 
     for index, domain_value in enumerate(policy.get("domains") or []):
         record, merge_mode = normalize_domain_entry(

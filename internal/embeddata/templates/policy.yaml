@@ -6,7 +6,9 @@
 # See docs/policy/schema.md for the full format reference.
 
 # Services allowed through the proxy.
-# See images/proxy/render-policy for definitions.
+# See images/proxy/service_catalog.py for definitions. Plain-string entries
+# allow a service's default hosts. Mapping entries can narrow expansion; see
+# docs/policy/schema.md for the rich authored shape.
 services: []
 
 # Additional hosts allowed through the proxy.

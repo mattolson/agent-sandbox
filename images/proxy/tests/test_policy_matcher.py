@@ -1,12 +1,16 @@
 import importlib.util
+import os
 import sys
+import tempfile
 import unittest
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 POLICY_MATCHER_PATH = REPO_ROOT / "images" / "proxy" / "addons" / "policy_matcher.py"
+RENDER_POLICY_PATH = REPO_ROOT / "images" / "proxy" / "render-policy"
 
 
 def load_policy_matcher_module():
@@ -14,6 +18,14 @@ def load_policy_matcher_module():
     spec = importlib.util.spec_from_loader(loader.name, loader)
     module = importlib.util.module_from_spec(spec)
     sys.modules[loader.name] = module
+    loader.exec_module(module)
+    return module
+
+
+def load_render_policy_module():
+    loader = SourceFileLoader("render_policy_module", str(RENDER_POLICY_PATH))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
     return module
 
@@ -414,6 +426,108 @@ class PolicyMatcherTests(unittest.TestCase):
 
         self.assertEqual(decision.action, "blocked")
         self.assertEqual(decision.reason, "scheme_not_permitted")
+
+
+class PolicyMatcherGithubServiceIntegrationTests(unittest.TestCase):
+    """Prove the generic matcher enforces GitHub service expansions end-to-end.
+
+    This test renders a policy through the real render-policy pipeline and loads
+    the output into the generic matcher. No GitHub-specific matcher branches
+    should exist, so the test's contract is that semantic service expansion at
+    render time is sufficient for runtime enforcement.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.policy_matcher = load_policy_matcher_module()
+        cls.render_policy = load_render_policy_module()
+
+    def _matcher_from_rendered(self, authored_yaml):
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "policy.yaml"
+            path.write_text(authored_yaml, encoding="utf-8")
+            with mock.patch.dict(
+                os.environ,
+                {"AGENTBOX_POLICY_SOURCE_PATH": str(path)},
+                clear=False,
+            ):
+                rendered = self.render_policy.render_single_policy()
+        return self.policy_matcher.PolicyMatcher.from_policy_data(rendered)
+
+    def test_readonly_github_repo_scoped_policy_enforces_clone_and_blocks_push(self):
+        matcher = self._matcher_from_rendered(
+            """
+services:
+  - name: github
+    readonly: true
+    repos:
+      - owner/repo
+    surfaces:
+      - api
+      - git
+"""
+        )
+
+        in_repo = matcher.evaluate_request(
+            "api.github.com",
+            "https",
+            "GET",
+            "/repos/owner/repo/issues",
+        )
+        self.assertEqual(in_repo.action, "allowed")
+        self.assertEqual(in_repo.matched_host, "api.github.com")
+
+        other_repo = matcher.evaluate_request(
+            "api.github.com",
+            "https",
+            "GET",
+            "/repos/other/repo",
+        )
+        self.assertEqual(other_repo.action, "blocked")
+        self.assertEqual(other_repo.reason, "no_rule_matched")
+
+        write_attempt = matcher.evaluate_request(
+            "api.github.com",
+            "https",
+            "POST",
+            "/repos/owner/repo/issues",
+        )
+        self.assertEqual(write_attempt.action, "blocked")
+        self.assertEqual(write_attempt.reason, "no_rule_matched")
+
+        fetch_discovery = matcher.evaluate_request(
+            "github.com",
+            "https",
+            "GET",
+            "/owner/repo.git/info/refs?service=git-upload-pack",
+        )
+        self.assertEqual(fetch_discovery.action, "allowed")
+
+        fetch_data = matcher.evaluate_request(
+            "github.com",
+            "https",
+            "POST",
+            "/owner/repo.git/git-upload-pack",
+        )
+        self.assertEqual(fetch_data.action, "allowed")
+
+        push_discovery = matcher.evaluate_request(
+            "github.com",
+            "https",
+            "GET",
+            "/owner/repo.git/info/refs?service=git-receive-pack",
+        )
+        self.assertEqual(push_discovery.action, "blocked")
+        self.assertEqual(push_discovery.reason, "no_rule_matched")
+
+        push_data = matcher.evaluate_request(
+            "github.com",
+            "https",
+            "POST",
+            "/owner/repo.git/git-receive-pack",
+        )
+        self.assertEqual(push_data.action, "blocked")
+        self.assertEqual(push_data.reason, "no_rule_matched")
 
 
 if __name__ == "__main__":

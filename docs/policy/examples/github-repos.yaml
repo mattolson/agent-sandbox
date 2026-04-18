@@ -1,0 +1,20 @@
+# Repo-scoped GitHub access
+#
+# Narrows GitHub access to one or more specific repositories. The `readonly`
+# flag keeps clone and fetch working while excluding push endpoints.
+#
+# Emits rules for:
+#   - api.github.com: GET/HEAD on /repos/{owner}/{name} and its subtree
+#   - github.com: clone/fetch smart-HTTP endpoints for each listed repo
+#
+# See docs/policy/schema.md for the full authored shape.
+
+services:
+  - name: github
+    merge_mode: replace
+    readonly: true
+    repos:
+      - owner/repo
+    surfaces:
+      - api
+      - git
