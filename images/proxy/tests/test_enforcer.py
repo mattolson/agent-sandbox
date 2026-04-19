@@ -1,8 +1,11 @@
+import asyncio
 import importlib.util
 import io
 import os
+import signal
 import sys
 import tempfile
+import threading
 import unittest
 from contextlib import redirect_stdout
 from datetime import datetime, timezone
@@ -229,6 +232,225 @@ domains:
 
         self.assertIsNone(connect_flow.response)
         self.assertIsNone(request_flow.response)
+
+
+class PolicyEnforcerReloadTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.enforcer_module = load_enforcer_module()
+
+    def make_logger(self, stream, log_level="normal"):
+        return self.enforcer_module.JsonLogger(
+            log_level=log_level,
+            stream=stream,
+            clock=lambda: FIXED_TIME,
+        )
+
+    def build_enforcer(self, initial_domains, renderer, logger_output=None):
+        if logger_output is None:
+            logger_output = io.StringIO()
+        matcher = self.enforcer_module.PolicyMatcher.from_policy_data(
+            {"domains": initial_domains}
+        )
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(logger_output),
+            response_factory=FakeResponse,
+            reload_renderer=renderer,
+        )
+        return enforcer, logger_output
+
+    def test_reload_swaps_matcher_and_emits_applied_event(self):
+        def renderer():
+            return {"domains": ["example.com", "*.example.net"]}
+
+        enforcer, logger_output = self.build_enforcer(
+            initial_domains=["old.example"],
+            renderer=renderer,
+        )
+
+        asyncio.run(enforcer.reload())
+
+        hosts = [record.host for record in enforcer.matcher.host_records]
+        self.assertEqual(hosts, ["example.com", "*.example.net"])
+        self.assertEqual(
+            [record["host"] for record in enforcer.domain_records],
+            ["example.com", "*.example.net"],
+        )
+        self.assertEqual(enforcer.exact_host_count, 1)
+        self.assertEqual(enforcer.wildcard_host_count, 1)
+
+        log_output = logger_output.getvalue()
+        self.assertIn('"type": "reload"', log_output)
+        self.assertIn('"action": "applied"', log_output)
+        self.assertIn('"host_records": 2', log_output)
+        self.assertIn('"exact_host_count": 1', log_output)
+        self.assertIn('"wildcard_host_count": 1', log_output)
+
+    def test_reload_keeps_prior_matcher_when_render_raises(self):
+        def renderer():
+            raise RuntimeError("render boom")
+
+        enforcer, logger_output = self.build_enforcer(
+            initial_domains=["keep.example"],
+            renderer=renderer,
+        )
+        prior_matcher = enforcer.matcher
+
+        asyncio.run(enforcer.reload())
+
+        self.assertIs(enforcer.matcher, prior_matcher)
+        self.assertEqual(
+            [record["host"] for record in enforcer.domain_records],
+            ["keep.example"],
+        )
+
+        log_output = logger_output.getvalue()
+        self.assertIn('"action": "rejected"', log_output)
+        self.assertIn('"error": "render boom"', log_output)
+
+    def test_reload_rejects_invalid_policy_and_keeps_prior_matcher(self):
+        def renderer():
+            return {"domains": [{"host": "bad.example"}]}  # rules required
+
+        enforcer, logger_output = self.build_enforcer(
+            initial_domains=["keep.example"],
+            renderer=renderer,
+        )
+        prior_matcher = enforcer.matcher
+
+        asyncio.run(enforcer.reload())
+
+        self.assertIs(enforcer.matcher, prior_matcher)
+        log_output = logger_output.getvalue()
+        self.assertIn('"action": "rejected"', log_output)
+        self.assertIn('"error"', log_output)
+
+    def test_reload_is_noop_in_log_mode(self):
+        calls = []
+
+        def renderer():
+            calls.append(1)
+            return {"domains": []}
+
+        logger_output = io.StringIO()
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="log",
+            logger=self.make_logger(logger_output),
+            reload_renderer=renderer,
+        )
+
+        asyncio.run(enforcer.reload())
+
+        self.assertEqual(calls, [])
+        self.assertNotIn('"type": "reload"', logger_output.getvalue())
+
+    def test_reload_events_emit_even_in_quiet_mode(self):
+        def renderer():
+            return {"domains": ["new.example"]}
+
+        logger_output = io.StringIO()
+        matcher = self.enforcer_module.PolicyMatcher.from_policy_data(
+            {"domains": ["old.example"]}
+        )
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(logger_output, log_level="quiet"),
+            response_factory=FakeResponse,
+            reload_renderer=renderer,
+        )
+
+        asyncio.run(enforcer.reload())
+
+        self.assertIn('"action": "applied"', logger_output.getvalue())
+
+    def test_concurrent_reloads_are_serialized(self):
+        observed_in_flight = []
+        started = threading.Event()
+        release = threading.Event()
+
+        def slow_renderer():
+            started.set()
+            release.wait(timeout=1.0)
+            return {"domains": ["first.example"]}
+
+        def quick_renderer():
+            return {"domains": ["second.example"]}
+
+        async def run():
+            enforcer, _ = self.build_enforcer(
+                initial_domains=["old.example"],
+                renderer=slow_renderer,
+            )
+            first = asyncio.create_task(enforcer.reload())
+            await asyncio.get_running_loop().run_in_executor(None, started.wait)
+            enforcer.reload_renderer = quick_renderer
+            second = asyncio.create_task(enforcer.reload())
+            release.set()
+            await first
+            observed_in_flight.append(
+                [record["host"] for record in enforcer.domain_records]
+            )
+            await second
+            observed_in_flight.append(
+                [record["host"] for record in enforcer.domain_records]
+            )
+
+        asyncio.run(run())
+
+        self.assertEqual(observed_in_flight, [["first.example"], ["second.example"]])
+
+    def test_running_installs_signal_handler_and_done_removes_it(self):
+        def renderer():
+            return {"domains": []}
+
+        enforcer, _ = self.build_enforcer(
+            initial_domains=["old.example"],
+            renderer=renderer,
+        )
+
+        recorded = {}
+
+        async def run():
+            loop = asyncio.get_running_loop()
+            original_add = loop.add_signal_handler
+            original_remove = loop.remove_signal_handler
+
+            def fake_add(sig, cb, *args):
+                recorded["added"] = sig
+                recorded["callback"] = cb
+                return original_add(sig, cb, *args)
+
+            def fake_remove(sig):
+                recorded["removed"] = sig
+                return original_remove(sig)
+
+            with mock.patch.object(loop, "add_signal_handler", side_effect=fake_add):
+                with mock.patch.object(loop, "remove_signal_handler", side_effect=fake_remove):
+                    enforcer.running()
+                    self.assertEqual(recorded["added"], signal.SIGHUP)
+                    self.assertTrue(callable(recorded["callback"]))
+                    enforcer.done()
+                    self.assertEqual(recorded["removed"], signal.SIGHUP)
+
+        asyncio.run(run())
+
+    def test_running_is_noop_in_log_mode(self):
+        logger_output = io.StringIO()
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="log",
+            logger=self.make_logger(logger_output),
+        )
+
+        async def run():
+            loop = asyncio.get_running_loop()
+            with mock.patch.object(loop, "add_signal_handler") as add_handler:
+                enforcer.running()
+                add_handler.assert_not_called()
+
+        asyncio.run(run())
 
 
 if __name__ == "__main__":
