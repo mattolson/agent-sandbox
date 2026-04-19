@@ -35,6 +35,9 @@ Lessons learned during project execution. Review at the start of each planning s
 - GitHub `git` readonly semantics belong inside the catalog, not the matcher: readonly expands to the `git-upload-pack` clone/fetch pair and readwrite adds the matching `git-receive-pack` pair, so the authored `readonly` flag stays generic while the protocol-specific expansion stays local to the GitHub service
 - Canonical catalog output should not be re-normalized inside the renderer; re-running host/rule normalization is wasteful defensive code and blurs the "catalog emits IR, renderer merges IR" boundary
 - `/opt/proxy-python/bin/python3` is the canonical interpreter for proxy test runs; system Python lacks the `yaml` module that `render-policy` depends on
+- mitmproxy reserves SIGINT and SIGTERM for shutdown but leaves SIGHUP unclaimed; addons can install their own SIGHUP handler through `loop.add_signal_handler` in the `running()` hook and remove it in `done()` without interfering with shutdown
+- `asyncio.Event.set()` is not safe to call from a worker thread — use `threading.Event` on both sides and bridge to the loop with `loop.run_in_executor(None, event.wait)` when the loop needs to wait on a thread's signal
+- For signal-driven reloads on a rare, manual trigger, prefer `asyncio.ensure_future(reload())` + `asyncio.Lock` inside `reload()` over a "drop duplicate in-flight signal" guard: the guard loses the latest on-disk edit when signals burst, while lock-serialized reloads drain in milliseconds and guarantee latest-wins semantics
 
 ## Architecture
 

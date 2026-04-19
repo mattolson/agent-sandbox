@@ -8,6 +8,10 @@ The addon reads the rendered policy IR emitted by `render-policy`. In `m14.1`
 that IR is canonicalized to a single top-level `domains` list where each entry
 is a host record with a `host` field and normalized `rules`.
 
+Reload behavior: the enforcer installs a `SIGHUP` handler on the mitmproxy
+event loop that re-runs `render-policy` in-process and swaps the matcher
+atomically. A failed reload keeps the previous matcher installed.
+
 Environment variables:
   PROXY_MODE: log (allow all) or enforce (block non-allowed)
   PROXY_LOG_LEVEL: quiet (errors only) or normal (default, one line per request)
@@ -15,10 +19,14 @@ Environment variables:
 
 from __future__ import annotations
 
+import asyncio
+import importlib.util
 import json
 import os
+import signal
 import sys
 from datetime import datetime, timezone
+from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
 
@@ -41,6 +49,17 @@ except ImportError:  # pragma: no cover - unit tests intentionally import withou
 
 FLOW_DECISION_METADATA_KEY = "agent_sandbox_policy_decision"
 
+RELOAD_SIGNAL = signal.SIGHUP
+RENDER_POLICY_PATH = Path("/usr/local/bin/render-policy")
+
+
+def _load_render_policy_module(path):
+    loader = SourceFileLoader("agent_sandbox_render_policy", str(path))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
 
 class JsonLogger:
     def __init__(self, log_level="normal", stream=None, clock=None):
@@ -58,8 +77,8 @@ class JsonLogger:
             "msg": message,
         })
 
-    def event(self, entry):
-        if self.log_level == "quiet":
+    def event(self, entry, always=False):
+        if self.log_level == "quiet" and not always:
             return
         self._emit(entry)
 
@@ -76,15 +95,19 @@ class PolicyEnforcer:
         matcher=None,
         logger=None,
         response_factory=None,
+        reload_renderer=None,
     ):
         self.mode = mode or os.getenv("PROXY_MODE", "log")
         self.log_level = log_level or os.getenv("PROXY_LOG_LEVEL", "normal")
         self.logger = logger or JsonLogger(log_level=self.log_level)
         self.response_factory = response_factory
+        self.reload_renderer = reload_renderer
         self.matcher = None
         self.domain_records = []
         self.exact_host_count = 0
         self.wildcard_host_count = 0
+        self._reload_lock = asyncio.Lock()
+        self._signal_loop = None
 
         if self.mode == "enforce":
             resolved_matcher = matcher
@@ -131,6 +154,72 @@ class PolicyEnforcer:
             f"Policy loaded from {self.matcher.source_description}: {len(self.domain_records)} host records, "
             f"{self.exact_host_count} exact, {self.wildcard_host_count} wildcard"
         )
+
+    def running(self):
+        if self.mode != "enforce":
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:  # pragma: no cover - only hit outside an asyncio context.
+            return
+        self._signal_loop = loop
+        try:
+            loop.add_signal_handler(RELOAD_SIGNAL, self._handle_reload_signal)
+        except (NotImplementedError, RuntimeError) as error:
+            self.logger.info(f"SIGHUP reload unavailable: {error}")
+            self._signal_loop = None
+            return
+        self.logger.info("SIGHUP reload handler installed")
+
+    def done(self):
+        loop = self._signal_loop
+        self._signal_loop = None
+        if loop is None:
+            return
+        try:
+            loop.remove_signal_handler(RELOAD_SIGNAL)
+        except (NotImplementedError, RuntimeError, ValueError):  # pragma: no cover - best-effort cleanup.
+            pass
+
+    def _handle_reload_signal(self):
+        asyncio.ensure_future(self.reload())
+
+    async def reload(self):
+        if self.mode != "enforce":
+            return
+        async with self._reload_lock:
+            try:
+                matcher = await asyncio.to_thread(self._render_matcher)
+            except Exception as error:
+                self.logger.event(
+                    self._reload_event("rejected", error=str(error)),
+                    always=True,
+                )
+                return
+            self._set_matcher(matcher)
+            self.logger.event(self._reload_event("applied"), always=True)
+
+    def _render_matcher(self):
+        if self.reload_renderer is not None:
+            renderer = self.reload_renderer
+        else:
+            renderer = _load_render_policy_module(RENDER_POLICY_PATH).render_policy
+        rendered_policy = renderer()
+        return PolicyMatcher.from_policy_data(rendered_policy, path="reloaded policy")
+
+    def _reload_event(self, action, error=None):
+        entry = {
+            "ts": self.logger.timestamp(),
+            "type": "reload",
+            "action": action,
+        }
+        if action == "applied":
+            entry["host_records"] = len(self.domain_records)
+            entry["exact_host_count"] = self.exact_host_count
+            entry["wildcard_host_count"] = self.wildcard_host_count
+        if error is not None:
+            entry["error"] = error
+        return entry
 
     def _make_response(self, status_code, body):
         factory = self.response_factory or self._default_response_factory()

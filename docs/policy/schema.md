@@ -373,6 +373,38 @@ The `.agent-sandbox/` directory, and in devcontainer workflows the
 `.devcontainer/` directory, are mounted read-only inside the agent container,
 preventing the agent from modifying the policy or compose file.
 
+## Reloading Policy
+
+Policy edits take effect on `SIGHUP`. The proxy re-runs `render-policy` in
+process, validates the rendered IR, and atomically swaps the matcher. Existing
+connections are not interrupted; new requests see the new policy on the next
+matcher evaluation.
+
+Trigger a reload from the host:
+
+```bash
+agentbox compose kill -s HUP proxy
+```
+
+A successful reload emits a structured log line through the proxy's stdout
+logger:
+
+```json
+{"ts": "...", "type": "reload", "action": "applied", "host_records": 7, "exact_host_count": 5, "wildcard_host_count": 2}
+```
+
+If the reloaded policy is invalid (missing file, YAML error, schema violation,
+or any other exception during render), the prior policy stays active and the
+proxy logs a rejection:
+
+```json
+{"ts": "...", "type": "reload", "action": "rejected", "error": "..."}
+```
+
+Reload is best-effort and does not block traffic. The last-known-good matcher
+remains installed until a subsequent reload succeeds. Reload events appear
+even when `PROXY_LOG_LEVEL=quiet`.
+
 ## Examples
 
 The single-file base policy template is at

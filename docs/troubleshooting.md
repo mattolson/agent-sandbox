@@ -43,3 +43,16 @@ and whether that directory is on your `PATH`.
 
 If you previously used a shell alias that pointed `agentbox` at the retired Docker CLI image, remove that alias before
 retrying the binary install.
+
+## Policy reload rejected
+
+`agentbox compose kill -s HUP proxy` triggers a hot reload of the proxy policy. If the rendered policy is invalid the
+proxy keeps the previous policy active and logs a rejection event:
+
+```json
+{"ts": "...", "type": "reload", "action": "rejected", "error": "..."}
+```
+
+Check the proxy logs with `agentbox compose logs proxy` (or `docker compose logs proxy`) for the `error` field. Typical
+causes are YAML syntax errors in a user-owned policy file and schema violations introduced in a recent edit. Fix the
+source file, then re-send `SIGHUP`; a successful reload emits a matching `"action": "applied"` event.
