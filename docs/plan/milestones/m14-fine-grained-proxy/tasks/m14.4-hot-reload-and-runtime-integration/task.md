@@ -161,6 +161,6 @@ All four planning questions resolved with the drafted defaults on 2026-04-19:
 
 ### Follow-up Items
 
-- A dedicated `agentbox policy reload` CLI wrapper is deferred. `agentbox compose kill -s HUP proxy` covers the
-  current single-container case; a wrapper belongs in a later milestone once multi-container / remote invocation is
-  on the table.
+- CLI wrapper landed as `agentbox proxy reload` in a follow-up commit, rather than `agentbox policy reload`. The
+  `proxy` group leaves room for future monitoring and realtime-policy commands that operate on the sidecar rather
+  than the rendered policy surface.

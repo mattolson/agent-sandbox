@@ -383,7 +383,7 @@ matcher evaluation.
 Trigger a reload from the host:
 
 ```bash
-agentbox compose kill -s HUP proxy
+agentbox proxy reload
 ```
 
 A successful reload emits a structured log line through the proxy's stdout
