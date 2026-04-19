@@ -107,6 +107,7 @@ Current root commands:
 - `switch`
 - `edit`
 - `policy`
+- `proxy`
 - `bump`
 - `up`
 - `down`

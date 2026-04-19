@@ -46,7 +46,7 @@ retrying the binary install.
 
 ## Policy reload rejected
 
-`agentbox compose kill -s HUP proxy` triggers a hot reload of the proxy policy. If the rendered policy is invalid the
+`agentbox proxy reload` triggers a hot reload of the proxy policy. If the rendered policy is invalid the
 proxy keeps the previous policy active and logs a rejection event:
 
 ```json

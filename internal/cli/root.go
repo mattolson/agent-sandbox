@@ -46,6 +46,7 @@ func NewRootCommand(opts Options) *cobra.Command {
 		newSwitchCommand(opts, deps),
 		newEditCommand(opts, deps),
 		newPolicyCommand(deps),
+		newProxyCommand(deps),
 		newBumpCommand(deps),
 		newRuntimeComposeCommand("up", "Start the sandbox runtime", "up", []string{"up"}, deps),
 		newRuntimeComposeCommand("down", "Stop the sandbox runtime", "down", []string{"down"}, deps),

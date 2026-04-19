@@ -12,7 +12,7 @@ import (
 func TestRootCommandIncludesExpectedCommands(t *testing.T) {
 	cmd := NewRootCommand(Options{})
 
-	want := []string{"bump", "compose", "destroy", "down", "edit", "exec", "init", "logs", "policy", "switch", "up", "version"}
+	want := []string{"bump", "compose", "destroy", "down", "edit", "exec", "init", "logs", "policy", "proxy", "switch", "up", "version"}
 	got := make([]string, 0, len(cmd.Commands()))
 	for _, subcommand := range cmd.Commands() {
 		got = append(got, subcommand.Name())
