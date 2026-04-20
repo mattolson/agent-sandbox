@@ -332,21 +332,30 @@ evaluation has one deterministic precedence model:
 - exact host before wildcard host
 - among wildcard hosts, longest suffix first
 
-## Enforcement Status
+## Enforcement Phases
 
-`m14.1` stabilizes the authored schema, validation, layering, and rendered
-intermediate representation (IR). It does **not** yet ship request-phase
-enforcement for `methods`, `path`, or `query`.
+The proxy enforces policy in two phases. Which phase blocks a given request
+depends on the rule fields it uses.
 
-Current runtime behavior remains host-oriented:
+| Rule field    | Enforcement phase | Notes                                                      |
+|---------------|-------------------|------------------------------------------------------------|
+| `host`        | CONNECT           | Disallowed hosts fail before the TLS tunnel is established |
+| `schemes`     | Request           | Needs the decrypted request to know `http` vs `https`      |
+| `methods`     | Request           | Needs the decrypted request                                |
+| `path`        | Request           | Needs the decrypted request                                |
+| `query`       | Request           | Needs the decrypted request                                |
 
-- The proxy uses the rendered host records for allowlist decisions
-- Legacy host-only policies continue to work
-- Request-aware rule fields are rendered and validated now so `m14.2` can
-  consume one stable policy shape
+Host-only rules take the CONNECT fast path: if the requested host has no
+matching record, the proxy returns `403` before any TLS handshake completes.
+This preserves the original domain-only allowlist behavior.
 
-For `m14`, a matched URL rule still implies that the endpoint is trusted with
-the full request. Header and request-body inspection remain out of scope.
+Rules that constrain scheme, method, path, or query require the decrypted
+request. For HTTPS, that means the proxy MITMs the connection (the proxy CA
+is already installed in the agent image) and evaluates the rule on the real
+`Request` object. HTTP requests evaluate the same rules without TLS.
+
+A matched URL rule still implies the endpoint is trusted with the full
+request. Header and request-body inspection remain out of scope for `m14`.
 
 ## Where Policy Files Live
 

@@ -1,0 +1,34 @@
+# Request-aware rules
+#
+# Example showing how to constrain a host by method, path, and query parameters.
+# Each rule is an allow-only conjunction: a request passes if it matches the
+# full rule (all constraints). Requests that miss every rule are denied.
+#
+# Enforcement phase: scheme, method, path, and query are all request-phase
+# constraints, so HTTPS traffic to these hosts is MITM'd rather than blocked
+# at CONNECT. See docs/policy/schema.md for the full phase map.
+
+domains:
+  # Public read API: only GET under /v1/public/ is allowed.
+  - host: api.example.com
+    rules:
+      - schemes: [https]
+        methods: [GET]
+        path:
+          prefix: /v1/public/
+
+  # Search endpoint with a required `version` query parameter.
+  - host: search.example.com
+    rules:
+      - schemes: [https]
+        methods: [GET]
+        path:
+          exact: /search
+        query:
+          exact:
+            version: v2
+
+  # Wildcard host with a catch-all rule — behaves like a legacy string entry.
+  - host: "*.static.example.com"
+    rules:
+      - schemes: [https]

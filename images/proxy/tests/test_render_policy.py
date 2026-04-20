@@ -456,5 +456,101 @@ services:
             self.assertEqual(record["rules"], [{"schemes": ["http", "https"]}])
 
 
+BASELINE_CATCH_ALL_RULE = {"schemes": ["http", "https"]}
+
+BASELINE_AGENT_HOSTS = {
+    "claude": ["*.anthropic.com", "*.claude.ai", "*.claude.com"],
+    "codex": ["*.openai.com", "chatgpt.com", "*.chatgpt.com"],
+    "factory": ["api.factory.ai", "api.workos.com"],
+    "gemini": [
+        "cloudcode-pa.googleapis.com",
+        "generativelanguage.googleapis.com",
+        "oauth2.googleapis.com",
+    ],
+    "opencode": ["opencode.ai", "*.opencode.ai", "models.dev"],
+    "pi": [],
+    "copilot": [
+        "github.com",
+        "api.github.com",
+        "copilot-telemetry.githubusercontent.com",
+        "collector.github.com",
+        "default.exp-tas.com",
+        "copilot-proxy.githubusercontent.com",
+        "origin-tracker.githubusercontent.com",
+        "*.githubcopilot.com",
+        "*.individual.githubcopilot.com",
+        "*.business.githubcopilot.com",
+        "*.enterprise.githubcopilot.com",
+        "*.githubassets.com",
+    ],
+}
+
+
+class BaselinePolicyRegressionTests(unittest.TestCase):
+    """Pin each agent baseline to a CONNECT-fast-path IR shape.
+
+    Backward compatibility in m14 means `services: [<agent>]` renders to the
+    same host list with a plain catch-all rule as it did before request-aware
+    rules landed. These tests make that guarantee explicit so any future
+    catalog change has to edit the expected structure.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.render_policy = load_render_policy_module()
+
+    def render_baseline(self, agent):
+        policy_text = f"services:\n  - {agent}\n"
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "policy.yaml"
+            path.write_text(policy_text, encoding="utf-8")
+            with mock.patch.dict(
+                os.environ,
+                {"AGENTBOX_POLICY_SOURCE_PATH": str(path)},
+                clear=False,
+            ):
+                return self.render_policy.render_single_policy()
+
+    def _assert_baseline(self, agent, expected_hosts):
+        rendered = self.render_baseline(agent)
+        self.assertNotIn("services", rendered)
+        got_hosts = [record["host"] for record in rendered["domains"]]
+        self.assertEqual(sorted(got_hosts), sorted(expected_hosts))
+        for record in rendered["domains"]:
+            self.assertEqual(record["rules"], [BASELINE_CATCH_ALL_RULE])
+
+    def test_claude_baseline(self):
+        self._assert_baseline("claude", BASELINE_AGENT_HOSTS["claude"])
+
+    def test_codex_baseline(self):
+        self._assert_baseline("codex", BASELINE_AGENT_HOSTS["codex"])
+
+    def test_factory_baseline(self):
+        self._assert_baseline("factory", BASELINE_AGENT_HOSTS["factory"])
+
+    def test_gemini_baseline(self):
+        self._assert_baseline("gemini", BASELINE_AGENT_HOSTS["gemini"])
+
+    def test_opencode_baseline(self):
+        self._assert_baseline("opencode", BASELINE_AGENT_HOSTS["opencode"])
+
+    def test_pi_baseline(self):
+        self._assert_baseline("pi", BASELINE_AGENT_HOSTS["pi"])
+
+    def test_copilot_baseline(self):
+        self._assert_baseline("copilot", BASELINE_AGENT_HOSTS["copilot"])
+
+    def test_github_default_baseline(self):
+        self._assert_baseline(
+            "github",
+            [
+                "github.com",
+                "*.github.com",
+                "githubusercontent.com",
+                "*.githubusercontent.com",
+            ],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

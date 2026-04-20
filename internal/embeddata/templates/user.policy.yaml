@@ -1,10 +1,21 @@
 # Shared user-owned policy additions for layered agentbox sandboxes.
 #
 # This file is merged into the active agent baseline at proxy startup.
-# Changes take effect on proxy restart: agentbox compose restart proxy
+# Apply edits without restarting: agentbox proxy reload
 #
 # See docs/policy/schema.md for the full format reference.
-# Rich host entries can add request-aware rules under `domains`.
 
 services: []
 domains: []
+
+# Rich host entries can add request-aware rules. Uncomment and adapt:
+#
+# domains:
+#   - host: api.example.com
+#     rules:
+#       - schemes: [https]
+#         methods: [GET]
+#         path:
+#           prefix: /v1/public/
+#
+# See docs/policy/examples/request-rules.yaml for more shapes.
