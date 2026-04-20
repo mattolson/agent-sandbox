@@ -26,7 +26,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install test dependencies
-        run: pip install PyYAML
+        run: pip install PyYAML mitmproxy
 
       - name: Run proxy Python tests
         run: python -m unittest discover -s images/proxy/tests -p 'test_*.py'

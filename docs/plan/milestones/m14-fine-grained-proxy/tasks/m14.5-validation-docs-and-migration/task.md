@@ -107,54 +107,79 @@ Split the work into three threads that can interleave:
 
 ### Implementation Steps
 
-- [ ] Fix `docs/policy/schema.md` "Enforcement Status" section to reflect m14.2–m14.4 shipped behavior
-- [ ] Add "CONNECT vs request-phase enforcement" subsection to `docs/policy/schema.md` with a small table mapping
+- [x] Fix `docs/policy/schema.md` "Enforcement Status" section to reflect m14.2–m14.4 shipped behavior
+- [x] Add "CONNECT vs request-phase enforcement" subsection to `docs/policy/schema.md` with a small table mapping
       rule fields to the phase that enforces them
-- [ ] Write `docs/upgrades/m14-request-aware-rules.md` as a what's-new note with backward-compatibility guarantee,
+- [x] Write `docs/upgrades/m14-request-aware-rules.md` as a what's-new note with backward-compatibility guarantee,
       authoring surface tour, enforcement-phase map, and reload workflow
-- [ ] Add `docs/policy/examples/request-rules.yaml` (methods + path prefix + query exact, minimum viable example)
-- [ ] Add `docs/policy/examples/layered-merge.yaml` (two-layer additive + `merge_mode: replace`)
-- [ ] Add troubleshooting entries: "policy rejected with schema error" and "request blocked unexpectedly"
-- [ ] Extend `test_render_policy.py` with a baseline-IR snapshot test covering every agent catalog entry
-- [ ] Scaffold `images/proxy/tests/integration/` with a pytest fixture that spawns `mitmdump -s enforcer.py` and
-      yields a proxy URL + stdout capture handle
-- [ ] Add integration scenarios: CONNECT allow, CONNECT block, method restriction, path prefix, query exact, SIGHUP
+- [x] Add `docs/policy/examples/request-rules.yaml` (methods + path prefix + query exact, minimum viable example)
+- [x] Add `docs/policy/examples/layered-merge.yaml` (two-layer additive + `merge_mode: replace`)
+- [x] Add troubleshooting entries: "policy rejected with schema error" and "request blocked unexpectedly"
+- [x] Extend `test_render_policy.py` with a baseline-IR snapshot test covering every agent catalog entry
+- [x] Scaffold `images/proxy/tests/integration/` with a unittest-compatible harness that spawns `mitmdump -s
+      integration_addon.py` and exposes a proxy URL + captured JSON log lines
+- [x] Add integration scenarios: CONNECT allow, CONNECT block, method restriction, path prefix, query exact, SIGHUP
       reload swap, SIGHUP rejection with last-known-good
-- [ ] Wire the integration suite into `.github/workflows/proxy-tests.yml`
-- [ ] Add commented rich-rule example to `internal/embeddata/templates/user.policy.yaml`
-- [ ] Run `go test ./...` and the full proxy test suite (unit + integration); confirm green
+- [x] Wire the integration suite into `.github/workflows/proxy-tests.yml`
+- [x] Add commented rich-rule example to `internal/embeddata/templates/user.policy.yaml`
+- [x] Run `go test ./...` and the full proxy test suite (unit + integration); confirm green
 
 ### Open Questions
 
-1. **Do we invest in a mitmdump-subprocess integration harness, or defer integration coverage to a later milestone?**
-   Draft default: build it now. The milestone risk note explicitly says "use a smaller set of proxy integration
-   tests for wiring," and shipping m14 without any end-to-end proof the hooks fire as expected makes later
-   milestones harder to trust. Cost is ~1 fixture + 7 focused tests. If the subprocess pattern proves flaky we can
-   fall back to Docker-based integration in CI only.
+All four resolved with the drafted defaults on 2026-04-19:
 
-2. **Is a dedicated `docs/upgrades/m14-...md` file warranted, or should the schema doc carry the feature-tour
-   content inline?** Draft default: separate file, because the m8 guide set a precedent and users looking for
-   "upgrade to m14" will grep `docs/upgrades/`. But we should be explicit that it's a what's-new note, not a
-   migration, to avoid implying breakage.
-
-3. **Should the template scaffolds (`user.policy.yaml`) ship a commented rich example, or stay minimal?** Draft
-   default: a *commented* example. Minimal scaffolds hide the new capability from anyone who doesn't read the docs
-   first. A commented example is discoverable without affecting active policy.
-
-4. **Baseline IR snapshot test — inline expected structure, or golden files?** Draft default: inline assertions.
-   Golden files would drift silently; inline structures force a reviewer to eyeball any catalog change. Seven
-   agents × baseline-only expansion is small enough that inline stays readable.
+1. **Integration harness.** Build a mitmdump-subprocess pytest fixture now, ~7 scenarios. Fall back to Docker-based
+   CI-only integration if the subprocess pattern proves flaky.
+2. **Upgrade doc.** Separate `docs/upgrades/m14-request-aware-rules.md`, framed as a what's-new note with an
+   explicit backward-compatibility guarantee.
+3. **Template scaffold hint.** Commented rich-rule example in `user.policy.yaml` for discoverability. Active content
+   unchanged.
+4. **Baseline IR snapshot.** Inline expected structures in `test_render_policy.py`. Golden files would drift
+   silently; inline forces reviewers to eyeball catalog changes.
 
 ## Outcome
 
 ### Acceptance Verification
 
-Pending execution.
+- [x] **Automated coverage exists for representative HTTP and HTTPS cases, including reload failure handling.**
+      7 integration scenarios under `images/proxy/tests/integration/`: CONNECT allow, CONNECT block, method
+      restriction, path prefix, query exact, SIGHUP reload swap, SIGHUP rejection with last-known-good. Each asserts
+      both HTTP status and the structured decision log line.
+- [x] **Docs show both legacy domain-only and new request-aware examples.** `examples/all-agents.yaml` (services
+      union) and `examples/github-repos.yaml` remain; new `examples/request-rules.yaml` demonstrates methods, path
+      prefix, and query exact; new `examples/layered-merge.yaml` demonstrates additive and `merge_mode: replace`
+      across two layers.
+- [x] **Users can tell whether a rule is enforced at CONNECT or request phase without reading proxy source.**
+      `docs/policy/schema.md` has a new "Enforcement Phases" table mapping rule fields to their enforcement phase;
+      `docs/upgrades/m14-request-aware-rules.md` repeats the guidance in prose with a practical example.
+- [x] **Existing projects with domain-only policies continue to work unchanged.** New
+      `BaselinePolicyRegressionTests` in `test_render_policy.py` snapshots every agent's baseline render (claude,
+      codex, factory, gemini, opencode, pi, copilot) and asserts the catch-all rule shape is stable.
 
 ### Learnings
 
-Pending execution.
+- **Integration tests surface bugs unit tests miss.** The first integration run exposed a real reload bug:
+  render-policy's `fail()` calls `sys.exit(1)`, which `except Exception` didn't catch — the SIGHUP handler crashed
+  silently with only a raw stderr line and no structured `rejected` event. Unit-level coverage missed this because
+  every unit test injected `reload_renderer` (a plain Python callable that raises PolicyError). Fix: wrap the
+  production renderer in `contextlib.redirect_stderr` + `SystemExit` catch, so bad reloads emit the real error
+  message in the structured event.
+- **urllib's `no_proxy` is silently sticky.** An explicit `ProxyHandler({"http": proxy})` still bypasses the proxy
+  for loopback targets because urllib consults `proxy_bypass()`. Using a raw socket + absolute-form request line is
+  the reliable way to guarantee traffic hits the proxy.
+- **The initial-load path and the reload path have different strictness.** `PolicyMatcher.from_policy_path` requires
+  `query.exact.<name>` to be a list; `render-policy` accepts a bare string and promotes it. Integration tests that
+  write policy files directly must use the matcher's stricter form.
+- **Addon constants need an override hook.** `RENDER_POLICY_PATH` is hard-coded at `/usr/local/bin/render-policy`,
+  so integration tests would fail outside a built image. The wrapper-addon pattern (`-s integration_addon.py` that
+  imports enforcer and patches the constant) keeps the override test-local without touching the production default.
 
 ### Follow-up Items
 
-Pending execution.
+- **m15 or later: consider an env-var override for `RENDER_POLICY_PATH` in `enforcer.py`.** The wrapper-addon works
+  for tests but a direct env override would eliminate the indirection and give operators a way to run a non-standard
+  renderer. Low priority.
+- **Render-policy could raise a typed exception from library entry points.** `fail()` mixing stderr + `sys.exit()`
+  is a CLI convention that leaks into the library path the reload handler uses. A `RenderPolicyError` exception
+  would let callers catch directly instead of threading `redirect_stderr` through reload. Tracked for a future
+  policy-engine cleanup; not urgent since the current workaround emits the right user-facing message.

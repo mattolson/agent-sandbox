@@ -38,6 +38,10 @@ Lessons learned during project execution. Review at the start of each planning s
 - mitmproxy reserves SIGINT and SIGTERM for shutdown but leaves SIGHUP unclaimed; addons can install their own SIGHUP handler through `loop.add_signal_handler` in the `running()` hook and remove it in `done()` without interfering with shutdown
 - `asyncio.Event.set()` is not safe to call from a worker thread — use `threading.Event` on both sides and bridge to the loop with `loop.run_in_executor(None, event.wait)` when the loop needs to wait on a thread's signal
 - For signal-driven reloads on a rare, manual trigger, prefer `asyncio.ensure_future(reload())` + `asyncio.Lock` inside `reload()` over a "drop duplicate in-flight signal" guard: the guard loses the latest on-disk edit when signals burst, while lock-serialized reloads drain in milliseconds and guarantee latest-wins semantics
+- Thick unit coverage does not substitute for integration wiring coverage. Unit tests that inject a renderer callable (`reload_renderer=...`) miss SystemExit + stderr-printing behavior of the real CLI-style renderer; integration tests that drive real `mitmdump` uncover it immediately
+- `except Exception` does not catch `SystemExit` — a renderer that uses `sys.exit(1)` after printing to stderr will crash reload silently; wrap the production renderer in `contextlib.redirect_stderr` + explicit `except SystemExit` so the real error message flows into the structured rejection event
+- urllib's `ProxyHandler` honors `no_proxy` / `proxy_bypass()` even when explicitly configured, so loopback targets silently bypass the proxy; integration tests that must exercise the proxy need a raw-socket HTTP client using absolute-form request URIs
+- The initial-load path (`PolicyMatcher.from_policy_path`) is stricter than the renderer: it requires `query.exact.<name>` to be a list, while `render-policy` accepts a bare string and promotes it. Policy files that serve both paths must use the matcher's stricter form
 
 ## Architecture
 

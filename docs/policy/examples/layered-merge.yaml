@@ -1,0 +1,54 @@
+# Layered merge semantics
+#
+# Illustrates how host records combine across policy layers. This file is
+# annotated as if its contents were split across two layers; in practice the
+# first block lives in .agent-sandbox/policy/user.policy.yaml and the second
+# in .agent-sandbox/policy/user.agent.<agent>.policy.yaml (or similar).
+#
+# Two behaviors are shown:
+#   1. Additive merge: same host, different rules — rules accumulate.
+#   2. merge_mode: replace — later layer discards earlier same-host records.
+#
+# See docs/policy/schema.md ("Layered Merge Semantics") for the full model.
+
+# ---- Layer 1: shared user policy ----------------------------------------
+domains:
+  # Layer 1 allows GET under /repos for api.github.com.
+  - host: api.github.com
+    rules:
+      - schemes: [https]
+        methods: [GET]
+        path:
+          prefix: /repos/
+
+  # Layer 1 allows GET on /meta for docs.example.com.
+  - host: docs.example.com
+    rules:
+      - schemes: [https]
+        methods: [GET]
+        path:
+          exact: /meta
+
+# ---- Layer 2: agent-specific policy -------------------------------------
+# In a real project this block would live in a separate file.
+#
+# domains:
+#   # Additive: layer 2 also allows GET on /user for api.github.com.
+#   # The rendered policy for api.github.com contains both rules.
+#   - host: api.github.com
+#     rules:
+#       - schemes: [https]
+#         methods: [GET]
+#         path:
+#           exact: /user
+#
+#   # Replace: layer 2 narrows docs.example.com to just /meta on HTTPS.
+#   # The layer-1 record for docs.example.com is discarded before this
+#   # record is applied. Other hosts are unaffected.
+#   - host: docs.example.com
+#     merge_mode: replace
+#     rules:
+#       - schemes: [https]
+#         methods: [GET, HEAD]
+#         path:
+#           exact: /meta

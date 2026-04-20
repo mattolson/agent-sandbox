@@ -1,5 +1,41 @@
 # Execution Log: m14.5 - Validation, Docs, And Migration
 
+## 2026-04-19 16:10 UTC - Task complete
+
+All 11 implementation steps done. Full suite green: `go test ./...` (Go) and 79 proxy Python tests (72 unit + 7
+integration). The integration harness spawns real `mitmdump` with `integration_addon.py` that patches
+`RENDER_POLICY_PATH` at import so the addon points at this repo's `render-policy` rather than `/usr/local/bin/`.
+
+**Issue uncovered during integration:** a bad SIGHUP reload crashed silently. Root cause: `render-policy`'s
+`fail()` calls `sys.exit(1)`, which raises `SystemExit` — not caught by `except Exception` in `PolicyEnforcer.reload()`.
+**Solution:** wrap the production renderer in `contextlib.redirect_stderr(io.StringIO())` + explicit `SystemExit`
+catch inside `_render_matcher`, convert to `RuntimeError` with the captured stderr as message. The rejected-reload
+event now carries the real error text (e.g., "domains[0] contains unsupported keys: ['unsupported']") rather
+than a generic "exited with code 1".
+
+**Issue uncovered:** urllib ProxyHandler silently bypasses the proxy for loopback targets because of
+`proxy_bypass()`. **Solution:** raw-socket HTTP/1.1 client in the harness using absolute-form request URIs so
+traffic can only reach the upstream through the proxy.
+
+**Scope creep avoided:** the code-reuse reviewer suggested rewriting `render-policy`'s `fail()` to raise a typed
+exception and refactoring enforcer's error handling accordingly. Noted in follow-ups for a future policy-engine
+cleanup — the current in-place fix delivers the right user-facing behavior with a smaller change.
+
+**Simplify pass applied:** encapsulated ProxyHarness lifecycle (removed `_workdir` / `_reader_thread` post-construction
+mutation), collapsed 7 tests' `try/finally + terminate_proxy` duplication into a `_ProxyTestCase` base class with
+`addCleanup`, replaced the hand-rolled URL split with `urllib.parse.urlsplit`, tightened `send_request` to raise
+`HarnessTimeoutError` rather than silently returning status 0 on socket timeout, and named the harness's wait
+failures as a dedicated exception instead of `AssertionError`.
+
+## 2026-04-19 15:30 UTC - Closed the open questions, moving to execution
+
+All four open questions resolved with the drafted defaults:
+
+- Build the mitmdump-subprocess integration harness now.
+- Ship a separate `docs/upgrades/m14-request-aware-rules.md` as a what's-new note.
+- Add a commented rich-rule example to `user.policy.yaml` for discoverability.
+- Inline baseline-IR snapshots in `test_render_policy.py` instead of golden files.
+
 ## 2026-04-19 - Drafted the task plan
 
 Reviewed the m14 milestone plan, all four prior task outcomes, and the current state of the repo (tests, docs,
