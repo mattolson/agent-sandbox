@@ -29,12 +29,21 @@ class RenderPolicyError(Exception):
     """
 
 
+_warnings: list[str] = []
+
+
 def fail(message):
     raise RenderPolicyError(message)
 
 
 def warn(message):
-    print(f"warning: {message}", file=sys.stderr)
+    _warnings.append(message)
+
+
+def take_warnings():
+    drained = list(_warnings)
+    _warnings.clear()
+    return drained
 
 
 def load_policy_file(path, required=False):
@@ -516,6 +525,7 @@ def finalize_render_state(state):
 
 
 def render_layered_policy(active_agent):
+    _warnings.clear()
     shared_policy_path = os.getenv("AGENTBOX_SHARED_POLICY_PATH", DEFAULT_SHARED_POLICY_PATH)
     agent_policy_path = os.getenv("AGENTBOX_AGENT_POLICY_PATH", DEFAULT_AGENT_POLICY_PATH)
     devcontainer_policy_path = os.getenv("AGENTBOX_DEVCONTAINER_POLICY_PATH", DEFAULT_DEVCONTAINER_POLICY_PATH)
@@ -529,6 +539,7 @@ def render_layered_policy(active_agent):
 
 
 def render_single_policy():
+    _warnings.clear()
     policy_source_path = os.getenv("AGENTBOX_POLICY_SOURCE_PATH", DEFAULT_SINGLE_POLICY_PATH)
     state = make_render_state()
     apply_policy_layer(
@@ -561,6 +572,9 @@ def main():
     except RenderPolicyError as error:
         print(str(error), file=sys.stderr)
         sys.exit(1)
+
+    for message in take_warnings():
+        print(f"warning: {message}", file=sys.stderr)
 
     rendered_yaml = yaml.safe_dump(rendered_policy, sort_keys=False)
 
