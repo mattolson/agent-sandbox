@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote_plus, urlsplit
 
 import yaml
 
 
 DEFAULT_POLICY_PATH = "/etc/mitmproxy/policy.yaml"
 DEFAULT_RULE_SCHEMES = ("http", "https")
+_UNRESERVED_URI_CHARS = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+)
 
 
 class PolicyError(Exception):
@@ -154,6 +157,35 @@ class PolicyMatcher:
             cls._compile_host_records(domains),
             source_description=source_description,
         )
+
+    @staticmethod
+    def _normalize_uri_component_for_match(value):
+        normalized = []
+        index = 0
+
+        while index < len(value):
+            if (
+                value[index] == "%"
+                and index + 2 < len(value)
+                and all(character in "0123456789ABCDEFabcdef" for character in value[index + 1 : index + 3])
+            ):
+                encoded = value[index + 1 : index + 3]
+                character = chr(int(encoded, 16))
+                if character in _UNRESERVED_URI_CHARS:
+                    normalized.append(character)
+                else:
+                    normalized.append("%" + encoded.upper())
+                index += 3
+                continue
+
+            normalized.append(value[index])
+            index += 1
+
+        return "".join(normalized)
+
+    @staticmethod
+    def _normalize_query_string_for_match(value):
+        return unquote_plus(value, encoding="utf-8", errors="replace")
 
     @staticmethod
     def _compile_host_records(domains):
@@ -306,10 +338,13 @@ class PolicyMatcher:
                 raise PolicyError(
                     f"{context}.path.{match_key} must be a string starting with '/', got {match_value!r}"
                 )
+            normalized_path = PolicyMatcher._normalize_uri_component_for_match(
+                match_value
+            )
             if match_key == "exact":
-                path_exact = match_value
+                path_exact = normalized_path
             else:
-                path_prefix = match_value
+                path_prefix = normalized_path
 
         query_exact = None
         if "query" in rule:
@@ -328,12 +363,13 @@ class PolicyMatcher:
                     f"{context}.query.exact must be a YAML mapping, got {type(exact_value).__name__}: {exact_value!r}"
                 )
 
-            normalized_items = []
+            normalized_items = {}
             for name in sorted(exact_value):
                 if not isinstance(name, str) or not name:
                     raise PolicyError(
                         f"{context}.query.exact keys must be non-empty strings, got {name!r}"
                     )
+                normalized_name = PolicyMatcher._normalize_query_string_for_match(name)
                 values = exact_value[name]
                 if not isinstance(values, list):
                     raise PolicyError(
@@ -349,9 +385,16 @@ class PolicyMatcher:
                         raise PolicyError(
                             f"{context}.query.exact.{name}[{index}] must be a string, got {item!r}"
                         )
-                    normalized_values.append(item)
-                normalized_items.append((name, tuple(sorted(normalized_values))))
-            query_exact = tuple(normalized_items)
+                    normalized_values.append(
+                        PolicyMatcher._normalize_query_string_for_match(item)
+                    )
+                normalized_items.setdefault(normalized_name, []).extend(
+                    normalized_values
+                )
+            query_exact = tuple(
+                (name, tuple(sorted(values)))
+                for name, values in sorted(normalized_items.items())
+            )
 
         return RuntimeRule(
             schemes=tuple(sorted(set(schemes))),
@@ -370,7 +413,7 @@ class PolicyMatcher:
     @staticmethod
     def _normalize_request_target(request_target):
         parsed = urlsplit(request_target)
-        path = parsed.path or "/"
+        path = PolicyMatcher._normalize_uri_component_for_match(parsed.path or "/")
         query_map = parse_qs(
             parsed.query,
             keep_blank_values=True,

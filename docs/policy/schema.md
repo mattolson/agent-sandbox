@@ -252,6 +252,8 @@ path:
 - Supported matchers: `exact`, `prefix`
 - Path values must start with `/`
 - A rule may carry at most one path matcher
+- Matching preserves path case. It only canonicalizes URI-equivalent
+  percent-encoding forms, such as `%7E` versus `~` and `%2f` versus `%2F`
 
 ### query
 
@@ -273,6 +275,8 @@ query:
 - `query.exact: {}` means the request must have no query params
 - Scalar values normalize to single-item lists in the rendered policy
 - Rendered `query.exact` keys are sorted for determinism
+- Query-param names and values remain case-sensitive. Matching happens on the
+  decoded query-param map, not on raw escape spelling
 
 ## Rendered Policy Intermediate Representation (IR)
 
