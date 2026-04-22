@@ -1,9 +1,8 @@
 # Policy Schema
 
 Policy files still use the existing top-level `services` and `domains` fields.
-`m14.1` keeps that authored surface backward compatible, but the proxy now
-renders it into one canonical host-record intermediate representation (IR)
-before enforcement.
+The authored surface is backward compatible: the proxy renders it into one
+canonical host-record intermediate representation (IR) before enforcement.
 
 Effective policy location inside the proxy container: `POLICY_PATH` (defaults to
 `/etc/mitmproxy/policy.yaml` for single-file setups).
@@ -337,13 +336,13 @@ evaluation has one deterministic precedence model:
 The proxy enforces policy in two phases. Which phase blocks a given request
 depends on the rule fields it uses.
 
-| Rule field    | Enforcement phase | Notes                                                      |
-|---------------|-------------------|------------------------------------------------------------|
-| `host`        | CONNECT           | Disallowed hosts fail before the TLS tunnel is established |
-| `schemes`     | Request           | Needs the decrypted request to know `http` vs `https`      |
-| `methods`     | Request           | Needs the decrypted request                                |
-| `path`        | Request           | Needs the decrypted request                                |
-| `query`       | Request           | Needs the decrypted request                                |
+| Rule field    | Enforcement phase   | Notes                                                                              |
+|---------------|---------------------|------------------------------------------------------------------------------------|
+| `host`        | CONNECT             | Disallowed hosts fail before the TLS tunnel is established                         |
+| `schemes`     | CONNECT and Request | HTTPS CONNECT is blocked (`https_not_permitted`) when no rule allows `https`; the decrypted request re-checks `http` vs `https` |
+| `methods`     | Request             | Needs the decrypted request                                                        |
+| `path`        | Request             | Needs the decrypted request                                                        |
+| `query`       | Request             | Needs the decrypted request                                                        |
 
 Host-only rules take the CONNECT fast path: if the requested host has no
 matching record, the proxy returns `403` before any TLS handshake completes.

@@ -4,9 +4,9 @@ Proxy policy enforcement addon for mitmproxy.
 Logs HTTP/HTTPS traffic to stdout in JSON format.
 In enforce mode, blocks requests to domains not on the allowlist.
 
-The addon reads the rendered policy IR emitted by `render-policy`. In `m14.1`
-that IR is canonicalized to a single top-level `domains` list where each entry
-is a host record with a `host` field and normalized `rules`.
+The addon reads the rendered policy IR emitted by `render-policy`. That IR is
+canonicalized to a single top-level `domains` list where each entry is a host
+record with a `host` field and normalized `rules`.
 
 Reload behavior: the enforcer installs a `SIGHUP` handler on the mitmproxy
 event loop that re-runs `render-policy` in-process and swaps the matcher
