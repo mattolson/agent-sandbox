@@ -189,7 +189,7 @@ func newEditPolicyCommand(opts Options, deps commandDeps) *cobra.Command {
 			}
 
 			if !fileChanged(before, after) {
-				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Policy file unchanged. Skipping restart.")
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Policy file unchanged. Skipping reload.")
 				return nil
 			}
 			if restartScope == "inactive-agent" {
@@ -199,7 +199,7 @@ func newEditPolicyCommand(opts Options, deps commandDeps) *cobra.Command {
 
 			stack, err := runtime.ResolveComposeStack(repoRoot)
 			if err != nil {
-				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Policy file was modified, but proxy service is not running. Skipping restart.")
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Policy file was modified, but proxy service is not running. Skipping reload.")
 				return nil
 			}
 			output, err := deps.runner.Output(cmd.Context(), "docker", docker.ComposeArgs(stack.Files, "ps", "proxy", "--status", "running", "--quiet"), docker.CommandOptions{
@@ -207,21 +207,12 @@ func newEditPolicyCommand(opts Options, deps commandDeps) *cobra.Command {
 				Stderr: io.Discard,
 			})
 			if err != nil || strings.TrimSpace(string(output)) == "" {
-				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Policy file was modified, but proxy service is not running. Skipping restart.")
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Policy file was modified, but proxy service is not running. Skipping reload.")
 				return nil
 			}
 
-			_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Policy file was modified. Restarting proxy service...")
-			if runtime.ComposeCommandRequiresRuntimeSync("restart", shouldSkipRuntimeSync()) {
-				if err := deps.syncer.Sync(cmd.Context(), stack); err != nil {
-					return err
-				}
-				stack, err = runtime.ResolveComposeStack(repoRoot)
-				if err != nil {
-					return err
-				}
-			}
-			return runComposeCommand(cmd.Context(), deps.runner, stack, cmd, "restart", "proxy")
+			_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Policy file was modified. Reloading proxy policy...")
+			return runComposeCommand(cmd.Context(), deps.runner, stack, cmd, "kill", "-s", "HUP", "proxy")
 		},
 	}
 }

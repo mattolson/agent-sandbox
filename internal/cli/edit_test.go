@@ -103,7 +103,7 @@ func TestEditPolicyWarnsForInactiveAgentChanges(t *testing.T) {
 	}
 }
 
-func TestEditPolicyRestartsProxyWhenSharedPolicyChanges(t *testing.T) {
+func TestEditPolicyReloadsProxyWhenSharedPolicyChanges(t *testing.T) {
 	repoRoot := layeredEditRepo(t)
 	editor := writeEditorScript(t)
 	t.Setenv("AGENTBOX_EDITOR_TOUCH", "true")
@@ -114,12 +114,12 @@ func TestEditPolicyRestartsProxyWhenSharedPolicyChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("edit policy failed: %v", err)
 	}
-	if !strings.Contains(stderr, "Restarting proxy service") {
+	if !strings.Contains(stderr, "Reloading proxy policy") {
 		t.Fatalf("unexpected stderr: %q", stderr)
 	}
 	want := [][]string{
 		{"docker", "compose", "-f", runtime.CLIBaseComposeFile(repoRoot), "-f", runtime.CLIAgentComposeFile(repoRoot, "claude"), "-f", runtime.CLIUserOverrideFile(repoRoot), "-f", runtime.CLIUserAgentOverrideFile(repoRoot, "claude"), "ps", "proxy", "--status", "running", "--quiet"},
-		{"docker", "compose", "-f", runtime.CLIBaseComposeFile(repoRoot), "-f", runtime.CLIAgentComposeFile(repoRoot, "claude"), "-f", runtime.CLIUserOverrideFile(repoRoot), "-f", runtime.CLIUserAgentOverrideFile(repoRoot, "claude"), "restart", "proxy"},
+		{"docker", "compose", "-f", runtime.CLIBaseComposeFile(repoRoot), "-f", runtime.CLIAgentComposeFile(repoRoot, "claude"), "-f", runtime.CLIUserOverrideFile(repoRoot), "-f", runtime.CLIUserAgentOverrideFile(repoRoot, "claude"), "kill", "-s", "HUP", "proxy"},
 	}
 	if got := callArgs(runner.calls); !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected runner calls: got %v want %v", got, want)
@@ -144,7 +144,7 @@ func TestEditPolicyModeDevcontainerStillTargetsSharedLayeredPolicy(t *testing.T)
 	if got := strings.TrimSpace(string(opened)); got != runtime.SharedPolicyFile(repoRoot) {
 		t.Fatalf("unexpected editor target: %q", got)
 	}
-	if !strings.Contains(stderr, "Policy file unchanged. Skipping restart.") {
+	if !strings.Contains(stderr, "Policy file unchanged. Skipping reload.") {
 		t.Fatalf("unexpected stderr: %q", stderr)
 	}
 }
