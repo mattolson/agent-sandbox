@@ -18,6 +18,8 @@ KNOWN_AGENTS = {"claude", "codex", "copilot", "factory", "gemini", "opencode", "
 ALLOWED_SCHEMES = ("http", "https")
 DEFAULT_RULE_SCHEMES = ["http", "https"]
 MISSING = object()
+RULE_OWNER_KEY = "_agentbox_rule_owner"
+DOMAIN_RULE_OWNER = ("domain", None)
 
 
 class RenderPolicyError(Exception):
@@ -345,15 +347,33 @@ def normalize_rule(rule, context):
 
 
 def rule_identity(rule):
-    return json.dumps(rule, sort_keys=True, separators=(",", ":"))
+    return json.dumps(strip_rule_owner(rule), sort_keys=True, separators=(",", ":"))
 
 
-def dedupe_rules(rules):
+def rule_owner(rule):
+    return rule.get(RULE_OWNER_KEY)
+
+
+def strip_rule_owner(rule):
+    stripped = dict(rule)
+    stripped.pop(RULE_OWNER_KEY, None)
+    return stripped
+
+
+def attach_rule_owner(rule, owner):
+    tagged = dict(rule)
+    tagged[RULE_OWNER_KEY] = owner
+    return tagged
+
+
+def dedupe_rules(rules, owner_sensitive=False):
     result = []
     seen = set()
 
     for rule in rules:
         identity = rule_identity(rule)
+        if owner_sensitive:
+            identity = (identity, rule_owner(rule))
         if identity in seen:
             continue
         seen.add(identity)
@@ -428,46 +448,43 @@ def make_render_state():
         "hosts": {},
         "order": [],
         "other": {},
-        "service_rules": {},
     }
 
 
-def apply_host_record(state, record, merge_mode=None):
+def apply_host_record(state, record, merge_mode=None, owner=None):
     host = record["host"]
+    owned_rules = [attach_rule_owner(rule, owner) for rule in record["rules"]]
 
     if host in state["hosts"]:
         if merge_mode == "replace":
             state["hosts"][host] = {
                 "host": host,
-                "rules": list(record["rules"]),
+                "rules": owned_rules,
             }
             return
 
         state["hosts"][host]["rules"] = dedupe_rules(
-            state["hosts"][host]["rules"] + list(record["rules"])
+            state["hosts"][host]["rules"] + owned_rules,
+            owner_sensitive=True,
         )
         return
 
     state["order"].append(host)
     state["hosts"][host] = {
         "host": host,
-        "rules": list(record["rules"]),
+        "rules": owned_rules,
     }
 
 
 def discard_service_contributions(state, service_name):
-    contributions = state["service_rules"].pop(service_name, None)
-    if not contributions:
-        return
-
-    for host, identities in contributions.items():
+    service_owner = ("service", service_name)
+    for host in list(state["order"]):
         record = state["hosts"].get(host)
         if record is None:
             continue
-        identity_set = set(identities)
         remaining = [
             rule for rule in record["rules"]
-            if rule_identity(rule) not in identity_set
+            if rule_owner(rule) != service_owner
         ]
         if remaining:
             state["hosts"][host]["rules"] = remaining
@@ -481,13 +498,9 @@ def apply_service_expansion(state, expansion):
     if expansion["merge_mode"] == "replace":
         discard_service_contributions(state, service_name)
 
-    contributions = state["service_rules"].setdefault(service_name, {})
+    service_owner = ("service", service_name)
     for record in expansion["records"]:
-        host = record["host"]
-        apply_host_record(state, record)
-        host_contributions = contributions.setdefault(host, [])
-        for rule in record["rules"]:
-            host_contributions.append(rule_identity(rule))
+        apply_host_record(state, record, owner=service_owner)
 
 
 def apply_policy_layer(state, policy, context):
@@ -510,12 +523,22 @@ def apply_policy_layer(state, policy, context):
             domain_value,
             f"{context}.domains[{index}]",
         )
-        apply_host_record(state, record, merge_mode)
+        apply_host_record(state, record, merge_mode, owner=DOMAIN_RULE_OWNER)
 
 
 def finalize_render_state(state):
     rendered = dict(state["other"])
-    ordered_records = [state["hosts"][host] for host in state["order"]]
+    ordered_records = []
+    for host in state["order"]:
+        record = state["hosts"][host]
+        ordered_records.append(
+            {
+                "host": record["host"],
+                "rules": dedupe_rules(
+                    [strip_rule_owner(rule) for rule in record["rules"]]
+                ),
+            }
+        )
     order_by_host = {host: index for index, host in enumerate(state["order"])}
     rendered["domains"] = sorted(
         ordered_records,
