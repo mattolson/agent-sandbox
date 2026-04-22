@@ -20,9 +20,17 @@ DEFAULT_RULE_SCHEMES = ["http", "https"]
 MISSING = object()
 
 
+class RenderPolicyError(Exception):
+    """Raised when render-policy refuses to render the requested policy.
+
+    Library callers (e.g. the proxy enforcer's hot-reload path) catch this
+    directly. The CLI `main()` entry point converts it to a stderr line plus
+    exit code 1 so the shell-facing contract is unchanged.
+    """
+
+
 def fail(message):
-    print(message, file=sys.stderr)
-    sys.exit(1)
+    raise RenderPolicyError(message)
 
 
 def warn(message):
@@ -548,7 +556,12 @@ def main():
     parser.add_argument("--output", help="Write rendered YAML to this path instead of stdout")
     args = parser.parse_args()
 
-    rendered_policy = render_policy()
+    try:
+        rendered_policy = render_policy()
+    except RenderPolicyError as error:
+        print(str(error), file=sys.stderr)
+        sys.exit(1)
+
     rendered_yaml = yaml.safe_dump(rendered_policy, sort_keys=False)
 
     if args.output:

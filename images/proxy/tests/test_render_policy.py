@@ -248,32 +248,28 @@ domains:
         )
 
     def test_empty_rule_is_rejected(self):
-        stderr = io.StringIO()
-        with redirect_stderr(stderr):
-            with self.assertRaises(SystemExit):
-                self.render_single(
-                    """
+        with self.assertRaises(self.render_policy.RenderPolicyError) as context:
+            self.render_single(
+                """
 domains:
   - host: api.github.com
     rules:
       - {}
 """
-                )
+            )
 
-        self.assertIn("must not be empty", stderr.getvalue())
+        self.assertIn("must not be empty", str(context.exception))
 
     def test_unknown_service_is_rejected(self):
-        stderr = io.StringIO()
-        with redirect_stderr(stderr):
-            with self.assertRaises(SystemExit):
-                self.render_single(
-                    """
+        with self.assertRaises(self.render_policy.RenderPolicyError) as context:
+            self.render_single(
+                """
 services:
   - not-a-service
 """
-                )
+            )
 
-        self.assertIn("unknown service", stderr.getvalue())
+        self.assertIn("unknown service", str(context.exception))
 
     def test_rich_github_repo_scoped_service_renders_to_repo_paths(self):
         rendered = self.render_single(

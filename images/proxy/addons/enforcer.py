@@ -23,9 +23,7 @@ Environment variables:
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import importlib.util
-import io
 import json
 import os
 import signal
@@ -211,15 +209,7 @@ class PolicyEnforcer:
             rendered_policy = self.reload_renderer()
         else:
             renderer = _load_render_policy_module(RENDER_POLICY_PATH).render_policy
-            captured_stderr = io.StringIO()
-            with contextlib.redirect_stderr(captured_stderr):
-                try:
-                    rendered_policy = renderer()
-                except SystemExit as error:
-                    message = captured_stderr.getvalue().strip()
-                    if not message:
-                        message = f"render-policy exited with code {error.code}"
-                    raise RuntimeError(message) from error
+            rendered_policy = renderer()
         return PolicyMatcher.from_policy_data(rendered_policy, path="reloaded policy")
 
     def _reload_event(self, action, error=None):
