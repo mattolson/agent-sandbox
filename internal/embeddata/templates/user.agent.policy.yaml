@@ -1,7 +1,7 @@
 # Agent-specific user-owned policy additions for layered agentbox sandboxes.
 #
 # This file is merged after the shared policy for the matching active agent.
-# Changes take effect after switching to this agent and restarting the proxy.
+# Apply edits without restarting: agentbox proxy reload (from the host).
 #
 # See docs/policy/schema.md for the full format reference.
 # Use `merge_mode: replace` on a domain entry here to replace the accumulated

@@ -1,7 +1,7 @@
 # Agent sandbox network policy
 #
 # Domains allowed through the proxy. All other traffic is blocked with 403.
-# Changes take effect on proxy restart: agentbox compose restart proxy
+# Apply edits without restarting: agentbox proxy reload
 #
 # See docs/policy/schema.md for the full format reference.
 
