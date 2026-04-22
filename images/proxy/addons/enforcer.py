@@ -112,6 +112,7 @@ class PolicyEnforcer:
         self.exact_host_count = 0
         self.wildcard_host_count = 0
         self._reload_lock = asyncio.Lock()
+        self._reload_tasks: set[asyncio.Task] = set()
         self._signal_loop = None
 
         if self.mode == "enforce":
@@ -187,7 +188,9 @@ class PolicyEnforcer:
             pass
 
     def _handle_reload_signal(self):
-        asyncio.ensure_future(self.reload())
+        task = asyncio.create_task(self.reload())
+        self._reload_tasks.add(task)
+        task.add_done_callback(self._reload_tasks.discard)
 
     async def reload(self):
         if self.mode != "enforce":
