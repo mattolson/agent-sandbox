@@ -28,5 +28,8 @@ jobs:
       - name: Install test dependencies
         run: pip install PyYAML mitmproxy
 
-      - name: Run proxy Python tests
-        run: python -m unittest discover -s images/proxy/tests -p 'test_*.py'
+      - name: Run proxy unit tests
+        run: python -m unittest discover -s images/proxy/tests -t images/proxy/tests -p 'test_*.py'
+
+      - name: Run proxy integration tests
+        run: python -m unittest discover -s images/proxy/tests/integration -t images/proxy/tests -p 'test_*.py'
