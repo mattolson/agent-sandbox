@@ -425,6 +425,39 @@ services:
         self.assertIn("api.github.com", records)
         self.assertNotIn("*.github.com", records)
 
+    def test_service_merge_mode_replace_preserves_deduped_domain_catch_all(self):
+        rendered = self.render_layered(
+            "pi",
+            shared="""
+services:
+  - copilot
+""",
+            agent="""
+services:
+  - name: copilot
+    merge_mode: replace
+domains:
+  - github.com
+""",
+            devcontainer="""
+services:
+  - name: copilot
+    merge_mode: replace
+    readonly: true
+""",
+        )
+
+        records = {record["host"]: record for record in rendered["domains"]}
+        self.assertIn("github.com", records)
+        self.assertIn(
+            {"schemes": ["http", "https"]},
+            records["github.com"]["rules"],
+        )
+        self.assertEqual(
+            records["collector.github.com"]["rules"],
+            [{"schemes": ["http", "https"], "methods": ["GET", "HEAD"]}],
+        )
+
     def test_rich_github_baseline_hosts_emit_catch_all_when_no_repos(self):
         rendered = self.render_single(
             """
