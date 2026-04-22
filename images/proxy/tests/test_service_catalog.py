@@ -84,6 +84,14 @@ class ServiceCatalogNormalizeTests(unittest.TestCase):
             )
         self.assertIn("'owner/name' form", str(caught.exception))
 
+    def test_github_repo_names_are_normalized_to_lowercase(self):
+        result = self.catalog.normalize_service_entry(
+            {"name": "github", "repos": ["MyOrg/MyRepo"], "surfaces": ["api"]},
+            "ctx",
+            _fail,
+        )
+        self.assertEqual(result["options"]["repos"], [("myorg", "myrepo")])
+
     def test_unknown_surface_is_rejected(self):
         with self.assertRaises(_CatalogFailure) as caught:
             self.catalog.normalize_service_entry(
@@ -307,12 +315,24 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
         expansion = self.expand(
             {
                 "name": "github",
-                "repos": ["owner/a", "owner/a"],
+                "repos": ["Owner/A", "owner/a"],
                 "surfaces": ["api"],
             }
         )
         api_rules = expansion["records"][0]["rules"]
-        self.assertEqual(len(api_rules), 2)
+        self.assertEqual(
+            api_rules,
+            [
+                {
+                    "schemes": ["http", "https"],
+                    "path": {"exact": "/repos/owner/a"},
+                },
+                {
+                    "schemes": ["http", "https"],
+                    "path": {"prefix": "/repos/owner/a/"},
+                },
+            ],
+        )
 
     def test_merge_mode_replace_is_preserved_in_expansion(self):
         expansion = self.expand(

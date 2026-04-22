@@ -212,6 +212,8 @@ def _normalize_repo_list(value, context, fail):
                         f"{context}.repos[{index}] {label} contains invalid "
                         f"character {character!r}: {raw!r}"
                     )
+        owner = owner.lower()
+        name = name.lower()
         identifier = f"{owner}/{name}"
         if identifier in seen:
             continue

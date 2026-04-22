@@ -344,6 +344,88 @@ class PolicyMatcherTests(unittest.TestCase):
         self.assertEqual(http_decision.action, "allowed")
         self.assertEqual(https_decision.action, "allowed")
 
+    def test_request_matches_host_and_scheme_case_insensitively(self):
+        matcher = self.matcher_from_domains(
+            [
+                {
+                    "host": "api.openai.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "path": {"exact": "/v1/models"},
+                        }
+                    ],
+                }
+            ]
+        )
+
+        decision = matcher.evaluate_request(
+            "API.OpenAI.COM",
+            "HTTPS",
+            "GET",
+            "/v1/models",
+        )
+
+        self.assertEqual(decision.action, "allowed")
+        self.assertEqual(decision.scheme, "https")
+        self.assertEqual(decision.matched_host, "api.openai.com")
+
+    def test_request_matches_uri_equivalent_unreserved_path_encoding(self):
+        matcher = self.matcher_from_domains(
+            [
+                {
+                    "host": "api.openai.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "path": {"exact": "/~smith"},
+                        }
+                    ],
+                }
+            ]
+        )
+
+        decision = matcher.evaluate_request(
+            "api.openai.com",
+            "https",
+            "GET",
+            "/%7esmith",
+        )
+
+        self.assertEqual(decision.action, "allowed")
+
+    def test_request_matches_reserved_path_percent_encoding_by_hex_case_only(self):
+        matcher = self.matcher_from_domains(
+            [
+                {
+                    "host": "api.openai.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "path": {"exact": "/artifacts/%2F"},
+                        }
+                    ],
+                }
+            ]
+        )
+
+        encoded = matcher.evaluate_request(
+            "api.openai.com",
+            "https",
+            "GET",
+            "/artifacts/%2f",
+        )
+        raw = matcher.evaluate_request(
+            "api.openai.com",
+            "https",
+            "GET",
+            "/artifacts//",
+        )
+
+        self.assertEqual(encoded.action, "allowed")
+        self.assertEqual(raw.action, "blocked")
+        self.assertEqual(raw.reason, "no_rule_matched")
+
     def test_request_matches_explicit_empty_query_constraint(self):
         matcher = self.matcher_from_domains(
             [
@@ -402,6 +484,36 @@ class PolicyMatcherTests(unittest.TestCase):
 
         self.assertEqual(decision.action, "blocked")
         self.assertEqual(decision.reason, "no_rule_matched")
+
+    def test_request_matches_exact_query_after_query_decoding(self):
+        matcher = self.matcher_from_domains(
+            [
+                {
+                    "host": "api.openai.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "path": {"exact": "/search"},
+                            "query": {
+                                "exact": {
+                                    "%73ervice": ["git-%75pload-pack"],
+                                    "marker": ["%7E"],
+                                }
+                            },
+                        }
+                    ],
+                }
+            ]
+        )
+
+        decision = matcher.evaluate_request(
+            "api.openai.com",
+            "https",
+            "GET",
+            "/search?service=git-upload-pack&marker=~",
+        )
+
+        self.assertEqual(decision.action, "allowed")
 
     def test_request_blocks_with_scheme_not_permitted_when_host_matches_but_scheme_does_not(self):
         matcher = self.matcher_from_domains(
