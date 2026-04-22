@@ -1,9 +1,7 @@
 import importlib.util
-import io
 import os
 import tempfile
 import unittest
-from contextlib import redirect_stderr
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from unittest import mock
@@ -220,10 +218,8 @@ domains:
         )
 
     def test_scheme_and_method_shorthands_warn_and_normalize(self):
-        stderr = io.StringIO()
-        with redirect_stderr(stderr):
-            rendered = self.render_single(
-                """
+        rendered = self.render_single(
+            """
 domains:
   - host: api.github.com
     rules:
@@ -234,10 +230,11 @@ domains:
         path:
           exact: /meta
 """
-            )
+        )
 
-        self.assertIn("both 'scheme' and 'schemes'", stderr.getvalue())
-        self.assertIn("both 'method' and 'methods'", stderr.getvalue())
+        warnings = self.render_policy.take_warnings()
+        self.assertTrue(any("both 'scheme' and 'schemes'" in w for w in warnings))
+        self.assertTrue(any("both 'method' and 'methods'" in w for w in warnings))
         self.assertEqual(
             rendered["domains"][0]["rules"][0],
             {
