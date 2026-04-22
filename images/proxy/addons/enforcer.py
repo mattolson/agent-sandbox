@@ -15,6 +15,9 @@ atomically. A failed reload keeps the previous matcher installed.
 Environment variables:
   PROXY_MODE: log (allow all) or enforce (block non-allowed)
   PROXY_LOG_LEVEL: quiet (errors only) or normal (default, one line per request)
+  AGENTBOX_RENDER_POLICY_PATH: optional override for the render-policy binary
+    path. Defaults to /usr/local/bin/render-policy (the location the proxy
+    image installs it to).
 """
 
 from __future__ import annotations
@@ -52,7 +55,9 @@ except ImportError:  # pragma: no cover - unit tests intentionally import withou
 FLOW_DECISION_METADATA_KEY = "agent_sandbox_policy_decision"
 
 RELOAD_SIGNAL = signal.SIGHUP
-RENDER_POLICY_PATH = Path("/usr/local/bin/render-policy")
+RENDER_POLICY_PATH = Path(
+    os.getenv("AGENTBOX_RENDER_POLICY_PATH", "/usr/local/bin/render-policy")
+)
 
 
 def _load_render_policy_module(path):

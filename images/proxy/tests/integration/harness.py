@@ -23,10 +23,8 @@ from urllib.parse import urlsplit
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-ADDON_DIR = REPO_ROOT / "images" / "proxy" / "addons"
+ENFORCER_ADDON = REPO_ROOT / "images" / "proxy" / "addons" / "enforcer.py"
 RENDER_POLICY_PATH = REPO_ROOT / "images" / "proxy" / "render-policy"
-INTEGRATION_DIR = Path(__file__).resolve().parent
-INTEGRATION_ADDON = INTEGRATION_DIR / "integration_addon.py"
 MITMDUMP = shutil.which("mitmdump")
 
 
@@ -206,7 +204,6 @@ def spawn_proxy(policy_text, *, enforce=True):
     env["POLICY_PATH"] = str(policy_path)
     env["AGENTBOX_POLICY_SOURCE_PATH"] = str(policy_path)
     env["AGENTBOX_RENDER_POLICY_PATH"] = str(RENDER_POLICY_PATH)
-    env["AGENTBOX_ADDON_DIR"] = str(ADDON_DIR)
     env.pop("AGENTBOX_ACTIVE_AGENT", None)
 
     confdir = workdir / "mitmproxy"
@@ -222,7 +219,7 @@ def spawn_proxy(policy_text, *, enforce=True):
         str(proxy_port),
         "--quiet",
         "-s",
-        str(INTEGRATION_ADDON),
+        str(ENFORCER_ADDON),
     ]
 
     process = subprocess.Popen(
