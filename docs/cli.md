@@ -59,6 +59,18 @@ Renders the effective policy that the proxy enforces.
 
 `agentbox policy render` remains available as an alias.
 
+### `agentbox proxy reload`
+
+Sends `SIGHUP` to the running proxy container so it re-renders the effective policy and atomically swaps the matcher.
+Use this after editing any `.agent-sandbox/policy/*.yaml` file. Existing connections are not interrupted; new requests
+see the new policy on the next match. A bad policy keeps the previous matcher installed and emits a `rejected` event
+to the proxy log.
+
+```bash
+agentbox proxy reload
+agentbox logs proxy   # look for {"type": "reload", "action": "applied" | "rejected"}
+```
+
 ### `agentbox bump`
 
 Updates Docker images to their latest digests. For layered CLI projects, this updates the managed base layer plus any
