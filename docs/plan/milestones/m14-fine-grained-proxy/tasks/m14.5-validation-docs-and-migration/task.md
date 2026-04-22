@@ -176,10 +176,10 @@ All four resolved with the drafted defaults on 2026-04-19:
 
 ### Follow-up Items
 
-- **m15 or later: consider an env-var override for `RENDER_POLICY_PATH` in `enforcer.py`.** The wrapper-addon works
-  for tests but a direct env override would eliminate the indirection and give operators a way to run a non-standard
-  renderer. Low priority.
-- **Render-policy could raise a typed exception from library entry points.** `fail()` mixing stderr + `sys.exit()`
-  is a CLI convention that leaks into the library path the reload handler uses. A `RenderPolicyError` exception
-  would let callers catch directly instead of threading `redirect_stderr` through reload. Tracked for a future
-  policy-engine cleanup; not urgent since the current workaround emits the right user-facing message.
+- **Done (2026-04-21, `06559d3`): env-var override for `RENDER_POLICY_PATH` in `enforcer.py`.** Integration tests no
+  longer need the wrapper addon; harness loads `enforcer.py` directly and sets `AGENTBOX_RENDER_POLICY_PATH` on the
+  subprocess.
+- **Done (2026-04-21, `5a42805`): `RenderPolicyError` typed exception from `render-policy`.** `fail()` raises the
+  typed exception and the enforcer's hot-reload path catches it directly. `contextlib.redirect_stderr` +
+  `SystemExit` workaround removed. CLI main() still prints to stderr and exits 1, so shell users see identical
+  behavior.
