@@ -1,5 +1,59 @@
 # Execution Log: m14.5 - Validation, Docs, And Migration
 
+## 2026-04-21 - Closed out PR-description follow-ups
+
+Picked up the two minor follow-up items listed in the PR description. Both were things the m14.5 task log had
+explicitly deferred to later policy-engine cleanup, but they were small enough to close out now and shrink the
+test-only indirection:
+
+- `06559d3` — enforcer now reads `AGENTBOX_RENDER_POLICY_PATH` from the environment (default unchanged). Dropped the
+  `integration_addon.py` wrapper that existed solely to patch the module constant before `mitmdump` loaded the
+  enforcer. Integration harness loads `enforcer.py` directly and sets the env var on the subprocess.
+- `5a42805` — `render-policy`'s `fail()` now raises a typed `RenderPolicyError` instead of printing to stderr +
+  `sys.exit(1)`. The enforcer's hot-reload path no longer needs `contextlib.redirect_stderr` + `SystemExit` catch —
+  `RenderPolicyError` propagates through the normal `except Exception` path with its message intact. CLI `main()`
+  catches the typed exception and prints/exits so shell users see identical behavior to before.
+
+The second commit specifically retires the `redirect_stderr` workaround introduced during m14.5's integration-test
+run. That workaround shipped because it solved the immediate user-facing problem, but it left `fail()` mixing a CLI
+exit convention into a library path. Typed exception is the right shape.
+
+## 2026-04-21 - Post-merge branch audit and cleanup
+
+Ran a full audit of the m14 branch (commits `7cc027e..29eaa14`, 27 commits, 51 files, ~7.3k insertions) against the
+milestone Definition of Done. DoD is substantively met, but the audit surfaced four fixable items that had drifted
+out of m14.5's scope:
+
+- **Templates and docs pointed users at `agentbox compose restart proxy`** even though m14.4 shipped SIGHUP hot
+  reload. `docs/cli.md` was also missing an entry for the new `agentbox proxy reload` command.
+- **`docs/policy/schema.md` preamble and `enforcer.py` header comment** still scoped the IR work to "m14.1"; accurate
+  at the time of m14.1, misleading after m14.2's request-phase matcher shipped.
+- **The `schemes` row in the enforcement-phase table** said "Request" only. Omits the CONNECT-time
+  `https_not_permitted` rejection when a host's rules don't allow `https`.
+- **`agentbox edit policy` still ran `compose restart proxy`** on save. With `agentbox proxy reload` available,
+  restarting the container for a policy edit is unnecessary work.
+- **CI ran `unittest discover -s images/proxy/tests` once.** Recursive discovery picks up
+  `images/proxy/tests/integration/` only because that package has `__init__.py` — a subtle dependency that could
+  silently drop the integration suite if the init file disappears.
+
+Shipped as four separate commits on top of `29eaa14`:
+
+- `59c6b1e` — template comments (`policy.yaml`, `user.agent.policy.yaml`) and `docs/cli.md` now reference
+  `agentbox proxy reload`.
+- `6379001` — dropped stale `m14.1` scope refs in the schema preamble and enforcer header; expanded the phase table
+  so the `schemes` row captures both CONNECT and request enforcement.
+- `f549233` — `agentbox edit policy` sends SIGHUP via `docker compose kill -s HUP proxy` instead of restarting the
+  container. Updated the one test that asserted the restart call.
+- `26e9147` — CI now has an explicit second step that runs discovery against
+  `images/proxy/tests/integration/` directly. If subpackage discovery ever regresses, the second step fails loudly
+  instead of silently skipping 7 tests.
+
+**Left for the user:** `.agent-sandbox/policy/user.policy.yaml` drift from the updated template. Read-only for the
+agent; the user will refresh on next local init/switch.
+
+**Deferred:** a production-image smoke test for SIGHUP reload (would require a real image build in CI and a running
+container — meaningful infra investment, not a cleanup).
+
 ## 2026-04-19 16:10 UTC - Task complete
 
 All 11 implementation steps done. Full suite green: `go test ./...` (Go) and 79 proxy Python tests (72 unit + 7
