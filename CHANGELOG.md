@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+Fine-grained proxy rules from `m14`.
+
+### Added
+
+- **Request-aware proxy policy rules.** Policy can now constrain outbound HTTP and HTTPS traffic by `schemes`, `methods`, `path`, and exact `query` matching, while keeping host-only rules on the CONNECT fast path.
+- **Semantic service catalog entries.** `services` entries can now take mapping form with options like `readonly: true`, plus GitHub-specific `repos` and `surfaces` expansion for repo-scoped API and Git smart-HTTP access.
+- **Hot policy reload.** `agentbox proxy reload` now sends `SIGHUP` to the proxy, which re-renders policy in process, validates it, and atomically swaps to the new matcher while keeping the last-known-good policy on failure.
+- **Request-aware policy docs and examples.** Added schema documentation, focused examples, troubleshooting guidance, and an `m14` “what’s new” note covering request rules, reload, and GitHub repo restrictions.
+
+### Changed
+
+- **Layered policy rendering is now rule-aware.** `render-policy` now compiles `services` and `domains` into one canonical host-record IR with deterministic same-host merge behavior and `merge_mode: replace` support.
+- **Matcher normalization is tighter and more explicit.** Scheme and host matching are case-insensitive, URI-equivalent percent-encoding is canonicalized for path/query matching, and non-equivalent path/query case differences remain significant.
+- **Existing domain-only policies keep working unchanged.** Plain-string `domains` and plain-string `services` still render to host-wide catch-all rules, so pre-`m14` policies retain the same effective allowlist behavior.
+
 ## [0.13.0] - 2026-04-10 (eb04cbc)
 
 CLI rewrite from `m13`.
