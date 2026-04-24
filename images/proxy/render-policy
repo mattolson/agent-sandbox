@@ -31,21 +31,8 @@ class RenderPolicyError(Exception):
     """
 
 
-_warnings: list[str] = []
-
-
 def fail(message):
     raise RenderPolicyError(message)
-
-
-def warn(message):
-    _warnings.append(message)
-
-
-def take_warnings():
-    drained = list(_warnings)
-    _warnings.clear()
-    return drained
 
 
 def load_policy_file(path, required=False):
@@ -182,64 +169,31 @@ def normalize_method_values(values, context, field_name):
 
 
 def normalize_rule_schemes(rule, context):
-    singular = rule.get("scheme", MISSING)
     plural = rule.get("schemes", MISSING)
 
-    if singular is not MISSING and plural is not MISSING:
-        warn(
-            f"{context} supplied both 'scheme' and 'schemes'; "
-            "merging them into the rendered 'schemes' list"
-        )
-
-    values = []
-    saw_field = False
-
-    if singular is not MISSING:
-        saw_field = True
-        values.extend(normalize_scheme_values([singular], context, "scheme"))
-    if plural is not MISSING:
-        saw_field = True
-        if not isinstance(plural, list):
-            fail(
-                f"{context}.schemes must be a YAML list, got {type(plural).__name__}: {plural!r}"
-            )
-        values.extend(normalize_scheme_values(plural, context, "schemes"))
-
-    if not saw_field:
+    if plural is MISSING:
         return list(DEFAULT_RULE_SCHEMES)
 
-    seen = set(values)
-    return [scheme for scheme in ALLOWED_SCHEMES if scheme in seen]
+    if not isinstance(plural, list):
+        fail(
+            f"{context}.schemes must be a YAML list, got {type(plural).__name__}: {plural!r}"
+        )
+
+    return normalize_scheme_values(plural, context, "schemes")
 
 
 def normalize_rule_methods(rule, context):
-    singular = rule.get("method", MISSING)
     plural = rule.get("methods", MISSING)
 
-    if singular is not MISSING and plural is not MISSING:
-        warn(
-            f"{context} supplied both 'method' and 'methods'; "
-            "merging them into the rendered 'methods' list"
-        )
-
-    values = []
-    saw_field = False
-
-    if singular is not MISSING:
-        saw_field = True
-        values.extend(normalize_method_values([singular], context, "method"))
-    if plural is not MISSING:
-        saw_field = True
-        if not isinstance(plural, list):
-            fail(
-                f"{context}.methods must be a YAML list, got {type(plural).__name__}: {plural!r}"
-            )
-        values.extend(normalize_method_values(plural, context, "methods"))
-
-    if not saw_field:
+    if plural is MISSING:
         return None
 
-    return sorted(set(values))
+    if not isinstance(plural, list):
+        fail(
+            f"{context}.methods must be a YAML list, got {type(plural).__name__}: {plural!r}"
+        )
+
+    return normalize_method_values(plural, context, "methods")
 
 
 def normalize_path_matcher(value, context):
@@ -318,7 +272,7 @@ def normalize_rule(rule, context):
     if not isinstance(rule, dict):
         fail(f"{context} must be a YAML mapping, got {type(rule).__name__}: {rule!r}")
 
-    supported_keys = {"scheme", "schemes", "method", "methods", "path", "query"}
+    supported_keys = {"schemes", "methods", "path", "query"}
     unknown_keys = sorted(set(rule) - supported_keys)
     if unknown_keys:
         fail(f"{context} contains unsupported keys: {unknown_keys}")
@@ -326,7 +280,7 @@ def normalize_rule(rule, context):
     if not rule:
         fail(
             f"{context} must not be empty; "
-            "use an explicit catch-all rule such as 'scheme: https' for host-wide trust"
+            "use an explicit catch-all rule such as 'schemes: [https]' for host-wide trust"
         )
 
     normalized = {
@@ -548,7 +502,6 @@ def finalize_render_state(state):
 
 
 def render_layered_policy(active_agent):
-    _warnings.clear()
     shared_policy_path = os.getenv("AGENTBOX_SHARED_POLICY_PATH", DEFAULT_SHARED_POLICY_PATH)
     agent_policy_path = os.getenv("AGENTBOX_AGENT_POLICY_PATH", DEFAULT_AGENT_POLICY_PATH)
     devcontainer_policy_path = os.getenv("AGENTBOX_DEVCONTAINER_POLICY_PATH", DEFAULT_DEVCONTAINER_POLICY_PATH)
@@ -562,7 +515,6 @@ def render_layered_policy(active_agent):
 
 
 def render_single_policy():
-    _warnings.clear()
     policy_source_path = os.getenv("AGENTBOX_POLICY_SOURCE_PATH", DEFAULT_SINGLE_POLICY_PATH)
     state = make_render_state()
     apply_policy_layer(
@@ -595,9 +547,6 @@ def main():
     except RenderPolicyError as error:
         print(str(error), file=sys.stderr)
         sys.exit(1)
-
-    for message in take_warnings():
-        print(f"warning: {message}", file=sys.stderr)
 
     rendered_yaml = yaml.safe_dump(rendered_policy, sort_keys=False)
 

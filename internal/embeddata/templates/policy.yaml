@@ -16,8 +16,8 @@ services: []
 # domains:
 #   - host: api.github.com
 #     rules:
-#       - scheme: https
-#         method: get
+#       - schemes: [https]
+#         methods: [GET]
 #         path:
 #           prefix: /repos/example/
 domains: []

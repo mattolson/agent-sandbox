@@ -41,8 +41,8 @@ domains:
   - host: api.github.com
     merge_mode: replace
     rules:
-      - scheme: https
-        method: get
+      - schemes: [https]
+        methods: [GET]
         path:
           exact: /meta
 ```
@@ -197,8 +197,8 @@ Unknown keys fail rendering.
 
 Rules are allow-only conjunctions. Each rule may constrain:
 
-- `scheme` or `schemes`
-- `method` or `methods`
+- `schemes`
+- `methods`
 - `path`
 - `query`
 
@@ -207,32 +207,23 @@ unless the rule constrains methods.
 
 ### schemes
 
-`scheme` is a singular shorthand for `schemes`.
-
 ```yaml
-scheme: https
 schemes: [http, https]
 ```
 
 - Allowed values: `http`, `https`
-- If neither form is present, the rendered rule gets `schemes: [http, https]`
-- If both forms are present, the renderer warns on `stderr`, merges them,
-  normalizes to lowercase, and de-duplicates them
+- If `schemes` is omitted, the rendered rule gets `schemes: [http, https]`
+- Authored scheme values are normalized to lowercase
 
 ### methods
 
-`method` is a singular shorthand for `methods`.
-
 ```yaml
-method: get
 methods: [GET, POST]
 ```
 
 - Authored method names are case-insensitive
 - Rendered method names are uppercase
-- If neither form is present, the rule allows any method
-- If both forms are present, the renderer warns on `stderr`, merges them, and
-  de-duplicates them
+- If `methods` is omitted, the rule allows any method
 
 ### path
 
