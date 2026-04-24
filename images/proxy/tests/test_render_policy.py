@@ -135,7 +135,7 @@ domains:
 domains:
   - host: api.github.com
     rules:
-      - method: get
+      - methods: [GET]
         path:
           prefix: /repos/example/
 """,
@@ -146,7 +146,7 @@ domains:
       - methods: [GET]
         path:
           prefix: /repos/example/
-      - scheme: https
+      - schemes: [https]
         methods: [post]
         query:
           exact:
@@ -183,8 +183,8 @@ domains:
   - host: "*.openai.com"
     merge_mode: replace
     rules:
-      - scheme: https
-        method: get
+      - schemes: [https]
+        methods: [get]
         path:
           exact: /v1/models
 """,
@@ -217,32 +217,23 @@ domains:
             ["api.github.com", "*.api.github.com", "*.github.com"],
         )
 
-    def test_scheme_and_method_shorthands_warn_and_normalize(self):
-        rendered = self.render_single(
+    def test_singular_scheme_and_method_keys_are_rejected(self):
+        with self.assertRaises(self.render_policy.RenderPolicyError) as context:
+            self.render_single(
             """
 domains:
   - host: api.github.com
     rules:
       - scheme: https
-        schemes: [http]
         method: get
-        methods: [post]
         path:
           exact: /meta
 """
-        )
+            )
 
-        warnings = self.render_policy.take_warnings()
-        self.assertTrue(any("both 'scheme' and 'schemes'" in w for w in warnings))
-        self.assertTrue(any("both 'method' and 'methods'" in w for w in warnings))
-        self.assertEqual(
-            rendered["domains"][0]["rules"][0],
-            {
-                "schemes": ["http", "https"],
-                "methods": ["GET", "POST"],
-                "path": {"exact": "/meta"},
-            },
-        )
+        self.assertIn("unsupported keys", str(context.exception))
+        self.assertIn("'method'", str(context.exception))
+        self.assertIn("'scheme'", str(context.exception))
 
     def test_empty_rule_is_rejected(self):
         with self.assertRaises(self.render_policy.RenderPolicyError) as context:

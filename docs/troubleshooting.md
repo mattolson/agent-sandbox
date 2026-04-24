@@ -74,8 +74,8 @@ Common causes and what they look like:
 - **Unknown service name.** `services[N] references unknown service '<name>'; expected one of [...]`. Fix: correct
   the typo or remove the entry.
 - **Unsupported key on a rule, domain, or service entry.** `... contains unsupported keys: [...]`. Fix: check key
-  names against `docs/policy/schema.md`. Common slip: `scheme` is a singular shorthand for `schemes`; the plural
-  forms are `schemes`/`methods`.
+  names against `docs/policy/schema.md`. Common slips: using `scheme` instead of `schemes`, or `method` instead of
+  `methods`.
 - **Non-absolute path.** `domains[N].rules[M].path.<matcher> must start with '/', got '...'`. Fix: add the leading
   slash.
 - **Invalid `merge_mode`.** `...merge_mode must be 'replace' when set, got '...'`. Fix: `replace` is the only

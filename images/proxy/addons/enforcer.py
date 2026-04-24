@@ -197,7 +197,7 @@ class PolicyEnforcer:
             return
         async with self._reload_lock:
             try:
-                matcher, warnings = await asyncio.to_thread(self._render_matcher)
+                matcher = await asyncio.to_thread(self._render_matcher)
             except Exception as error:
                 self.logger.event(
                     self._reload_event("rejected", error=str(error)),
@@ -206,22 +206,20 @@ class PolicyEnforcer:
                 return
             self._set_matcher(matcher)
             self.logger.event(
-                self._reload_event("applied", warnings=warnings),
+                self._reload_event("applied"),
                 always=True,
             )
 
     def _render_matcher(self):
         if self.reload_renderer is not None:
             rendered_policy = self.reload_renderer()
-            warnings: list[str] = []
         else:
             module = _load_render_policy_module(RENDER_POLICY_PATH)
             rendered_policy = module.render_policy()
-            warnings = module.take_warnings()
         matcher = PolicyMatcher.from_policy_data(rendered_policy, path="reloaded policy")
-        return matcher, warnings
+        return matcher
 
-    def _reload_event(self, action, error=None, warnings=None):
+    def _reload_event(self, action, error=None):
         entry = {
             "ts": self.logger.timestamp(),
             "type": "reload",
@@ -231,8 +229,6 @@ class PolicyEnforcer:
             entry["host_records"] = len(self.domain_records)
             entry["exact_host_count"] = self.exact_host_count
             entry["wildcard_host_count"] = self.wildcard_host_count
-            if warnings:
-                entry["warnings"] = list(warnings)
         if error is not None:
             entry["error"] = error
         return entry
