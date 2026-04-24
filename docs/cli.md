@@ -68,8 +68,13 @@ to the proxy log.
 
 ```bash
 agentbox proxy reload
-agentbox logs proxy   # look for {"type": "reload", "action": "applied" | "rejected"}
+agentbox proxy logs   # look for {"type": "reload", "action": "applied" | "rejected"}
 ```
+
+### `agentbox proxy logs`
+
+Runs `docker compose logs proxy` with the correct layered compose stack automatically detected. This is the preferred
+form when you only want proxy-side output.
 
 ### `agentbox bump`
 

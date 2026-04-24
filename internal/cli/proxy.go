@@ -16,6 +16,7 @@ func newProxyCommand(deps commandDeps) *cobra.Command {
 		},
 	}
 
+	cmd.AddCommand(newRuntimeComposeCommand("logs", "Show proxy logs", "proxy logs", []string{"logs", "proxy"}, deps))
 	cmd.AddCommand(newProxyReloadCommand(deps))
 
 	return cmd
@@ -41,7 +42,7 @@ func newProxyReloadCommand(deps commandDeps) *cobra.Command {
 				return err
 			}
 
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "Sent SIGHUP to proxy. Check 'agentbox logs proxy' for the applied/rejected event.")
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "Sent SIGHUP to proxy. Check 'agentbox proxy logs' for the applied/rejected event.")
 			return err
 		},
 	}

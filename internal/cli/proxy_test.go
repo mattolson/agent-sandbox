@@ -25,6 +25,20 @@ func TestProxyReloadSendsSIGHUPThroughCompose(t *testing.T) {
 	assertSingleRunCall(t, runner, want)
 }
 
+func TestProxyLogsAliasesComposeLogsProxy(t *testing.T) {
+	repoRoot := layeredCLIRepo(t)
+	runner := &fakeRunner{}
+
+	cmd := NewRootCommand(Options{WorkingDir: repoRoot, Runner: runner})
+	_, _, err := testutil.ExecuteCommand(cmd, "proxy", "logs", "-f", "--tail=20")
+	if err != nil {
+		t.Fatalf("proxy logs failed: %v", err)
+	}
+
+	want := []string{"docker", "compose", "-f", runtime.CLIBaseComposeFile(repoRoot), "-f", runtime.CLIAgentComposeFile(repoRoot, "codex"), "-f", runtime.CLIUserOverrideFile(repoRoot), "-f", runtime.CLIUserAgentOverrideFile(repoRoot, "codex"), "logs", "proxy", "-f", "--tail=20"}
+	assertSingleRunCall(t, runner, want)
+}
+
 func TestProxyReloadRejectsArguments(t *testing.T) {
 	cmd := NewRootCommand(Options{WorkingDir: t.TempDir(), Runner: &fakeRunner{}})
 	_, _, err := testutil.ExecuteCommand(cmd, "proxy", "reload", "extra")

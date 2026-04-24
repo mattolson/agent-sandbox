@@ -53,7 +53,7 @@ proxy keeps the previous policy active and logs a rejection event:
 {"ts": "...", "type": "reload", "action": "rejected", "error": "..."}
 ```
 
-Check the proxy logs with `agentbox compose logs proxy` (or `docker compose logs proxy`) for the `error` field. Typical
+Check the proxy logs with `agentbox proxy logs` for the `error` field. Typical
 causes are YAML syntax errors in a user-owned policy file and schema violations introduced in a recent edit. Fix the
 source file, then re-send `SIGHUP`; a successful reload emits a matching `"action": "applied"` event.
 
@@ -83,8 +83,8 @@ Common causes and what they look like:
 
 ## Request blocked unexpectedly
 
-When the proxy blocks a request it emits a structured decision log line through stdout. Check `agentbox compose
-logs proxy` for a line matching the host in question. The shape is:
+When the proxy blocks a request it emits a structured decision log line through stdout. Check `agentbox proxy logs`
+for a line matching the host in question. The shape is:
 
 ```json
 {"ts": "...", "phase": "connect|request", "action": "blocked", "reason": "<why>", "host": "...", "scheme": "...", "matched_host": "...", "method": "...", "path": "..."}
