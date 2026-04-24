@@ -1,15 +1,15 @@
 # Policy Schema
 
-Policy files still use the existing top-level `services` and `domains` fields.
-The authored surface is backward compatible: the proxy renders it into one
-canonical host-record intermediate representation (IR) before enforcement.
+Policy files use the top-level `services` and `domains` fields. The proxy
+renders authored policy into one canonical host-record intermediate
+representation (IR) before enforcement.
 
-Effective policy location inside the proxy container: `POLICY_PATH` (defaults to
-`/etc/mitmproxy/policy.yaml` for single-file setups).
+The effective policy location inside the proxy container is `POLICY_PATH`
+(defaults to `/etc/mitmproxy/policy.yaml`).
 
 ## Authored Format
 
-Simple host-only authoring still works:
+Simple domain allowlist:
 
 ```yaml
 services:
@@ -20,7 +20,7 @@ domains:
   - "*.example.com"
 ```
 
-Rich host entries can carry request-aware rules:
+Host entries can also carry request-aware rules:
 
 ```yaml
 domains:
@@ -34,7 +34,7 @@ domains:
           exact: {}
 ```
 
-Later policy layers can replace the accumulated record for a host:
+A later policy entry can replace the accumulated record for a host:
 
 ```yaml
 domains:
@@ -63,8 +63,8 @@ Unknown service names fail rendering immediately.
 
 ### String entries
 
-Plain-string `services` entries preserve the simple authoring path and expand
-to the service's default set of catch-all host records:
+Plain-string `services` entries expand to the service's default set of
+catch-all host records:
 
 ```yaml
 services:
@@ -131,7 +131,7 @@ additional keys:
   `api.github.com`) and `git` (Git smart-HTTP on `github.com`).
 
 If neither `repos` nor `surfaces` is set, a mapping entry expands to the same
-default catch-all host records as the plain-string entry.
+catch-all host records as the plain-string entry.
 
 `readonly` on the GitHub `api` surface narrows methods literally to
 `GET` and `HEAD`. On the `git` surface, `readonly` is semantic enough to
@@ -148,14 +148,14 @@ repo-scoped policy example.
 
 ## domains
 
-`domains` now accepts two entry shapes:
+`domains` accepts two entry shapes:
 
 - String host entries.
 - Mapping entries with `host`, `rules`, and optional `merge_mode`.
 
 ### String host entries
 
-String entries preserve the legacy host-only path:
+String entries define host-wide allow rules:
 
 ```yaml
 domains:
@@ -169,8 +169,7 @@ domains:
 Wildcard matching preserves current proxy behavior: `*.example.com` matches both
 `example.com` and any subdomain of it.
 
-String entries render to an explicit catch-all rule with
-`schemes: [http, https]`.
+String entries render to an explicit catch-all rule with `schemes: [http, https]`.
 
 ### Mapping host entries
 
@@ -307,13 +306,12 @@ Rendered policy characteristics:
 
 - `services` is compiled away
 - every rendered `domains` entry is a mapping with `host` and `rules`
-- legacy string entries become explicit catch-all host records
+- string entries become explicit catch-all host records
 - `merge_mode` is stripped from the rendered output
 
 ## Layered Merge Semantics
 
-For layered CLI and managed devcontainer layouts, the renderer applies layers in
-this order:
+In an agentbox runtime, the renderer applies policy inputs in this order:
 
 1. Active-agent baseline service expansion (`services: [<active-agent>]`)
 2. `.agent-sandbox/policy/user.policy.yaml`
@@ -329,8 +327,8 @@ Merge behavior:
   the later one
 - Different host identities coexist in the rendered policy
 
-Rendered host records are ordered by match specificity so later request-aware
-evaluation has one deterministic precedence model:
+Rendered host records are ordered by match specificity so request evaluation
+uses one deterministic precedence model:
 
 - exact host before wildcard host
 - among wildcard hosts, longest suffix first
@@ -350,7 +348,6 @@ depends on the rule fields it uses.
 
 Host-only rules take the CONNECT fast path: if the requested host has no
 matching record, the proxy returns `403` before any TLS handshake completes.
-This preserves the original domain-only allowlist behavior.
 
 Rules that constrain scheme, method, path, or query require the decrypted
 request. For HTTPS, that means the proxy MITMs the connection (the proxy CA
@@ -358,28 +355,27 @@ is already installed in the agent image) and evaluates the rule on the real
 `Request` object. HTTP requests evaluate the same rules without TLS.
 
 A matched URL rule still implies the endpoint is trusted with the full
-request. Header and request-body inspection remain out of scope for `m14`.
+request. Header and request-body inspection are out of scope.
 
-## Where Policy Files Live
+## Policy Inputs
 
-There are three ways a policy can be sourced:
+The proxy consumes a rendered policy file at `POLICY_PATH`. In normal
+agentbox repos, that rendered file is built from these inputs:
 
-1. Baked into the proxy image at build time (`images/proxy/policy.yaml`)
-2. Single-file project policy for legacy layouts
-3. Layered project policy inputs for current CLI and managed devcontainer file
-   layouts:
-   - `.agent-sandbox/policy/user.policy.yaml`
-   - `.agent-sandbox/policy/user.agent.<agent>.policy.yaml`
-   - `.agent-sandbox/policy/policy.devcontainer.yaml` (managed devcontainer
-     layer only)
+1. Active-agent baseline service expansion
+2. `.agent-sandbox/policy/user.policy.yaml`
+3. `.agent-sandbox/policy/user.agent.<agent>.policy.yaml`
+4. `.agent-sandbox/policy/policy.devcontainer.yaml` when mounted
 
-For layered projects, the proxy renders the effective policy at startup from
-the active agent baseline plus those user-owned inputs. You can inspect that
-rendered output with:
+You can inspect the effective rendered policy with:
 
 ```bash
 agentbox policy config
 ```
+
+The renderer can also be invoked against a single source policy file by
+setting `AGENTBOX_POLICY_SOURCE_PATH`. That is mainly useful for tests and
+standalone render-policy runs.
 
 The `.agent-sandbox/` directory, and in devcontainer workflows the
 `.devcontainer/` directory, are mounted read-only inside the agent container,
@@ -417,11 +413,11 @@ Reload is best-effort and does not block traffic. The last-known-good matcher
 remains installed until a subsequent reload succeeds. Reload events appear
 even when `PROXY_LOG_LEVEL=quiet`.
 
-## Examples
+## Templates And Examples
 
-The single-file base policy template is at
+The base single-source policy template is at
 [internal/embeddata/templates/policy.yaml](../../internal/embeddata/templates/policy.yaml).
-Layered shared and agent-specific user-owned scaffolds are at
+The layered shared and agent-specific user-owned scaffolds are at
 [internal/embeddata/templates/user.policy.yaml](../../internal/embeddata/templates/user.policy.yaml)
 and
 [internal/embeddata/templates/user.agent.policy.yaml](../../internal/embeddata/templates/user.agent.policy.yaml).
