@@ -5,7 +5,13 @@
 #
 # See docs/policy/schema.md for the full format reference.
 
-services: []
+services:
+  - name: github
+    repos:
+      - mattolson/agent-sandbox
+    surfaces:
+      - api
+      - git
 domains:
   - raw.githubusercontent.com
   - mcp.linear.app
