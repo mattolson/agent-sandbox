@@ -1,5 +1,6 @@
 import importlib.util
 import os
+import sys
 import tempfile
 import unittest
 from importlib.machinery import SourceFileLoader
@@ -9,6 +10,7 @@ from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RENDER_POLICY_PATH = REPO_ROOT / "images" / "proxy" / "render-policy"
+SERVICE_CATALOG_PATH = REPO_ROOT / "images" / "proxy" / "service_catalog.py"
 
 
 def load_render_policy_module():
@@ -17,6 +19,41 @@ def load_render_policy_module():
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
     return module
+
+
+class RenderPolicyImportTests(unittest.TestCase):
+    def test_render_policy_imports_helpers_from_symlink_target_directory(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            tempdir_path = Path(tempdir)
+            lib_dir = tempdir_path / "lib"
+            bin_dir = tempdir_path / "bin"
+            lib_dir.mkdir()
+            bin_dir.mkdir()
+
+            render_policy_target = lib_dir / "render-policy"
+            render_policy_target.write_bytes(RENDER_POLICY_PATH.read_bytes())
+            (lib_dir / "service_catalog.py").write_bytes(
+                SERVICE_CATALOG_PATH.read_bytes()
+            )
+            render_policy_link = bin_dir / "render-policy"
+            render_policy_link.symlink_to(render_policy_target)
+
+            old_sys_path = list(sys.path)
+            previous_catalog = sys.modules.pop("service_catalog", None)
+            try:
+                loader = SourceFileLoader(
+                    "render_policy_symlink_module",
+                    str(render_policy_link),
+                )
+                spec = importlib.util.spec_from_loader(loader.name, loader)
+                module = importlib.util.module_from_spec(spec)
+                loader.exec_module(module)
+                self.assertTrue(callable(module.render_policy))
+            finally:
+                sys.path[:] = old_sys_path
+                sys.modules.pop("service_catalog", None)
+                if previous_catalog is not None:
+                    sys.modules["service_catalog"] = previous_catalog
 
 
 class RenderPolicyTests(unittest.TestCase):

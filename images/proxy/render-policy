@@ -7,7 +7,7 @@ import sys
 
 import yaml
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import service_catalog  # noqa: E402
 
 DEFAULT_SINGLE_POLICY_PATH = "/etc/mitmproxy/policy.yaml"
