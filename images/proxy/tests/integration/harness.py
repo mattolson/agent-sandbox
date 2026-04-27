@@ -112,21 +112,23 @@ class ProxyHarness:
             f"timed out waiting for event; last lines: {self.snapshot_lines()[-20:]}"
         )
 
-    def send_request(self, method, url, timeout=3.0):
+    def send_request(self, method, url, timeout=3.0, body=b""):
         """Forward an HTTP/1.1 request through the proxy using a raw socket.
 
         urllib honors `no_proxy` even when a ProxyHandler is explicit, which
         silently bypasses the proxy for loopback targets. Raw socket avoids
         that and gives us the unvarnished status line.
         """
+        if isinstance(body, str):
+            body = body.encode("utf-8")
         host_header = urlsplit(url).netloc
-        message = (
+        headers = (
             f"{method} {url} HTTP/1.1\r\n"
             f"Host: {host_header}\r\n"
-            "Content-Length: 0\r\n"
+            f"Content-Length: {len(body)}\r\n"
             "Connection: close\r\n\r\n"
         )
-        data = self._exchange(message.encode("ascii"), timeout=timeout, read_all=True)
+        data = self._exchange(headers.encode("ascii") + body, timeout=timeout, read_all=True)
         return _parse_status_code(data), data
 
     def send_get(self, url, timeout=3.0):
@@ -221,7 +223,6 @@ def spawn_proxy(policy_text, *, enforce=True):
         "-s",
         str(ENFORCER_ADDON),
     ]
-
     process = subprocess.Popen(
         args,
         env=env,

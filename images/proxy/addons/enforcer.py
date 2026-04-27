@@ -237,6 +237,14 @@ class PolicyEnforcer:
         factory = self.response_factory or self._default_response_factory()
         return factory(status_code, body)
 
+    def _set_block_response(self, flow):
+        if getattr(flow.request, "stream", False):
+            flow.request.stream = False
+        flow.response = self._make_response(
+            403,
+            f"Blocked by proxy policy: {flow.request.host}",
+        )
+
     def _get_flow_metadata(self, flow):
         metadata = getattr(flow, "metadata", None)
         if metadata is None:
@@ -285,17 +293,17 @@ class PolicyEnforcer:
         if decision.is_blocked():
             self.logger.event(self._decision_log_entry(decision))
             self._store_decision(flow, decision)
-            flow.response = self._make_response(
-                403,
-                f"Blocked by proxy policy: {flow.request.host}",
-            )
+            self._set_block_response(flow)
             return
 
         self._clear_stored_decision(flow)
 
-    def request(self, flow):
-        """Handle HTTP and decrypted HTTPS requests."""
+    def _handle_request_decision(self, flow):
         if self.mode != "enforce":
+            return
+
+        existing_decision = self._get_stored_decision(flow)
+        if existing_decision is not None:
             return
 
         decision = self.matcher.evaluate_request(
@@ -308,13 +316,18 @@ class PolicyEnforcer:
         if decision.is_blocked():
             self.logger.event(self._decision_log_entry(decision))
             self._store_decision(flow, decision)
-            flow.response = self._make_response(
-                403,
-                f"Blocked by proxy policy: {flow.request.host}",
-            )
+            self._set_block_response(flow)
             return
 
         self._store_decision(flow, decision)
+
+    def requestheaders(self, flow):
+        """Handle HTTP and decrypted HTTPS requests before any body streams upstream."""
+        self._handle_request_decision(flow)
+
+    def request(self, flow):
+        """Handle HTTP and decrypted HTTPS requests."""
+        self._handle_request_decision(flow)
 
     def response(self, flow):
         """Log completed requests with full details."""
