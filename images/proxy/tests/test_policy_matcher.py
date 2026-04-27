@@ -515,6 +515,38 @@ class PolicyMatcherTests(unittest.TestCase):
 
         self.assertEqual(decision.action, "allowed")
 
+    def test_request_query_normalization_decodes_once(self):
+        matcher = self.matcher_from_domains(
+            [
+                {
+                    "host": "api.openai.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "path": {"exact": "/search"},
+                            "query": {"exact": {"token": ["%2B"]}},
+                        }
+                    ],
+                }
+            ]
+        )
+
+        encoded_plus = matcher.evaluate_request(
+            "api.openai.com",
+            "https",
+            "GET",
+            "/search?token=%2B",
+        )
+        raw_plus = matcher.evaluate_request(
+            "api.openai.com",
+            "https",
+            "GET",
+            "/search?token=+",
+        )
+
+        self.assertEqual(encoded_plus.action, "allowed")
+        self.assertEqual(raw_plus.action, "blocked")
+
     def test_request_blocks_with_scheme_not_permitted_when_host_matches_but_scheme_does_not(self):
         matcher = self.matcher_from_domains(
             [

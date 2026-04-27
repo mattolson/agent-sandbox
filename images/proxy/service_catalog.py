@@ -331,6 +331,8 @@ def _github_smart_http_pair(base, git_service):
 
 def _github_git_rules_for_repo(owner, name, readonly):
     base = f"/{owner}/{name}.git"
+    # git-upload-pack POST transfers clone/fetch pack data; it does not grant
+    # push/write access. git-receive-pack is the write-capable path.
     rules = list(_github_smart_http_pair(base, GIT_UPLOAD_PACK_SERVICE))
     if not readonly:
         rules.extend(_github_smart_http_pair(base, GIT_RECEIVE_PACK_SERVICE))

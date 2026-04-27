@@ -36,10 +36,15 @@ def mitmdump_available():
     return MITMDUMP is not None
 
 
-def pick_free_port():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+def reserve_tcp_port():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
+        return sock
+    except Exception:
+        sock.close()
+        raise
 
 
 def wait_for_port(port, timeout=10.0):
@@ -198,7 +203,8 @@ def spawn_proxy(policy_text, *, enforce=True):
     workdir = Path(tempfile.mkdtemp(prefix="agentbox-proxy-it-"))
     policy_path = workdir / "policy.yaml"
     policy_path.write_text(policy_text)
-    proxy_port = pick_free_port()
+    reserved_port = reserve_tcp_port()
+    proxy_port = reserved_port.getsockname()[1]
 
     env = os.environ.copy()
     env["PROXY_MODE"] = "enforce" if enforce else "log"
@@ -223,14 +229,17 @@ def spawn_proxy(policy_text, *, enforce=True):
         "-s",
         str(ENFORCER_ADDON),
     ]
-    process = subprocess.Popen(
-        args,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
+    try:
+        process = subprocess.Popen(
+            args,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+    finally:
+        reserved_port.close()
 
     harness = ProxyHarness(process, proxy_port, policy_path, workdir)
     harness.start_reader()
