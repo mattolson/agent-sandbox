@@ -17,7 +17,7 @@ import unittest
 
 import yaml
 
-from .harness import mitmdump_available, pick_free_port, spawn_proxy
+from .harness import mitmdump_available, spawn_proxy
 
 
 def _yaml_policy(domains):
@@ -48,10 +48,10 @@ class _UpstreamHandler(http.server.BaseHTTPRequestHandler):
 
 class _Upstream:
     def __init__(self):
-        self.port = pick_free_port()
         self.server = http.server.ThreadingHTTPServer(
-            ("127.0.0.1", self.port), _UpstreamHandler
+            ("127.0.0.1", 0), _UpstreamHandler
         )
+        self.port = self.server.server_address[1]
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
 
     def start(self):

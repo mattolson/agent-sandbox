@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from urllib.parse import parse_qs, unquote_plus, urlsplit
+from urllib.parse import unquote_plus, urlsplit
 
 import yaml
 
@@ -414,11 +414,17 @@ class PolicyMatcher:
     def _normalize_request_target(request_target):
         parsed = urlsplit(request_target)
         path = PolicyMatcher._normalize_uri_component_for_match(parsed.path or "/")
-        query_map = parse_qs(
-            parsed.query,
-            keep_blank_values=True,
-            strict_parsing=False,
-        )
+        query_map = {}
+        for pair in parsed.query.split("&"):
+            if not pair:
+                continue
+            if "=" in pair:
+                name, value = pair.split("=", 1)
+            else:
+                name, value = pair, ""
+            normalized_name = PolicyMatcher._normalize_query_string_for_match(name)
+            normalized_value = PolicyMatcher._normalize_query_string_for_match(value)
+            query_map.setdefault(normalized_name, []).append(normalized_value)
         normalized_query = tuple(
             (name, tuple(sorted(values)))
             for name, values in sorted(query_map.items())
