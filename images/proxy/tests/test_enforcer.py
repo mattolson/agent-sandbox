@@ -36,6 +36,7 @@ class FakeRequest:
         self.scheme = scheme
         self.method = method
         self.path = path
+        self.stream = False
 
 
 class FakeFlow:
@@ -182,6 +183,41 @@ domains:
         log_output = logger_output.getvalue()
         self.assertIn('"reason": "no_rule_matched"', log_output)
         self.assertNotIn('"status": 403', log_output)
+
+    def test_requestheaders_blocks_before_request_body_streaming(self):
+        logger_output = io.StringIO()
+        matcher = self.matcher_from_domains(
+            [
+                {
+                    "host": "api.openai.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "methods": ["GET"],
+                            "path": {"exact": "/v1/models"},
+                        }
+                    ],
+                }
+            ]
+        )
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(logger_output),
+            response_factory=self.make_response,
+        )
+        flow = FakeFlow("api.openai.com", scheme="https", method="POST", path="/v1/models")
+        flow.request.stream = True
+
+        enforcer.requestheaders(flow)
+        enforcer.request(flow)
+
+        self.assertIsNotNone(flow.response)
+        self.assertEqual(flow.response.status_code, 403)
+        self.assertFalse(flow.request.stream)
+        log_output = logger_output.getvalue()
+        self.assertIn('"reason": "no_rule_matched"', log_output)
+        self.assertEqual(log_output.count('"action": "blocked"'), 1)
 
     def test_response_logs_allowed_request_with_match_reason_and_status(self):
         logger_output = io.StringIO()

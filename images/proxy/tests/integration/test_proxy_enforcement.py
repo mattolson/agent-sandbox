@@ -68,8 +68,8 @@ class _Upstream:
 
 
 class _ProxyTestCase(unittest.TestCase):
-    def spawn(self, policy_text):
-        harness = spawn_proxy(policy_text)
+    def spawn(self, policy_text, **kwargs):
+        harness = spawn_proxy(policy_text, **kwargs)
         self.addCleanup(harness.terminate)
         return harness
 
@@ -137,6 +137,18 @@ class RequestPhaseTests(_ProxyTestCase):
         self.assertEqual(status, 200)
         status, _ = harness.send_request("POST", self.upstream_url)
         self.assertEqual(status, 403)
+        event = harness.wait_for_event(
+            lambda e: e.get("phase") == "request"
+            and e.get("action") == "blocked"
+            and e.get("method") == "POST"
+        )
+        self.assertEqual(event.get("reason"), "no_rule_matched")
+
+    def test_method_restriction_blocks_post_body_before_upstream(self):
+        harness = self.spawn(self._policy({"methods": ["GET"]}))
+        status, body = harness.send_request("POST", self.upstream_url, body=b"{}")
+        self.assertEqual(status, 403)
+        self.assertIn(b"Blocked by proxy policy", body)
         event = harness.wait_for_event(
             lambda e: e.get("phase") == "request"
             and e.get("action") == "blocked"
