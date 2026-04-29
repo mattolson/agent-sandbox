@@ -169,31 +169,31 @@ def normalize_method_values(values, context, field_name):
 
 
 def normalize_rule_schemes(rule, context):
-    plural = rule.get("schemes", MISSING)
+    schemes = rule.get("schemes", MISSING)
 
-    if plural is MISSING:
+    if schemes is MISSING:
         return list(DEFAULT_RULE_SCHEMES)
 
-    if not isinstance(plural, list):
+    if not isinstance(schemes, list):
         fail(
-            f"{context}.schemes must be a YAML list, got {type(plural).__name__}: {plural!r}"
+            f"{context}.schemes must be a YAML list, got {type(schemes).__name__}: {schemes!r}"
         )
 
-    return normalize_scheme_values(plural, context, "schemes")
+    return normalize_scheme_values(schemes, context, "schemes")
 
 
 def normalize_rule_methods(rule, context):
-    plural = rule.get("methods", MISSING)
+    methods = rule.get("methods", MISSING)
 
-    if plural is MISSING:
+    if methods is MISSING:
         return None
 
-    if not isinstance(plural, list):
+    if not isinstance(methods, list):
         fail(
-            f"{context}.methods must be a YAML list, got {type(plural).__name__}: {plural!r}"
+            f"{context}.methods must be a YAML list, got {type(methods).__name__}: {methods!r}"
         )
 
-    return normalize_method_values(plural, context, "methods")
+    return normalize_method_values(methods, context, "methods")
 
 
 def normalize_path_matcher(value, context):
