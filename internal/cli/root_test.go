@@ -66,7 +66,7 @@ func TestCustomParsedCommandHelpListsOptions(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{name: "init", args: []string{"init", "--help"}, want: []string{"--agent", "--batch", "--mode", "--path"}},
+		{name: "init", args: []string{"init", "--help"}, want: []string{"--agent", "--batch", "--ide", "--mode", "--name", "--path"}},
 		{name: "switch", args: []string{"switch", "--help"}, want: []string{"--agent"}},
 		{name: "edit compose", args: []string{"edit", "compose", "--help"}, want: []string{"--no-restart"}},
 		{name: "edit policy", args: []string{"edit", "policy", "--help"}, want: []string{"--agent", "--mode"}},
