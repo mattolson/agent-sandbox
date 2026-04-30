@@ -59,10 +59,14 @@ RENDER_POLICY_PATH = Path(
 
 
 def _load_render_policy_module(path):
+    original_sys_path = list(sys.path)
     loader = SourceFileLoader("agent_sandbox_render_policy", str(path))
     spec = importlib.util.spec_from_loader(loader.name, loader)
     module = importlib.util.module_from_spec(spec)
-    loader.exec_module(module)
+    try:
+        loader.exec_module(module)
+    finally:
+        sys.path[:] = original_sys_path
     return module
 
 
