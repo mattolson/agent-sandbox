@@ -52,6 +52,7 @@ class FakeResponse:
     def __init__(self, status_code, body):
         self.status_code = status_code
         self.body = body
+        self.stream = False
 
 
 class PolicyEnforcerTests(unittest.TestCase):
@@ -219,6 +220,18 @@ domains:
         log_output = logger_output.getvalue()
         self.assertIn('"reason": "no_rule_matched"', log_output)
         self.assertEqual(log_output.count('"action": "blocked"'), 1)
+
+    def test_responseheaders_streams_response_body(self):
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="log",
+            logger=self.make_logger(io.StringIO()),
+        )
+        flow = FakeFlow("api.openai.com", scheme="https", method="GET", path="/v1/models")
+        flow.response = FakeResponse(200, "ok")
+
+        enforcer.responseheaders(flow)
+
+        self.assertTrue(flow.response.stream)
 
     def test_response_logs_allowed_request_with_match_reason_and_status(self):
         logger_output = io.StringIO()

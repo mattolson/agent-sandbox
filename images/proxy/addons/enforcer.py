@@ -333,6 +333,11 @@ class PolicyEnforcer:
         """Handle HTTP and decrypted HTTPS requests."""
         self._handle_request_decision(flow)
 
+    def responseheaders(self, flow):
+        """Stream response bodies without enabling mitmproxy request-body streaming."""
+        if flow.response is not None:
+            flow.response.stream = True
+
     def response(self, flow):
         """Log completed requests with full details."""
         if self.mode != "enforce":
