@@ -61,6 +61,10 @@ func newRuntimeComposeCommand(use string, short string, commandName string, pref
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if handled, err := showHelpIfOnlyArg(cmd, args); handled {
+				return err
+			}
+
 			return runComposePassthrough(cmd, deps, commandName, append(append([]string{}, prefix...), args...))
 		},
 	}
@@ -97,6 +101,10 @@ func newExecCommand(deps commandDeps) *cobra.Command {
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if handled, err := showHelpIfOnlyArg(cmd, args); handled {
+				return err
+			}
+
 			stack, err := resolveComposeStackForCommand(deps, "exec")
 			if err != nil {
 				return err

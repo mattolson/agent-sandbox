@@ -23,6 +23,72 @@ func TestRootCommandIncludesExpectedCommands(t *testing.T) {
 	}
 }
 
+func TestDisabledFlagParsingCommandsSupportHelpFlags(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "init long help", args: []string{"init", "--help"}, want: "Initialize a project sandbox"},
+		{name: "init short help", args: []string{"init", "-h"}, want: "Initialize a project sandbox"},
+		{name: "switch", args: []string{"switch", "--help"}, want: "Switch the active agent"},
+		{name: "edit compose", args: []string{"edit", "compose", "--help"}, want: "Edit compose overrides"},
+		{name: "edit policy", args: []string{"edit", "policy", "--help"}, want: "Edit policy overrides"},
+		{name: "bump", args: []string{"bump", "--help"}, want: "Refresh managed image digests"},
+		{name: "destroy", args: []string{"destroy", "--help"}, want: "Remove sandbox files and resources"},
+		{name: "up", args: []string{"up", "--help"}, want: "Start the sandbox runtime"},
+		{name: "down", args: []string{"down", "--help"}, want: "Stop the sandbox runtime"},
+		{name: "logs", args: []string{"logs", "--help"}, want: "Show runtime logs"},
+		{name: "compose", args: []string{"compose", "--help"}, want: "Run docker compose against the sandbox stack"},
+		{name: "exec", args: []string{"exec", "--help"}, want: "Open a shell in the sandbox container"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := NewRootCommand(Options{WorkingDir: t.TempDir()})
+			stdout, stderr, err := testutil.ExecuteCommand(cmd, tt.args...)
+			if err != nil {
+				t.Fatalf("help command failed: %v", err)
+			}
+			if stderr != "" {
+				t.Fatalf("expected no stderr, got %q", stderr)
+			}
+			if !strings.Contains(stdout, tt.want) {
+				t.Fatalf("expected help output to contain %q, got %q", tt.want, stdout)
+			}
+		})
+	}
+}
+
+func TestCustomParsedCommandHelpListsOptions(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{name: "init", args: []string{"init", "--help"}, want: []string{"--agent", "--batch", "--mode", "--path"}},
+		{name: "switch", args: []string{"switch", "--help"}, want: []string{"--agent"}},
+		{name: "edit compose", args: []string{"edit", "compose", "--help"}, want: []string{"--no-restart"}},
+		{name: "edit policy", args: []string{"edit", "policy", "--help"}, want: []string{"--agent", "--mode"}},
+		{name: "destroy", args: []string{"destroy", "--help"}, want: []string{"--force"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := NewRootCommand(Options{WorkingDir: t.TempDir()})
+			stdout, _, err := testutil.ExecuteCommand(cmd, tt.args...)
+			if err != nil {
+				t.Fatalf("help command failed: %v", err)
+			}
+			for _, want := range tt.want {
+				if !strings.Contains(stdout, want) {
+					t.Fatalf("expected help output to contain %q, got %q", want, stdout)
+				}
+			}
+		})
+	}
+}
+
 func TestVersionCommandPrintsBuildMetadata(t *testing.T) {
 	cmd := NewRootCommand(Options{
 		Version: version.Info{

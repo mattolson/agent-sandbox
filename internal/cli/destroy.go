@@ -16,12 +16,16 @@ type destroyArgs struct {
 }
 
 func newDestroyCommand(opts Options, deps commandDeps) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:                "destroy",
 		Short:              "Remove sandbox files and resources",
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if handled, err := showHelpIfRequested(cmd, args); handled {
+				return err
+			}
+
 			parsed, err := parseDestroyArgs(args)
 			if err != nil {
 				return err
@@ -66,6 +70,10 @@ func newDestroyCommand(opts Options, deps commandDeps) *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolP("force", "f", false, "Skip confirmation prompt")
+
+	return cmd
 }
 
 func parseDestroyArgs(args []string) (destroyArgs, error) {

@@ -17,12 +17,16 @@ type switchArgs struct {
 }
 
 func newSwitchCommand(opts Options, deps commandDeps) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:                "switch",
 		Short:              "Switch the active agent",
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if handled, err := showHelpIfRequested(cmd, args); handled {
+				return err
+			}
+
 			parsed, err := parseSwitchArgs(args)
 			if err != nil {
 				return err
@@ -157,6 +161,10 @@ func newSwitchCommand(opts Options, deps commandDeps) *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().String("agent", "", "Agent to activate ("+runtime.SupportedAgentsDisplay()+")")
+
+	return cmd
 }
 
 func parseSwitchArgs(args []string) (switchArgs, error) {
