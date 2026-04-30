@@ -178,8 +178,11 @@ Primary test commands:
 
 ```bash
 go test ./...
-python -m unittest discover -s images/proxy/tests -p 'test_*.py'
+/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'
 ```
+
+Use `/opt/proxy-python/bin/python3` for proxy Python tests. It is the dev-image venv with `mitmproxy`, `pytest`, and
+`PyYAML`; system Python does not have all proxy test dependencies.
 
 Useful local verification steps:
 
