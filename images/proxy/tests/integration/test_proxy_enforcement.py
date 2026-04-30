@@ -28,8 +28,26 @@ def _skip_reason():
     return "mitmdump not available on PATH; install mitmproxy to run integration tests"
 
 
+class _RecordingHTTPServer(http.server.ThreadingHTTPServer):
+    def __init__(self, server_address, handler_class):
+        super().__init__(server_address, handler_class)
+        self._requests = []
+        self._requests_lock = threading.Lock()
+
+    def record_request(self, method, path, body):
+        with self._requests_lock:
+            self._requests.append((method, path, body))
+
+    def snapshot_requests(self):
+        with self._requests_lock:
+            return list(self._requests)
+
+
 class _UpstreamHandler(http.server.BaseHTTPRequestHandler):
     def _respond(self):
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        body = self.rfile.read(length) if length else b""
+        self.server.record_request(self.command, self.path, body)
         self.send_response(200)
         self.send_header("Content-Type", "text/plain")
         self.send_header("Content-Length", "2")
@@ -48,9 +66,7 @@ class _UpstreamHandler(http.server.BaseHTTPRequestHandler):
 
 class _Upstream:
     def __init__(self):
-        self.server = http.server.ThreadingHTTPServer(
-            ("127.0.0.1", 0), _UpstreamHandler
-        )
+        self.server = _RecordingHTTPServer(("127.0.0.1", 0), _UpstreamHandler)
         self.port = self.server.server_address[1]
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
 
@@ -65,6 +81,9 @@ class _Upstream:
     @property
     def url(self):
         return f"http://127.0.0.1:{self.port}/"
+
+    def snapshot_requests(self):
+        return self.server.snapshot_requests()
 
 
 class _ProxyTestCase(unittest.TestCase):
@@ -124,7 +143,8 @@ class RequestPhaseTests(_ProxyTestCase):
     """Method, path, and query constraints enforce after request headers arrive."""
 
     def setUp(self):
-        self.upstream_url = self.upstream().url
+        self.upstream_server = self.upstream()
+        self.upstream_url = self.upstream_server.url
 
     def _policy(self, rule_extra):
         rule = {"schemes": ["http"]}
@@ -144,11 +164,15 @@ class RequestPhaseTests(_ProxyTestCase):
         )
         self.assertEqual(event.get("reason"), "no_rule_matched")
 
-    def test_method_restriction_blocks_post_body_before_upstream(self):
-        harness = self.spawn(self._policy({"methods": ["GET"]}))
+    def test_method_restriction_blocks_streamed_post_body_before_upstream(self):
+        harness = self.spawn(
+            self._policy({"methods": ["GET"]}),
+            mitmdump_settings=("stream_large_bodies=1",),
+        )
         status, body = harness.send_request("POST", self.upstream_url, body=b"{}")
         self.assertEqual(status, 403)
         self.assertIn(b"Blocked by proxy policy", body)
+        self.assertEqual(self.upstream_server.snapshot_requests(), [])
         event = harness.wait_for_event(
             lambda e: e.get("phase") == "request"
             and e.get("action") == "blocked"
