@@ -103,4 +103,8 @@ The `phase` field tells you which enforcement gate ran, and `reason` names the o
 - `phase: request`, `reason: scheme_not_permitted` — the host matched but none of its rules permit this scheme
   (usually an HTTP request to an HTTPS-only record). Fix: adjust the rule's `schemes` list.
 
+For rules with `query.exact`, the whole normalized query-param map must match. Extra client-added params such as
+pagination tokens, trace IDs, or protocol-version hints will produce `no_rule_matched`; add those params to the exact
+map or remove the query constraint if they are not security-relevant.
+
 After editing policy, run `agentbox proxy reload` to apply the change without restarting the container.
