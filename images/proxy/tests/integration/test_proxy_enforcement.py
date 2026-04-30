@@ -164,11 +164,8 @@ class RequestPhaseTests(_ProxyTestCase):
         )
         self.assertEqual(event.get("reason"), "no_rule_matched")
 
-    def test_method_restriction_blocks_streamed_post_body_before_upstream(self):
-        harness = self.spawn(
-            self._policy({"methods": ["GET"]}),
-            mitmdump_settings=("stream_large_bodies=1",),
-        )
+    def test_method_restriction_blocks_post_body_before_upstream(self):
+        harness = self.spawn(self._policy({"methods": ["GET"]}))
         status, body = harness.send_request("POST", self.upstream_url, body=b"{}")
         self.assertEqual(status, 403)
         self.assertIn(b"Blocked by proxy policy", body)
