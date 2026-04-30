@@ -15,7 +15,11 @@ func newBumpCommand(deps commandDeps) *cobra.Command {
 		Short:              "Refresh managed image digests",
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if handled, err := showHelpIfRequested(cmd, args); handled {
+				return err
+			}
+
 			repoRoot, err := runtime.FindRepoRoot(deps.workingDir)
 			if err != nil {
 				return err

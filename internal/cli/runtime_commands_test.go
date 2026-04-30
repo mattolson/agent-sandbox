@@ -66,6 +66,20 @@ func TestComposeCommandCallsRuntimeSyncOnlyForMutatingCommands(t *testing.T) {
 	}
 }
 
+func TestComposeNestedHelpPassesThroughToDockerCompose(t *testing.T) {
+	repoRoot := layeredCLIRepo(t)
+	runner := &fakeRunner{}
+
+	cmd := NewRootCommand(Options{WorkingDir: repoRoot, Runner: runner})
+	_, _, err := testutil.ExecuteCommand(cmd, "compose", "up", "--help")
+	if err != nil {
+		t.Fatalf("compose help passthrough failed: %v", err)
+	}
+
+	want := []string{"docker", "compose", "-f", runtime.CLIBaseComposeFile(repoRoot), "-f", runtime.CLIAgentComposeFile(repoRoot, "codex"), "-f", runtime.CLIUserOverrideFile(repoRoot), "-f", runtime.CLIUserAgentOverrideFile(repoRoot, "codex"), "up", "--help"}
+	assertSingleRunCall(t, runner, want)
+}
+
 func TestComposeCommandReResolvesFilesAfterDefaultRuntimeSync(t *testing.T) {
 	repoRoot := t.TempDir()
 	testutil.WriteFile(t, repoRoot, ".git", "gitdir: /tmp/worktree\n")

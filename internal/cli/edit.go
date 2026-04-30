@@ -40,12 +40,16 @@ func newEditCommand(opts Options, deps commandDeps) *cobra.Command {
 }
 
 func newEditComposeCommand(opts Options, deps commandDeps) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:                "compose",
 		Short:              "Edit compose overrides",
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if handled, err := showHelpIfRequested(cmd, args); handled {
+				return err
+			}
+
 			parsed, err := parseEditComposeArgs(args)
 			if err != nil {
 				return err
@@ -121,15 +125,23 @@ func newEditComposeCommand(opts Options, deps commandDeps) *cobra.Command {
 			return runComposeCommand(cmd.Context(), deps.runner, stack, cmd, "up", "-d")
 		},
 	}
+
+	cmd.Flags().Bool("no-restart", false, "Do not restart running containers after editing")
+
+	return cmd
 }
 
 func newEditPolicyCommand(opts Options, deps commandDeps) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:                "policy",
 		Short:              "Edit policy overrides",
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if handled, err := showHelpIfRequested(cmd, args); handled {
+				return err
+			}
+
 			parsed, err := parseEditPolicyArgs(args)
 			if err != nil {
 				return err
@@ -215,6 +227,11 @@ func newEditPolicyCommand(opts Options, deps commandDeps) *cobra.Command {
 			return runComposeCommand(cmd.Context(), deps.runner, stack, cmd, "kill", "-s", "HUP", "proxy")
 		},
 	}
+
+	cmd.Flags().String("agent", "", "Agent-specific policy to edit ("+runtime.SupportedAgentsDisplay()+")")
+	cmd.Flags().String("mode", "", "Runtime mode policy surface (cli devcontainer)")
+
+	return cmd
 }
 
 func parseEditComposeArgs(args []string) (editComposeArgs, error) {

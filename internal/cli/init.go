@@ -38,12 +38,16 @@ type initArgs struct {
 }
 
 func newInitCommand(opts Options, deps commandDeps) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:                "init",
 		Short:              "Initialize a project sandbox",
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if handled, err := showHelpIfRequested(cmd, args); handled {
+				return err
+			}
+
 			parsed, err := parseInitArgs(args)
 			if err != nil {
 				return err
@@ -110,6 +114,15 @@ func newInitCommand(opts Options, deps commandDeps) *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().String("name", "", "Project name for generated runtime metadata")
+	cmd.Flags().String("path", ".", "Project directory to initialize")
+	cmd.Flags().String("agent", "", "Agent to configure ("+runtime.SupportedAgentsDisplay()+")")
+	cmd.Flags().String("mode", "", "Runtime mode (cli devcontainer)")
+	cmd.Flags().String("ide", "", "Devcontainer IDE ("+runtime.SupportedIDEsDisplay()+")")
+	cmd.Flags().Bool("batch", false, "Run without prompts; requires --agent and --mode")
+
+	return cmd
 }
 
 func parseInitArgs(args []string) (initArgs, error) {
