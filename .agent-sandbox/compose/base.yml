@@ -4,7 +4,7 @@
 name: agent-sandbox
 services:
   proxy:
-    image: ghcr.io/mattolson/agent-sandbox-proxy@sha256:2335605392588545f6041ee4240df89746dae1b7de4cfdb25655913d54eeb711
+    image: ghcr.io/mattolson/agent-sandbox-proxy@sha256:7c13a98060e0bf4d0c3587a4be27f0eb1bab62bebd56e08499c4f10aad4f1928
     cap_drop:
       - ALL
     volumes:
