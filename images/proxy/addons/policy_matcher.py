@@ -93,6 +93,7 @@ class RuntimeRule:
         if self.path_prefix is not None and not path.startswith(self.path_prefix):
             return False
 
+        # query_exact is strict: the full normalized parameter set must match.
         if self.query_exact is not None and normalized_query != self.query_exact:
             return False
 
