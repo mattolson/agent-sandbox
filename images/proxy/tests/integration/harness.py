@@ -195,7 +195,7 @@ def _parse_status_code(data):
     return int(parts[1]) if len(parts) >= 2 and parts[1].isdigit() else 0
 
 
-def spawn_proxy(policy_text, *, enforce=True):
+def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=()):
     """Start mitmdump with the integration addon and return a ProxyHarness."""
     if MITMDUMP is None:
         raise RuntimeError("mitmdump not on PATH; cannot run integration harness")
@@ -221,14 +221,20 @@ def spawn_proxy(policy_text, *, enforce=True):
         MITMDUMP,
         "--set",
         f"confdir={confdir}",
-        "--listen-host",
-        "127.0.0.1",
-        "--listen-port",
-        str(proxy_port),
-        "--quiet",
-        "-s",
-        str(ENFORCER_ADDON),
     ]
+    for setting in mitmdump_settings:
+        args.extend(["--set", setting])
+    args.extend(
+        [
+            "--listen-host",
+            "127.0.0.1",
+            "--listen-port",
+            str(proxy_port),
+            "--quiet",
+            "-s",
+            str(ENFORCER_ADDON),
+        ]
+    )
     try:
         process = subprocess.Popen(
             args,

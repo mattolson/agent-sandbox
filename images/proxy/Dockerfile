@@ -34,5 +34,6 @@ RUN mkdir -p /home/mitmproxy/.mitmproxy /ca-export /etc/agent-sandbox/policy \
 USER mitmproxy
 
 # mitmdump for headless operation with policy enforcement addon
+# --set stream_large_bodies=1 prevents large responses from being fully buffered in proxy memory
 # --set http2=false avoids HTTP/2 header validation issues (e.g., gh CLI trailing whitespace)
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh", "-s", "/home/mitmproxy/addons/enforcer.py", "--set", "http2=false"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh", "-s", "/home/mitmproxy/addons/enforcer.py", "--set", "stream_large_bodies=1", "--set", "http2=false"]
