@@ -16,6 +16,7 @@ from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ENFORCER_PATH = REPO_ROOT / "images" / "proxy" / "addons" / "enforcer.py"
+RENDER_POLICY_PATH = REPO_ROOT / "images" / "proxy" / "render-policy"
 FIXED_TIME = datetime(2026, 4, 15, 6, 15, tzinfo=timezone.utc)
 
 
@@ -296,6 +297,16 @@ class PolicyEnforcerReloadTests(unittest.TestCase):
             reload_renderer=renderer,
         )
         return enforcer, logger_output
+
+    def test_render_policy_loader_does_not_accumulate_sys_path_entries(self):
+        original_sys_path = list(sys.path)
+        try:
+            self.enforcer_module._load_render_policy_module(RENDER_POLICY_PATH)
+            self.enforcer_module._load_render_policy_module(RENDER_POLICY_PATH)
+
+            self.assertEqual(sys.path, original_sys_path)
+        finally:
+            sys.path[:] = original_sys_path
 
     def test_reload_swaps_matcher_and_emits_applied_event(self):
         def renderer():
