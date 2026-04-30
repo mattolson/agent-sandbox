@@ -1,4 +1,4 @@
-ARG AGENT=opencode
+ARG AGENT=codex
 FROM agent-sandbox-${AGENT}:local
 
 USER root
@@ -16,6 +16,20 @@ RUN python3 -m venv /opt/proxy-python && \
   /opt/proxy-python/bin/pip install --no-cache-dir mitmproxy pytest PyYAML
 ENV PIP_CACHE_DIR=/home/dev/.cache/pip
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Login shells reset PATH through /etc/profile, so persist the dev-image tool
+# ordering in the shell startup locations used by the base image.
+RUN printf '%s\n' \
+  '. /etc/agent-sandbox/path-helpers.sh' \
+  '' \
+  'path_append "$HOME/go/bin"' \
+  'path_prepend "/usr/local/go/bin"' \
+  'path_prepend "/opt/proxy-python/bin"' \
+  'path_prepend "$HOME/.local/bin"' \
+  'path_dedupe' \
+  'export PATH' \
+  > /etc/profile.d/zz-agentbox-dev-path.sh && \
+  cp /etc/profile.d/zz-agentbox-dev-path.sh /etc/zsh/zshenv.d/zz-agentbox-dev-path.zsh
 
 # Keep agent binaries ahead of the proxy test env and Go-installed tools.
 ENV PATH=/home/dev/.local/bin:/opt/proxy-python/bin:/usr/local/go/bin:$PATH:/home/dev/go/bin
