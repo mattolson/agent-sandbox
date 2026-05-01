@@ -80,7 +80,7 @@ The installer defaults to `~/.local/bin`. To choose a version or install directo
 
 ```bash
 curl -fsSL https://github.com/mattolson/agent-sandbox/releases/latest/download/install.sh | \
-  sh -s -- --version v0.13.0 --install-dir /usr/local/bin
+  sh -s -- --version v0.14.0 --install-dir /usr/local/bin
 ```
 
 #### Manual install

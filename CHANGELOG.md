@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-01
+
 Fine-grained proxy rules from `m14`.
 
 ### Added
