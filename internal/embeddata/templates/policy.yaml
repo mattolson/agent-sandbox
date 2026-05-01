@@ -1,6 +1,7 @@
 # Agent sandbox network policy
 #
-# Domains allowed through the proxy. All other traffic is blocked with 403.
+# Services, hosts, and optional request rules allowed through the proxy.
+# All other traffic is blocked with 403.
 # Apply edits without restarting: agentbox proxy reload
 #
 # See docs/policy/schema.md for the full format reference.

@@ -46,7 +46,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 
 - `agentbox init` - interactive project setup (project name, agent, mode, IDE)
 - `agentbox exec` - start or attach to the agent container
-- `agentbox edit policy` - edit network policy, auto-restart proxy on save
+- `agentbox edit policy` - edit network policy and reload configuration in proxy container
 - `agentbox edit compose` - open compose file in editor
 - `agentbox bump` - pull latest images and pin to new digests
 - `agentbox <command>` - pass-through to docker compose
@@ -103,13 +103,13 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Cross-compile for macOS (arm64, amd64) and Linux
 - Port all existing commands with improved testing
 
-## m14: Fine-grained proxy rules (planned)
+## m14: Fine-grained proxy rules (done)
 
-- MITM inspection for HTTPS requests (path, method, query params visible)
-- Nested path rules under domain entries in policy YAML
-- Semantic service groupings (e.g., GitHub repo restrictions)
-- Domain-only rules remain as fast-path (block at CONNECT)
-- SIGHUP-based hot reload for policy changes
+- Request-aware policy rules for HTTP and HTTPS using scheme, method, path, and exact query matching
+- Nested rule objects under `domains` entries with deterministic layered merge behavior and `merge_mode: replace`
+- Semantic service catalog mappings, including repo-scoped GitHub API and Git smart-HTTP restrictions
+- Domain-only rules remain backward-compatible and keep the CONNECT fast path
+- `agentbox proxy reload` and `agentbox edit policy` hot-reload policy changes with last-known-good fallback
 
 ## m15: GitHub REST wrapper (planned)
 

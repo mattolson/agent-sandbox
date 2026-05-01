@@ -20,16 +20,14 @@ This affects any `docker pull` or `docker login` command.
 
 The `osxkeychain` helper is included with Docker CLI packages installed via Homebrew and stores credentials in macOS Keychain.
 
-## Deprecated Docker-image fallback for agentbox
+## Retired Docker-image alias for agentbox
 
-The primary supported install path is the local Go binary from GitHub Releases. The Docker CLI image remains available
-as a deprecated fallback during the transition, and it has a few limitations.
+The primary supported install path is the local Go binary from GitHub Releases. The old Docker CLI image distribution
+was removed after the Go CLI cutover.
 
-**Editor integration is limited.** Commands like `agentbox edit policy` will use `vi` inside the container image rather than your host editor. Use the local binary install if you want `$EDITOR` to work normally.
-
-**Host environment variables are not available.** Docker Compose runs inside the CLI container, so it won't see your host environment variables unless you forward them explicitly with `-e`. `HOME` is already forwarded in the recommended alias.
-
-**File permissions.** The CLI image runs as root to avoid permission issues with the Docker socket. On Colima, file ownership is mapped automatically. On Linux, add `--user $(id -u):$(id -g)` to the `docker run` command to match your host user.
+If your shell still aliases `agentbox` to `ghcr.io/mattolson/agent-sandbox-cli`, remove that alias and install the
+binary from GitHub Releases. Keeping the alias can hide a working binary install and produce stale Docker pull or
+editor-integration errors.
 
 ## agentbox not found after binary install
 

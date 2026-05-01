@@ -209,9 +209,10 @@ Rewrite the `agentbox` CLI in Go using Cobra. Single static binary for easier di
 - Embedded Go templates are the only live template source tree
 - Legacy Bash CLI, parity harness, and Docker CLI image distribution were removed after cutover
 
-### m14-fine-grained-proxy
+### m14-fine-grained-proxy (done)
 
-Extend proxy enforcement beyond domain-level rules to support path, method, and query parameter filtering.
+Extend proxy enforcement beyond domain-level rules to support scheme, path, method, and exact query parameter
+filtering.
 
 **Goals:**
 - Move HTTPS blocking decision from CONNECT to request handler (full MITM inspection)
@@ -221,6 +222,13 @@ Extend proxy enforcement beyond domain-level rules to support path, method, and 
 - SIGHUP-based hot reload for policy changes without dropping connections
 
 **Dependencies:** m3 (proxy established)
+
+**Delivered:**
+- Request-aware policy rules for HTTP and HTTPS, with host-only policies preserved on the CONNECT fast path
+- Deterministic layered policy rendering with canonical host records and `merge_mode: replace`
+- Rich `services` mappings, including repo-scoped GitHub API and Git smart-HTTP expansion
+- SIGHUP-based policy hot reload through `agentbox proxy reload` and `agentbox edit policy`
+- Schema docs, examples, troubleshooting guidance, and proxy integration coverage
 
 ### m15-github-rest-wrapper
 

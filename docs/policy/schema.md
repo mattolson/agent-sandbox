@@ -414,3 +414,12 @@ and
 [internal/embeddata/templates/user.agent.policy.yaml](../../internal/embeddata/templates/user.agent.policy.yaml).
 The managed devcontainer policy template is at
 [internal/embeddata/templates/policy.devcontainer.yaml](../../internal/embeddata/templates/policy.devcontainer.yaml).
+
+Focused examples:
+
+- [examples/request-rules.yaml](examples/request-rules.yaml) shows method, path, and query constraints.
+- [examples/github-repos.yaml](examples/github-repos.yaml) shows repo-scoped GitHub API and Git smart-HTTP access.
+- [examples/layered-merge.yaml](examples/layered-merge.yaml) shows additive host merges and `merge_mode: replace`.
+
+For a concise feature tour, see
+[What's New In m14: Request-Aware Proxy Rules](../upgrades/m14-request-aware-rules.md).

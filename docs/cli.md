@@ -50,8 +50,8 @@ Options:
 
 Opens the network policy file in your editor. For layered CLI projects, the default target is
 `.agent-sandbox/policy/user.policy.yaml`, and `--agent <name>` targets
-`.agent-sandbox/policy/user.agent.<name>.policy.yaml`. If you save changes affecting the active runtime, the proxy
-service restarts automatically.
+`.agent-sandbox/policy/user.agent.<name>.policy.yaml`. If you save changes affecting the active runtime and the proxy
+is running, the proxy policy hot-reloads automatically.
 
 ### `agentbox policy config`
 
@@ -62,9 +62,9 @@ Renders the effective policy that the proxy enforces.
 ### `agentbox proxy reload`
 
 Sends `SIGHUP` to the running proxy container so it re-renders the effective policy and atomically swaps the matcher.
-Use this after editing any `.agent-sandbox/policy/*.yaml` file. Existing connections are not interrupted; new requests
-see the new policy on the next match. A bad policy keeps the previous matcher installed and emits a `rejected` event
-to the proxy log.
+Use this after editing any `.agent-sandbox/policy/*.yaml` file directly; `agentbox edit policy` already runs it for
+active-policy changes. Existing connections are not interrupted; new requests see the new policy on the next match. A
+bad policy keeps the previous matcher installed and emits a `rejected` event to the proxy log.
 
 ```bash
 agentbox proxy reload
