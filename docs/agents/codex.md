@@ -1,6 +1,6 @@
 # OpenAI Codex CLI Sandbox Template
 
-Run Codex in a network-locked container. All outbound traffic is routed through an enforcing proxy that blocks requests to domains not on the allowlist.
+Run Codex in a network-locked container. All outbound traffic is routed through an enforcing proxy that applies the project's network policy.
 
 See the [main README](../../README.md) for installation, architecture overview, and configuration options.
 

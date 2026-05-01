@@ -1,6 +1,6 @@
 # Factory CLI Sandbox Template
 
-Run Factory CLI in a network-locked container. All outbound traffic is routed through an enforcing proxy that blocks requests to domains not on the allowlist.
+Run Factory CLI in a network-locked container. All outbound traffic is routed through an enforcing proxy that applies the project's network policy.
 
 See the [main README](../../README.md) for installation, architecture overview, and configuration options.
 

@@ -101,9 +101,9 @@ catalog, enforcer, and reload. The gaps are docs drift, missing examples, no int
 path, or query." That contradicts the shipped behavior after m14.2. Fixing this is the single highest-leverage doc
 change in the task.
 
-**Observation:** `docs/policy/examples/` only has `all-agents.yaml` (a plain union of string services) and
-`github-repos.yaml` (a focused repo-scoped example). Nothing demonstrates rich rules with methods/path/query
-directly, and nothing demonstrates host-layer `merge_mode: replace`.
+**Observation:** `docs/policy/examples/` only had a broad string-service union example and `github-repos.yaml` (a
+focused repo-scoped example). Nothing demonstrated rich rules with methods/path/query directly, and nothing
+demonstrated host-layer `merge_mode: replace`.
 
 **Observation:** No integration harness exists — all proxy tests are unit-level against fake flows. The milestone
 risk explicitly endorses "a smaller set of proxy integration tests for wiring," so building a minimal pytest fixture

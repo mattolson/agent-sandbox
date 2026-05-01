@@ -6,7 +6,7 @@
 Run AI coding agents in a locked-down local sandbox with:
 
 - Minimal filesystem access (read/write access to only the repository directory)
-- Configurable egress policy enforced by sidecar proxy (mitmproxy sidecar blocks non-allowed domains)
+- Configurable egress policy enforced by sidecar proxy (hosts plus optional scheme, method, path, and query rules)
 - Iptables firewall preventing direct outbound (all traffic must go through the proxy)
 - Reproducible environments (Debian container with pinned dependencies)
 - Persistent volume for agent state - auth and config preserved across container restarts
@@ -176,14 +176,14 @@ agentbox switch --agent codex
 
 Network enforcement has two layers:
 
-1. **Proxy** (mitmproxy sidecar) - Enforces a domain allowlist at the HTTP/HTTPS level. Blocks requests to disallowed domains with 403.
+1. **Proxy** (mitmproxy sidecar) - Enforces allowed hosts plus optional request-aware rules. Blocks non-matching traffic with 403.
 2. **Firewall** (iptables) - Blocks all direct outbound from the agent container. Only the Docker host network is reachable, which is where the proxy sidecar runs. This prevents applications from bypassing the proxy.
 
-The proxy image ships with a default policy that blocks all traffic. You must mount a policy file to allow any outbound requests. `agentbox init` will set this up for you.
+The proxy image ships with a default policy that blocks all traffic. `agentbox init` sets up the layered policy files and active-agent baseline for your project.
 
 ### How it works
 
-The agent container has `HTTP_PROXY`/`HTTPS_PROXY` set to point at the proxy sidecar. The proxy runs a mitmproxy addon (`enforcer.py`) that checks every HTTP request and HTTPS CONNECT tunnel against the domain allowlist. Non-matching requests get a 403 response.
+The agent container has `HTTP_PROXY`/`HTTPS_PROXY` set to point at the proxy sidecar. The proxy runs a mitmproxy addon (`enforcer.py`) that checks HTTPS CONNECT tunnels against the host policy, then checks decrypted HTTP/HTTPS requests against any scheme, method, path, or query rules. Non-matching requests get a 403 response.
 
 The agent's iptables firewall (`init-firewall.sh`) blocks all direct outbound except to the Docker bridge network. This means even if an application ignores the proxy env vars, it cannot reach the internet directly.
 
@@ -199,7 +199,7 @@ To edit the policy file:
 agentbox edit policy
 ```
 
-This opens the user layer file (`.agent-sandbox/policy/user.policy.yaml`) in your editor, which will be preserved across agent switches, and will be applied on top of the base agent policy. If you save changes, the proxy service will automatically restart to apply the new policy.
+This opens the user layer file (`.agent-sandbox/policy/user.policy.yaml`) in your editor, which will be preserved across agent switches, and will be applied on top of the base agent policy. If you save active-policy changes while the proxy is running, `agentbox` hot-reloads the proxy policy.
 
 Example policy:
 
@@ -209,14 +209,39 @@ services:
 
 domains:
   - registry.npmjs.org
+  - host: api.example.com
+    rules:
+      - schemes: [https]
+        methods: [GET]
+        path:
+          prefix: /v1/public/
 ```
 
 Public package registries such as PyPI are intentionally not allowed by default. If you need them, add them explicitly
 to your user or per-agent policy. Prefer a private mirror or proxy when you have one.
 
-If you want to make customizations that apply to a single agent, you can edit the file `.agent-sandbox/policy/user.agent.<agent>.policy.yaml`. For example, to add a domain to the allowlist, but only when using Claude Code, add it to the file `user.agent.claude.policy.yaml`.
+GitHub can also be narrowed by repository:
 
-See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format reference.
+```yaml
+services:
+  - name: github
+    merge_mode: replace
+    readonly: true
+    repos:
+      - owner/repo
+    surfaces: [api, git]
+```
+
+If you edit policy files directly, apply changes without restarting the proxy:
+
+```bash
+agentbox proxy reload
+agentbox proxy logs
+```
+
+If you want to make customizations that apply to a single agent, you can edit the file `.agent-sandbox/policy/user.agent.<agent>.policy.yaml`. For example, to add a host or request rule only when using Claude Code, add it to the file `user.agent.claude.policy.yaml`.
+
+See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format reference and [docs/upgrades/m14-request-aware-rules.md](./docs/upgrades/m14-request-aware-rules.md) for a tour of request-aware rules.
 
 ## Customization
 
@@ -238,9 +263,9 @@ Key principles:
 
 ### Git credentials
 
-If you store git credentials inside the container (via `git credential-store` or any other method), the token grants access to whatever repositories it was scoped to. A classic personal access token or OAuth token grants access to **all repositories** your GitHub account can access, not just the current project. The network allowlist limits where data can be sent, but an agent with a broad token could read or modify any of your repos on github.com.
+If you store git credentials inside the container (via `git credential-store` or any other method), the token grants access to whatever repositories it was scoped to. A classic personal access token or OAuth token grants access to **all repositories** your GitHub account can access, not just the current project. The network policy limits which hosts and URL shapes traffic can use, but it does not inspect request headers or bodies. An agent with a broad token could still read or modify any repository reachable through an allowed GitHub endpoint.
 
-To limit exposure:
+For defense in depth, and to limit exposure:
 
 - **Run git from the host** - No credentials in the container at all
 - **Use a fine-grained PAT** - Scope the token to specific repositories

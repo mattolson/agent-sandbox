@@ -145,10 +145,10 @@ All four resolved with the drafted defaults on 2026-04-19:
       7 integration scenarios under `images/proxy/tests/integration/`: CONNECT allow, CONNECT block, method
       restriction, path prefix, query exact, SIGHUP reload swap, SIGHUP rejection with last-known-good. Each asserts
       both HTTP status and the structured decision log line.
-- [x] **Docs show both legacy domain-only and new request-aware examples.** `examples/all-agents.yaml` (services
-      union) and `examples/github-repos.yaml` remain; new `examples/request-rules.yaml` demonstrates methods, path
-      prefix, and query exact; new `examples/layered-merge.yaml` demonstrates additive and `merge_mode: replace`
-      across two layers.
+- [x] **Docs show both legacy domain-only and new request-aware examples.** `docs/policy/schema.md` keeps the simple
+      string-service and string-domain examples; `examples/github-repos.yaml` remains focused on repo-scoped GitHub;
+      new `examples/request-rules.yaml` demonstrates methods, path prefix, and query exact; new
+      `examples/layered-merge.yaml` demonstrates additive and `merge_mode: replace` across two layers.
 - [x] **Users can tell whether a rule is enforced at CONNECT or request phase without reading proxy source.**
       `docs/policy/schema.md` has a new "Enforcement Phases" table mapping rule fields to their enforcement phase;
       `docs/upgrades/m14-request-aware-rules.md` repeats the guidance in prose with a practical example.

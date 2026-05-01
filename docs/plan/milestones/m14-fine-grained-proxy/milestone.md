@@ -7,6 +7,9 @@ the current default-deny model or the layered policy ownership model. `m14` shou
 query-parameter filtering available to later milestones while keeping existing domain-only policies working unchanged
 and preserving CONNECT-time blocking as a fast path when full request inspection is unnecessary.
 
+Current status: completed. The task breakdown below is historical planning context; the shipped behavior now includes
+request-aware rules, semantic GitHub service expansion, hot reload, integration coverage, and user-facing docs.
+
 ## Scope
 
 **Included:**
