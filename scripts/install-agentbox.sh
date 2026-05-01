@@ -14,7 +14,7 @@ Defaults:
 
 Examples:
   sh install-agentbox.sh
-  sh install-agentbox.sh --version v0.13.0
+  sh install-agentbox.sh --version v0.14.0
   sh install-agentbox.sh --install-dir /usr/local/bin
 EOF
 }
