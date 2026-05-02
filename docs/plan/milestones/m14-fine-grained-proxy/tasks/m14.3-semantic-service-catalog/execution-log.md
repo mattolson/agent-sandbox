@@ -166,7 +166,7 @@ expanded fragments participate in the existing host-record merge path.
 ## 2026-04-16 15:12 UTC - Drafted the task plan and locked the intended boundary
 
 Reviewed the `m14` milestone plan, project learnings, decision record `005`, the current `render-policy`
-implementation, the `m14.2` matcher boundary, and the downstream `m15` GitHub wrapper goals. The main planning
+implementation, the `m14.2` matcher boundary, and the downstream `m16` GitHub wrapper goals. The main planning
 conclusion is that `m14.3` should not push GitHub-specific behavior into the matcher. Service semantics belong at
 render time and should compile into the same canonical host-record IR that authored `domains` already use.
 

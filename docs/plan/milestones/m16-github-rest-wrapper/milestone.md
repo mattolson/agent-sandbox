@@ -1,4 +1,4 @@
-# Milestone: m15 - GitHub REST Wrapper
+# Milestone: m16 - GitHub REST Wrapper
 
 Provide an officially supported GitHub wrapper that uses REST-only endpoints so repo identity stays visible in request
 URLs and can be constrained by `m14` policies. The goal is not to replace stock `gh` wholesale; it is to provide a
@@ -22,7 +22,7 @@ policy model it was not designed for.
 - Provide a stable, documented wrapper surface instead of asking users to memorize raw REST routes
 - Make the supported subset explicit and document what remains unsupported because it depends on GraphQL or broader
   trust assumptions
-- Start with existing/manual auth flows and leave tighter integration with later credential milestones as follow-up work
+- Use `m15` proxy-side credential injection where practical instead of storing GitHub tokens in the agent container
 
 ## Out of Scope
 
@@ -72,10 +72,10 @@ constrain access via URL-based rules.
 
 ### Auth
 
-This milestone does not need to invent a new credential path. It can start by working with the existing/manual token
-flows that are already available in the environment. Later milestones can improve the auth story:
+This milestone should not invent a second credential path. It should use `m15` proxy-side credential injection where
+the wrapper's REST calls can be matched safely by host, method, and path. Residual flows that require the client to
+receive credential material belong in later helper work:
 
-- `m16` for proxy-side secret injection
 - `m18` for residual helper-based flows
 
 ### Distribution
@@ -92,7 +92,7 @@ This milestone may later become its own open-source project. The current rationa
 an obvious standalone-binary equivalent to `gh` that intentionally stays on REST-only endpoints for use in constrained
 environments with network proxy inspection.
 
-That project-boundary decision is deferred for now. `m15` should proceed in a way that keeps extraction feasible later:
+That project-boundary decision is deferred for now. `m16` should proceed in a way that keeps extraction feasible later:
 
 - keep the wrapper surface narrow and well documented
 - avoid coupling the command surface too tightly to Agent Sandbox internals
@@ -108,6 +108,7 @@ To be broken down when work begins. Rough outline:
   alternative)
 - Implement the wrapper on REST calls only
 - Add policy examples showing single-repo access under `m14`
+- Add credential-injection examples that reuse the `m15` model where practical
 - Document unsupported workflows that still require stock `gh` or broader trust
 - Test the wrapper against representative GitHub workflows and failure modes
 
@@ -130,4 +131,4 @@ To be broken down when work begins. Rough outline:
 - The supported wrapper commands keep repo identity visible in URL paths and are compatible with `m14` policy matching
 - The supported subset and unsupported GraphQL-dependent workflows are documented clearly
 - Policy examples exist for constraining the wrapper to a single GitHub repository
-- The auth story for the wrapper is documented, even if richer secret handling is deferred to later milestones
+- The auth story for the wrapper is documented and reuses `m15` proxy-side injection where practical

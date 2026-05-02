@@ -111,22 +111,23 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Domain-only rules remain backward-compatible and keep the CONNECT fast path
 - `agentbox proxy reload` and `agentbox edit policy` hot-reload policy changes with last-known-good fallback
 
-## m15: GitHub REST wrapper (planned)
+## m15: Proxy-side secret injection (planned)
+
+- Make proxy injection the primary mechanism for HTTP-native credentials
+- Store raw secret values in a host-only source and mount them into the proxy only
+- Inject headers directly on matched outbound requests with leak-detection guardrails
+- First rollout: git over HTTPS with repo-level scoping
+- Keep GitHub tokens out of the agent container for clone, fetch, and push over smart HTTP
+- Evaluate other HTTP-native clients after the GitHub Git flow is proven
+
+## m16: GitHub REST wrapper (planned)
 
 - Repo-scoped GitHub wrapper using REST-only endpoints
 - Keep repo identity visible in request URLs so m14 policies can constrain access to one repo
 - Support a curated set of high-value GitHub workflows that fit REST plus URL-based policy matching
 - Prefer a standalone binary if practical; Go plus `google/go-github` is the leading candidate
 - Define and document the supported subset and explicitly exclude GraphQL-dependent `gh` flows
-- Initial auth can reuse existing/manual token flows; tighter integration can come later
-
-## m16: Proxy-side secret injection (planned)
-
-- Make proxy injection the primary mechanism for HTTP-native credentials
-- Store raw secret values in a host-only source and mount them into the proxy only
-- Inject headers on matched outbound requests with leak-detection guardrails
-- First rollout: git over HTTPS with repo-level scoping
-- Evaluate env-token clients such as `gh` where placeholder substitution is sufficient
+- Use `m15` proxy-side credential injection where practical instead of storing GitHub tokens in the agent container
 
 ## m17: CLI monitoring and policy management (planned)
 
