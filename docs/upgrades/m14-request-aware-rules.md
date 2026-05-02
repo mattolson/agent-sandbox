@@ -113,5 +113,5 @@ A rejected reload emits `"action": "rejected"` with an `error` field and keeps t
   and body.
 - Request or response mutation.
 - Non-HTTP protocols.
-- GitHub REST wrapper work (tracked for `m15`).
-- Secret injection or credential features (tracked for `m16`).
+- Secret injection or credential features (tracked for `m15`).
+- GitHub REST wrapper work (tracked for `m16`).

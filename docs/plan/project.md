@@ -230,32 +230,12 @@ filtering.
 - SIGHUP-based policy hot reload through `agentbox proxy reload` and `agentbox edit policy`
 - Schema docs, examples, troubleshooting guidance, and proxy integration coverage
 
-### m15-github-rest-wrapper
-
-Provide an officially supported GitHub wrapper that uses REST-only endpoints so repo identity stays visible in request
-URLs and can be constrained by `m14` policies.
-
-**Goals:**
-- Support a curated set of common, repo-scoped GitHub workflows using REST-only endpoints
-- Keep repo identity explicit in URL paths so single-repo allowlists are practical under `m14`
-- Prefer a thin wrapper over full parity with stock `gh`
-- Prefer a standalone binary if practical; Go plus `google/go-github` is the leading candidate
-- Define and document the supported subset plus unsupported GraphQL- or body-dependent flows
-- Start with existing/manual auth flows and leave tighter credential-path integration to later milestones
-
-**Out of scope:**
-- Full parity with stock `gh`
-- GraphQL-backed GitHub operations
-- Re-implementing every GitHub workflow behind one generic wrapper surface
-
-**Dependencies:** m14 (fine-grained proxy and repo/path-aware policy matching)
-
-### m16-proxy-secret-injection
+### m15-proxy-secret-injection
 
 Make the proxy the primary credential path for HTTP-native auth by keeping real secrets out of the agent container and injecting them into matched outbound requests.
 
 **Goals:**
-- Support placeholder-based secret substitution in outbound HTTP headers
+- Support direct matched-request credential injection for outbound HTTP headers
 - Keep raw secret values in a host-only source mounted into the proxy only
 - First supported rollout for git over HTTPS with repo-level scoping
 - Support other HTTP-native auth patterns such as env-token clients where practical
@@ -268,6 +248,26 @@ Make the proxy the primary credential path for HTTP-native auth by keeping real 
 - Replacing every credential flow with proxy injection
 
 **Dependencies:** m14 (request-phase MITM matching), m3 (proxy foundation)
+
+### m16-github-rest-wrapper
+
+Provide an officially supported GitHub wrapper that uses REST-only endpoints so repo identity stays visible in request
+URLs and can be constrained by `m14` policies.
+
+**Goals:**
+- Support a curated set of common, repo-scoped GitHub workflows using REST-only endpoints
+- Keep repo identity explicit in URL paths so single-repo allowlists are practical under `m14`
+- Prefer a thin wrapper over full parity with stock `gh`
+- Prefer a standalone binary if practical; Go plus `google/go-github` is the leading candidate
+- Define and document the supported subset plus unsupported GraphQL- or body-dependent flows
+- Use `m15` proxy-side credential injection where practical instead of storing GitHub tokens in the agent container
+
+**Out of scope:**
+- Full parity with stock `gh`
+- GraphQL-backed GitHub operations
+- Re-implementing every GitHub workflow behind one generic wrapper surface
+
+**Dependencies:** m14 (fine-grained proxy and repo/path-aware policy matching), m15 (primary HTTP credential path)
 
 ### m17-cli-monitoring
 
@@ -287,11 +287,11 @@ Add a narrower, secondary credential path for tools and auth flows that cannot b
 
 **Goals:**
 - Host-side credential helper bridge for clients that must obtain a credential locally
-- Support non-HTTP or helper-protocol-shaped auth workflows that `m16` cannot cover
+- Support non-HTTP or helper-protocol-shaped auth workflows that `m15` cannot cover
 - Keep credentials off disk inside the container even when the client must receive them
 - Integrate the helper lifecycle with the Go CLI
 
-**Dependencies:** m13 (Go CLI manages service lifecycle), m16 (primary proxy-based credential path defined first)
+**Dependencies:** m13 (Go CLI manages service lifecycle), m15 (primary proxy-based credential path defined first)
 
 ## Decisions
 
