@@ -5,12 +5,12 @@
 
 Run AI coding agents in a locked-down local sandbox with:
 
-- Minimal filesystem access (read/write access to only the repository directory)
-- Configurable egress policy enforced by sidecar proxy (hosts plus optional scheme, method, path, and query rules)
+- Minimal filesystem access (read/write access to only your repository directory)
+- Configurable network egress policy enforced by a sidecar proxy (restrict by hostname, as well as other attributes, like scheme, method, path, and query string)
 - Iptables firewall preventing direct outbound (all traffic must go through the proxy)
 - Reproducible environments (Debian container with pinned dependencies)
 - Persistent volume for agent state - auth and config preserved across container restarts
-- Ability to easily switch between agents without losing state
+- Ability to easily switch back and forth between agents without losing state
 - Support for CLI and devcontainers (including VS Code and JetBrains IDEs)
 
 Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](https://docs.docker.com/engine/) on Apple Silicon. Should work with any Docker-compatible runtime.
@@ -45,7 +45,7 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 
 ### 1. Install prerequisites
 
-You need a VM and Docker (along with docker-compose and docker-buildx) installed. This can be done in a variety of ways.
+You need a VM and Docker installed. This can be done in a variety of ways.
 
 * [Colima](https://colima.run/)
 * [Podman](https://podman.io/)
@@ -62,11 +62,11 @@ Instructions that follow are for Colima.
 # docker-buildx for building images locally
 brew install colima docker docker-compose docker-buildx
 
-# Start the virtual machine
-colima start --edit
+# Start the virtual machine. Pass `--edit` to configure the machine first.
+colima start
 ```
 
-### 2. Install agent-sandbox CLI
+### 2. Install agentbox CLI
 
 Download the `agentbox` binary from [GitHub Releases](https://github.com/mattolson/agent-sandbox/releases).
 
