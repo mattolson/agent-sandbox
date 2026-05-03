@@ -115,7 +115,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 
 - Make proxy injection the primary mechanism for HTTP-native credentials
 - Store raw secret values in a host-only source and mount them into the proxy only
-- Inject headers directly on matched outbound requests with leak-detection guardrails
+- Inject headers directly on matched outbound requests with redacted audit logging
 - First rollout: git over HTTPS with repo-level scoping
 - Keep GitHub tokens out of the agent container for clone, fetch, and push over smart HTTP
 - Evaluate other HTTP-native clients after the GitHub Git flow is proven
