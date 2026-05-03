@@ -21,6 +21,10 @@ to hold the real secret.
 - Use backend-neutral logical secret IDs so a later macOS Keychain backend can reuse the same policy shape
 - First supported rollout: GitHub git over HTTPS with repo-level scoping
 - Keep GitHub tokens out of the agent container for clone, fetch, and push over smart HTTP
+- Add a narrow client compatibility shim for tools that require token-shaped configuration but can operate with fake
+  values
+- Treat the service catalog as the owner of service auth semantics, including rule expansion, header construction, and
+  compatibility hints
 - Add redacted audit logging for secret-backed requests
 - Keep the injection primitive generic enough for later HTTP-native APIs and registries
 
@@ -33,6 +37,8 @@ to hold the real secret.
 - Replacing every credential flow with proxy injection
 - A full host credential helper service; that remains `m18`
 - macOS Keychain-backed secret resolution; m15 should preserve the extension point but ship file-backed storage first
+- A complete secret-management CLI with project, target, and session scoped storage
+- A new live-update control plane beyond the existing policy reload path
 - GitHub REST wrapper work; that moves to `m16`
 
 ## Design
@@ -49,6 +55,27 @@ The main primitive should be direct proxy-side injection:
 The agent container should not need a fake token, placeholder password, credential store entry, or special remote URL
 for the primary GitHub Git flow. Literal client-visible placeholders can remain an escape hatch for clients that cannot
 be handled cleanly by direct injection, but they should not be the default design.
+
+### Client compatibility shim
+
+Some clients require token-shaped configuration before they start or before they choose an authenticated request path.
+For those clients, m15 should support a narrow compatibility shim that provides fake, non-secret values to the agent
+container while preserving proxy-side injection as the only source of real credentials.
+
+The shim should follow these rules:
+
+- Agent-visible values must be deterministic placeholders such as `proxy-managed`, not real secrets.
+- The shim should be service-catalog-owned where possible. A service entry can imply the required agent-visible env or
+  config hints, and the catalog can emit those hints alongside the rule-scoped injection metadata.
+- If a client sends an auth header derived from a fake placeholder, the matching injection rule must explicitly opt into
+  `on_existing_header: replace`. The default remains `fail`.
+- The primary GitHub smart-HTTP Git flow should still work through direct header injection without requiring fake
+  credentials in Git config or a credential store.
+- The shim is not a general placeholder-substitution system. Do not add request-body replacement, URL/query replacement,
+  or secret-value scanning as part of this milestone.
+
+This is useful for later env-token clients such as SDKs or CLIs that refuse to start without `*_API_KEY`, `GH_TOKEN`, or
+similar configuration. It is a compatibility bridge, not a second credential path.
 
 ### Authoring model
 
@@ -114,6 +141,24 @@ reject entries that specify both `access` and `readonly`, normalize `readonly: t
 `readonly: false` to `access: readwrite`. When `auth` is present, `access` must be explicit and `readonly` should be
 rejected.
 
+### Service catalog boundary
+
+The `m14` service catalog already owns semantic expansion for services such as GitHub. m15 should deepen that boundary
+instead of adding service-specific behavior to the matcher or enforcer.
+
+For secret injection, the catalog should own:
+
+- service-entry validation for auth-related fields
+- expansion from service intent to canonical host/rule fragments
+- construction of provider-specific header transforms, such as GitHub Basic auth with `x-access-token`
+- selection of default `on_existing_header` behavior when a compatibility shim requires replacement
+- any non-secret client compatibility hints needed by known service clients
+
+The matcher and enforcer should remain generic. They should consume rendered rule-scoped injection metadata and optional
+runtime shim metadata without knowing that a rule came from GitHub or any other service. Keep the catalog Python-backed
+for m15; revisit a declarative catalog file only if more services start sharing enough structure to justify the loader
+cost.
+
 ### First rollout: GitHub smart HTTP
 
 The first supported flow should cover GitHub git over HTTPS for a single repository. The existing `m14` GitHub `git`
@@ -149,6 +194,24 @@ The proxy resolves `github.agent-sandbox.push-token` through its configured secr
 injects the resulting header. The rendered policy and `agentbox policy config` output must show only the secret ID and
 redacted markers, never the resolved value.
 
+### Secret scopes
+
+The first file-backed implementation should not overbuild scope management, but it should avoid baking a global-only
+model into policy or resolver APIs.
+
+Useful scopes to preserve room for:
+
+- `global`: user-wide secrets available across sandboxes, stored under the host user config directory
+- `project`: secrets tied to a workspace or repo, still stored outside the workspace mount so the agent cannot read them
+- `target` or `session`: secrets tied to one agent target or one running sandbox, useful for temporary credentials
+
+Do not store project-scoped real secrets under `.agent-sandbox/` if that directory is inside the mounted workspace.
+Project scoping should be implemented as a host-side lookup or overlay under `~/.config/agent-sandbox/secrets`, not as
+files the agent can read through the repo mount.
+
+m15 can ship with the global file source only, but `SecretResolver`-style APIs should accept enough context to add
+project or target overlays later without changing policy syntax.
+
 ### File-backed storage
 
 The required m15 backend is a host-owned file source rooted at `~/.config/agent-sandbox/secrets`. The directory should
@@ -172,6 +235,23 @@ macOS Keychain support should not change policy syntax. A later implementation c
 adding another resolver backend or by having host-side `agentbox` materialize selected Keychain items into a proxy-only
 runtime source before the proxy starts. Direct Keychain integration is out of scope for m15 because the proxy runs in a
 Linux container and cannot read the host Keychain itself.
+
+### Live update semantics
+
+`m14` already added policy hot reload. m15 should build on that rather than introduce a new live-update control plane.
+
+Expected first-pass contract:
+
+- Policy changes that add, remove, or alter injection rules become effective through the existing proxy reload path.
+- New files inside an already-mounted file secret source can be picked up without rebuilding the compose stack; the
+  exact freshness contract should be defined in `m15.2` as either request-time reads or reload-aware caching.
+- Removing injection from policy prevents future matching requests from receiving credentials. It cannot undo headers
+  already sent on in-flight requests.
+- Client compatibility shim changes that affect process environment are not hot-updatable for already-running agent
+  processes. They require an agent restart, a new shell, or an explicit re-source mechanism if one is added later.
+
+This is enough to support a future "inject during setup, remove before untrusted phase" workflow using policy reload,
+but m15 should not promise a full phase-management UX unless a task explicitly implements it.
 
 ### Guardrails
 
@@ -219,6 +299,9 @@ header transforms.
 **Scope:**
 - Resolve logical secret IDs from `AGENTBOX_SECRET_SOURCE=file:/run/agentbox/secrets`
 - Map each logical secret ID to one path-safe file below the mounted secret directory
+- Keep the resolver boundary context-aware enough to add project or target scoped overlays later without changing policy
+  syntax
+- Define whether file secret changes are visible on the next request or only after proxy reload
 - Validate missing sources, missing secret files, invalid IDs, and unsafe file permissions with actionable errors or
   warnings
 - Implement transform helpers for `basic` and `bearer`
@@ -228,6 +311,7 @@ header transforms.
 - Unit tests cover successful file resolution, missing secrets, path traversal attempts, permission validation, and both
   transforms
 - Secret values never appear in errors unless a test deliberately asserts internal helper behavior with redacted output
+- Secret value freshness is documented and covered by a resolver test
 
 **Dependencies:** None
 
@@ -265,6 +349,7 @@ agentbox-managed env var over clever Compose syntax.
 - Apply `basic` and `bearer` transforms and set configured request headers
 - Fail closed when the request already contains the injected header unless the rule explicitly permits replacement
 - Emit redacted audit logs that identify the secret ID and matched rule, not the value
+- Honor the freshness semantics defined by the resolver, so secret rotation behavior is predictable
 - Exclude GitHub service shorthand
 
 **Acceptance Criteria:**
@@ -278,17 +363,21 @@ agentbox-managed env var over clever Compose syntax.
 **Risks:** mitmproxy flow mutation must happen late enough to use the request-phase match result but early enough that
 the upstream receives the header.
 
-### m15.5-github-service-auth
+### m15.5-service-catalog-auth
 
-**Summary:** Extend the GitHub service catalog with `access` and `auth.secret` shorthand for repo-scoped Git smart HTTP.
+**Summary:** Extend the service catalog boundary with auth-aware expansion, starting with GitHub `access` and
+`auth.secret` shorthand for repo-scoped Git smart HTTP.
 
 **Scope:**
+- Keep auth semantics in the catalog and rendered rule metadata, not in the matcher or enforcer
 - Add `access: read | readwrite` as the preferred GitHub repo-scoped capability field
 - Keep `readonly` as deprecated compatibility input for unauthenticated GitHub repo-scoped entries
 - Reject entries that specify both `access` and `readonly`
 - Require explicit `access` when `auth` is present, and reject `auth` with deprecated `readonly`
 - Expand GitHub `auth.secret` into rule-scoped `Authorization` injection using Basic auth with username
   `x-access-token`
+- Preserve a catalog extension point for service-owned compatibility hints, but do not materialize agent-visible shim
+  config in this task
 - Exclude non-GitHub services and GitHub REST wrapper behavior
 
 **Acceptance Criteria:**
@@ -296,13 +385,37 @@ the upstream receives the header.
   and auth-without-access rejection
 - Authenticated GitHub `git` service entries render the same rule-scoped injection shape as explicit `domains` entries
 - Existing unauthenticated `readonly` policies remain valid
+- Catalog tests prove the emitted auth metadata is canonical and does not require GitHub-specific matcher behavior
 
 **Dependencies:** m15.1
 
 **Risks:** This touches an existing service macro. Compatibility tests should cover current `readonly` behavior before
 adding the new spelling.
 
-### m15.6-integration-and-boundary-tests
+### m15.6-client-compatibility-shim
+
+**Summary:** Add a narrow agent-visible compatibility shim for service clients that need fake token-shaped setup while
+real credentials stay proxy-only.
+
+**Scope:**
+- Define the rendered/runtime shape for non-secret compatibility hints emitted by the service catalog
+- Materialize deterministic fake values into the agent runtime only where a service entry explicitly requires them
+- Ensure shimmed clients pair with injection rules that use explicit `on_existing_header: replace` when they send a fake
+  auth header
+- Keep all real secret values proxy-only
+- Exclude arbitrary placeholder substitution, request-body mutation, and broad client auto-detection
+
+**Acceptance Criteria:**
+- Tests prove generated agent-visible shim config contains only fake values and secret IDs, never resolved secrets
+- Tests prove a shimmed header path uses explicit replacement rather than relying on the default `fail` behavior
+- Existing GitHub smart-HTTP direct injection remains usable without shim config
+
+**Dependencies:** m15.1, m15.3, m15.5
+
+**Risks:** Client runtime configuration is not hot-updatable for already-running processes. Keep the first shim narrow and
+document when an agent restart or new shell is required.
+
+### m15.7-integration-and-boundary-tests
 
 **Summary:** Add end-to-end coverage for the supported GitHub Git flow and the secret visibility boundary.
 
@@ -310,25 +423,30 @@ adding the new spelling.
 - Use a fake upstream/proxy test to prove upload-pack and receive-pack requests receive the expected injected auth
 - Prove the agent container cannot read the proxy secret mount under generated CLI and devcontainer compose layouts
 - Cover read versus readwrite behavior for GitHub smart HTTP
+- Cover at least one shimmed env-token style path without using a real secret in the agent-visible config
 - Exclude live GitHub tests
 
 **Acceptance Criteria:**
 - Tests show private fetch/clone-style endpoints can receive auth for `access: read`
 - Tests show push-capable receive-pack endpoints require `access: readwrite`
 - Tests fail if the agent service gains access to the secret mount
+- Tests fail if compatibility shim output contains a resolved secret value
 
-**Dependencies:** m15.3, m15.4, m15.5
+**Dependencies:** m15.3, m15.4, m15.5, m15.6
 
 **Risks:** Full container-level boundary tests may be expensive or environment-sensitive. Use compose-config semantic
 assertions where they provide the same guarantee, and reserve live-container checks for the minimum useful smoke test.
 
-### m15.7-docs-and-examples
+### m15.8-docs-and-examples
 
 **Summary:** Document the m15 credential model, GitHub Git workflow, schema additions, and explicit non-goals.
 
 **Scope:**
 - Update policy schema docs for explicit `domains[].inject`, secret IDs, transforms, and GitHub service shorthand
 - Add examples for read-only and readwrite GitHub Git access with file-backed secrets
+- Document the client compatibility shim as fake setup values plus proxy-side replacement, not a second credential path
+- Document first-pass secret scope behavior and the future project/target scope direction
+- Document policy reload behavior for injection changes and the non-hot-updatable limit for process environment shims
 - Document `~/.config/agent-sandbox/secrets`, expected permissions, and future Keychain-compatible secret IDs
 - Document that m15 does not scan request/response content for leaked secrets
 - Exclude implementation changes
@@ -338,7 +456,7 @@ assertions where they provide the same guarantee, and reserve live-container che
 - Policy examples match renderer tests
 - Docs explain the security boundary without claiming general exfiltration detection
 
-**Dependencies:** m15.1, m15.2, m15.3, m15.5; final examples should be checked after m15.6
+**Dependencies:** m15.1, m15.2, m15.3, m15.5, m15.6; final examples should be checked after m15.7
 
 **Risks:** Docs can accidentally overstate the security claim. Keep language focused on non-agent-visible credential
 storage, matched injection, and redaction.
@@ -351,24 +469,49 @@ Recommended sequence:
 2. `m15.2-secret-source-and-transforms` and `m15.3-proxy-secret-mount` can proceed in parallel after the schema shape is
    stable enough to name the runtime secret source.
 3. `m15.4-enforcer-header-injection` after `m15.1` and `m15.2`.
-4. `m15.5-github-service-auth` after `m15.1`; it can proceed in parallel with `m15.4` if the rule-scoped injection IR is
+4. `m15.5-service-catalog-auth` after `m15.1`; it can proceed in parallel with `m15.4` if the rule-scoped injection IR is
    settled.
-5. `m15.6-integration-and-boundary-tests` after `m15.3`, `m15.4`, and `m15.5`.
-6. `m15.7-docs-and-examples` after the schema and GitHub shorthand are stable, with final verification after `m15.6`.
+5. `m15.6-client-compatibility-shim` after the catalog auth shape and runtime mount surfaces are settled.
+6. `m15.7-integration-and-boundary-tests` after `m15.3`, `m15.4`, `m15.5`, and `m15.6`.
+7. `m15.8-docs-and-examples` after the schema, GitHub shorthand, and compatibility shim are stable, with final
+   verification after `m15.7`.
 
-Critical path: `m15.1 -> m15.4 -> m15.6`. The GitHub shorthand is not required for explicit domain injection to work,
-but it is required for the milestone's intended user-facing workflow.
+Critical path: `m15.1 -> m15.4 -> m15.7`. The GitHub shorthand is not required for explicit domain injection to work,
+but it is required for the milestone's intended user-facing workflow. The compatibility shim should not block the direct
+GitHub Git path unless the chosen first shim target becomes part of the release claim.
 
 ## Open Questions
 
-(None currently)
+- Should m15 implement only global user secrets, or should it include project or target scoped overlays? Recommended
+  default: ship global file-backed storage first, but design the resolver context so scoped overlays can be added
+  without changing policy syntax.
+- Should file-backed secrets be read on every matching request, cached until policy reload, or cached with file mtime
+  checks? Recommended default: choose the simplest behavior that gives a clear rotation contract and does not leak
+  values into logs or long-lived rendered policy.
+- Should compatibility shims be inferred by known service entries, explicitly requested by policy authors, or both?
+  Recommended default: infer for catalog-owned service clients only after a concrete client need exists; avoid a generic
+  "set arbitrary fake env vars" feature unless tests prove it is needed.
+- How much live-update UX belongs in m15 beyond existing proxy reload? Recommended default: support policy reload
+  semantics only, and document that already-running agent process environments cannot be updated in place.
 
 ## Definition of Done
 
 - A repo-scoped GitHub HTTPS Git push can work without storing a GitHub token in the agent container
 - Secret values are stored under `~/.config/agent-sandbox/secrets`, mounted into the proxy only, and not readable by the agent container
 - Policy references logical secret IDs rather than file paths, preserving a future macOS Keychain backend path
-- Explicit `domains` injection and GitHub service shorthand both render to the same rule-scoped injection model
+- Explicit `domains` injection and service catalog auth shorthand both render to the same rule-scoped injection model
+- At least one compatibility-shim path can provide fake agent-visible setup values while the proxy injects the real
+  credential
 - Rendered policy, logs, and errors show secret IDs or redacted markers only
 - Injection rules are covered by unit tests and proxy enforcement tests
 - Docs explain the supported GitHub Git flow, the security boundary, and unsupported auth patterns
+
+## Changes
+
+### 2026-05-03: Added compatibility shim, catalog-auth boundary, and live-update/scoping exploration
+
+Competitor research showed three useful prior-art patterns: service catalogs that own auth expansion, fake client-visible
+setup values paired with proxy-side real credential injection, and live policy updates. The milestone now includes a
+separate client compatibility shim task, expands the service catalog as the owner of service auth semantics, preserves
+room for future scoped secret storage, and limits m15 live updates to the existing policy reload path unless a later task
+intentionally widens that contract.

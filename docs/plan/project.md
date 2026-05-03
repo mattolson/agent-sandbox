@@ -238,6 +238,9 @@ Make the proxy the primary credential path for HTTP-native auth by keeping real 
 - Support direct matched-request credential injection for outbound HTTP headers
 - Keep raw secret values in a host-only source mounted into the proxy only
 - First supported rollout for git over HTTPS with repo-level scoping
+- Use service catalog auth expansion for known services instead of pushing provider-specific behavior into the matcher
+- Support fake client-visible compatibility values for env-token clients where the proxy can replace them with real
+  credentials
 - Support other HTTP-native auth patterns such as env-token clients where practical
 - Add redacted audit logging for secret-backed requests
 
@@ -247,6 +250,8 @@ Make the proxy the primary credential path for HTTP-native auth by keeping real 
 - Request body mutation
 - Request, response, header, or URL scanning for leaked secret values
 - Replacing every credential flow with proxy injection
+- A complete scoped secret-management CLI
+- A new live-update control plane beyond the existing policy reload path
 
 **Dependencies:** m14 (request-phase MITM matching), m3 (proxy foundation)
 
