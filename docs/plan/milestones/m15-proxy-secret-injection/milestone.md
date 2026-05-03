@@ -184,22 +184,179 @@ Linux container and cannot read the host Keychain itself.
 
 ## Tasks
 
-To be broken down when work begins. Rough outline:
+Each task should map to one reviewable PR.
 
-- Design the policy schema for secret sources and per-rule header injection
-- Implement backend-neutral secret resolution with a file-backed resolver for `/run/agentbox/secrets`
-- Mount `${HOME}/.config/agent-sandbox/secrets` read-only into the proxy only
-- Validate secret IDs, source configuration, and secret file permissions with actionable errors or warnings
-- Implement direct request header injection in the enforcer
-- Support `basic` and `bearer` header transforms
-- Extend the GitHub service catalog with `access` as the preferred GitHub repo-scoped capability field
+### m15.1-policy-injection-schema
+
+**Summary:** Extend the policy renderer schema so explicit `domains` entries can author `inject` as a peer to `host` and
+`rules`.
+
+**Scope:**
+- Validate `domains[].inject.headers` with logical secret IDs, `basic` and `bearer` transforms, and
+  `on_existing_header`
+- Render injection as rule-scoped metadata so host-record merging cannot broaden an injected credential to unrelated
+  rules
+- Keep rendered output redacted and free of secret values
+- Exclude file-backed secret loading and runtime request mutation
+
+**Acceptance Criteria:**
+- Renderer tests cover valid explicit injection rules, invalid secret IDs, invalid transforms, and invalid
+  `on_existing_header` values
+- Merge tests prove injected metadata stays attached only to the rules emitted by the authored entry
+- `agentbox policy config` / rendered policy output contains secret IDs but no secret values
+
+**Dependencies:** None
+
+**Risks:** The current canonical host-record merge path was built for allow rules. Injection metadata must not become a
+host-wide side effect during dedupe or merge.
+
+### m15.2-secret-source-and-transforms
+
+**Summary:** Add backend-neutral secret resolution with the first file-backed resolver and generic `basic` / `bearer`
+header transforms.
+
+**Scope:**
+- Resolve logical secret IDs from `AGENTBOX_SECRET_SOURCE=file:/run/agentbox/secrets`
+- Map each logical secret ID to one path-safe file below the mounted secret directory
+- Validate missing sources, missing secret files, invalid IDs, and unsafe file permissions with actionable errors or
+  warnings
+- Implement transform helpers for `basic` and `bearer`
+- Exclude compose/scaffold changes and request injection
+
+**Acceptance Criteria:**
+- Unit tests cover successful file resolution, missing secrets, path traversal attempts, permission validation, and both
+  transforms
+- Secret values never appear in errors unless a test deliberately asserts internal helper behavior with redacted output
+
+**Dependencies:** None
+
+**Risks:** Permission checks may behave differently across macOS bind mounts, Linux filesystems, and CI. Treat hard
+failures versus warnings carefully.
+
+### m15.3-proxy-secret-mount
+
+**Summary:** Wire the host file-backed secret directory into the runtime so only the proxy can read it.
+
+**Scope:**
+- Mount `${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}` read-only into the proxy as
+  `/run/agentbox/secrets`
+- Set the proxy secret-source environment to the mounted file backend
+- Ensure the agent service does not mount the secret directory
+- Add scaffold/runtime tests for generated compose output
+- Exclude request injection behavior
+
+**Acceptance Criteria:**
+- Generated CLI and devcontainer compose stacks mount the secret directory into `proxy` only
+- Compose tests prove `agent` has no `/run/agentbox/secrets` or host secret-directory mount
+- Missing local secret directories have clear documented behavior rather than silent Docker-created surprises
+
+**Dependencies:** None
+
+**Risks:** Compose variable expansion for `${HOME}` and nested defaults can be brittle. If needed, prefer an explicit
+agentbox-managed env var over clever Compose syntax.
+
+### m15.4-enforcer-header-injection
+
+**Summary:** Inject configured headers at request time after a rule with injection metadata matches.
+
+**Scope:**
+- Resolve referenced secrets through the configured resolver
+- Apply `basic` and `bearer` transforms and set configured request headers
+- Fail closed when the request already contains the injected header unless the rule explicitly permits replacement
+- Emit redacted audit logs that identify the secret ID and matched rule, not the value
+- Exclude GitHub service shorthand
+
+**Acceptance Criteria:**
+- Proxy/enforcer tests prove injected headers reach a fake upstream only for matched rules
+- Tests prove unmatched requests do not receive injected headers
+- Existing-header behavior is covered for fail and explicit replacement modes
+- Logs, errors, and rendered decisions never include the secret value
+
+**Dependencies:** m15.1, m15.2
+
+**Risks:** mitmproxy flow mutation must happen late enough to use the request-phase match result but early enough that
+the upstream receives the header.
+
+### m15.5-github-service-auth
+
+**Summary:** Extend the GitHub service catalog with `access` and `auth.secret` shorthand for repo-scoped Git smart HTTP.
+
+**Scope:**
+- Add `access: read | readwrite` as the preferred GitHub repo-scoped capability field
 - Keep `readonly` as deprecated compatibility input for unauthenticated GitHub repo-scoped entries
-- Add `auth.secret` support for the `git` surface, requiring explicit `access` when `auth` is present
-- Add GitHub smart-HTTP policy examples for read-only and readwrite repo scopes
-- Add tests proving GitHub push endpoints can receive injected auth without credentials in the agent container
-- Add boundary tests proving the agent container cannot read the proxy secret mount
-- Add guardrails for broad injection rules, existing auth headers, logs, and rendered policy output
-- Update user docs for the GitHub Git flow and the limits of proxy injection
+- Reject entries that specify both `access` and `readonly`
+- Require explicit `access` when `auth` is present, and reject `auth` with deprecated `readonly`
+- Expand GitHub `auth.secret` into rule-scoped `Authorization` injection using Basic auth with username
+  `x-access-token`
+- Exclude non-GitHub services and GitHub REST wrapper behavior
+
+**Acceptance Criteria:**
+- Catalog and renderer tests cover `access: read`, `access: readwrite`, deprecated `readonly`, mixed-field rejection,
+  and auth-without-access rejection
+- Authenticated GitHub `git` service entries render the same rule-scoped injection shape as explicit `domains` entries
+- Existing unauthenticated `readonly` policies remain valid
+
+**Dependencies:** m15.1
+
+**Risks:** This touches an existing service macro. Compatibility tests should cover current `readonly` behavior before
+adding the new spelling.
+
+### m15.6-integration-and-boundary-tests
+
+**Summary:** Add end-to-end coverage for the supported GitHub Git flow and the secret visibility boundary.
+
+**Scope:**
+- Use a fake upstream/proxy test to prove upload-pack and receive-pack requests receive the expected injected auth
+- Prove the agent container cannot read the proxy secret mount under generated CLI and devcontainer compose layouts
+- Cover read versus readwrite behavior for GitHub smart HTTP
+- Exclude live GitHub tests
+
+**Acceptance Criteria:**
+- Tests show private fetch/clone-style endpoints can receive auth for `access: read`
+- Tests show push-capable receive-pack endpoints require `access: readwrite`
+- Tests fail if the agent service gains access to the secret mount
+
+**Dependencies:** m15.3, m15.4, m15.5
+
+**Risks:** Full container-level boundary tests may be expensive or environment-sensitive. Use compose-config semantic
+assertions where they provide the same guarantee, and reserve live-container checks for the minimum useful smoke test.
+
+### m15.7-docs-and-examples
+
+**Summary:** Document the m15 credential model, GitHub Git workflow, schema additions, and explicit non-goals.
+
+**Scope:**
+- Update policy schema docs for explicit `domains[].inject`, secret IDs, transforms, and GitHub service shorthand
+- Add examples for read-only and readwrite GitHub Git access with file-backed secrets
+- Document `~/.config/agent-sandbox/secrets`, expected permissions, and future Keychain-compatible secret IDs
+- Document that m15 does not scan request/response content for leaked secrets
+- Exclude implementation changes
+
+**Acceptance Criteria:**
+- README or CLI docs point users to the supported GitHub Git secret-injection flow
+- Policy examples match renderer tests
+- Docs explain the security boundary without claiming general exfiltration detection
+
+**Dependencies:** m15.1, m15.2, m15.3, m15.5; final examples should be checked after m15.6
+
+**Risks:** Docs can accidentally overstate the security claim. Keep language focused on non-agent-visible credential
+storage, matched injection, and redaction.
+
+## Execution Order
+
+Recommended sequence:
+
+1. `m15.1-policy-injection-schema`
+2. `m15.2-secret-source-and-transforms` and `m15.3-proxy-secret-mount` can proceed in parallel after the schema shape is
+   stable enough to name the runtime secret source.
+3. `m15.4-enforcer-header-injection` after `m15.1` and `m15.2`.
+4. `m15.5-github-service-auth` after `m15.1`; it can proceed in parallel with `m15.4` if the rule-scoped injection IR is
+   settled.
+5. `m15.6-integration-and-boundary-tests` after `m15.3`, `m15.4`, and `m15.5`.
+6. `m15.7-docs-and-examples` after the schema and GitHub shorthand are stable, with final verification after `m15.6`.
+
+Critical path: `m15.1 -> m15.4 -> m15.6`. The GitHub shorthand is not required for explicit domain injection to work,
+but it is required for the milestone's intended user-facing workflow.
 
 ## Open Questions
 

@@ -239,12 +239,13 @@ Make the proxy the primary credential path for HTTP-native auth by keeping real 
 - Keep raw secret values in a host-only source mounted into the proxy only
 - First supported rollout for git over HTTPS with repo-level scoping
 - Support other HTTP-native auth patterns such as env-token clients where practical
-- Add leak-detection guardrails and redacted audit logging for secret-backed requests
+- Add redacted audit logging for secret-backed requests
 
 **Out of scope:**
 - Browser or device-code OAuth flows
 - Non-HTTP protocols
 - Request body mutation
+- Request, response, header, or URL scanning for leaked secret values
 - Replacing every credential flow with proxy injection
 
 **Dependencies:** m14 (request-phase MITM matching), m3 (proxy foundation)
