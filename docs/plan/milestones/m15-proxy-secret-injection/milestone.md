@@ -107,6 +107,12 @@ The GitHub catalog can then expand this to repo-scoped smart-HTTP rules with the
 Write-capable GitHub auth should be explicit. Prefer `access: read` and `access: readwrite` over treating the existing
 `readonly: false` default as the write switch for secret-backed rules.
 
+`access` should become the preferred spelling for GitHub repo-scoped service entries generally, not only for auth.
+`readonly` should remain as deprecated compatibility input for existing unauthenticated policies. The renderer should
+reject entries that specify both `access` and `readonly`, normalize `readonly: true` to `access: read`, and normalize
+`readonly: false` to `access: readwrite`. When `auth` is present, `access` must be explicit and `readonly` should be
+rejected.
+
 ### First rollout: GitHub smart HTTP
 
 The first supported flow should cover GitHub git over HTTPS for a single repository. The existing `m14` GitHub `git`
@@ -155,9 +161,8 @@ AGENTBOX_SECRET_SOURCE=file:/run/agentbox/secrets
 ```
 
 The file backend maps each logical secret ID to one file below the mounted secret directory. File contents should be raw
-secret values, not preformatted HTTP headers. m15 should support the minimal generic transforms needed for the first
-GitHub flow, likely `basic` and `bearer`; provider-specific secret derivation can come later if real use cases justify
-it.
+secret values, not preformatted HTTP headers. m15 should support two generic header transforms in the first pass:
+`basic` and `bearer`. Provider-specific secret derivation can come later if real use cases justify it.
 
 ### Future Keychain support
 
@@ -183,8 +188,10 @@ To be broken down when work begins. Rough outline:
 - Mount `${HOME}/.config/agent-sandbox/secrets` read-only into the proxy only
 - Validate secret IDs, source configuration, and secret file permissions with actionable errors or warnings
 - Implement direct request header injection in the enforcer
-- Support the minimal generic transforms needed for GitHub Git HTTPS, starting with `basic` and likely `bearer`
-- Extend the GitHub service catalog with `auth.secret` and explicit `access` support for the `git` surface
+- Support `basic` and `bearer` header transforms
+- Extend the GitHub service catalog with `access` as the preferred GitHub repo-scoped capability field
+- Keep `readonly` as deprecated compatibility input for unauthenticated GitHub repo-scoped entries
+- Add `auth.secret` support for the `git` surface, requiring explicit `access` when `auth` is present
 - Add GitHub smart-HTTP policy examples for read-only and readwrite repo scopes
 - Add tests proving GitHub push endpoints can receive injected auth without credentials in the agent container
 - Add guardrails for broad injection rules, existing auth headers, logs, and rendered policy output
@@ -192,9 +199,6 @@ To be broken down when work begins. Rough outline:
 
 ## Open Questions
 
-- Is `basic` plus `bearer` enough for the first transform set, or should m15 ship only `basic` for GitHub Git HTTPS?
-- Should `access` replace `readonly` only for GitHub auth entries, or should it become the preferred spelling for GitHub
-  repo-scoped service entries generally?
 - How much leak detection is practical without creating false confidence or excessive runtime cost?
 - Should direct injection support response-header redaction in the first milestone?
 
