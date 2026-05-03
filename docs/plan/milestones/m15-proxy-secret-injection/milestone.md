@@ -216,13 +216,13 @@ project or target overlays later without changing policy syntax.
 
 The required m15 backend is a host-owned file source rooted at `~/.config/agent-sandbox/secrets`. The directory should
 be created with `0700` permissions, and individual secret files should be `0600`. Compose should mount this directory
-read-only into the proxy, for example as `/run/agentbox/secrets`, and must not mount it into the agent container.
+read-only into the proxy, for example as `/run/secrets/agentbox`, and must not mount it into the agent container.
 
 The policy should not mention `~/.config/agent-sandbox/secrets` directly. The proxy should receive a runtime secret
 source configuration such as:
 
 ```text
-AGENTBOX_SECRET_SOURCE=file:/run/agentbox/secrets
+AGENTBOX_SECRET_SOURCE=file:/run/secrets/agentbox
 ```
 
 The file backend maps each logical secret ID to one file below the mounted secret directory. File contents should be raw
@@ -301,7 +301,7 @@ host-wide side effect during dedupe or merge.
 header transforms.
 
 **Scope:**
-- Resolve logical secret IDs from `AGENTBOX_SECRET_SOURCE=file:/run/agentbox/secrets`
+- Resolve logical secret IDs from `AGENTBOX_SECRET_SOURCE=file:/run/secrets/agentbox`
 - Map each logical secret ID to one path-safe file below the mounted secret directory
 - Keep the resolver boundary context-aware enough to add project or target scoped overlays later without changing policy
   syntax
@@ -328,7 +328,7 @@ failures versus warnings carefully.
 
 **Scope:**
 - Mount `${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}` read-only into the proxy as
-  `/run/agentbox/secrets`
+  `/run/secrets/agentbox`
 - Set the proxy secret-source environment to the mounted file backend
 - Ensure the agent service does not mount the secret directory
 - Add scaffold/runtime tests for generated compose output
@@ -336,7 +336,7 @@ failures versus warnings carefully.
 
 **Acceptance Criteria:**
 - Generated CLI and devcontainer compose stacks mount the secret directory into `proxy` only
-- Compose tests prove `agent` has no `/run/agentbox/secrets` or host secret-directory mount
+- Compose tests prove `agent` has no `/run/secrets/agentbox` or host secret-directory mount
 - Missing local secret directories have clear documented behavior rather than silent Docker-created surprises
 
 **Dependencies:** None

@@ -7,7 +7,7 @@ transforms.
 
 ## Scope
 
-- Resolve logical secret IDs from `AGENTBOX_SECRET_SOURCE=file:/run/agentbox/secrets`
+- Resolve logical secret IDs from `AGENTBOX_SECRET_SOURCE=file:/run/secrets/agentbox`
 - Map each logical secret ID to one path-safe file below the mounted secret directory
 - Keep the resolver boundary context-aware enough to add project or target scoped overlays later without changing policy
   syntax
