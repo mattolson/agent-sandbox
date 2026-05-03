@@ -89,7 +89,7 @@ class SecretResolver:
         if source is None or not str(source).strip():
             raise SecretResolverError(
                 f"{SECRET_SOURCE_ENV} must be set to a secret source such as "
-                "file:/run/agentbox/secrets"
+                "file:/run/secrets/agentbox"
             )
 
         source_text = str(source).strip()
