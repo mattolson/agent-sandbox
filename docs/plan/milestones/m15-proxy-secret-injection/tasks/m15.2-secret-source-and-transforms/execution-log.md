@@ -1,5 +1,25 @@
 # Execution Log: m15.2 - Secret Source and Transforms
 
+## 2026-05-03 04:51 UTC - Resolver primitives implemented
+
+Added `images/proxy/secret_resolver.py`, packaged it into the proxy image, and added focused resolver tests. The helper
+now parses `AGENTBOX_SECRET_SOURCE=file:<absolute-root>`, resolves logical IDs through the m15.1 secret ID validator,
+reads file-backed values at resolve time, trims one trailing LF or CRLF, rejects embedded CR/LF/NUL bytes, warns on
+group/other readable or writable source and secret file modes, rejects symlink and non-regular secret files, and renders
+`basic` / `bearer` header values.
+
+Verification passed:
+
+- `/opt/proxy-python/bin/python3 -m unittest images.proxy.tests.test_secret_resolver`
+- `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
+- `go test ./...`
+
+**Decision:** Decode validated file contents as UTF-8 text before header rendering. Header mutation will need strings,
+and invalid text is easier to reject at the resolver boundary than inside each transform.
+
+**Learning:** Use `lstat()` for clear validation messages, then open with `O_NOFOLLOW` and verify with `fstat()` where
+available. That keeps the implementation simple while still avoiding symlink following during the actual read.
+
 ## 2026-05-03 04:14 UTC - Initial task plan
 
 Created the `m15.2` task plan from the milestone breakdown and reviewed the m15.1 injection schema output, proxy image

@@ -19,11 +19,11 @@ transforms.
 
 ## Acceptance Criteria
 
-- [ ] Unit tests cover successful file resolution, missing secrets, path traversal attempts, permission validation, and
+- [x] Unit tests cover successful file resolution, missing secrets, path traversal attempts, permission validation, and
       both transforms
-- [ ] Secret values never appear in errors unless a test deliberately asserts internal helper behavior with redacted
+- [x] Secret values never appear in errors unless a test deliberately asserts internal helper behavior with redacted
       output
-- [ ] Secret value freshness is documented and covered by a resolver test
+- [x] Secret value freshness is documented and covered by a resolver test
 
 ## Applicable Learnings
 
@@ -80,35 +80,41 @@ to call when request header mutation is implemented.
 
 ### Implementation Steps
 
-- [ ] Create `images/proxy/secret_resolver.py` with redaction-safe error, warning, context, and result types
-- [ ] Add `AGENTBOX_SECRET_SOURCE` parsing for `file:<absolute-root>` and clear errors for missing or unsupported
+- [x] Create `images/proxy/secret_resolver.py` with redaction-safe error, warning, context, and result types
+- [x] Add `AGENTBOX_SECRET_SOURCE` parsing for `file:<absolute-root>` and clear errors for missing or unsupported
       sources
-- [ ] Implement file resolver root validation and per-secret path mapping
-- [ ] Reuse m15.1 secret ID validation for runtime resolution
-- [ ] Reject path traversal attempts, symlink secret files, non-regular files, and missing secret files
-- [ ] Implement request-time file reads and document that file changes are visible on the next resolve
-- [ ] Add permission warning checks for source directory and secret file mode bits
-- [ ] Implement `bearer` and `basic` header transform helpers
-- [ ] Ensure secret values are redacted from exceptions, warnings, and object representations
-- [ ] Package `secret_resolver.py` in the proxy image
-- [ ] Add `test_secret_resolver.py` coverage for acceptance criteria and edge cases
-- [ ] Run `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
+- [x] Implement file resolver root validation and per-secret path mapping
+- [x] Reuse m15.1 secret ID validation for runtime resolution
+- [x] Reject path traversal attempts, symlink secret files, non-regular files, and missing secret files
+- [x] Implement request-time file reads and document that file changes are visible on the next resolve
+- [x] Add permission warning checks for source directory and secret file mode bits
+- [x] Implement `bearer` and `basic` header transform helpers
+- [x] Ensure secret values are redacted from exceptions, warnings, and object representations
+- [x] Package `secret_resolver.py` in the proxy image
+- [x] Add `test_secret_resolver.py` coverage for acceptance criteria and edge cases
+- [x] Run `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
 
 ### Open Questions
 
-- Confirm permission findings should be non-fatal warnings. Recommended default: warnings, because the proxy-only mount
-  is the security boundary and bind-mounted POSIX modes are not uniformly reliable across target platforms.
+- Resolved: permission findings are non-fatal warnings because the proxy-only mount is the security boundary and
+  bind-mounted POSIX modes are not uniformly reliable across target platforms.
 
 ## Outcome
 
 ### Acceptance Verification
 
-Pending implementation.
+- `test_secret_resolver.py` covers file-backed success, missing source/root/file cases, invalid IDs, symlink and
+  non-regular file rejection, unsafe permission warnings, request-time freshness, CRLF trimming, redaction behavior, and
+  `basic` / `bearer` transforms.
+- `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'` passes.
+- `go test ./...` passes.
 
 ### Learnings
 
-Pending implementation.
+- File-backed secret readers should combine `lstat()` validation with `O_NOFOLLOW` and `fstat()` when available. The
+  duplicate checks are small, but they keep symlink and non-regular-file behavior stable across normal reads and common
+  race windows.
 
 ### Follow-up Items
 
-Pending implementation.
+- m15.4 can call `SecretResolver.from_env()` and `render_header_value()` when request header mutation is implemented.
