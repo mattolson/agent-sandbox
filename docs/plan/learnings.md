@@ -44,6 +44,8 @@ Lessons learned during project execution. Review at the start of each planning s
 - The initial-load path (`PolicyMatcher.from_policy_path`) is stricter than the renderer: it requires `query.exact.<name>` to be a list, while `render-policy` accepts a bare string and promotes it. Policy files that serve both paths must use the matcher's stricter form
 - Shared proxy helper modules used by both `render-policy` and addons must account for the image layout: renderer helpers live under `/usr/local/lib/agent-sandbox/proxy`, while addons run from `/home/mitmproxy/addons`
 - Rule-scoped policy metadata should be attached before host-record merge and dedupe so the existing full-rule identity preserves scope without creating host-wide side effects
+- File-backed secret readers should validate with `lstat()`, open with `O_NOFOLLOW` when available, and verify with
+  `fstat()` after opening so symlink and non-regular-file rejection remains true during the actual read
 
 ## Architecture
 
