@@ -11,6 +11,7 @@ from unittest import mock
 REPO_ROOT = Path(__file__).resolve().parents[3]
 POLICY_MATCHER_PATH = REPO_ROOT / "images" / "proxy" / "addons" / "policy_matcher.py"
 RENDER_POLICY_PATH = REPO_ROOT / "images" / "proxy" / "render-policy"
+POLICY_INJECTION_PATH = REPO_ROOT / "images" / "proxy" / "policy_injection.py"
 
 
 def load_policy_matcher_module():
@@ -28,6 +29,44 @@ def load_render_policy_module():
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
     return module
+
+
+class PolicyMatcherImportTests(unittest.TestCase):
+    def test_policy_matcher_imports_injection_helper_from_proxy_lib_dir(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            tempdir_path = Path(tempdir)
+            addon_dir = tempdir_path / "home" / "mitmproxy" / "addons"
+            lib_dir = tempdir_path / "usr" / "local" / "lib" / "agent-sandbox" / "proxy"
+            addon_dir.mkdir(parents=True)
+            lib_dir.mkdir(parents=True)
+
+            matcher_path = addon_dir / "policy_matcher.py"
+            matcher_path.write_bytes(POLICY_MATCHER_PATH.read_bytes())
+            (lib_dir / "policy_injection.py").write_bytes(
+                POLICY_INJECTION_PATH.read_bytes()
+            )
+
+            old_sys_path = list(sys.path)
+            previous_injection = sys.modules.pop("policy_injection", None)
+            module_name = "policy_matcher_image_layout_module"
+            try:
+                with mock.patch.dict(
+                    os.environ,
+                    {"AGENTBOX_PROXY_LIB_DIR": str(lib_dir)},
+                    clear=False,
+                ):
+                    loader = SourceFileLoader(module_name, str(matcher_path))
+                    spec = importlib.util.spec_from_loader(loader.name, loader)
+                    module = importlib.util.module_from_spec(spec)
+                    sys.modules[loader.name] = module
+                    loader.exec_module(module)
+                self.assertTrue(callable(module.PolicyMatcher.from_policy_data))
+            finally:
+                sys.path[:] = old_sys_path
+                sys.modules.pop(module_name, None)
+                sys.modules.pop("policy_injection", None)
+                if previous_injection is not None:
+                    sys.modules["policy_injection"] = previous_injection
 
 
 class PolicyMatcherTests(unittest.TestCase):
@@ -571,6 +610,83 @@ class PolicyMatcherTests(unittest.TestCase):
         self.assertEqual(decision.action, "blocked")
         self.assertEqual(decision.reason, "scheme_not_permitted")
 
+    def test_rule_injection_metadata_loads_without_changing_request_matching(self):
+        matcher = self.matcher_from_domains(
+            [
+                {
+                    "host": "api.openai.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "methods": ["POST"],
+                            "path": {"exact": "/v1/responses"},
+                            "inject": {
+                                "headers": {
+                                    "Authorization": {
+                                        "secret": "openai-api-token",
+                                        "transform": {"type": "bearer"},
+                                    },
+                                },
+                                "on_existing_header": "fail",
+                            },
+                        }
+                    ],
+                }
+            ]
+        )
+
+        rule = matcher.host_records[0].rules[0]
+        self.assertEqual(rule.injection.on_existing_header, "fail")
+        self.assertEqual(len(rule.injection.headers), 1)
+        self.assertEqual(rule.injection.headers[0].name, "Authorization")
+        self.assertEqual(rule.injection.headers[0].secret, "openai-api-token")
+        self.assertEqual(rule.injection.headers[0].transform_type, "bearer")
+
+        allowed = matcher.evaluate_request(
+            "api.openai.com",
+            "https",
+            "POST",
+            "/v1/responses",
+        )
+        blocked = matcher.evaluate_request(
+            "api.openai.com",
+            "https",
+            "GET",
+            "/v1/responses",
+        )
+
+        self.assertEqual(allowed.action, "allowed")
+        self.assertEqual(blocked.action, "blocked")
+        self.assertEqual(blocked.reason, "no_rule_matched")
+
+    def test_rule_injection_metadata_does_not_change_connect_fast_path(self):
+        matcher = self.matcher_from_domains(
+            [
+                {
+                    "host": "api.openai.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "inject": {
+                                "headers": {
+                                    "Authorization": {
+                                        "secret": "openai-api-token",
+                                        "transform": {"type": "bearer"},
+                                    },
+                                },
+                                "on_existing_header": "fail",
+                            },
+                        }
+                    ],
+                }
+            ]
+        )
+
+        decision = matcher.evaluate_connect("api.openai.com")
+
+        self.assertEqual(decision.action, "allowed")
+        self.assertEqual(decision.reason, "connect_fast_path")
+
 
 class PolicyMatcherGithubServiceIntegrationTests(unittest.TestCase):
     """Prove the generic matcher enforces GitHub service expansions end-to-end.
@@ -672,6 +788,53 @@ services:
         )
         self.assertEqual(push_data.action, "blocked")
         self.assertEqual(push_data.reason, "no_rule_matched")
+
+    def test_rendered_explicit_injection_metadata_loads_without_changing_matching(self):
+        matcher = self._matcher_from_rendered(
+            """
+domains:
+  - host: github.com
+    inject:
+      on_existing_header: replace
+      headers:
+        Authorization:
+          secret: github.agent-sandbox.push-token
+          transform:
+            type: basic
+            username: x-access-token
+    rules:
+      - schemes: [https]
+        methods: [POST]
+        path:
+          exact: /owner/repo.git/git-receive-pack
+"""
+        )
+
+        rule = matcher.host_records[0].rules[0]
+        self.assertEqual(rule.injection.on_existing_header, "replace")
+        self.assertEqual(
+            rule.injection.headers[0].secret,
+            "github.agent-sandbox.push-token",
+        )
+        self.assertEqual(rule.injection.headers[0].transform_type, "basic")
+        self.assertEqual(rule.injection.headers[0].username, "x-access-token")
+
+        allowed = matcher.evaluate_request(
+            "github.com",
+            "https",
+            "POST",
+            "/owner/repo.git/git-receive-pack",
+        )
+        blocked = matcher.evaluate_request(
+            "github.com",
+            "https",
+            "GET",
+            "/owner/repo.git/git-receive-pack",
+        )
+
+        self.assertEqual(allowed.action, "allowed")
+        self.assertEqual(blocked.action, "blocked")
+        self.assertEqual(blocked.reason, "no_rule_matched")
 
 
 if __name__ == "__main__":

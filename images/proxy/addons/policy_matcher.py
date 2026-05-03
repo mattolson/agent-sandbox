@@ -1,10 +1,25 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
 from urllib.parse import unquote_plus, urlsplit
 
 import yaml
+
+PROXY_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+PROXY_LIB_DIR = os.getenv(
+    "AGENTBOX_PROXY_LIB_DIR",
+    "/usr/local/lib/agent-sandbox/proxy",
+)
+PROXY_MODULE_DIRS = (PROXY_DIR, PROXY_LIB_DIR)
+if not os.path.exists(os.path.join(PROXY_DIR, "policy_injection.py")):
+    PROXY_MODULE_DIRS = (PROXY_LIB_DIR, PROXY_DIR)
+for module_path in reversed(PROXY_MODULE_DIRS):
+    if module_path not in sys.path:
+        sys.path.insert(0, module_path)
+
+import policy_injection  # noqa: E402
 
 
 DEFAULT_POLICY_PATH = "/etc/mitmproxy/policy.yaml"
@@ -16,6 +31,10 @@ _UNRESERVED_URI_CHARS = frozenset(
 
 class PolicyError(Exception):
     """Raised when rendered proxy policy cannot be loaded safely."""
+
+
+def _fail_policy(message):
+    raise PolicyError(message)
 
 
 @dataclass(frozen=True)
@@ -59,12 +78,27 @@ class PolicyDecision:
 
 
 @dataclass(frozen=True)
+class HeaderInjection:
+    name: str
+    secret: str
+    transform_type: str
+    username: str | None = None
+
+
+@dataclass(frozen=True)
+class RuleInjection:
+    headers: tuple[HeaderInjection, ...]
+    on_existing_header: str
+
+
+@dataclass(frozen=True)
 class RuntimeRule:
     schemes: tuple[str, ...]
     methods: tuple[str, ...] | None = None
     path_exact: str | None = None
     path_prefix: str | None = None
     query_exact: tuple[tuple[str, tuple[str, ...]], ...] | None = None
+    injection: RuleInjection | None = None
 
     def matches_scheme(self, scheme):
         return scheme.lower() in self.schemes
@@ -280,7 +314,8 @@ class PolicyMatcher:
                 f"{context} must be a YAML mapping, got {type(rule).__name__}: {rule!r}"
             )
 
-        unknown_keys = sorted(set(rule) - {"schemes", "methods", "path", "query"})
+        supported_keys = {"schemes", "methods", "path", "query", "inject"}
+        unknown_keys = sorted(set(rule) - supported_keys)
         if unknown_keys:
             raise PolicyError(f"{context} contains unsupported keys: {unknown_keys}")
 
@@ -397,12 +432,39 @@ class PolicyMatcher:
                 for name, values in sorted(normalized_items.items())
             )
 
+        injection = None
+        if "inject" in rule:
+            injection = PolicyMatcher._compile_rule_injection(
+                rule["inject"],
+                f"{context}.inject",
+            )
+
         return RuntimeRule(
             schemes=tuple(sorted(set(schemes))),
             methods=methods,
             path_exact=path_exact,
             path_prefix=path_prefix,
             query_exact=query_exact,
+            injection=injection,
+        )
+
+    @staticmethod
+    def _compile_rule_injection(value, context):
+        normalized = policy_injection.normalize_inject(value, context, _fail_policy)
+        headers = []
+        for name, header in normalized["headers"].items():
+            transform = header["transform"]
+            headers.append(
+                HeaderInjection(
+                    name=name,
+                    secret=header["secret"],
+                    transform_type=transform["type"],
+                    username=transform.get("username"),
+                )
+            )
+        return RuleInjection(
+            headers=tuple(headers),
+            on_existing_header=normalized["on_existing_header"],
         )
 
     @staticmethod

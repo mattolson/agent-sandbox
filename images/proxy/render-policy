@@ -8,6 +8,7 @@ import sys
 import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import policy_injection  # noqa: E402
 import service_catalog  # noqa: E402
 
 DEFAULT_SINGLE_POLICY_PATH = "/etc/mitmproxy/policy.yaml"
@@ -118,6 +119,18 @@ def normalize_host_pattern(value, context):
 
 def make_catch_all_rule():
     return {"schemes": list(DEFAULT_RULE_SCHEMES)}
+
+
+def apply_rule_injection(rules, injection):
+    if injection is None:
+        return rules
+
+    injected_rules = []
+    for rule in rules:
+        injected_rule = dict(rule)
+        injected_rule["inject"] = injection
+        injected_rules.append(injected_rule)
+    return injected_rules
 
 
 def normalize_merge_mode(value, context):
@@ -371,7 +384,7 @@ def normalize_domain_entry(entry, context):
             f"got {type(entry).__name__}: {entry!r}"
         )
 
-    supported_keys = {"host", "merge_mode", "rules"}
+    supported_keys = {"host", "inject", "merge_mode", "rules"}
     unknown_keys = sorted(set(entry) - supported_keys)
     if unknown_keys:
         fail(f"{context} contains unsupported keys: {unknown_keys}")
@@ -386,7 +399,15 @@ def normalize_domain_entry(entry, context):
 
     host = normalize_host_pattern(entry["host"], f"{context}.host")
     merge_mode = normalize_merge_mode(entry.get("merge_mode", MISSING), context)
+    injection = None
+    if "inject" in entry:
+        injection = policy_injection.normalize_inject(
+            entry["inject"],
+            f"{context}.inject",
+            fail,
+        )
     rules = normalize_rules(entry["rules"], context)
+    rules = apply_rule_injection(rules, injection)
     return make_host_record(host, rules), merge_mode
 
 

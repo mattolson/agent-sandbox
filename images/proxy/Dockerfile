@@ -23,7 +23,7 @@ COPY policy.yaml /etc/mitmproxy/policy.yaml
 COPY addons/ /home/mitmproxy/addons/
 COPY entrypoint.sh /usr/local/bin/
 RUN mkdir -p /usr/local/lib/agent-sandbox/proxy
-COPY render-policy service_catalog.py /usr/local/lib/agent-sandbox/proxy/
+COPY render-policy service_catalog.py policy_injection.py /usr/local/lib/agent-sandbox/proxy/
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/lib/agent-sandbox/proxy/render-policy \
   && ln -s /usr/local/lib/agent-sandbox/proxy/render-policy /usr/local/bin/render-policy
 
