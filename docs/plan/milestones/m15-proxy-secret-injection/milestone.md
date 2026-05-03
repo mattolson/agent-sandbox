@@ -21,7 +21,7 @@ to hold the real secret.
 - Use backend-neutral logical secret IDs so a later macOS Keychain backend can reuse the same policy shape
 - First supported rollout: GitHub git over HTTPS with repo-level scoping
 - Keep GitHub tokens out of the agent container for clone, fetch, and push over smart HTTP
-- Add leak-detection guardrails and redacted audit logging for secret-backed requests
+- Add redacted audit logging for secret-backed requests
 - Keep the injection primitive generic enough for later HTTP-native APIs and registries
 
 ## Out of Scope
@@ -29,6 +29,7 @@ to hold the real secret.
 - Browser or device-code OAuth flows
 - Non-HTTP protocols
 - Request body mutation
+- Request, response, header, or URL scanning for leaked secret values
 - Replacing every credential flow with proxy injection
 - A full host credential helper service; that remains `m18`
 - macOS Keychain-backed secret resolution; m15 should preserve the extension point but ship file-backed storage first
@@ -177,7 +178,9 @@ Linux container and cannot read the host Keychain itself.
 - Fail closed if a request already contains the injected header, unless the rule explicitly permits replacement.
 - Redact injected values in proxy logs and error messages.
 - Audit successful injection by secret ID and matched rule, not by value.
-- Add leak-detection checks where practical for outbound requests and proxy responses.
+- Prove with tests that the agent container cannot read the mounted secret source under the supported compose layout.
+- Do not add secret-value scanning in m15. Header, URL, request-body, and response-body scanning are easy to bypass with
+  encoding or alternate channels and create a broader guarantee than this milestone can honestly provide.
 
 ## Tasks
 
@@ -194,13 +197,13 @@ To be broken down when work begins. Rough outline:
 - Add `auth.secret` support for the `git` surface, requiring explicit `access` when `auth` is present
 - Add GitHub smart-HTTP policy examples for read-only and readwrite repo scopes
 - Add tests proving GitHub push endpoints can receive injected auth without credentials in the agent container
+- Add boundary tests proving the agent container cannot read the proxy secret mount
 - Add guardrails for broad injection rules, existing auth headers, logs, and rendered policy output
 - Update user docs for the GitHub Git flow and the limits of proxy injection
 
 ## Open Questions
 
-- How much leak detection is practical without creating false confidence or excessive runtime cost?
-- Should direct injection support response-header redaction in the first milestone?
+(None currently)
 
 ## Definition of Done
 
