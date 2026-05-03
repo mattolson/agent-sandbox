@@ -17,7 +17,8 @@ to hold the real secret.
 ## Goals
 
 - Support direct matched-request credential injection for outbound HTTP headers
-- Keep raw secret values in a host-only source mounted into the proxy only
+- Keep raw secret values in a host-only file source mounted into the proxy only
+- Use backend-neutral logical secret IDs so a later macOS Keychain backend can reuse the same policy shape
 - First supported rollout: GitHub git over HTTPS with repo-level scoping
 - Keep GitHub tokens out of the agent container for clone, fetch, and push over smart HTTP
 - Add leak-detection guardrails and redacted audit logging for secret-backed requests
@@ -30,6 +31,7 @@ to hold the real secret.
 - Request body mutation
 - Replacing every credential flow with proxy injection
 - A full host credential helper service; that remains `m18`
+- macOS Keychain-backed secret resolution; m15 should preserve the extension point but ship file-backed storage first
 - GitHub REST wrapper work; that moves to `m16`
 
 ## Design
@@ -47,6 +49,64 @@ The agent container should not need a fake token, placeholder password, credenti
 for the primary GitHub Git flow. Literal client-visible placeholders can remain an escape hatch for clients that cannot
 be handled cleanly by direct injection, but they should not be the default design.
 
+### Authoring model
+
+m15 should support two authoring layers that compile into one internal representation:
+
+1. A full explicit schema on `domains` entries.
+2. Service-specific shorthand that expands into the same domain/rule/injection representation.
+
+For explicit `domains` entries, `inject` should be authored as a peer to `host` and `rules`:
+
+```yaml
+domains:
+  - host: github.com
+    inject:
+      headers:
+        Authorization:
+          secret: github.agent-sandbox.push-token
+          transform:
+            type: basic
+            username: x-access-token
+      on_existing_header: fail
+    rules:
+      - schemes: [https]
+        methods: [GET, HEAD]
+        path:
+          exact: /owner/repo.git/info/refs
+        query:
+          exact:
+            service: [git-receive-pack]
+      - schemes: [https]
+        methods: [POST]
+        path:
+          exact: /owner/repo.git/git-receive-pack
+```
+
+Although `inject` is authored at the domain entry level, rendering should associate it with that entry's emitted rules,
+not with the host globally. Host-record merging must not broaden an injected credential from one authored entry onto
+unrelated rules for the same host.
+
+For GitHub service shorthand, policy authors should not need to know how to construct the full `Authorization` header.
+They should provide the repo, surface, access level, and logical secret reference:
+
+```yaml
+services:
+  - name: github
+    repos:
+      - owner/repo
+    surfaces: [git]
+    access: readwrite
+    auth:
+      secret: github.agent-sandbox.push-token
+```
+
+The GitHub catalog can then expand this to repo-scoped smart-HTTP rules with the correct injected header construction:
+`Authorization: Basic base64("x-access-token:<secret>")`.
+
+Write-capable GitHub auth should be explicit. Prefer `access: read` and `access: readwrite` over treating the existing
+`readonly: false` default as the write switch for secret-backed rules.
+
 ### First rollout: GitHub smart HTTP
 
 The first supported flow should cover GitHub git over HTTPS for a single repository. The existing `m14` GitHub `git`
@@ -60,14 +120,51 @@ surface already expands repo-scoped URL rules for:
 Private fetch/clone needs `git-upload-pack`; push needs `git-receive-pack`. Injection must cover both discovery and
 pack transfer requests for the selected access mode.
 
-### Secret storage
+### Secret references
 
-Secrets should live in a host-owned source mounted into the proxy only. The policy should reference stable secret IDs,
-not raw values. The rendered policy and `agentbox policy config` output must redact values.
+Policy should reference stable logical secret IDs, not host file paths or raw values. Secret IDs must be path-safe and
+portable across storage backends: no `/`, `..`, whitespace, shell metacharacters, or platform-specific path syntax.
 
-The first implementation can require users to provide a precomputed GitHub Basic auth value, such as the base64 form of
-`x-access-token:<token>`. A later task can add host-side helpers for deriving provider-specific header values from
-cleaner secret inputs.
+Example policy direction:
+
+```yaml
+inject:
+  headers:
+    Authorization:
+      secret: github.agent-sandbox.push-token
+      transform:
+        type: basic
+        username: x-access-token
+```
+
+The proxy resolves `github.agent-sandbox.push-token` through its configured secret source, applies the transform, and
+injects the resulting header. The rendered policy and `agentbox policy config` output must show only the secret ID and
+redacted markers, never the resolved value.
+
+### File-backed storage
+
+The required m15 backend is a host-owned file source rooted at `~/.config/agent-sandbox/secrets`. The directory should
+be created with `0700` permissions, and individual secret files should be `0600`. Compose should mount this directory
+read-only into the proxy, for example as `/run/agentbox/secrets`, and must not mount it into the agent container.
+
+The policy should not mention `~/.config/agent-sandbox/secrets` directly. The proxy should receive a runtime secret
+source configuration such as:
+
+```text
+AGENTBOX_SECRET_SOURCE=file:/run/agentbox/secrets
+```
+
+The file backend maps each logical secret ID to one file below the mounted secret directory. File contents should be raw
+secret values, not preformatted HTTP headers. m15 should support the minimal generic transforms needed for the first
+GitHub flow, likely `basic` and `bearer`; provider-specific secret derivation can come later if real use cases justify
+it.
+
+### Future Keychain support
+
+macOS Keychain support should not change policy syntax. A later implementation can reuse the same logical secret IDs by
+adding another resolver backend or by having host-side `agentbox` materialize selected Keychain items into a proxy-only
+runtime source before the proxy starts. Direct Keychain integration is out of scope for m15 because the proxy runs in a
+Linux container and cannot read the host Keychain itself.
 
 ### Guardrails
 
@@ -82,8 +179,12 @@ cleaner secret inputs.
 To be broken down when work begins. Rough outline:
 
 - Design the policy schema for secret sources and per-rule header injection
-- Implement proxy-side secret loading with validation and redaction
+- Implement backend-neutral secret resolution with a file-backed resolver for `/run/agentbox/secrets`
+- Mount `${HOME}/.config/agent-sandbox/secrets` read-only into the proxy only
+- Validate secret IDs, source configuration, and secret file permissions with actionable errors or warnings
 - Implement direct request header injection in the enforcer
+- Support the minimal generic transforms needed for GitHub Git HTTPS, starting with `basic` and likely `bearer`
+- Extend the GitHub service catalog with `auth.secret` and explicit `access` support for the `git` surface
 - Add GitHub smart-HTTP policy examples for read-only and readwrite repo scopes
 - Add tests proving GitHub push endpoints can receive injected auth without credentials in the agent container
 - Add guardrails for broad injection rules, existing auth headers, logs, and rendered policy output
@@ -91,16 +192,18 @@ To be broken down when work begins. Rough outline:
 
 ## Open Questions
 
-- Should secret values be preformatted headers at first, or should the proxy support provider-aware secret transforms?
-- What exact policy shape keeps injection readable without mixing secret source config into ordinary allow rules?
-- Should readwrite GitHub injection be opt-in separately from read-only clone/fetch injection?
+- Is `basic` plus `bearer` enough for the first transform set, or should m15 ship only `basic` for GitHub Git HTTPS?
+- Should `access` replace `readonly` only for GitHub auth entries, or should it become the preferred spelling for GitHub
+  repo-scoped service entries generally?
 - How much leak detection is practical without creating false confidence or excessive runtime cost?
 - Should direct injection support response-header redaction in the first milestone?
 
 ## Definition of Done
 
 - A repo-scoped GitHub HTTPS Git push can work without storing a GitHub token in the agent container
-- Secret values are readable by the proxy only, not by the agent container
+- Secret values are stored under `~/.config/agent-sandbox/secrets`, mounted into the proxy only, and not readable by the agent container
+- Policy references logical secret IDs rather than file paths, preserving a future macOS Keychain backend path
+- Explicit `domains` injection and GitHub service shorthand both render to the same rule-scoped injection model
 - Rendered policy, logs, and errors show secret IDs or redacted markers only
 - Injection rules are covered by unit tests and proxy enforcement tests
 - Docs explain the supported GitHub Git flow, the security boundary, and unsupported auth patterns
