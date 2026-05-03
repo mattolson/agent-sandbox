@@ -13,7 +13,8 @@ Extend the policy renderer schema so explicit `domains` entries can author `inje
 - Keep rendered output redacted and free of secret values
 - Add the minimum matcher loader support needed for rendered policies containing injection metadata to load safely
 - Exclude file-backed secret loading, secret resolution, and runtime request mutation
-- Exclude GitHub service shorthand and user-facing docs; those belong to later m15 tasks
+- Exclude service catalog auth shorthand, client compatibility shims, and user-facing docs; those belong to later m15
+  tasks
 
 ## Acceptance Criteria
 
