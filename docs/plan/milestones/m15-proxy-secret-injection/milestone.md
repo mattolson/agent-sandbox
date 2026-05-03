@@ -130,7 +130,8 @@ pack transfer requests for the selected access mode.
 ### Secret references
 
 Policy should reference stable logical secret IDs, not host file paths or raw values. Secret IDs must be path-safe and
-portable across storage backends: no `/`, `..`, whitespace, shell metacharacters, or platform-specific path syntax.
+portable across storage backends. m15 should restrict secret IDs to `[A-Za-z0-9._-]+`, which excludes `/`, `..`,
+whitespace, shell metacharacters, and platform-specific path syntax.
 
 Example policy direction:
 
@@ -192,8 +193,8 @@ Each task should map to one reviewable PR.
 `rules`.
 
 **Scope:**
-- Validate `domains[].inject.headers` with logical secret IDs, `basic` and `bearer` transforms, and
-  `on_existing_header`
+- Validate `domains[].inject.headers` with logical secret IDs matching `[A-Za-z0-9._-]+`, `basic` and `bearer`
+  transforms, and `on_existing_header`
 - Render injection as rule-scoped metadata so host-record merging cannot broaden an injected credential to unrelated
   rules
 - Keep rendered output redacted and free of secret values
