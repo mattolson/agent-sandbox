@@ -239,6 +239,214 @@ domains:
             ],
         )
 
+    def test_domain_injection_renders_as_rule_scoped_metadata(self):
+        rendered = self.render_single(
+            """
+domains:
+  - host: github.com
+    inject:
+      headers:
+        Authorization:
+          secret: github.agent-sandbox.push-token
+          transform:
+            type: basic
+            username: x-access-token
+        X-Api-Token:
+          secret: api-token
+          transform:
+            type: Bearer
+    rules:
+      - schemes: [https]
+        methods: [GET, HEAD]
+        path:
+          exact: /owner/repo.git/info/refs
+        query:
+          exact:
+            service: git-receive-pack
+      - schemes: [https]
+        methods: [POST]
+        path:
+          exact: /owner/repo.git/git-receive-pack
+"""
+        )
+
+        expected_injection = {
+            "headers": {
+                "Authorization": {
+                    "secret": "github.agent-sandbox.push-token",
+                    "transform": {
+                        "type": "basic",
+                        "username": "x-access-token",
+                    },
+                },
+                "X-Api-Token": {
+                    "secret": "api-token",
+                    "transform": {"type": "bearer"},
+                },
+            },
+            "on_existing_header": "fail",
+        }
+        record = rendered["domains"][0]
+        self.assertEqual(record["host"], "github.com")
+        self.assertEqual(
+            record["rules"],
+            [
+                {
+                    "schemes": ["https"],
+                    "methods": ["GET", "HEAD"],
+                    "path": {"exact": "/owner/repo.git/info/refs"},
+                    "query": {"exact": {"service": ["git-receive-pack"]}},
+                    "inject": expected_injection,
+                },
+                {
+                    "schemes": ["https"],
+                    "methods": ["POST"],
+                    "path": {"exact": "/owner/repo.git/git-receive-pack"},
+                    "inject": expected_injection,
+                },
+            ],
+        )
+
+    def test_domain_injection_supports_replace_on_existing_header(self):
+        rendered = self.render_single(
+            """
+domains:
+  - host: api.example.com
+    inject:
+      on_existing_header: replace
+      headers:
+        Authorization:
+          secret: service-token
+          transform:
+            type: bearer
+    rules:
+      - schemes: [https]
+        methods: [GET]
+"""
+        )
+
+        self.assertEqual(
+            rendered["domains"][0]["rules"][0]["inject"],
+            {
+                "headers": {
+                    "Authorization": {
+                        "secret": "service-token",
+                        "transform": {"type": "bearer"},
+                    },
+                },
+                "on_existing_header": "replace",
+            },
+        )
+
+    def test_domain_injection_rejects_invalid_secret_ids(self):
+        with self.assertRaises(self.render_policy.RenderPolicyError) as context:
+            self.render_single(
+                """
+domains:
+  - host: github.com
+    inject:
+      headers:
+        Authorization:
+          secret: ../token
+          transform:
+            type: bearer
+    rules:
+      - schemes: [https]
+"""
+            )
+
+        self.assertIn("must match [A-Za-z0-9._-]+", str(context.exception))
+
+    def test_domain_injection_rejects_invalid_transforms(self):
+        with self.assertRaises(self.render_policy.RenderPolicyError) as context:
+            self.render_single(
+                """
+domains:
+  - host: github.com
+    inject:
+      headers:
+        Authorization:
+          secret: github-token
+          transform:
+            type: digest
+    rules:
+      - schemes: [https]
+"""
+            )
+
+        self.assertIn("transform.type must be one of", str(context.exception))
+
+    def test_domain_injection_rejects_invalid_on_existing_header(self):
+        with self.assertRaises(self.render_policy.RenderPolicyError) as context:
+            self.render_single(
+                """
+domains:
+  - host: github.com
+    inject:
+      on_existing_header: merge
+      headers:
+        Authorization:
+          secret: github-token
+          transform:
+            type: bearer
+    rules:
+      - schemes: [https]
+"""
+            )
+
+        self.assertIn("on_existing_header must be one of", str(context.exception))
+
+    def test_domain_injection_rejects_secret_value_fields(self):
+        with self.assertRaises(self.render_policy.RenderPolicyError) as context:
+            self.render_single(
+                """
+domains:
+  - host: github.com
+    inject:
+      headers:
+        Authorization:
+          secret: github-token
+          value: raw-secret-value
+          transform:
+            type: bearer
+    rules:
+      - schemes: [https]
+"""
+            )
+
+        self.assertIn("contains unsupported keys", str(context.exception))
+        self.assertIn("'value'", str(context.exception))
+
+    def test_domain_injection_merge_keeps_metadata_rule_scoped(self):
+        rendered = self.render_single(
+            """
+domains:
+  - host: github.com
+    inject:
+      headers:
+        Authorization:
+          secret: write-token
+          transform:
+            type: bearer
+    rules:
+      - schemes: [https]
+        methods: [POST]
+        path:
+          exact: /owner/repo.git/git-receive-pack
+  - host: github.com
+    rules:
+      - schemes: [https]
+        methods: [POST]
+        path:
+          exact: /owner/repo.git/git-receive-pack
+"""
+        )
+
+        rules = rendered["domains"][0]["rules"]
+        self.assertEqual(len(rules), 2)
+        self.assertIn("inject", rules[0])
+        self.assertNotIn("inject", rules[1])
+
     def test_host_records_are_sorted_by_match_specificity(self):
         rendered = self.render_single(
             """

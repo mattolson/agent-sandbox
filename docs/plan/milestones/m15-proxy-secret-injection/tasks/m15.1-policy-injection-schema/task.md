@@ -20,12 +20,12 @@ Extend the policy renderer schema so explicit `domains` entries can author `inje
 
 ## Acceptance Criteria
 
-- [ ] Renderer tests cover valid explicit injection rules, invalid secret IDs, invalid transforms, and invalid
+- [x] Renderer tests cover valid explicit injection rules, invalid secret IDs, invalid transforms, and invalid
       `on_existing_header` values
-- [ ] Merge tests prove injected metadata stays attached only to the rules emitted by the authored entry
-- [ ] `agentbox policy config` / rendered policy output contains secret IDs but no secret values
-- [ ] The proxy matcher can load rendered rule-scoped injection metadata without applying it yet
-- [ ] Existing policies without injection render and load unchanged
+- [x] Merge tests prove injected metadata stays attached only to the rules emitted by the authored entry
+- [x] `agentbox policy config` / rendered policy output contains secret IDs but no secret values
+- [x] The proxy matcher can load rendered rule-scoped injection metadata without applying it yet
+- [x] Existing policies without injection render and load unchanged
 
 ## Applicable Learnings
 
@@ -46,8 +46,11 @@ Extend the policy renderer schema so explicit `domains` entries can author `inje
 
 - `images/proxy/render-policy` - primary schema validation, normalization, rule-scoped injection rendering, and merge
   behavior
+- `images/proxy/policy_injection.py` - shared canonical injection metadata validation helpers for the renderer,
+  matcher, and later service catalog auth
 - `images/proxy/addons/policy_matcher.py` - minimal runtime data model/loader support for injection metadata, without
   request mutation
+- `images/proxy/Dockerfile` - packaging for the shared injection helper used by both renderer and addon code
 - `images/proxy/tests/test_render_policy.py` - renderer coverage for valid, invalid, and merge/dedupe cases
 - `images/proxy/tests/test_policy_matcher.py` - matcher coverage proving rendered injection metadata loads without
   changing allow/block decisions
@@ -75,18 +78,18 @@ prove compatibility with the new rendered shape, not runtime injection.
 
 ### Implementation Steps
 
-- [ ] Define the canonical rendered `inject` shape on individual rules
-- [ ] Add renderer normalization for `domains[].inject.headers`
-- [ ] Factor injection validation/normalization so later service catalog expansion can emit the same canonical shape
-- [ ] Add secret ID validation that accepts only `[A-Za-z0-9._-]+`
-- [ ] Add transform validation for `basic` and `bearer`
-- [ ] Add `on_existing_header` validation for `fail` and `replace`, defaulting to `fail`
-- [ ] Update host-record merge/dedupe identity so injection metadata remains rule-scoped and cannot broaden across
+- [x] Define the canonical rendered `inject` shape on individual rules
+- [x] Add renderer normalization for `domains[].inject.headers`
+- [x] Factor injection validation/normalization so later service catalog expansion can emit the same canonical shape
+- [x] Add secret ID validation that accepts only `[A-Za-z0-9._-]+`
+- [x] Add transform validation for `basic` and `bearer`
+- [x] Add `on_existing_header` validation for `fail` and `replace`, defaulting to `fail`
+- [x] Update host-record merge/dedupe identity so injection metadata remains rule-scoped and cannot broaden across
       unrelated same-host rules
-- [ ] Add matcher data model support for loading rule-scoped injection metadata without using it
-- [ ] Add renderer tests for valid output, invalid schema, redaction, and merge behavior
-- [ ] Add matcher tests proving injection metadata does not change request matching yet
-- [ ] Run the proxy Python test suite, or at minimum the renderer and matcher tests with `/opt/proxy-python/bin/python3`
+- [x] Add matcher data model support for loading rule-scoped injection metadata without using it
+- [x] Add renderer tests for valid output, invalid schema, redaction, and merge behavior
+- [x] Add matcher tests proving injection metadata does not change request matching yet
+- [x] Run the proxy Python test suite, or at minimum the renderer and matcher tests with `/opt/proxy-python/bin/python3`
 
 ### Open Questions
 
@@ -96,12 +99,23 @@ prove compatibility with the new rendered shape, not runtime injection.
 
 ### Acceptance Verification
 
-Pending implementation.
+- [x] Renderer tests cover valid explicit injection rules, invalid secret IDs, invalid transforms, and invalid
+      `on_existing_header` values.
+- [x] Merge tests prove injected metadata stays attached only to the rules emitted by the authored entry.
+- [x] Rendered policy output contains logical secret IDs and rejects raw secret-value fields in `inject.headers`.
+- [x] The proxy matcher loads rendered rule-scoped injection metadata into runtime metadata without applying it yet.
+- [x] Existing policies without injection render and load unchanged through the existing renderer and matcher regression
+      suite.
+- [x] `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'` passed.
 
 ### Learnings
 
-Pending implementation.
+- Shared proxy helper modules used by both `render-policy` and addons must account for the image layout. The renderer
+  helpers live under `/usr/local/lib/agent-sandbox/proxy`, while addons run from `/home/mitmproxy/addons`.
+- Keeping injection metadata on the rule before host-record merge lets the existing full-rule dedupe identity preserve
+  credential scope without introducing a separate host-level injection merge path.
 
 ### Follow-up Items
 
-Pending implementation.
+- `m15.4` should revisit whether injected rules must force request inspection at CONNECT time once header mutation is
+  implemented. `m15.1` deliberately leaves allow/block behavior unchanged.

@@ -1,5 +1,22 @@
 # Execution Log: m15.1 - Policy Injection Schema
 
+## 2026-05-03 03:36 UTC - Implemented rule-scoped injection schema
+
+Added shared injection schema helpers, renderer support for `domains[].inject`, matcher runtime metadata loading, and
+renderer/matcher tests for valid output, invalid schema, redaction boundaries, and merge behavior. The full proxy Python
+test suite passed.
+
+**Issue:** The repo test layout let `policy_matcher.py` import the new helper from `images/proxy`, but the Docker image
+places addons under `/home/mitmproxy/addons` and renderer helpers under `/usr/local/lib/agent-sandbox/proxy`.
+**Solution:** Copy `policy_injection.py` into the proxy helper directory in the image and add that directory to the
+matcher import path.
+
+**Decision:** `m15.1` stores injection metadata but does not make injected rules alter CONNECT or request matching
+behavior. Request-inspection implications belong to the header mutation task.
+
+**Learning:** Rule-scoped policy metadata is safest when it stays in the rule dict before host-record merge and dedupe;
+that keeps credential scope tied to the exact emitted rules rather than the merged host record.
+
 ## 2026-05-03 02:42 UTC - Closed schema open questions
 
 Resolved the two open schema questions before implementation.
