@@ -10,6 +10,8 @@ Extend the policy renderer schema so explicit `domains` entries can author `inje
   transforms, and `on_existing_header`
 - Render injection as rule-scoped metadata so host-record merging cannot broaden an injected credential to unrelated
   rules
+- Define the canonical injection metadata shape and validation helpers so later service catalog auth can emit the same
+  representation
 - Keep rendered output redacted and free of secret values
 - Add the minimum matcher loader support needed for rendered policies containing injection metadata to load safely
 - Exclude file-backed secret loading, secret resolution, and runtime request mutation
@@ -60,6 +62,10 @@ The rendered rule shape should remain redacted and backend-neutral: it may inclu
 but never resolved secret values. The renderer should normalize and validate this metadata, then strip any internal rule
 owner tags exactly as it does today for normal rules.
 
+The normalization should be factored so this PR owns the canonical injection metadata shape, while later catalog-auth
+work can reuse the same representation without introducing GitHub branches in the matcher or duplicating validation.
+Do not add service-auth authoring or client compatibility shim output in this PR.
+
 The matcher currently rejects unknown rule keys, so this task also needs a narrow loader change. It should parse or
 store the injection metadata on the runtime rule so later tasks can use it, but it must not inject headers or alter
 allow/block decisions in this PR.
@@ -71,6 +77,7 @@ prove compatibility with the new rendered shape, not runtime injection.
 
 - [ ] Define the canonical rendered `inject` shape on individual rules
 - [ ] Add renderer normalization for `domains[].inject.headers`
+- [ ] Factor injection validation/normalization so later service catalog expansion can emit the same canonical shape
 - [ ] Add secret ID validation that accepts only `[A-Za-z0-9._-]+`
 - [ ] Add transform validation for `basic` and `bearer`
 - [ ] Add `on_existing_header` validation for `fail` and `replace`, defaulting to `fail`

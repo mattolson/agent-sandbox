@@ -277,14 +277,18 @@ Each task should map to one reviewable PR.
   transforms, and `on_existing_header`
 - Render injection as rule-scoped metadata so host-record merging cannot broaden an injected credential to unrelated
   rules
+- Define the canonical injection metadata shape and validation helpers so later service catalog auth can emit the same
+  representation
 - Keep rendered output redacted and free of secret values
-- Exclude file-backed secret loading and runtime request mutation
+- Add the minimum matcher loader support needed for rendered policies containing injection metadata to load safely
+- Exclude file-backed secret loading, runtime request mutation, service catalog auth, and client compatibility shims
 
 **Acceptance Criteria:**
 - Renderer tests cover valid explicit injection rules, invalid secret IDs, invalid transforms, and invalid
   `on_existing_header` values
 - Merge tests prove injected metadata stays attached only to the rules emitted by the authored entry
 - `agentbox policy config` / rendered policy output contains secret IDs but no secret values
+- The proxy matcher can load rendered rule-scoped injection metadata without applying it yet
 
 **Dependencies:** None
 
