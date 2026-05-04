@@ -46,6 +46,10 @@ Lessons learned during project execution. Review at the start of each planning s
 - Rule-scoped policy metadata should be attached before host-record merge and dedupe so the existing full-rule identity preserves scope without creating host-wide side effects
 - File-backed secret readers should validate with `lstat()`, open with `O_NOFOLLOW` when available, and verify with
   `fstat()` after opening so symlink and non-regular-file rejection remains true during the actual read
+- Docker Compose service volume handling should preserve both short-form strings and long-syntax mappings; security
+  options such as `bind.create_host_path: false` require long syntax, while named volumes are still simplest as strings
+- Compose `--no-interpolate` preserves authored variable expressions but can produce misleading normalized paths for
+  nested default expressions; validate generated YAML separately from runtime semantic `compose config` checks
 
 ## Architecture
 

@@ -113,26 +113,26 @@ in this task.
 
 ### Implementation Steps
 
-- [ ] Add constants/helpers for the proxy secret mount source, target, and `AGENTBOX_SECRET_SOURCE`
-- [ ] Extend compose volume parsing/writing to preserve both short-form strings and long-syntax bind mounts
-- [ ] Audit agentbox-managed bind mounts and convert them to long syntax with `bind.create_host_path: false` where
+- [x] Add constants/helpers for the proxy secret mount source, target, and `AGENTBOX_SECRET_SOURCE`
+- [x] Extend compose volume parsing/writing to preserve both short-form strings and long-syntax bind mounts
+- [x] Audit agentbox-managed bind mounts and convert them to long syntax with `bind.create_host_path: false` where
       Compose compatibility permits
-- [ ] Add the proxy secret bind mount and secret-source env var to the base compose template
-- [ ] Update base compose generation and sync repair helpers to ensure the mount/env on existing managed base layers
-- [ ] Add CLI scaffold tests for proxy-only mount/env and no agent secret mount
-- [ ] Add devcontainer scaffold tests for the same proxy-only effective stack invariants
-- [ ] Add sync tests proving older base compose files are repaired
-- [ ] Document `AGENTBOX_SECRET_DIR`, default path, outside-project requirement, directory creation, permissions, and
+- [x] Add the proxy secret bind mount and secret-source env var to the base compose template
+- [x] Update base compose generation and sync repair helpers to ensure the mount/env on existing managed base layers
+- [x] Add CLI scaffold tests for proxy-only mount/env and no agent secret mount
+- [x] Add devcontainer scaffold tests for the same proxy-only effective stack invariants
+- [x] Add sync tests proving older base compose files are repaired
+- [x] Document `AGENTBOX_SECRET_DIR`, default path, outside-project requirement, directory creation, permissions, and
       missing-directory failure mode
-- [ ] Run `go test ./...`
-- [ ] If Docker Compose is available, sanity-check `agentbox compose config --no-interpolate` against the same semantic
-      invariants
+- [x] Run `go test ./...`
+- [x] If Docker Compose is available, sanity-check rendered compose config against the same semantic invariants. Host
+      validation passed with Docker Compose 5.1.0.
 
 ### Open Questions
 
-- Confirm Docker Compose long syntax with `bind.create_host_path: false` is available across the supported Compose
-  versions for the target Colima-on-Apple-Silicon path. If compatibility is worse than expected, prefer an explicit
-  host-side preflight over falling back to short syntax that silently creates directories for required managed binds.
+- Resolved: host-side validation passed with Docker Compose 5.1.0. The sanity check used explicit absolute
+  `AGENTBOX_SECRET_DIR` values for semantic config validation because `--no-interpolate` leaves the nested default
+  expression literal and Compose normalizes that literal as a relative path.
 - Resolved: docs must explicitly warn that custom `AGENTBOX_SECRET_DIR` values should stay outside the workspace and
   any agent-mounted path. The generated compose can keep the default safe, but users can undermine the boundary with a
   custom path inside the repo.
@@ -141,12 +141,26 @@ in this task.
 
 ### Acceptance Verification
 
-Pending implementation.
+- [x] Generated CLI and devcontainer compose stacks mount `${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}`
+      read-only into `proxy` as `/run/secrets/agentbox` and set
+      `AGENTBOX_SECRET_SOURCE=file:/run/secrets/agentbox`
+- [x] Scaffold and sync tests assert generated `agent` services do not reference `/run/secrets/agentbox`,
+      `AGENTBOX_SECRET_DIR`, or the default host secret path
+- [x] `docs/cli.md` and `docs/troubleshooting.md` document directory creation, permissions, outside-workspace
+      requirements, and missing-directory startup behavior
+- [x] `go test ./...`
+- [x] `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
+- [x] Host-side `m15-host-sanity.sh` with Docker Compose 5.1.0
 
 ### Learnings
 
-Pending implementation.
+- Long-syntax Docker Compose service volumes require a mixed string/mapping representation. Keeping service volumes as
+  raw YAML nodes preserves existing short-form named volumes while allowing security-sensitive bind mounts to opt into
+  `bind.create_host_path: false`.
+- For Compose sanity checks involving nested default expressions, validate the generated YAML expression directly, then
+  run semantic `compose config` assertions with an explicit absolute environment value. `--no-interpolate` is useful
+  for preserving authored expressions, but it is not a faithful runtime-path check.
 
 ### Follow-up Items
 
-Pending implementation.
+- None.

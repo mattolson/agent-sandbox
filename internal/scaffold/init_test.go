@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mattolson/agent-sandbox/internal/runtime"
@@ -37,7 +38,9 @@ func TestInitializeCLIWritesRepresentativeClaudeScaffold(t *testing.T) {
 	if base.Name != "project-sandbox" {
 		t.Fatalf("unexpected project name: %q", base.Name)
 	}
-	assertContains(t, base.Services.Proxy.Volumes, "../policy/user.policy.yaml:/etc/agent-sandbox/policy/user.policy.yaml:ro")
+	assertContainsManagedBind(t, base.Services.Proxy.Volumes, sharedPolicyMountSource, sharedPolicyMountTarget, true)
+	assertProxySecretRuntime(t, base.Services.Proxy)
+	assertNoProxySecretRuntime(t, base.Services.Agent)
 	if base.Services.Proxy.Image != "agent-sandbox-proxy:local" {
 		t.Fatalf("unexpected proxy image: %q", base.Services.Proxy.Image)
 	}
@@ -46,10 +49,11 @@ func TestInitializeCLIWritesRepresentativeClaudeScaffold(t *testing.T) {
 	if agent.Services.Agent.Image != "agent-sandbox-claude:local" {
 		t.Fatalf("unexpected agent image: %q", agent.Services.Agent.Image)
 	}
-	assertContains(t, agent.Services.Proxy.Volumes, "../policy/user.agent.claude.policy.yaml:/etc/agent-sandbox/policy/user.agent.policy.yaml:ro")
+	assertContainsManagedBind(t, agent.Services.Proxy.Volumes, "../policy/user.agent.claude.policy.yaml", "/etc/agent-sandbox/policy/user.agent.policy.yaml", true)
 	assertContains(t, agent.Services.Proxy.Environment, "AGENTBOX_ACTIVE_AGENT=claude")
-	assertContains(t, agent.Services.Agent.Volumes, "claude-state:/home/dev/.claude")
-	assertContains(t, agent.Services.Agent.Volumes, "claude-history:/commandhistory")
+	assertNoProxySecretRuntime(t, agent.Services.Agent)
+	assertContainsVolumeString(t, agent.Services.Agent.Volumes, "claude-state:/home/dev/.claude")
+	assertContainsVolumeString(t, agent.Services.Agent.Volumes, "claude-history:/commandhistory")
 
 	sharedOverride := readCompose(t, runtime.CLIUserOverrideFile(repoRoot))
 	for _, volume := range []string{
@@ -59,12 +63,12 @@ func TestInitializeCLIWritesRepresentativeClaudeScaffold(t *testing.T) {
 		`../../.idea:/workspace/.idea:ro`,
 		`../../.vscode:/workspace/.vscode:ro`,
 	} {
-		assertContains(t, sharedOverride.Services.Agent.Volumes, volume)
+		assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, volume)
 	}
 
 	agentOverride := readCompose(t, runtime.CLIUserAgentOverrideFile(repoRoot, "claude"))
-	assertContains(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro`)
-	assertContains(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro`)
+	assertContainsVolumeString(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro`)
+	assertContainsVolumeString(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro`)
 
 	assertFileExists(t, runtime.SharedPolicyFile(repoRoot))
 	assertFileExists(t, runtime.UserAgentPolicyFile(repoRoot, "claude"))
@@ -92,19 +96,24 @@ func TestInitializeDevcontainerWritesRepresentativeCodexScaffold(t *testing.T) {
 		t.Fatalf("InitializeDevcontainer failed: %v", err)
 	}
 
+	base := readCompose(t, runtime.CLIBaseComposeFile(repoRoot))
+	assertProxySecretRuntime(t, base.Services.Proxy)
+	assertNoProxySecretRuntime(t, base.Services.Agent)
+
 	modeFile := readCompose(t, runtime.CLIDevcontainerModeComposeFile(repoRoot))
 	if modeFile.Name != "project-sandbox-devcontainer" {
 		t.Fatalf("unexpected mode project name: %q", modeFile.Name)
 	}
-	assertContains(t, modeFile.Services.Proxy.Volumes, "../policy/policy.devcontainer.yaml:/etc/agent-sandbox/policy/devcontainer.policy.yaml:ro")
-	assertContains(t, modeFile.Services.Agent.Volumes, "../../.devcontainer:/workspace/.devcontainer:ro")
-	assertContains(t, modeFile.Services.Agent.Volumes, "../../.vscode:/workspace/.vscode:ro")
-	assertNotContains(t, modeFile.Services.Agent.Volumes, "../../.idea:/workspace/.idea:ro")
+	assertContainsManagedBind(t, modeFile.Services.Proxy.Volumes, "../policy/policy.devcontainer.yaml", "/etc/agent-sandbox/policy/devcontainer.policy.yaml", true)
+	assertContainsManagedBind(t, modeFile.Services.Agent.Volumes, "../../.devcontainer", "/workspace/.devcontainer", true)
+	assertContainsManagedBind(t, modeFile.Services.Agent.Volumes, "../../.vscode", "/workspace/.vscode", true)
+	assertNoVolumeTarget(t, modeFile.Services.Agent.Volumes, "/workspace/.idea")
+	assertNoProxySecretRuntime(t, modeFile.Services.Agent)
 
 	sharedOverride := readCompose(t, runtime.CLIUserOverrideFile(repoRoot))
-	assertNotContains(t, sharedOverride.Services.Agent.Volumes, "../../.idea:/workspace/.idea:ro")
-	assertNotContains(t, sharedOverride.Services.Agent.Volumes, "../../.vscode:/workspace/.vscode:ro")
-	assertContains(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro`)
+	assertNotContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, "../../.idea:/workspace/.idea:ro")
+	assertNotContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, "../../.vscode:/workspace/.vscode:ro")
+	assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro`)
 
 	devcontainerJSON := readJSONMap(t, filepath.Join(repoRoot, ".devcontainer", "devcontainer.json"))
 	dockerComposeFiles := devcontainerJSON["dockerComposeFile"].([]any)
@@ -201,13 +210,103 @@ func assertContains(t *testing.T, values []string, want string) {
 	t.Fatalf("expected %q in %v", want, values)
 }
 
-func assertNotContains(t *testing.T, values []string, want string) {
+func assertContainsVolumeString(t *testing.T, values composeVolumes, want string) {
 	t.Helper()
 	for _, value := range values {
-		if value == want {
-			t.Fatalf("did not expect %q in %v", want, values)
+		if existing, ok := value.stringValue(); ok && existing == want {
+			return
 		}
 	}
+	t.Fatalf("expected volume string %q in %v", want, values)
+}
+
+func assertNotContainsVolumeString(t *testing.T, values composeVolumes, want string) {
+	t.Helper()
+	for _, value := range values {
+		if existing, ok := value.stringValue(); ok && existing == want {
+			t.Fatalf("did not expect volume string %q in %v", want, values)
+		}
+	}
+}
+
+func assertContainsManagedBind(t *testing.T, values composeVolumes, source string, target string, readOnly bool) {
+	t.Helper()
+	for _, value := range values {
+		mount, ok := value.bindMount()
+		if !ok || mount.Source != source || mount.Target != target {
+			continue
+		}
+		if mount.ReadOnly != readOnly {
+			t.Fatalf("volume %s -> %s read_only=%v, want %v", source, target, mount.ReadOnly, readOnly)
+		}
+		if !mount.HasCreateHostPath || mount.CreateHostPath {
+			t.Fatalf("volume %s -> %s must set bind.create_host_path: false", source, target)
+		}
+		return
+	}
+	t.Fatalf("expected managed bind %s -> %s in %v", source, target, values)
+}
+
+func assertNoVolumeTarget(t *testing.T, values composeVolumes, target string) {
+	t.Helper()
+	for _, value := range values {
+		mount, ok := value.bindMount()
+		if ok && mount.Target == target {
+			t.Fatalf("did not expect volume target %q in %v", target, values)
+		}
+	}
+}
+
+func assertProxySecretRuntime(t *testing.T, service *composeService) {
+	t.Helper()
+	if service == nil {
+		t.Fatal("expected service to exist")
+	}
+	assertContains(t, service.Environment, proxySecretSourceEnvName+"="+proxySecretSourceEnvValue)
+	assertContainsManagedBind(t, service.Volumes, proxySecretMountSource, proxySecretMountTarget, true)
+}
+
+func assertNoProxySecretRuntime(t *testing.T, service *composeService) {
+	t.Helper()
+	if service == nil {
+		return
+	}
+	for _, entry := range service.Environment {
+		if strings.HasPrefix(entry, proxySecretSourceEnvName+"=") {
+			t.Fatalf("did not expect proxy secret env in %v", service.Environment)
+		}
+	}
+	for _, value := range []string{
+		proxySecretMountTarget,
+		"AGENTBOX_SECRET_DIR",
+		".config/agent-sandbox/secrets",
+	} {
+		assertNoVolumeReference(t, service.Volumes, value)
+	}
+}
+
+func assertNoVolumeReference(t *testing.T, values composeVolumes, want string) {
+	t.Helper()
+	for _, value := range values {
+		if yamlNodeContains(value.node, want) {
+			t.Fatalf("did not expect volume reference %q in %v", want, values)
+		}
+	}
+}
+
+func yamlNodeContains(node *yaml.Node, want string) bool {
+	if node == nil {
+		return false
+	}
+	if strings.Contains(node.Value, want) {
+		return true
+	}
+	for _, child := range node.Content {
+		if yamlNodeContains(child, want) {
+			return true
+		}
+	}
+	return false
 }
 
 func assertFileExists(t *testing.T, path string) {

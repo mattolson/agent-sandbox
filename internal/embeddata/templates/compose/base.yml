@@ -8,9 +8,16 @@ services:
       - ALL
     environment:
       - PROXY_MODE=enforce
+      - AGENTBOX_SECRET_SOURCE=file:/run/secrets/agentbox
     volumes:
       - proxy-state:/home/mitmproxy/.mitmproxy
       - proxy-ca:/ca-export
+      - type: bind
+        source: ${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}
+        target: /run/secrets/agentbox
+        read_only: true
+        bind:
+          create_host_path: false
     healthcheck:
       test: [ "CMD", "nc", "-z", "localhost", "8080" ]
       interval: 5s
@@ -32,9 +39,18 @@ services:
       - SETGID
     volumes:
       # Project workspace
-      - ../..:/workspace
+      - type: bind
+        source: ../..
+        target: /workspace
+        bind:
+          create_host_path: false
       # Read-only policy directory
-      - ..:/workspace/.agent-sandbox:ro
+      - type: bind
+        source: ..
+        target: /workspace/.agent-sandbox
+        read_only: true
+        bind:
+          create_host_path: false
       # Proxy CA certificate (public cert only, no private key)
       - proxy-ca:/etc/mitmproxy:ro
     working_dir: /workspace
