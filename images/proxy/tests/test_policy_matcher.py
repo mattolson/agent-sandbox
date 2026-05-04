@@ -610,7 +610,7 @@ class PolicyMatcherTests(unittest.TestCase):
         self.assertEqual(decision.action, "blocked")
         self.assertEqual(decision.reason, "scheme_not_permitted")
 
-    def test_rule_injection_metadata_loads_without_changing_request_matching(self):
+    def test_rule_transform_request_metadata_loads_without_changing_request_matching(self):
         matcher = self.matcher_from_domains(
             [
                 {
@@ -620,14 +620,16 @@ class PolicyMatcherTests(unittest.TestCase):
                             "schemes": ["https"],
                             "methods": ["POST"],
                             "path": {"exact": "/v1/responses"},
-                            "inject": {
-                                "headers": {
-                                    "Authorization": {
-                                        "secret": "openai-api-token",
-                                        "transform": {"type": "bearer"},
+                            "transform": {
+                                "request": {
+                                    "headers": {
+                                        "Authorization": {
+                                            "secret": "openai-api-token",
+                                            "transform": {"type": "bearer"},
+                                        },
                                     },
+                                    "on_existing_header": "fail",
                                 },
-                                "on_existing_header": "fail",
                             },
                         }
                     ],
@@ -636,11 +638,11 @@ class PolicyMatcherTests(unittest.TestCase):
         )
 
         rule = matcher.host_records[0].rules[0]
-        self.assertEqual(rule.injection.on_existing_header, "fail")
-        self.assertEqual(len(rule.injection.headers), 1)
-        self.assertEqual(rule.injection.headers[0].name, "Authorization")
-        self.assertEqual(rule.injection.headers[0].secret, "openai-api-token")
-        self.assertEqual(rule.injection.headers[0].transform_type, "bearer")
+        self.assertEqual(rule.transform.request.on_existing_header, "fail")
+        self.assertEqual(len(rule.transform.request.headers), 1)
+        self.assertEqual(rule.transform.request.headers[0].name, "Authorization")
+        self.assertEqual(rule.transform.request.headers[0].secret, "openai-api-token")
+        self.assertEqual(rule.transform.request.headers[0].transform_type, "bearer")
 
         allowed = matcher.evaluate_request(
             "api.openai.com",
@@ -659,7 +661,7 @@ class PolicyMatcherTests(unittest.TestCase):
         self.assertEqual(blocked.action, "blocked")
         self.assertEqual(blocked.reason, "no_rule_matched")
 
-    def test_rule_injection_metadata_does_not_change_connect_fast_path(self):
+    def test_rule_transform_request_metadata_does_not_change_connect_fast_path(self):
         matcher = self.matcher_from_domains(
             [
                 {
@@ -667,14 +669,16 @@ class PolicyMatcherTests(unittest.TestCase):
                     "rules": [
                         {
                             "schemes": ["https"],
-                            "inject": {
-                                "headers": {
-                                    "Authorization": {
-                                        "secret": "openai-api-token",
-                                        "transform": {"type": "bearer"},
+                            "transform": {
+                                "request": {
+                                    "headers": {
+                                        "Authorization": {
+                                            "secret": "openai-api-token",
+                                            "transform": {"type": "bearer"},
+                                        },
                                     },
+                                    "on_existing_header": "fail",
                                 },
-                                "on_existing_header": "fail",
                             },
                         }
                     ],
@@ -789,19 +793,20 @@ services:
         self.assertEqual(push_data.action, "blocked")
         self.assertEqual(push_data.reason, "no_rule_matched")
 
-    def test_rendered_explicit_injection_metadata_loads_without_changing_matching(self):
+    def test_rendered_explicit_transform_request_metadata_loads_without_changing_matching(self):
         matcher = self._matcher_from_rendered(
             """
 domains:
   - host: github.com
-    inject:
-      on_existing_header: replace
-      headers:
-        Authorization:
-          secret: github.agent-sandbox.push-token
-          transform:
-            type: basic
-            username: x-access-token
+    transform:
+      request:
+        on_existing_header: replace
+        headers:
+          Authorization:
+            secret: github.agent-sandbox.push-token
+            transform:
+              type: basic
+              username: x-access-token
     rules:
       - schemes: [https]
         methods: [POST]
@@ -811,13 +816,13 @@ domains:
         )
 
         rule = matcher.host_records[0].rules[0]
-        self.assertEqual(rule.injection.on_existing_header, "replace")
+        self.assertEqual(rule.transform.request.on_existing_header, "replace")
         self.assertEqual(
-            rule.injection.headers[0].secret,
+            rule.transform.request.headers[0].secret,
             "github.agent-sandbox.push-token",
         )
-        self.assertEqual(rule.injection.headers[0].transform_type, "basic")
-        self.assertEqual(rule.injection.headers[0].username, "x-access-token")
+        self.assertEqual(rule.transform.request.headers[0].transform_type, "basic")
+        self.assertEqual(rule.transform.request.headers[0].username, "x-access-token")
 
         allowed = matcher.evaluate_request(
             "github.com",

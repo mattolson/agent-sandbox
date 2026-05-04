@@ -1,5 +1,18 @@
 # Execution Log: m15.1 - Policy Injection Schema
 
+## 2026-05-03 16:06 UTC - Authored surface generalized to transforms
+
+Replaced the explicit domain authoring surface from `domains[].inject` to `domains[].transform.request`, and changed the
+rendered rule metadata from `inject` to `transform`. `transform.response` is now reserved and non-empty response
+transforms are rejected until response mutation is implemented.
+
+**Decision:** Do not carry `inject` as an alias. The schema has not shipped, and keeping two spellings would create
+avoidable compatibility and documentation burden.
+
+**Decision:** Keep the secret-to-header-value helper key named `transform` under each header. The outer
+`transform.request` names the policy mutation namespace; the inner header `transform` names the value construction
+strategy (`basic` or `bearer`).
+
 ## 2026-05-03 03:36 UTC - Implemented rule-scoped injection schema
 
 Added shared injection schema helpers, renderer support for `domains[].inject`, matcher runtime metadata loading, and
