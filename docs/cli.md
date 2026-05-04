@@ -161,13 +161,43 @@ Displays the current version metadata for `agentbox`.
 
 Generates shell completion scripts for supported shells.
 
+## Proxy Secret Directory
+
+Managed compose stacks mount the host secret directory read-only into the `proxy` service at
+`/run/secrets/agentbox`. The `agent` service does not receive this mount.
+
+The host source defaults to:
+
+```bash
+${HOME}/.config/agent-sandbox/secrets
+```
+
+Override it with `AGENTBOX_SECRET_DIR` when generating or running the compose stack. Keep this directory outside the
+project workspace and outside any path mounted into the agent. A custom path inside the repo is not proxy-only because
+the repo itself is mounted into the agent at `/workspace`.
+
+Create the directory before starting the runtime:
+
+```bash
+mkdir -p "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
+chmod 700 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
+```
+
+Store each file-backed secret as a raw secret value below that directory. Use restrictive file permissions such as
+`0600` for individual secret files.
+
+Agentbox-managed bind mounts set `bind.create_host_path: false`. If the secret directory is missing, Docker Compose
+fails startup instead of silently creating an empty host path. Create the directory explicitly, then rerun the command.
+
 ## Environment Variables
 
-These override defaults during compose generation. Optional mounts default to `false`. In layered CLI mode they are
-written into user-owned override scaffolds instead of managed files. In devcontainer mode they are written into
-`.agent-sandbox/compose/user.override.yml` and `.agent-sandbox/compose/user.agent.<agent>.override.yml` when those
-files are first scaffolded.
+These affect compose generation or runtime compose interpolation. Optional mounts default to `false`. In layered CLI
+mode they are written into user-owned override scaffolds instead of managed files. In devcontainer mode they are
+written into `.agent-sandbox/compose/user.override.yml` and
+`.agent-sandbox/compose/user.agent.<agent>.override.yml` when those files are first scaffolded.
 
+- `AGENTBOX_SECRET_DIR` - host directory mounted read-only into the proxy as `/run/secrets/agentbox`; defaults to
+  `${HOME}/.config/agent-sandbox/secrets`
 - `AGENTBOX_PROXY_IMAGE` - Docker image for proxy service
 - `AGENTBOX_AGENT_IMAGE` - Docker image for the active agent service during init
 - `AGENTBOX_MOUNT_CLAUDE_CONFIG` - `true` to mount host `~/.claude` config (Claude only)

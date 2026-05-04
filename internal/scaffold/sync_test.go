@@ -45,22 +45,24 @@ func TestEnsureCLIAgentRuntimeFilesCreatesMissingFilesAndPersistsState(t *testin
 	}
 
 	base := readCompose(t, runtime.CLIBaseComposeFile(repoRoot))
-	assertContains(t, base.Services.Proxy.Volumes, "../policy/user.policy.yaml:/etc/agent-sandbox/policy/user.policy.yaml:ro")
+	assertContainsManagedBind(t, base.Services.Proxy.Volumes, sharedPolicyMountSource, sharedPolicyMountTarget, true)
+	assertProxySecretRuntime(t, base.Services.Proxy)
 
 	agent := readCompose(t, runtime.CLIAgentComposeFile(repoRoot, "claude"))
 	if agent.Services.Agent.Image != "ghcr.io/mattolson/agent-sandbox-claude@sha256:abc123" {
 		t.Fatalf("unexpected agent image: %q", agent.Services.Agent.Image)
 	}
-	assertContains(t, agent.Services.Proxy.Volumes, "../policy/user.agent.claude.policy.yaml:/etc/agent-sandbox/policy/user.agent.policy.yaml:ro")
+	assertContainsManagedBind(t, agent.Services.Proxy.Volumes, "../policy/user.agent.claude.policy.yaml", "/etc/agent-sandbox/policy/user.agent.policy.yaml", true)
 	assertContains(t, agent.Services.Proxy.Environment, "AGENTBOX_ACTIVE_AGENT=claude")
+	assertNoProxySecretRuntime(t, agent.Services.Agent)
 
 	sharedOverride := readCompose(t, runtime.CLIUserOverrideFile(repoRoot))
-	assertContains(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro`)
-	assertContains(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro`)
+	assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro`)
+	assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro`)
 
 	agentOverride := readCompose(t, runtime.CLIUserAgentOverrideFile(repoRoot, "claude"))
-	assertContains(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro`)
-	assertContains(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro`)
+	assertContainsVolumeString(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro`)
+	assertContainsVolumeString(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro`)
 
 	assertFileExists(t, runtime.SharedPolicyFile(repoRoot))
 	assertFileExists(t, runtime.UserAgentPolicyFile(repoRoot, "claude"))
@@ -83,7 +85,7 @@ func TestEnsureSharedRuntimeConfigHelpersCreateExpectedFiles(t *testing.T) {
 	}
 
 	sharedOverride := readCompose(t, runtime.CLIUserOverrideFile(repoRoot))
-	assertContains(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro`)
+	assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro`)
 	assertFileExists(t, runtime.SharedPolicyFile(repoRoot))
 	assertFileExists(t, runtime.UserAgentPolicyFile(repoRoot, "claude"))
 }
@@ -131,11 +133,12 @@ func TestEnsureDevcontainerRuntimeFilesRepairsMissingMetadataAndPersistsState(t 
 	if base.Name != wantProjectName {
 		t.Fatalf("unexpected base project name: %q", base.Name)
 	}
-	assertContains(t, base.Services.Proxy.Volumes, "../policy/user.policy.yaml:/etc/agent-sandbox/policy/user.policy.yaml:ro")
+	assertContainsManagedBind(t, base.Services.Proxy.Volumes, sharedPolicyMountSource, sharedPolicyMountTarget, true)
+	assertProxySecretRuntime(t, base.Services.Proxy)
 
 	agent := readCompose(t, runtime.CLIAgentComposeFile(repoRoot, "codex"))
-	assertContains(t, agent.Services.Proxy.Volumes, "../policy/user.agent.codex.policy.yaml:/etc/agent-sandbox/policy/user.agent.policy.yaml:ro")
-	assertNotContains(t, agent.Services.Proxy.Volumes, "../policy-cli-codex.yaml:/etc/mitmproxy/policy.yaml:ro")
+	assertContainsManagedBind(t, agent.Services.Proxy.Volumes, "../policy/user.agent.codex.policy.yaml", "/etc/agent-sandbox/policy/user.agent.policy.yaml", true)
+	assertNotContainsVolumeString(t, agent.Services.Proxy.Volumes, "../policy-cli-codex.yaml:/etc/mitmproxy/policy.yaml:ro")
 	assertContains(t, agent.Services.Proxy.Environment, "AGENTBOX_ACTIVE_AGENT=codex")
 
 	modeFile := readCompose(t, runtime.CLIDevcontainerModeComposeFile(repoRoot))

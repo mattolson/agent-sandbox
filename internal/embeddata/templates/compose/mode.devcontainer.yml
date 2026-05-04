@@ -4,7 +4,17 @@
 services:
   proxy:
     volumes:
-      - ../policy/policy.devcontainer.yaml:/etc/agent-sandbox/policy/devcontainer.policy.yaml:ro
+      - type: bind
+        source: ../policy/policy.devcontainer.yaml
+        target: /etc/agent-sandbox/policy/devcontainer.policy.yaml
+        read_only: true
+        bind:
+          create_host_path: false
   agent:
     volumes:
-      - ../../.devcontainer:/workspace/.devcontainer:ro
+      - type: bind
+        source: ../../.devcontainer
+        target: /workspace/.devcontainer
+        read_only: true
+        bind:
+          create_host_path: false

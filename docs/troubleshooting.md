@@ -42,6 +42,21 @@ and whether that directory is on your `PATH`.
 If you previously used a shell alias that pointed `agentbox` at the retired Docker CLI image, remove that alias before
 retrying the binary install.
 
+## Proxy fails because the secret directory is missing
+
+Agentbox mounts `${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}` read-only into the proxy. Managed
+compose files set `bind.create_host_path: false`, so Docker Compose fails instead of silently creating a missing
+directory.
+
+The error usually mentions that the bind source path does not exist or that the bind mount is invalid.
+
+Create the directory on the host, keep it outside the project workspace, and retry:
+
+```bash
+mkdir -p "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
+chmod 700 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
+```
+
 ## Policy reload rejected
 
 `agentbox proxy reload` triggers a hot reload of the proxy policy. If the rendered policy is invalid the
