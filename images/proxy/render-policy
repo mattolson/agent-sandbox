@@ -121,16 +121,16 @@ def make_catch_all_rule():
     return {"schemes": list(DEFAULT_RULE_SCHEMES)}
 
 
-def apply_rule_injection(rules, injection):
-    if injection is None:
+def apply_rule_transform(rules, transform):
+    if transform is None:
         return rules
 
-    injected_rules = []
+    transformed_rules = []
     for rule in rules:
-        injected_rule = dict(rule)
-        injected_rule["inject"] = injection
-        injected_rules.append(injected_rule)
-    return injected_rules
+        transformed_rule = dict(rule)
+        transformed_rule["transform"] = transform
+        transformed_rules.append(transformed_rule)
+    return transformed_rules
 
 
 def normalize_merge_mode(value, context):
@@ -384,7 +384,7 @@ def normalize_domain_entry(entry, context):
             f"got {type(entry).__name__}: {entry!r}"
         )
 
-    supported_keys = {"host", "inject", "merge_mode", "rules"}
+    supported_keys = {"host", "merge_mode", "rules", "transform"}
     unknown_keys = sorted(set(entry) - supported_keys)
     if unknown_keys:
         fail(f"{context} contains unsupported keys: {unknown_keys}")
@@ -399,15 +399,15 @@ def normalize_domain_entry(entry, context):
 
     host = normalize_host_pattern(entry["host"], f"{context}.host")
     merge_mode = normalize_merge_mode(entry.get("merge_mode", MISSING), context)
-    injection = None
-    if "inject" in entry:
-        injection = policy_injection.normalize_inject(
-            entry["inject"],
-            f"{context}.inject",
+    transform = None
+    if "transform" in entry:
+        transform = policy_injection.normalize_rule_transform(
+            entry["transform"],
+            f"{context}.transform",
             fail,
         )
     rules = normalize_rules(entry["rules"], context)
-    rules = apply_rule_injection(rules, injection)
+    rules = apply_rule_transform(rules, transform)
     return make_host_record(host, rules), merge_mode
 
 

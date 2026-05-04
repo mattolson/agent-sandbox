@@ -1,9 +1,9 @@
 """
-Validation helpers for rule-scoped proxy secret injection metadata.
+Validation helpers for rule-scoped proxy request/response transform metadata.
 
-Policy authors configure injection at higher-level authoring surfaces. The
-renderer stores the normalized form directly on emitted rules so matching and
-future request mutation can stay service-agnostic.
+Policy authors configure request transforms at higher-level authoring surfaces.
+The renderer stores the normalized form directly on emitted rules so matching
+and future request mutation can stay service-agnostic.
 """
 
 import re
@@ -91,7 +91,7 @@ def normalize_header_transform(value, context, fail):
     return {"type": "bearer"}
 
 
-def normalize_inject_header(value, context, fail):
+def normalize_request_header(value, context, fail):
     if not isinstance(value, dict):
         _fail(
             fail,
@@ -114,7 +114,7 @@ def normalize_inject_header(value, context, fail):
     }
 
 
-def normalize_inject_headers(value, context, fail):
+def normalize_request_headers(value, context, fail):
     if not isinstance(value, dict):
         _fail(
             fail,
@@ -136,7 +136,7 @@ def normalize_inject_headers(value, context, fail):
                 f"{normalized_names[header_key]!r} and {raw_name!r}",
             )
         normalized_names[header_key] = raw_name
-        normalized[header] = normalize_inject_header(
+        normalized[header] = normalize_request_header(
             value[raw_name],
             f"{context}.headers.{header}",
             fail,
@@ -156,7 +156,7 @@ def normalize_on_existing_header(value, context, fail):
     return action
 
 
-def normalize_inject(value, context, fail):
+def normalize_request_transform(value, context, fail):
     if not isinstance(value, dict):
         _fail(
             fail,
@@ -172,10 +172,51 @@ def normalize_inject(value, context, fail):
         _fail(fail, f"{context} must contain 'headers'")
 
     return {
-        "headers": normalize_inject_headers(value["headers"], context, fail),
+        "headers": normalize_request_headers(value["headers"], context, fail),
         "on_existing_header": normalize_on_existing_header(
             value.get("on_existing_header", "fail"),
             context,
+            fail,
+        ),
+    }
+
+
+def normalize_response_transform(value, context, fail):
+    if not isinstance(value, dict):
+        _fail(
+            fail,
+            f"{context} must be a YAML mapping, got "
+            f"{type(value).__name__}: {value!r}",
+        )
+
+    if value:
+        _fail(fail, f"{context} is not supported yet")
+
+    return None
+
+
+def normalize_rule_transform(value, context, fail):
+    if not isinstance(value, dict):
+        _fail(
+            fail,
+            f"{context} must be a YAML mapping, got "
+            f"{type(value).__name__}: {value!r}",
+        )
+
+    unknown_keys = sorted(set(value) - {"request", "response"})
+    if unknown_keys:
+        _fail(fail, f"{context} contains unsupported keys: {unknown_keys}")
+
+    if "response" in value:
+        normalize_response_transform(value["response"], f"{context}.response", fail)
+
+    if "request" not in value:
+        _fail(fail, f"{context} must contain 'request'")
+
+    return {
+        "request": normalize_request_transform(
+            value["request"],
+            f"{context}.request",
             fail,
         ),
     }

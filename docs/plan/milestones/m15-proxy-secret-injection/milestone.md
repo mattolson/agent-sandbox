@@ -66,9 +66,9 @@ The shim should follow these rules:
 
 - Agent-visible values must be deterministic placeholders such as `proxy-managed`, not real secrets.
 - The shim should be service-catalog-owned where possible. A service entry can imply the required agent-visible env or
-  config hints, and the catalog can emit those hints alongside the rule-scoped injection metadata.
-- If a client sends an auth header derived from a fake placeholder, the matching injection rule must explicitly opt into
-  `on_existing_header: replace`. The default remains `fail`.
+  config hints, and the catalog can emit those hints alongside the rule-scoped transform metadata.
+- If a client sends an auth header derived from a fake placeholder, the matching request transform rule must explicitly
+  opt into `on_existing_header: replace`. The default remains `fail`.
 - The primary GitHub smart-HTTP Git flow should still work through direct header injection without requiring fake
   credentials in Git config or a credential store.
 - The shim is not a general placeholder-substitution system. Do not add request-body replacement, URL/query replacement,
@@ -82,21 +82,24 @@ similar configuration. It is a compatibility bridge, not a second credential pat
 m15 should support two authoring layers that compile into one internal representation:
 
 1. A full explicit schema on `domains` entries.
-2. Service-specific shorthand that expands into the same domain/rule/injection representation.
+2. Service-specific shorthand that expands into the same domain/rule transform representation.
 
-For explicit `domains` entries, `inject` should be authored as a peer to `host` and `rules`:
+For explicit `domains` entries, `transform` should be authored as a peer to `host` and `rules`. In m15, only
+`transform.request.headers` is implemented. `transform.response` is reserved for future response mutation and should be
+rejected if non-empty until a task explicitly implements it.
 
 ```yaml
 domains:
   - host: github.com
-    inject:
-      headers:
-        Authorization:
-          secret: github.agent-sandbox.push-token
-          transform:
-            type: basic
-            username: x-access-token
-      on_existing_header: fail
+    transform:
+      request:
+        headers:
+          Authorization:
+            secret: github.agent-sandbox.push-token
+            transform:
+              type: basic
+              username: x-access-token
+        on_existing_header: fail
     rules:
       - schemes: [https]
         methods: [GET, HEAD]
@@ -111,9 +114,9 @@ domains:
           exact: /owner/repo.git/git-receive-pack
 ```
 
-Although `inject` is authored at the domain entry level, rendering should associate it with that entry's emitted rules,
-not with the host globally. Host-record merging must not broaden an injected credential from one authored entry onto
-unrelated rules for the same host.
+Although `transform` is authored at the domain entry level, rendering should associate it with that entry's emitted
+rules, not with the host globally. Host-record merging must not broaden an injected credential from one authored entry
+onto unrelated rules for the same host.
 
 For GitHub service shorthand, policy authors should not need to know how to construct the full `Authorization` header.
 They should provide the repo, surface, access level, and logical secret reference:
@@ -146,7 +149,7 @@ rejected.
 The `m14` service catalog already owns semantic expansion for services such as GitHub. m15 should deepen that boundary
 instead of adding service-specific behavior to the matcher or enforcer.
 
-For secret injection, the catalog should own:
+For secret-backed transforms, the catalog should own:
 
 - service-entry validation for auth-related fields
 - expansion from service intent to canonical host/rule fragments
@@ -154,7 +157,7 @@ For secret injection, the catalog should own:
 - selection of default `on_existing_header` behavior when a compatibility shim requires replacement
 - any non-secret client compatibility hints needed by known service clients
 
-The matcher and enforcer should remain generic. They should consume rendered rule-scoped injection metadata and optional
+The matcher and enforcer should remain generic. They should consume rendered rule-scoped transform metadata and optional
 runtime shim metadata without knowing that a rule came from GitHub or any other service. Keep the catalog Python-backed
 for m15; revisit a declarative catalog file only if more services start sharing enough structure to justify the loader
 cost.
@@ -181,13 +184,14 @@ whitespace, shell metacharacters, and platform-specific path syntax.
 Example policy direction:
 
 ```yaml
-inject:
-  headers:
-    Authorization:
-      secret: github.agent-sandbox.push-token
-      transform:
-        type: basic
-        username: x-access-token
+transform:
+  request:
+    headers:
+      Authorization:
+        secret: github.agent-sandbox.push-token
+        transform:
+          type: basic
+          username: x-access-token
 ```
 
 The proxy resolves `github.agent-sandbox.push-token` through its configured secret source, applies the transform, and
@@ -269,30 +273,30 @@ Each task should map to one reviewable PR.
 
 ### m15.1-policy-injection-schema
 
-**Summary:** Extend the policy renderer schema so explicit `domains` entries can author `inject` as a peer to `host` and
-`rules`.
+**Summary:** Extend the policy renderer schema so explicit `domains` entries can author request header transforms as a
+peer to `host` and `rules`.
 
 **Scope:**
-- Validate `domains[].inject.headers` with logical secret IDs matching `[A-Za-z0-9._-]+`, `basic` and `bearer`
-  transforms, and `on_existing_header`
-- Render injection as rule-scoped metadata so host-record merging cannot broaden an injected credential to unrelated
-  rules
-- Define the canonical injection metadata shape and validation helpers so later service catalog auth can emit the same
+- Validate `domains[].transform.request.headers` with logical secret IDs matching `[A-Za-z0-9._-]+`, `basic` and
+  `bearer` transforms, and `on_existing_header`
+- Reserve `domains[].transform.response` and reject non-empty response transforms until response mutation is implemented
+- Render request transforms as rule-scoped metadata so host-record merging cannot broaden a credential to unrelated rules
+- Define the canonical transform metadata shape and validation helpers so later service catalog auth can emit the same
   representation
 - Keep rendered output redacted and free of secret values
-- Add the minimum matcher loader support needed for rendered policies containing injection metadata to load safely
+- Add the minimum matcher loader support needed for rendered policies containing transform metadata to load safely
 - Exclude file-backed secret loading, runtime request mutation, service catalog auth, and client compatibility shims
 
 **Acceptance Criteria:**
-- Renderer tests cover valid explicit injection rules, invalid secret IDs, invalid transforms, and invalid
-  `on_existing_header` values
-- Merge tests prove injected metadata stays attached only to the rules emitted by the authored entry
+- Renderer tests cover valid explicit request transform rules, invalid secret IDs, invalid transforms, invalid
+  `on_existing_header` values, and non-empty response transform rejection
+- Merge tests prove transform metadata stays attached only to the rules emitted by the authored entry
 - `agentbox policy config` / rendered policy output contains secret IDs but no secret values
-- The proxy matcher can load rendered rule-scoped injection metadata without applying it yet
+- The proxy matcher can load rendered rule-scoped transform metadata without applying it yet
 
 **Dependencies:** None
 
-**Risks:** The current canonical host-record merge path was built for allow rules. Injection metadata must not become a
+**Risks:** The current canonical host-record merge path was built for allow rules. Transform metadata must not become a
 host-wide side effect during dedupe or merge.
 
 ### m15.2-secret-source-and-transforms
@@ -346,7 +350,7 @@ agentbox-managed env var over clever Compose syntax.
 
 ### m15.4-enforcer-header-injection
 
-**Summary:** Inject configured headers at request time after a rule with injection metadata matches.
+**Summary:** Inject configured headers at request time after a rule with request transform metadata matches.
 
 **Scope:**
 - Resolve referenced secrets through the configured resolver
@@ -387,7 +391,7 @@ the upstream receives the header.
 **Acceptance Criteria:**
 - Catalog and renderer tests cover `access: read`, `access: readwrite`, deprecated `readonly`, mixed-field rejection,
   and auth-without-access rejection
-- Authenticated GitHub `git` service entries render the same rule-scoped injection shape as explicit `domains` entries
+- Authenticated GitHub `git` service entries render the same rule-scoped transform shape as explicit `domains` entries
 - Existing unauthenticated `readonly` policies remain valid
 - Catalog tests prove the emitted auth metadata is canonical and does not require GitHub-specific matcher behavior
 
@@ -446,7 +450,8 @@ assertions where they provide the same guarantee, and reserve live-container che
 **Summary:** Document the m15 credential model, GitHub Git workflow, schema additions, and explicit non-goals.
 
 **Scope:**
-- Update policy schema docs for explicit `domains[].inject`, secret IDs, transforms, and GitHub service shorthand
+- Update policy schema docs for explicit `domains[].transform.request`, secret IDs, transforms, and GitHub service
+  shorthand
 - Add examples for read-only and readwrite GitHub Git access with file-backed secrets
 - Document the client compatibility shim as fake setup values plus proxy-side replacement, not a second credential path
 - Document first-pass secret scope behavior and the future project/target scope direction
@@ -473,7 +478,7 @@ Recommended sequence:
 2. `m15.2-secret-source-and-transforms` and `m15.3-proxy-secret-mount` can proceed in parallel after the schema shape is
    stable enough to name the runtime secret source.
 3. `m15.4-enforcer-header-injection` after `m15.1` and `m15.2`.
-4. `m15.5-service-catalog-auth` after `m15.1`; it can proceed in parallel with `m15.4` if the rule-scoped injection IR is
+4. `m15.5-service-catalog-auth` after `m15.1`; it can proceed in parallel with `m15.4` if the rule-scoped transform IR is
    settled.
 5. `m15.6-client-compatibility-shim` after the catalog auth shape and runtime mount surfaces are settled.
 6. `m15.7-integration-and-boundary-tests` after `m15.3`, `m15.4`, `m15.5`, and `m15.6`.
@@ -503,7 +508,8 @@ GitHub Git path unless the chosen first shim target becomes part of the release 
 - A repo-scoped GitHub HTTPS Git push can work without storing a GitHub token in the agent container
 - Secret values are stored under `~/.config/agent-sandbox/secrets`, mounted into the proxy only, and not readable by the agent container
 - Policy references logical secret IDs rather than file paths, preserving a future macOS Keychain backend path
-- Explicit `domains` injection and service catalog auth shorthand both render to the same rule-scoped injection model
+- Explicit `domains` request transforms and service catalog auth shorthand both render to the same rule-scoped transform
+  model
 - At least one compatibility-shim path can provide fake agent-visible setup values while the proxy injects the real
   credential
 - Rendered policy, logs, and errors show secret IDs or redacted markers only

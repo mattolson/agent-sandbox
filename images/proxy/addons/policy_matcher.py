@@ -86,9 +86,14 @@ class HeaderInjection:
 
 
 @dataclass(frozen=True)
-class RuleInjection:
+class RequestTransform:
     headers: tuple[HeaderInjection, ...]
     on_existing_header: str
+
+
+@dataclass(frozen=True)
+class RuleTransform:
+    request: RequestTransform | None = None
 
 
 @dataclass(frozen=True)
@@ -98,7 +103,7 @@ class RuntimeRule:
     path_exact: str | None = None
     path_prefix: str | None = None
     query_exact: tuple[tuple[str, tuple[str, ...]], ...] | None = None
-    injection: RuleInjection | None = None
+    transform: RuleTransform | None = None
 
     def matches_scheme(self, scheme):
         return scheme.lower() in self.schemes
@@ -314,7 +319,7 @@ class PolicyMatcher:
                 f"{context} must be a YAML mapping, got {type(rule).__name__}: {rule!r}"
             )
 
-        supported_keys = {"schemes", "methods", "path", "query", "inject"}
+        supported_keys = {"schemes", "methods", "path", "query", "transform"}
         unknown_keys = sorted(set(rule) - supported_keys)
         if unknown_keys:
             raise PolicyError(f"{context} contains unsupported keys: {unknown_keys}")
@@ -432,11 +437,11 @@ class PolicyMatcher:
                 for name, values in sorted(normalized_items.items())
             )
 
-        injection = None
-        if "inject" in rule:
-            injection = PolicyMatcher._compile_rule_injection(
-                rule["inject"],
-                f"{context}.inject",
+        transform = None
+        if "transform" in rule:
+            transform = PolicyMatcher._compile_rule_transform(
+                rule["transform"],
+                f"{context}.transform",
             )
 
         return RuntimeRule(
@@ -445,14 +450,19 @@ class PolicyMatcher:
             path_exact=path_exact,
             path_prefix=path_prefix,
             query_exact=query_exact,
-            injection=injection,
+            transform=transform,
         )
 
     @staticmethod
-    def _compile_rule_injection(value, context):
-        normalized = policy_injection.normalize_inject(value, context, _fail_policy)
+    def _compile_rule_transform(value, context):
+        normalized = policy_injection.normalize_rule_transform(
+            value,
+            context,
+            _fail_policy,
+        )
+        request = normalized["request"]
         headers = []
-        for name, header in normalized["headers"].items():
+        for name, header in request["headers"].items():
             transform = header["transform"]
             headers.append(
                 HeaderInjection(
@@ -462,9 +472,11 @@ class PolicyMatcher:
                     username=transform.get("username"),
                 )
             )
-        return RuleInjection(
-            headers=tuple(headers),
-            on_existing_header=normalized["on_existing_header"],
+        return RuleTransform(
+            request=RequestTransform(
+                headers=tuple(headers),
+                on_existing_header=request["on_existing_header"],
+            ),
         )
 
     @staticmethod
