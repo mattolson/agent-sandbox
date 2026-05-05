@@ -50,6 +50,10 @@ Lessons learned during project execution. Review at the start of each planning s
   options such as `bind.create_host_path: false` require long syntax, while named volumes are still simplest as strings
 - Compose `--no-interpolate` preserves authored variable expressions but can produce misleading normalized paths for
   nested default expressions; validate generated YAML separately from runtime semantic `compose config` checks
+- Proxy rules with request transforms must force request inspection at CONNECT time for HTTPS, even if the rule has no
+  method/path/query constraints; otherwise the proxy can allow a tunnel before it sees headers to mutate
+- Request-time header injection should stage all rendered header values before mutating the flow, so a later secret
+  resolution or transform failure blocks without leaving a partially mutated request
 
 ## Architecture
 

@@ -1,6 +1,8 @@
 import asyncio
+import base64
 import importlib.util
 import io
+import json
 import os
 import signal
 import sys
@@ -32,17 +34,24 @@ def load_enforcer_module():
 
 
 class FakeRequest:
-    def __init__(self, host, scheme="http", method="GET", path="/"):
+    def __init__(self, host, scheme="http", method="GET", path="/", headers=None):
         self.host = host
         self.scheme = scheme
         self.method = method
         self.path = path
+        self.headers = dict(headers or {})
         self.stream = False
 
 
 class FakeFlow:
-    def __init__(self, host, scheme="http", method="GET", path="/"):
-        self.request = FakeRequest(host, scheme=scheme, method=method, path=path)
+    def __init__(self, host, scheme="http", method="GET", path="/", headers=None):
+        self.request = FakeRequest(
+            host,
+            scheme=scheme,
+            method=method,
+            path=path,
+            headers=headers,
+        )
         self.response = None
         self.error = None
         self.metadata = {}
@@ -72,6 +81,54 @@ class PolicyEnforcerTests(unittest.TestCase):
 
     def matcher_from_domains(self, domains):
         return self.enforcer_module.PolicyMatcher.from_policy_data({"domains": domains})
+
+    def secret_resolver_factory(self, secrets):
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        root = Path(tempdir.name)
+        for name, value in secrets.items():
+            (root / name).write_text(value, encoding="utf-8")
+        return lambda: self.enforcer_module.SecretResolver.from_source(f"file:{root}")
+
+    def transformed_domain(
+        self,
+        *,
+        transform_type="bearer",
+        username=None,
+        on_existing_header="fail",
+        methods=("GET",),
+        path="/v1/models",
+    ):
+        transform = {"type": transform_type}
+        if username is not None:
+            transform["username"] = username
+        return {
+            "host": "api.openai.com",
+            "rules": [
+                {
+                    "schemes": ["https"],
+                    "methods": list(methods),
+                    "path": {"exact": path},
+                    "transform": {
+                        "request": {
+                            "headers": {
+                                "Authorization": {
+                                    "secret": "openai-api-token",
+                                    "transform": transform,
+                                },
+                            },
+                            "on_existing_header": on_existing_header,
+                        },
+                    },
+                }
+            ],
+        }
+
+    def parse_events(self, stream):
+        events = []
+        for line in stream.getvalue().splitlines():
+            events.append(json.loads(line))
+        return events
 
     def test_enforce_mode_loads_policy_from_file_and_logs_source_path(self):
         logger_output = io.StringIO()
@@ -267,6 +324,243 @@ domains:
         self.assertIn('"reason": "request_rule_matched"', log_output)
         self.assertIn('"status": 200', log_output)
         self.assertIn('"path": "/v1/models"', log_output)
+
+    def test_request_injects_bearer_header_for_matching_rule(self):
+        logger_output = io.StringIO()
+        matcher = self.matcher_from_domains([self.transformed_domain()])
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(logger_output),
+            response_factory=self.make_response,
+            secret_resolver_factory=self.secret_resolver_factory(
+                {"openai-api-token": "sentinel-secret-token"}
+            ),
+        )
+        flow = FakeFlow("api.openai.com", scheme="https", method="GET", path="/v1/models")
+
+        enforcer.requestheaders(flow)
+
+        self.assertIsNone(flow.response)
+        self.assertEqual(
+            flow.request.headers["Authorization"],
+            "Bearer sentinel-secret-token",
+        )
+        log_output = logger_output.getvalue()
+        self.assertIn('"type": "header_injection"', log_output)
+        self.assertIn('"secret": "openai-api-token"', log_output)
+        self.assertIn('"matched_rule_index": 0', log_output)
+        self.assertNotIn("sentinel-secret-token", log_output)
+        self.assertNotIn(
+            "sentinel-secret-token",
+            json.dumps(flow.metadata, sort_keys=True),
+        )
+
+    def test_request_injects_basic_header_for_matching_rule(self):
+        matcher = self.matcher_from_domains(
+            [
+                self.transformed_domain(
+                    transform_type="basic",
+                    username="x-access-token",
+                )
+            ]
+        )
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(io.StringIO()),
+            response_factory=self.make_response,
+            secret_resolver_factory=self.secret_resolver_factory(
+                {"openai-api-token": "github-token"}
+            ),
+        )
+        flow = FakeFlow("api.openai.com", scheme="https", method="GET", path="/v1/models")
+
+        enforcer.request(flow)
+
+        encoded = base64.b64encode(b"x-access-token:github-token").decode("ascii")
+        self.assertEqual(flow.request.headers["Authorization"], f"Basic {encoded}")
+
+    def test_unmatched_request_does_not_inject_or_construct_resolver(self):
+        def unexpected_resolver():
+            raise AssertionError("resolver should not be constructed")
+
+        logger_output = io.StringIO()
+        matcher = self.matcher_from_domains([self.transformed_domain(methods=("POST",))])
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(logger_output),
+            response_factory=self.make_response,
+            secret_resolver_factory=unexpected_resolver,
+        )
+        flow = FakeFlow("api.openai.com", scheme="https", method="GET", path="/v1/models")
+
+        enforcer.request(flow)
+
+        self.assertIsNotNone(flow.response)
+        self.assertNotIn("Authorization", flow.request.headers)
+        self.assertIn('"reason": "no_rule_matched"', logger_output.getvalue())
+
+    def test_untransformed_rule_does_not_require_secret_source(self):
+        def unexpected_resolver():
+            raise AssertionError("resolver should not be constructed")
+
+        matcher = self.matcher_from_domains(
+            [
+                {
+                    "host": "api.openai.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "methods": ["GET"],
+                            "path": {"exact": "/v1/models"},
+                        }
+                    ],
+                }
+            ]
+        )
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(io.StringIO()),
+            response_factory=self.make_response,
+            secret_resolver_factory=unexpected_resolver,
+        )
+        flow = FakeFlow("api.openai.com", scheme="https", method="GET", path="/v1/models")
+
+        enforcer.request(flow)
+
+        self.assertIsNone(flow.response)
+        self.assertNotIn("Authorization", flow.request.headers)
+
+    def test_existing_header_fails_closed_by_default_without_resolving_secret(self):
+        def unexpected_resolver():
+            raise AssertionError("resolver should not be constructed")
+
+        logger_output = io.StringIO()
+        matcher = self.matcher_from_domains([self.transformed_domain()])
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(logger_output),
+            response_factory=self.make_response,
+            secret_resolver_factory=unexpected_resolver,
+        )
+        flow = FakeFlow(
+            "api.openai.com",
+            scheme="https",
+            method="GET",
+            path="/v1/models",
+            headers={"authorization": "user-supplied"},
+        )
+
+        enforcer.requestheaders(flow)
+
+        self.assertIsNotNone(flow.response)
+        self.assertEqual(flow.response.status_code, 403)
+        self.assertEqual(flow.request.headers["authorization"], "user-supplied")
+        log_output = logger_output.getvalue()
+        self.assertIn('"reason": "header_injection_failed"', log_output)
+        self.assertIn('"detail": "existing_header_present"', log_output)
+        self.assertIn('"header": "Authorization"', log_output)
+
+    def test_existing_header_replace_overwrites_case_insensitively(self):
+        matcher = self.matcher_from_domains(
+            [self.transformed_domain(on_existing_header="replace")]
+        )
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(io.StringIO()),
+            response_factory=self.make_response,
+            secret_resolver_factory=self.secret_resolver_factory(
+                {"openai-api-token": "replacement-token"}
+            ),
+        )
+        flow = FakeFlow(
+            "api.openai.com",
+            scheme="https",
+            method="GET",
+            path="/v1/models",
+            headers={"authorization": "old-token"},
+        )
+
+        enforcer.request(flow)
+
+        self.assertIsNone(flow.response)
+        self.assertNotIn("authorization", flow.request.headers)
+        self.assertEqual(
+            flow.request.headers["Authorization"],
+            "Bearer replacement-token",
+        )
+
+    def test_missing_secret_source_fails_closed_for_matching_transform(self):
+        logger_output = io.StringIO()
+        matcher = self.matcher_from_domains([self.transformed_domain()])
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(logger_output),
+            response_factory=self.make_response,
+            secret_resolver_factory=lambda: self.enforcer_module.SecretResolver.from_env({}),
+        )
+        flow = FakeFlow("api.openai.com", scheme="https", method="GET", path="/v1/models")
+
+        enforcer.request(flow)
+
+        self.assertIsNotNone(flow.response)
+        log_output = logger_output.getvalue()
+        self.assertIn('"reason": "header_injection_failed"', log_output)
+        self.assertIn('"detail": "secret_resolver_unavailable"', log_output)
+        self.assertIn("AGENTBOX_SECRET_SOURCE", log_output)
+
+    def test_missing_secret_file_fails_closed_without_leaking_values(self):
+        logger_output = io.StringIO()
+        matcher = self.matcher_from_domains([self.transformed_domain()])
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(logger_output),
+            response_factory=self.make_response,
+            secret_resolver_factory=self.secret_resolver_factory({}),
+        )
+        flow = FakeFlow("api.openai.com", scheme="https", method="GET", path="/v1/models")
+
+        enforcer.requestheaders(flow)
+
+        self.assertIsNotNone(flow.response)
+        log_output = logger_output.getvalue()
+        self.assertIn('"detail": "secret_resolution_failed"', log_output)
+        self.assertIn('"secret": "openai-api-token"', log_output)
+        self.assertNotIn("sentinel-secret-token", log_output)
+        self.assertNotIn("Authorization", flow.request.headers)
+
+    def test_requestheaders_and_request_do_not_inject_twice(self):
+        logger_output = io.StringIO()
+        matcher = self.matcher_from_domains(
+            [self.transformed_domain(on_existing_header="fail")]
+        )
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(logger_output),
+            response_factory=self.make_response,
+            secret_resolver_factory=self.secret_resolver_factory(
+                {"openai-api-token": "single-injection-token"}
+            ),
+        )
+        flow = FakeFlow("api.openai.com", scheme="https", method="GET", path="/v1/models")
+
+        enforcer.requestheaders(flow)
+        enforcer.request(flow)
+
+        self.assertIsNone(flow.response)
+        self.assertEqual(
+            flow.request.headers["Authorization"],
+            "Bearer single-injection-token",
+        )
+        self.assertEqual(logger_output.getvalue().count('"type": "header_injection"'), 1)
 
     def test_log_mode_never_blocks_requests(self):
         enforcer = self.enforcer_module.PolicyEnforcer(

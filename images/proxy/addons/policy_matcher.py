@@ -47,6 +47,12 @@ class PolicyDecision:
     matched_host: str | None = None
     method: str | None = None
     path: str | None = None
+    matched_rule_index: int | None = None
+    rule_transform: RuleTransform | None = None
+    detail: str | None = None
+    header: str | None = None
+    secret: str | None = None
+    error: str | None = None
 
     def is_blocked(self):
         return self.action == "blocked"
@@ -61,6 +67,11 @@ class PolicyDecision:
             "matched_host": self.matched_host,
             "method": self.method,
             "path": self.path,
+            "matched_rule_index": self.matched_rule_index,
+            "detail": self.detail,
+            "header": self.header,
+            "secret": self.secret,
+            "error": self.error,
         }
 
     @classmethod
@@ -74,6 +85,11 @@ class PolicyDecision:
             matched_host=data.get("matched_host"),
             method=data.get("method"),
             path=data.get("path"),
+            matched_rule_index=data.get("matched_rule_index"),
+            detail=data.get("detail"),
+            header=data.get("header"),
+            secret=data.get("secret"),
+            error=data.get("error"),
         )
 
 
@@ -114,6 +130,7 @@ class RuntimeRule:
             or self.path_exact is not None
             or self.path_prefix is not None
             or self.query_exact is not None
+            or self.transform is not None
         )
 
     def allows_connect_fast_path(self, scheme):
@@ -158,7 +175,14 @@ class HostRecord:
         return any(rule.matches_scheme(scheme) for rule in self.rules)
 
     def allows_connect_fast_path(self, scheme):
-        return any(rule.allows_connect_fast_path(scheme) for rule in self.rules)
+        has_fast_path_rule = any(
+            rule.allows_connect_fast_path(scheme) for rule in self.rules
+        )
+        has_inspected_rule = any(
+            rule.matches_scheme(scheme) and rule.needs_request_inspection()
+            for rule in self.rules
+        )
+        return has_fast_path_rule and not has_inspected_rule
 
 
 class PolicyMatcher:
@@ -572,7 +596,7 @@ class PolicyMatcher:
                 path=path,
             )
 
-        for rule in record.rules:
+        for rule_index, rule in enumerate(record.rules):
             if rule.matches_request(
                 normalized_scheme,
                 normalized_method,
@@ -588,6 +612,8 @@ class PolicyMatcher:
                     matched_host=record.host,
                     method=normalized_method,
                     path=path,
+                    matched_rule_index=rule_index,
+                    rule_transform=rule.transform,
                 )
 
         reason = "scheme_not_permitted"

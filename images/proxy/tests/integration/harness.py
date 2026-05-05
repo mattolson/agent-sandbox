@@ -117,7 +117,7 @@ class ProxyHarness:
             f"timed out waiting for event; last lines: {self.snapshot_lines()[-20:]}"
         )
 
-    def send_request(self, method, url, timeout=3.0, body=b""):
+    def send_request(self, method, url, timeout=3.0, body=b"", headers=None):
         """Forward an HTTP/1.1 request through the proxy using a raw socket.
 
         urllib honors `no_proxy` even when a ProxyHandler is explicit, which
@@ -127,17 +127,21 @@ class ProxyHarness:
         if isinstance(body, str):
             body = body.encode("utf-8")
         host_header = urlsplit(url).netloc
+        extra_headers = ""
+        for name, value in (headers or {}).items():
+            extra_headers += f"{name}: {value}\r\n"
         headers = (
             f"{method} {url} HTTP/1.1\r\n"
             f"Host: {host_header}\r\n"
+            f"{extra_headers}"
             f"Content-Length: {len(body)}\r\n"
             "Connection: close\r\n\r\n"
         )
         data = self._exchange(headers.encode("ascii") + body, timeout=timeout, read_all=True)
         return _parse_status_code(data), data
 
-    def send_get(self, url, timeout=3.0):
-        return self.send_request("GET", url, timeout=timeout)
+    def send_get(self, url, timeout=3.0, headers=None):
+        return self.send_request("GET", url, timeout=timeout, headers=headers)
 
     def send_connect(self, host, port=443, timeout=3.0):
         """Send CONNECT and return (status_code, status_line). The proxy's
@@ -195,7 +199,7 @@ def _parse_status_code(data):
     return int(parts[1]) if len(parts) >= 2 and parts[1].isdigit() else 0
 
 
-def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=()):
+def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_overrides=None):
     """Start mitmdump with the integration addon and return a ProxyHarness."""
     if MITMDUMP is None:
         raise RuntimeError("mitmdump not on PATH; cannot run integration harness")
@@ -213,6 +217,8 @@ def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=()):
     env["AGENTBOX_POLICY_SOURCE_PATH"] = str(policy_path)
     env["AGENTBOX_RENDER_POLICY_PATH"] = str(RENDER_POLICY_PATH)
     env.pop("AGENTBOX_ACTIVE_AGENT", None)
+    if env_overrides:
+        env.update(env_overrides)
 
     confdir = workdir / "mitmproxy"
     confdir.mkdir(parents=True, exist_ok=True)

@@ -37,11 +37,25 @@ ADDON_DIR = Path(__file__).resolve().parent
 if str(ADDON_DIR) not in sys.path:
     sys.path.insert(0, str(ADDON_DIR))
 
+PROXY_DIR = ADDON_DIR.parent
+PROXY_LIB_DIR = Path(
+    os.getenv("AGENTBOX_PROXY_LIB_DIR", "/usr/local/lib/agent-sandbox/proxy")
+)
+for module_path in reversed((PROXY_DIR, PROXY_LIB_DIR)):
+    module_path_text = str(module_path)
+    if module_path_text not in sys.path:
+        sys.path.insert(0, module_path_text)
+
 from policy_matcher import (  # noqa: E402
     DEFAULT_POLICY_PATH,
     PolicyDecision,
     PolicyError,
     PolicyMatcher,
+)
+from secret_resolver import (  # noqa: E402
+    SecretResolver,
+    SecretResolverError,
+    render_header_value,
 )
 
 try:
@@ -105,12 +119,16 @@ class PolicyEnforcer:
         logger=None,
         response_factory=None,
         reload_renderer=None,
+        secret_resolver=None,
+        secret_resolver_factory=None,
     ):
         self.mode = mode or os.getenv("PROXY_MODE", "log")
         self.log_level = log_level or os.getenv("PROXY_LOG_LEVEL", "normal")
         self.logger = logger or JsonLogger(log_level=self.log_level)
         self.response_factory = response_factory
         self.reload_renderer = reload_renderer
+        self._secret_resolver = secret_resolver
+        self._secret_resolver_factory = secret_resolver_factory or SecretResolver.from_env
         self.matcher = None
         self.domain_records = []
         self.exact_host_count = 0
@@ -285,8 +303,187 @@ class PolicyEnforcer:
             entry["method"] = decision.method
         if decision.path is not None:
             entry["path"] = decision.path
+        if decision.matched_rule_index is not None:
+            entry["matched_rule_index"] = decision.matched_rule_index
+        if decision.detail is not None:
+            entry["detail"] = decision.detail
+        if decision.header is not None:
+            entry["header"] = decision.header
+        if decision.secret is not None:
+            entry["secret"] = decision.secret
+        if decision.error is not None:
+            entry["error"] = decision.error
 
         return entry
+
+    def _get_secret_resolver(self):
+        if self._secret_resolver is None:
+            self._secret_resolver = self._secret_resolver_factory()
+        return self._secret_resolver
+
+    def _header_transform_config(self, header):
+        transform = {"type": header.transform_type}
+        if header.transform_type == "basic":
+            transform["username"] = header.username
+        return transform
+
+    def _find_existing_header_name(self, headers, target_name):
+        target = target_name.lower()
+        try:
+            keys = headers.keys()
+        except AttributeError:
+            keys = []
+        for existing_name in keys:
+            if str(existing_name).lower() == target:
+                return existing_name
+
+        try:
+            if target_name in headers:
+                return target_name
+        except TypeError:
+            pass
+        return None
+
+    def _set_request_header(self, headers, name, value, existing_name=None):
+        if existing_name is not None and str(existing_name).lower() == name.lower():
+            try:
+                del headers[existing_name]
+            except KeyError:
+                pass
+        headers[name] = value
+
+    def _injection_failure_decision(
+        self,
+        decision,
+        detail,
+        header=None,
+        secret=None,
+        error=None,
+    ):
+        return PolicyDecision(
+            phase="request",
+            action="blocked",
+            reason="header_injection_failed",
+            host=decision.host,
+            scheme=decision.scheme,
+            matched_host=decision.matched_host,
+            method=decision.method,
+            path=decision.path,
+            matched_rule_index=decision.matched_rule_index,
+            detail=detail,
+            header=header,
+            secret=secret,
+            error=error,
+        )
+
+    def _header_injection_event(self, decision, headers, warnings):
+        entry = {
+            "ts": self.logger.timestamp(),
+            "type": "header_injection",
+            "action": "applied",
+            "host": decision.host,
+            "scheme": decision.scheme,
+            "headers": headers,
+        }
+        if decision.matched_host is not None:
+            entry["matched_host"] = decision.matched_host
+        if decision.method is not None:
+            entry["method"] = decision.method
+        if decision.path is not None:
+            entry["path"] = decision.path
+        if decision.matched_rule_index is not None:
+            entry["matched_rule_index"] = decision.matched_rule_index
+        if warnings:
+            entry["warnings"] = warnings
+        return entry
+
+    def _apply_request_transform(self, flow, decision):
+        rule_transform = decision.rule_transform
+        request_transform = (
+            rule_transform.request if rule_transform is not None else None
+        )
+        if request_transform is None:
+            return None
+
+        headers = getattr(flow.request, "headers", None)
+        if headers is None:
+            headers = {}
+            flow.request.headers = headers
+
+        existing_headers = []
+        for header in request_transform.headers:
+            existing_name = self._find_existing_header_name(headers, header.name)
+            if (
+                existing_name is not None
+                and request_transform.on_existing_header == "fail"
+            ):
+                return self._injection_failure_decision(
+                    decision,
+                    detail="existing_header_present",
+                    header=header.name,
+                    secret=header.secret,
+                )
+            existing_headers.append(existing_name)
+
+        try:
+            resolver = self._get_secret_resolver()
+        except SecretResolverError as error:
+            first_header = request_transform.headers[0]
+            return self._injection_failure_decision(
+                decision,
+                detail="secret_resolver_unavailable",
+                header=first_header.name,
+                secret=first_header.secret,
+                error=str(error),
+            )
+
+        staged_headers = []
+        injected = []
+        warnings = []
+        for header, existing_name in zip(request_transform.headers, existing_headers):
+            try:
+                resolution = resolver.resolve(header.secret)
+            except SecretResolverError as error:
+                return self._injection_failure_decision(
+                    decision,
+                    detail="secret_resolution_failed",
+                    header=header.name,
+                    secret=header.secret,
+                    error=str(error),
+                )
+
+            try:
+                rendered_value = render_header_value(
+                    resolution.value,
+                    self._header_transform_config(header),
+                )
+            except SecretResolverError as error:
+                return self._injection_failure_decision(
+                    decision,
+                    detail="transform_failed",
+                    header=header.name,
+                    secret=header.secret,
+                    error=str(error),
+                )
+
+            staged_headers.append((header.name, rendered_value, existing_name))
+            injected.append({
+                "name": header.name,
+                "secret": header.secret,
+                "transform": header.transform_type,
+            })
+            for warning in resolution.warnings:
+                warnings.append({
+                    "code": warning.code,
+                    "path": warning.path,
+                    "secret": header.secret,
+                })
+
+        for name, rendered_value, existing_name in staged_headers:
+            self._set_request_header(headers, name, rendered_value, existing_name)
+
+        self.logger.event(self._header_injection_event(decision, injected, warnings))
+        return None
 
     def http_connect(self, flow):
         """Handle HTTPS CONNECT - block disallowed hosts before tunnel established."""
@@ -320,6 +517,13 @@ class PolicyEnforcer:
         if decision.is_blocked():
             self.logger.event(self._decision_log_entry(decision))
             self._store_decision(flow, decision)
+            self._set_block_response(flow)
+            return
+
+        injection_failure = self._apply_request_transform(flow, decision)
+        if injection_failure is not None:
+            self.logger.event(self._decision_log_entry(injection_failure))
+            self._store_decision(flow, injection_failure)
             self._set_block_response(flow)
             return
 
