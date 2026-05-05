@@ -108,47 +108,57 @@ to be valid. A request matching a transform with a missing or invalid resolver s
 
 ### Implementation Steps
 
-- [ ] Extend `PolicyDecision` with request-match rule context needed for injection
-- [ ] Update `PolicyMatcher.evaluate_request()` to attach the matched rule index and transform metadata to allowed
+- [x] Extend `PolicyDecision` with request-match rule context needed for injection
+- [x] Update `PolicyMatcher.evaluate_request()` to attach the matched rule index and transform metadata to allowed
       request decisions
-- [ ] Ensure `PolicyDecision.to_metadata()` / `from_metadata()` remain redacted and do not store secret values
-- [ ] Add enforcer import/path handling for `secret_resolver.py` in both image and local test layouts
-- [ ] Add lazy resolver construction in `PolicyEnforcer`
-- [ ] Implement request-time injection for matched request transforms
-- [ ] Implement existing-header conflict handling for `fail` and `replace`
-- [ ] Fail closed for resolver source errors, missing secret files, invalid secret bytes, or transform rendering errors
-- [ ] Add redacted audit logging for successful injection, permission warnings, and injection failures
-- [ ] Add unit tests for successful bearer and basic injection
-- [ ] Add unit tests proving unmatched requests and untransformed rules do not inject headers or require a resolver
-- [ ] Add unit tests for existing-header fail and replace behavior, including case-insensitive header names
-- [ ] Add unit tests proving requestheaders/request double-hooking does not inject twice
-- [ ] Add unit tests proving secret values are absent from logs, errors, and stored decision metadata
-- [ ] Extend the integration harness to pass `AGENTBOX_SECRET_SOURCE` and custom request headers
-- [ ] Add real-proxy integration coverage for upstream-observed injection and blocked conflict behavior
-- [ ] Run `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
-- [ ] Run `go test ./...` as a repo-wide sanity check
+- [x] Ensure `PolicyDecision.to_metadata()` / `from_metadata()` remain redacted and do not store secret values
+- [x] Add enforcer import/path handling for `secret_resolver.py` in both image and local test layouts
+- [x] Add lazy resolver construction in `PolicyEnforcer`
+- [x] Implement request-time injection for matched request transforms
+- [x] Implement existing-header conflict handling for `fail` and `replace`
+- [x] Fail closed for resolver source errors, missing secret files, invalid secret bytes, or transform rendering errors
+- [x] Add redacted audit logging for successful injection, permission warnings, and injection failures
+- [x] Add unit tests for successful bearer and basic injection
+- [x] Add unit tests proving unmatched requests and untransformed rules do not inject headers or require a resolver
+- [x] Add unit tests for existing-header fail and replace behavior, including case-insensitive header names
+- [x] Add unit tests proving requestheaders/request double-hooking does not inject twice
+- [x] Add unit tests proving secret values are absent from logs, errors, and stored decision metadata
+- [x] Extend the integration harness to pass `AGENTBOX_SECRET_SOURCE` and custom request headers
+- [x] Add real-proxy integration coverage for upstream-observed injection and blocked conflict behavior
+- [x] Run `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
+- [x] Run `go test ./...` as a repo-wide sanity check
 
 ### Open Questions
 
-- Should missing or invalid `AGENTBOX_SECRET_SOURCE` fail proxy startup when a loaded policy contains transforms, or
-  fail closed only when a matching transformed request arrives? Recommended default: lazy request-time failure so
-  untransformed and unmatched traffic is not coupled to secret backend availability.
-- Should injection success be logged as a separate `type: "header_injection"` event, or folded into the normal allowed
-  request event? Recommended default: separate event for mutation details, while keeping the normal allowed/blocked
-  decision schema stable.
-- What exact blocked reason should be used for injection failures? Recommended default: `header_injection_failed` with
-  a redacted `detail` field such as `existing_header_present`, `secret_resolution_failed`, or `transform_failed`.
+- Resolved: missing or invalid `AGENTBOX_SECRET_SOURCE` fails closed only when a matching transformed request needs a
+  secret. Policies without matching transformed requests do not require a resolver.
+- Resolved: successful injection emits a separate `type: "header_injection"` event. The existing allowed/blocked
+  decision schema remains stable, with matched rule index added for request decisions.
+- Resolved: injection failures use `reason: "header_injection_failed"` with redacted `detail` values such as
+  `existing_header_present`, `secret_resolver_unavailable`, `secret_resolution_failed`, and `transform_failed`.
 
 ## Outcome
 
 ### Acceptance Verification
 
-Pending implementation.
+- [x] Proxy unit tests prove `bearer` and `basic` headers are injected only after matching transformed rules
+- [x] Unit tests prove unmatched requests and untransformed rules do not inject headers and do not require a resolver
+- [x] Existing-header behavior is covered for default `fail` and explicit `replace`, including case-insensitive names
+- [x] Unit and integration tests assert sentinel secret values do not appear in logs or stored decision metadata
+- [x] Real-proxy integration tests prove a fake upstream receives the injected header for a matched rule and receives
+      no request when an existing-header conflict blocks injection
+- [x] `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
+- [x] `go test ./...`
 
 ### Learnings
 
-Pending implementation.
+- Transformed HTTPS rules must force request inspection at CONNECT time. A CONNECT fast path would allow a tunnel before
+  the proxy sees the request headers it needs to mutate.
+- Request-time injection should stage rendered headers and apply them only after every secret has resolved. That keeps a
+  later failure from partially mutating a request that will be blocked.
 
 ### Follow-up Items
 
-Pending implementation.
+- `m15.6` can build the client compatibility shim on top of the now-active proxy injection path.
+- `m15.7` should include end-to-end compose/runtime coverage using the proxy secret mount from m15.3 and the request
+  mutation path from m15.4.

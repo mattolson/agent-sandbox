@@ -658,10 +658,15 @@ class PolicyMatcherTests(unittest.TestCase):
         )
 
         self.assertEqual(allowed.action, "allowed")
+        self.assertEqual(allowed.matched_rule_index, 0)
+        self.assertIs(allowed.rule_transform, rule.transform)
+        metadata = allowed.to_metadata()
+        self.assertEqual(metadata["matched_rule_index"], 0)
+        self.assertNotIn("rule_transform", metadata)
         self.assertEqual(blocked.action, "blocked")
         self.assertEqual(blocked.reason, "no_rule_matched")
 
-    def test_rule_transform_request_metadata_does_not_change_connect_fast_path(self):
+    def test_rule_transform_request_metadata_requires_connect_request_inspection(self):
         matcher = self.matcher_from_domains(
             [
                 {
@@ -689,7 +694,7 @@ class PolicyMatcherTests(unittest.TestCase):
         decision = matcher.evaluate_connect("api.openai.com")
 
         self.assertEqual(decision.action, "allowed")
-        self.assertEqual(decision.reason, "connect_fast_path")
+        self.assertEqual(decision.reason, "connect_inspect_request")
 
 
 class PolicyMatcherGithubServiceIntegrationTests(unittest.TestCase):
@@ -838,6 +843,8 @@ domains:
         )
 
         self.assertEqual(allowed.action, "allowed")
+        self.assertEqual(allowed.matched_rule_index, 0)
+        self.assertIsNotNone(allowed.rule_transform)
         self.assertEqual(blocked.action, "blocked")
         self.assertEqual(blocked.reason, "no_rule_matched")
 

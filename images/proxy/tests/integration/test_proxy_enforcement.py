@@ -12,8 +12,10 @@ pull it in.
 from __future__ import annotations
 
 import http.server
+import tempfile
 import threading
 import unittest
+from pathlib import Path
 
 import yaml
 
@@ -34,9 +36,14 @@ class _RecordingHTTPServer(http.server.ThreadingHTTPServer):
         self._requests = []
         self._requests_lock = threading.Lock()
 
-    def record_request(self, method, path, body):
+    def record_request(self, method, path, body, headers):
         with self._requests_lock:
-            self._requests.append((method, path, body))
+            self._requests.append({
+                "method": method,
+                "path": path,
+                "body": body,
+                "headers": headers,
+            })
 
     def snapshot_requests(self):
         with self._requests_lock:
@@ -47,7 +54,7 @@ class _UpstreamHandler(http.server.BaseHTTPRequestHandler):
     def _respond(self):
         length = int(self.headers.get("Content-Length", "0") or 0)
         body = self.rfile.read(length) if length else b""
-        self.server.record_request(self.command, self.path, body)
+        self.server.record_request(self.command, self.path, body, dict(self.headers.items()))
         self.send_response(200)
         self.send_header("Content-Type", "text/plain")
         self.send_header("Content-Length", "2")
@@ -151,6 +158,14 @@ class RequestPhaseTests(_ProxyTestCase):
         rule.update(rule_extra)
         return _yaml_policy([{"host": "127.0.0.1", "rules": [rule]}])
 
+    def _secret_source(self, secrets):
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        root = Path(tempdir.name)
+        for name, value in secrets.items():
+            (root / name).write_text(value, encoding="utf-8")
+        return f"file:{root}"
+
     def test_method_restriction_allows_get_and_blocks_post(self):
         harness = self.spawn(self._policy({"methods": ["GET"]}))
         status, _ = harness.send_get(self.upstream_url)
@@ -200,6 +215,85 @@ class RequestPhaseTests(_ProxyTestCase):
         self.assertEqual(status, 200)
         status, _ = harness.send_get(self.upstream_url + "search?version=v1")
         self.assertEqual(status, 403)
+
+    def test_header_injection_reaches_upstream_for_matched_rule(self):
+        secret_source = self._secret_source({"service-token": "integration-secret"})
+        harness = self.spawn(
+            self._policy(
+                {
+                    "methods": ["GET"],
+                    "path": {"exact": "/"},
+                    "transform": {
+                        "request": {
+                            "headers": {
+                                "Authorization": {
+                                    "secret": "service-token",
+                                    "transform": {"type": "bearer"},
+                                },
+                            },
+                            "on_existing_header": "fail",
+                        },
+                    },
+                }
+            ),
+            env_overrides={"AGENTBOX_SECRET_SOURCE": secret_source},
+        )
+
+        status, _ = harness.send_get(self.upstream_url)
+        self.assertEqual(status, 200)
+        requests = self.upstream_server.snapshot_requests()
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(
+            requests[0]["headers"].get("Authorization"),
+            "Bearer integration-secret",
+        )
+
+        status, _ = harness.send_request("POST", self.upstream_url)
+        self.assertEqual(status, 403)
+        self.assertEqual(len(self.upstream_server.snapshot_requests()), 1)
+        harness.wait_for_event(
+            lambda e: e.get("type") == "header_injection"
+            and e.get("action") == "applied"
+            and e.get("headers", [{}])[0].get("secret") == "service-token"
+        )
+        self.assertNotIn("integration-secret", "\n".join(harness.snapshot_lines()))
+
+    def test_header_injection_existing_header_conflict_blocks_before_upstream(self):
+        secret_source = self._secret_source({"service-token": "integration-secret"})
+        harness = self.spawn(
+            self._policy(
+                {
+                    "methods": ["GET"],
+                    "path": {"exact": "/"},
+                    "transform": {
+                        "request": {
+                            "headers": {
+                                "Authorization": {
+                                    "secret": "service-token",
+                                    "transform": {"type": "bearer"},
+                                },
+                            },
+                            "on_existing_header": "fail",
+                        },
+                    },
+                }
+            ),
+            env_overrides={"AGENTBOX_SECRET_SOURCE": secret_source},
+        )
+
+        status, _ = harness.send_get(
+            self.upstream_url,
+            headers={"Authorization": "Bearer user-supplied"},
+        )
+        self.assertEqual(status, 403)
+        self.assertEqual(self.upstream_server.snapshot_requests(), [])
+        event = harness.wait_for_event(
+            lambda e: e.get("phase") == "request"
+            and e.get("reason") == "header_injection_failed"
+        )
+        self.assertEqual(event.get("detail"), "existing_header_present")
+        self.assertEqual(event.get("secret"), "service-token")
+        self.assertNotIn("integration-secret", "\n".join(harness.snapshot_lines()))
 
 
 @unittest.skipUnless(mitmdump_available(), _skip_reason())
