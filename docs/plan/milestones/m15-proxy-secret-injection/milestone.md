@@ -119,30 +119,52 @@ rules, not with the host globally. Host-record merging must not broaden an injec
 onto unrelated rules for the same host.
 
 For GitHub service shorthand, policy authors should not need to know how to construct the full `Authorization` header.
-They should provide the repo, surface, access level, and logical secret reference:
+They should provide the repo plus surface-scoped access and auth settings:
 
 ```yaml
 services:
   - name: github
     repos:
       - owner/repo
-    surfaces: [git]
-    access: readwrite
-    auth:
-      secret: github.agent-sandbox.push-token
+    git:
+      access: readwrite
+      auth:
+        secret: github.agent-sandbox.push-token
 ```
 
 The GitHub catalog can then expand this to repo-scoped smart-HTTP rules with the correct injected header construction:
 `Authorization: Basic base64("x-access-token:<secret>")`.
 
-Write-capable GitHub auth should be explicit. Prefer `access: read` and `access: readwrite` over treating the existing
-`readonly: false` default as the write switch for secret-backed rules.
+Write-capable GitHub auth should be explicit. Prefer `git.access: read` and `git.access: readwrite` over treating the
+existing `readonly: false` default as the write switch for secret-backed rules.
 
-`access` should become the preferred spelling for GitHub repo-scoped service entries generally, not only for auth.
-`readonly` should remain as deprecated compatibility input for existing unauthenticated policies. The renderer should
-reject entries that specify both `access` and `readonly`, normalize `readonly: true` to `access: read`, and normalize
-`readonly: false` to `access: readwrite`. When `auth` is present, `access` must be explicit and `readonly` should be
-rejected.
+`git.access: read` may omit `git.auth` for public clone/fetch. `git.access: readwrite` must include `git.auth`; emitting
+push-capable Git smart-HTTP rules without a proxy-side credential path is not useful for GitHub and makes the policy
+claim less clear.
+
+Surface mappings should become the preferred spelling for GitHub repo-scoped service entries generally, not only for
+auth. For example, an entry that needs Git write access but API read access can say:
+
+```yaml
+services:
+  - name: github
+    repos:
+      - owner/repo
+    git:
+      access: readwrite
+      auth:
+        secret: github.agent-sandbox.push-token
+    api:
+      access: read
+```
+
+Do not support the earlier planned `surfaces` list for repo-scoped GitHub entries. It has not shipped, and the presence
+of a `git` or `api` mapping is the selector. The renderer should reject `surfaces`, repo-scoped `readonly`, top-level
+`access`, and top-level `auth` on repo-scoped GitHub entries. `git.auth` requires explicit `git.access`.
+
+There is no default surface for repo-scoped GitHub entries. If `repos` is present, the entry must include at least one of
+`git` or `api`; otherwise it should be rejected. If `repos` is absent, preserve the existing broad `name: github`
+behavior and do not allow `git` / `api` mappings.
 
 ### Service catalog boundary
 
@@ -373,32 +395,42 @@ the upstream receives the header.
 
 ### m15.5-service-catalog-auth
 
-**Summary:** Extend the service catalog boundary with auth-aware expansion, starting with GitHub `access` and
-`auth.secret` shorthand for repo-scoped Git smart HTTP.
+**Summary:** Extend the service catalog boundary with surface-scoped auth-aware expansion, starting with GitHub
+`git.access` and `git.auth.secret` shorthand for repo-scoped Git smart HTTP.
 
 **Scope:**
 - Keep auth semantics in the catalog and rendered rule metadata, not in the matcher or enforcer
-- Add `access: read | readwrite` as the preferred GitHub repo-scoped capability field
-- Keep `readonly` as deprecated compatibility input for unauthenticated GitHub repo-scoped entries
-- Reject entries that specify both `access` and `readonly`
-- Require explicit `access` when `auth` is present, and reject `auth` with deprecated `readonly`
-- Expand GitHub `auth.secret` into rule-scoped `Authorization` injection using Basic auth with username
+- Add surface-scoped `git.access: read | readwrite` as the preferred GitHub Git capability field
+- Add `git.auth.secret` as the GitHub Git token shorthand; do not support top-level `auth`
+- Allow an optional `api.access` surface shape for repo-scoped API rules, but keep API auth out of scope for this task
+- Require at least one of `git` or `api` when `repos` is present; do not infer a default repo-scoped surface
+- Preserve existing broad `name: github` behavior when `repos` is absent
+- Remove the unshipped repo-scoped `surfaces` field from the planned schema
+- Reject `surfaces`, repo-scoped `readonly`, top-level `access`, and top-level `auth` on GitHub repo-scoped entries
+- Allow `git.access: read` without `git.auth` for public clone/fetch
+- Require `git.auth` when `git.access: readwrite`
+- Require explicit `git.access` when `git.auth` is present
+- Expand GitHub `git.auth.secret` into rule-scoped `Authorization` injection using Basic auth with username
   `x-access-token`
 - Preserve a catalog extension point for service-owned compatibility hints, but do not materialize agent-visible shim
   config in this task
 - Exclude non-GitHub services and GitHub REST wrapper behavior
 
 **Acceptance Criteria:**
-- Catalog and renderer tests cover `access: read`, `access: readwrite`, deprecated `readonly`, mixed-field rejection,
-  and auth-without-access rejection
+- Catalog and renderer tests cover `git.access: read`, `git.access: readwrite`, optional `api.access`, rejected
+  `surfaces`, rejected repo-scoped `readonly`, and auth-without-access rejection
+- `git.access: read` without `git.auth` remains valid and emits unauthenticated upload-pack rules
+- `git.access: readwrite` without `git.auth` is rejected
+- GitHub entries with `repos` but neither `git` nor `api` are rejected
+- GitHub entries without `repos` preserve the existing broad service expansion and do not infer repo-scoped behavior
 - Authenticated GitHub `git` service entries render the same rule-scoped transform shape as explicit `domains` entries
-- Existing unauthenticated `readonly` policies remain valid
+- Repo-scoped GitHub entries select enabled behavior through `git` and `api` mappings only
 - Catalog tests prove the emitted auth metadata is canonical and does not require GitHub-specific matcher behavior
 
 **Dependencies:** m15.1
 
-**Risks:** This touches an existing service macro. Compatibility tests should cover current `readonly` behavior before
-adding the new spelling.
+**Risks:** This touches an existing service macro. Tests should prove unaffected simple-service behavior remains stable
+while the unshipped repo-scoped `surfaces` path is removed.
 
 ### m15.6-client-compatibility-shim
 
@@ -435,8 +467,9 @@ document when an agent restart or new shell is required.
 - Exclude live GitHub tests
 
 **Acceptance Criteria:**
-- Tests show private fetch/clone-style endpoints can receive auth for `access: read`
-- Tests show push-capable receive-pack endpoints require `access: readwrite`
+- Tests show private fetch/clone-style endpoints can receive auth for `git.access: read`
+- Tests show push-capable receive-pack endpoints require `git.access: readwrite`
+- Tests show public fetch/clone-style endpoints can be allowed by `git.access: read` without auth
 - Tests fail if the agent service gains access to the secret mount
 - Tests fail if compatibility shim output contains a resolved secret value
 
@@ -525,3 +558,25 @@ setup values paired with proxy-side real credential injection, and live policy u
 separate client compatibility shim task, expands the service catalog as the owner of service auth semantics, preserves
 room for future scoped secret storage, and limits m15 live updates to the existing policy reload path unless a later task
 intentionally widens that contract.
+
+### 2026-05-09: Switched GitHub auth shorthand to surface-scoped access
+
+The original m15.5 shorthand put `access` and `auth` beside `surfaces`, which made `auth` ambiguous when one entry
+covered both Git and API surfaces. The plan now prefers `git.access` plus `git.auth.secret`, allows optional
+`api.access`, and rejects top-level `auth`.
+
+### 2026-05-09: Removed unshipped `surfaces` syntax from M15.5
+
+Because repo-scoped GitHub `surfaces` has not shipped, the plan no longer carries it as deprecated compatibility input.
+The presence of `git` or `api` mappings selects the enabled behavior. Repo-scoped `surfaces`, `readonly`, top-level
+`access`, and top-level `auth` should be rejected.
+
+### 2026-05-09: Clarified Git read auth optionality and write auth requirement
+
+`git.access: read` may omit `git.auth` for public clone/fetch. `git.access: readwrite` must include `git.auth` because
+push-capable GitHub smart-HTTP rules without credentials are not useful and make the policy claim ambiguous.
+
+### 2026-05-09: Rejected repo-scoped GitHub defaults
+
+Repo-scoped GitHub entries do not infer a default surface. `repos` must be paired with at least one of `git` or `api`.
+When `repos` is absent, the existing broad `name: github` service behavior remains the default.
