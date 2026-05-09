@@ -728,12 +728,12 @@ class PolicyMatcherGithubServiceIntegrationTests(unittest.TestCase):
             """
 services:
   - name: github
-    readonly: true
     repos:
       - owner/repo
-    surfaces:
-      - api
-      - git
+    api:
+      access: read
+    git:
+      access: read
 """
         )
 

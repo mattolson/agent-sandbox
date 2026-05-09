@@ -26,16 +26,16 @@ Extend the service catalog boundary with surface-scoped auth-aware expansion, st
 
 ## Acceptance Criteria
 
-- [ ] Catalog and renderer tests cover `git.access: read`, `git.access: readwrite`, optional `api.access`, rejected
+- [x] Catalog and renderer tests cover `git.access: read`, `git.access: readwrite`, optional `api.access`, rejected
       `surfaces`, rejected repo-scoped `readonly`, and auth-without-access rejection
-- [ ] `git.access: read` without `git.auth` remains valid and emits unauthenticated upload-pack rules
-- [ ] `git.access: readwrite` without `git.auth` is rejected
-- [ ] GitHub entries with `repos` but neither `git` nor `api` are rejected
-- [ ] GitHub entries without `repos` preserve the existing broad service expansion and do not infer repo-scoped behavior
-- [ ] Authenticated GitHub `git` service entries render the same rule-scoped transform shape as explicit `domains`
+- [x] `git.access: read` without `git.auth` remains valid and emits unauthenticated upload-pack rules
+- [x] `git.access: readwrite` without `git.auth` is rejected
+- [x] GitHub entries with `repos` but neither `git` nor `api` are rejected
+- [x] GitHub entries without `repos` preserve the existing broad service expansion and do not infer repo-scoped behavior
+- [x] Authenticated GitHub `git` service entries render the same rule-scoped transform shape as explicit `domains`
       entries
-- [ ] Repo-scoped GitHub entries select enabled behavior through `git` and `api` mappings only
-- [ ] Catalog tests prove the emitted auth metadata is canonical and does not require GitHub-specific matcher behavior
+- [x] Repo-scoped GitHub entries select enabled behavior through `git` and `api` mappings only
+- [x] Catalog tests prove the emitted auth metadata is canonical and does not require GitHub-specific matcher behavior
 
 ## Applicable Learnings
 
@@ -185,26 +185,26 @@ service-owned contributions and does not broaden transforms onto unrelated same-
 
 ### Implementation Steps
 
-- [ ] Add GitHub surface access constants and normalization helpers for `git.access` and `api.access`
-- [ ] Reject repo-scoped GitHub entries that set `repos` without at least one of `git` or `api`
-- [ ] Reject `git` / `api` mappings when `repos` is absent
-- [ ] Remove the unshipped repo-scoped `surfaces` normalization path
-- [ ] Reject `surfaces`, top-level `access`, and repo-scoped `readonly` on GitHub repo-scoped entries
-- [ ] Add GitHub `git.auth.secret` normalization and secret ID validation through `policy_injection.py`
-- [ ] Reject top-level `auth`, `api.auth`, `git.auth` without explicit `git.access`, and `git.auth` without repo-scoped
+- [x] Add GitHub surface access constants and normalization helpers for `git.access` and `api.access`
+- [x] Reject repo-scoped GitHub entries that set `repos` without at least one of `git` or `api`
+- [x] Reject `git` / `api` mappings when `repos` is absent
+- [x] Remove the unshipped repo-scoped `surfaces` normalization path
+- [x] Reject `surfaces`, top-level `access`, and repo-scoped `readonly` on GitHub repo-scoped entries
+- [x] Add GitHub `git.auth.secret` normalization and secret ID validation through `policy_injection.py`
+- [x] Reject top-level `auth`, `api.auth`, `git.auth` without explicit `git.access`, and `git.auth` without repo-scoped
       `repos`
-- [ ] Allow unauthenticated `git.access: read` for public clone/fetch
-- [ ] Reject unauthenticated `git.access: readwrite`
-- [ ] Add a catalog helper that builds canonical Basic `Authorization` transform metadata for GitHub token auth
-- [ ] Attach the transform only to Git smart-HTTP rules emitted for authenticated GitHub service entries
-- [ ] Keep API-surface rules unauthenticated and exclude GitHub REST wrapper behavior
-- [ ] Add catalog tests for `git.access: read`, `git.access: readwrite`, `api.access`, `surfaces` rejection,
+- [x] Allow unauthenticated `git.access: read` for public clone/fetch
+- [x] Reject unauthenticated `git.access: readwrite`
+- [x] Add a catalog helper that builds canonical Basic `Authorization` transform metadata for GitHub token auth
+- [x] Attach the transform only to Git smart-HTTP rules emitted for authenticated GitHub service entries
+- [x] Keep API-surface rules unauthenticated and exclude GitHub REST wrapper behavior
+- [x] Add catalog tests for `git.access: read`, `git.access: readwrite`, `api.access`, `surfaces` rejection,
       repo-scoped `readonly` rejection, repos-without-surface rejection, surface-without-repos rejection,
       unauthenticated read, unauthenticated readwrite rejection, validation failures, and canonical auth metadata
-- [ ] Add renderer tests for authenticated GitHub shorthand, explicit-domain transform equivalence, and merge/dedupe
+- [x] Add renderer tests for authenticated GitHub shorthand, explicit-domain transform equivalence, and merge/dedupe
       behavior with unrelated same-host rules
-- [ ] Run `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
-- [ ] Run `go test ./...` as a repo-wide sanity check
+- [x] Run `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
+- [x] Run `go test ./...` as a repo-wide sanity check
 
 ### Open Questions
 
@@ -217,19 +217,32 @@ service-owned contributions and does not broaden transforms onto unrelated same-
 - Resolved: repo-scoped GitHub entries have no default surface. `repos` requires at least one of `git` or `api`, while
   `name: github` without `repos` preserves existing broad service expansion.
 - Resolved: `git` / `api` mappings are not accepted without `repos`; the new surface mappings are repo-scoped.
-- Should authenticated rules use `on_existing_header: fail` or `replace` by default? Planned default: `fail` for direct
-  Git smart-HTTP injection. `replace` is reserved for `m15.6` compatibility shims that intentionally send fake headers.
+- Resolved: authenticated Git rules use `on_existing_header: fail`. `replace` is reserved for `m15.6` compatibility
+  shims that intentionally send fake headers.
 
 ## Outcome
 
 ### Acceptance Verification
 
-Pending implementation.
+- [x] Catalog and renderer tests cover the surface-scoped GitHub schema, rejected unshipped fields, auth validation, and
+      canonical rule-scoped transform metadata.
+- [x] `git.access: read` without `git.auth` emits unauthenticated upload-pack rules.
+- [x] `git.access: readwrite` without `git.auth` is rejected.
+- [x] `repos` without `git` or `api` is rejected, while broad `name: github` without `repos` still emits the baseline
+      GitHub hosts.
+- [x] Authenticated GitHub Git service entries render Basic `Authorization` transforms only on Git smart-HTTP rules.
+- [x] The generic matcher integration test enforces the rendered GitHub rules without GitHub-specific matcher behavior.
+- [x] `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
+- [x] `go test ./...`
 
 ### Learnings
 
-Pending implementation.
+- When a renderer helper gains a new shared-module dependency, import-path tests must copy and isolate that dependency
+  too. Otherwise the test can accidentally pass by reusing a module already loaded from the repo path.
+- Keep internal names distinct from rejected author-facing fields. The catalog uses `surface_configs` internally so the
+  rejected `surfaces` field stays clearly author-facing only.
 
 ### Follow-up Items
 
-Pending implementation.
+- `m15.8` should update `docs/policy/schema.md` and `docs/policy/examples/github-repos.yaml`; those docs still describe
+  the pre-M15.5 `surfaces` / `readonly` shape.

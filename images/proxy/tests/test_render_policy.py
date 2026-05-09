@@ -11,6 +11,7 @@ from unittest import mock
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RENDER_POLICY_PATH = REPO_ROOT / "images" / "proxy" / "render-policy"
 SERVICE_CATALOG_PATH = REPO_ROOT / "images" / "proxy" / "service_catalog.py"
+POLICY_INJECTION_PATH = REPO_ROOT / "images" / "proxy" / "policy_injection.py"
 
 
 def load_render_policy_module():
@@ -35,11 +36,15 @@ class RenderPolicyImportTests(unittest.TestCase):
             (lib_dir / "service_catalog.py").write_bytes(
                 SERVICE_CATALOG_PATH.read_bytes()
             )
+            (lib_dir / "policy_injection.py").write_bytes(
+                POLICY_INJECTION_PATH.read_bytes()
+            )
             render_policy_link = bin_dir / "render-policy"
             render_policy_link.symlink_to(render_policy_target)
 
             old_sys_path = list(sys.path)
             previous_catalog = sys.modules.pop("service_catalog", None)
+            previous_injection = sys.modules.pop("policy_injection", None)
             try:
                 loader = SourceFileLoader(
                     "render_policy_symlink_module",
@@ -52,8 +57,11 @@ class RenderPolicyImportTests(unittest.TestCase):
             finally:
                 sys.path[:] = old_sys_path
                 sys.modules.pop("service_catalog", None)
+                sys.modules.pop("policy_injection", None)
                 if previous_catalog is not None:
                     sys.modules["service_catalog"] = previous_catalog
+                if previous_injection is not None:
+                    sys.modules["policy_injection"] = previous_injection
 
 
 class RenderPolicyTests(unittest.TestCase):
@@ -565,10 +573,10 @@ services:
   - name: github
     repos:
       - owner/repo
-    surfaces:
-      - api
-      - git
-    readonly: true
+    api:
+      access: read
+    git:
+      access: read
 """
         )
 
@@ -609,6 +617,78 @@ services:
             ],
         )
 
+    def test_github_git_auth_service_renders_rule_scoped_transform(self):
+        rendered = self.render_single(
+            """
+services:
+  - name: github
+    repos:
+      - owner/repo
+    git:
+      access: readwrite
+      auth:
+        secret: github-token
+"""
+        )
+
+        expected_transform = {
+            "request": {
+                "headers": {
+                    "Authorization": {
+                        "secret": "github-token",
+                        "transform": {
+                            "type": "basic",
+                            "username": "x-access-token",
+                        },
+                    },
+                },
+                "on_existing_header": "fail",
+            },
+        }
+        records = {record["host"]: record for record in rendered["domains"]}
+        self.assertEqual(set(records), {"github.com"})
+        git_rules = records["github.com"]["rules"]
+        self.assertEqual(len(git_rules), 4)
+        self.assertTrue(all(rule["transform"] == expected_transform for rule in git_rules))
+        self.assertIn(
+            {
+                "schemes": ["http", "https"],
+                "methods": ["POST"],
+                "path": {"exact": "/owner/repo.git/git-receive-pack"},
+                "transform": expected_transform,
+            },
+            git_rules,
+        )
+
+    def test_github_git_auth_does_not_broaden_to_same_host_domain_rules(self):
+        rendered = self.render_single(
+            """
+services:
+  - name: github
+    repos:
+      - owner/repo
+    git:
+      access: readwrite
+      auth:
+        secret: github-token
+domains:
+  - host: github.com
+    rules:
+      - path:
+          exact: /custom
+"""
+        )
+
+        records = {record["host"]: record for record in rendered["domains"]}
+        rules = records["github.com"]["rules"]
+        custom_rules = [rule for rule in rules if rule["path"] == {"exact": "/custom"}]
+        self.assertEqual(
+            custom_rules,
+            [{"schemes": ["http", "https"], "path": {"exact": "/custom"}}],
+        )
+        transformed_rules = [rule for rule in rules if "transform" in rule]
+        self.assertEqual(len(transformed_rules), 4)
+
     def test_same_name_service_entries_are_additive(self):
         rendered = self.render_single(
             """
@@ -616,13 +696,13 @@ services:
   - name: github
     repos:
       - owner/a
-    surfaces:
-      - api
+    api:
+      access: readwrite
   - name: github
     repos:
       - owner/b
-    surfaces:
-      - api
+    api:
+      access: readwrite
 """
         )
 
@@ -654,9 +734,8 @@ services:
     merge_mode: replace
     repos:
       - owner/repo
-    surfaces:
-      - api
-    readonly: true
+    api:
+      access: read
 """,
         )
 
@@ -696,8 +775,8 @@ services:
     merge_mode: replace
     repos:
       - owner/repo
-    surfaces:
-      - api
+    api:
+      access: readwrite
 """,
         )
 
