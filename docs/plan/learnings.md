@@ -54,6 +54,10 @@ Lessons learned during project execution. Review at the start of each planning s
   method/path/query constraints; otherwise the proxy can allow a tunnel before it sees headers to mutate
 - Request-time header injection should stage all rendered header values before mutating the flow, so a later secret
   resolution or transform failure blocks without leaving a partially mutated request
+- When a renderer helper gains a new shared-module dependency, import-path tests should copy and isolate that dependency
+  too; otherwise tests can accidentally pass by reusing a module already loaded from the repo path
+- Keep internal catalog field names distinct from rejected author-facing policy fields so test failures and future
+  refactors do not blur unsupported syntax with canonical intermediate representation
 
 ## Architecture
 

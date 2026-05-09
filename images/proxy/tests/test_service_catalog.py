@@ -26,6 +26,23 @@ def _fail(message):
     raise _CatalogFailure(message)
 
 
+def expected_github_auth_transform(secret="github-token"):
+    return {
+        "request": {
+            "headers": {
+                "Authorization": {
+                    "secret": secret,
+                    "transform": {
+                        "type": "basic",
+                        "username": "x-access-token",
+                    },
+                },
+            },
+            "on_existing_header": "fail",
+        },
+    }
+
+
 class ServiceCatalogNormalizeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -57,28 +74,51 @@ class ServiceCatalogNormalizeTests(unittest.TestCase):
             self.catalog.normalize_service_entry("not-a-service", "ctx", _fail)
         self.assertIn("unknown service", str(caught.exception))
 
-    def test_github_repos_without_surfaces_is_rejected(self):
+    def test_github_repos_without_surface_mapping_is_rejected(self):
         with self.assertRaises(_CatalogFailure) as caught:
             self.catalog.normalize_service_entry(
                 {"name": "github", "repos": ["owner/repo"]},
                 "ctx",
                 _fail,
             )
-        self.assertIn("must set 'surfaces' when 'repos' is set", str(caught.exception))
+        self.assertIn("at least one of 'git' or 'api'", str(caught.exception))
 
-    def test_github_surfaces_without_repos_is_rejected(self):
+    def test_github_surface_mapping_without_repos_is_rejected(self):
         with self.assertRaises(_CatalogFailure) as caught:
             self.catalog.normalize_service_entry(
-                {"name": "github", "surfaces": ["api"]},
+                {"name": "github", "git": {"access": "read"}},
                 "ctx",
                 _fail,
             )
-        self.assertIn("must set 'repos' when 'surfaces' is set", str(caught.exception))
+        self.assertIn("must set 'repos' when 'git' or 'api' is set", str(caught.exception))
+
+    def test_github_surfaces_field_is_rejected(self):
+        with self.assertRaises(_CatalogFailure) as caught:
+            self.catalog.normalize_service_entry(
+                {"name": "github", "repos": ["owner/repo"], "surfaces": ["git"]},
+                "ctx",
+                _fail,
+            )
+        self.assertIn("surfaces is not supported", str(caught.exception))
+
+    def test_github_repo_scoped_readonly_is_rejected(self):
+        with self.assertRaises(_CatalogFailure) as caught:
+            self.catalog.normalize_service_entry(
+                {
+                    "name": "github",
+                    "repos": ["owner/repo"],
+                    "readonly": True,
+                    "git": {"access": "read"},
+                },
+                "ctx",
+                _fail,
+            )
+        self.assertIn("readonly is not supported", str(caught.exception))
 
     def test_invalid_repo_shape_is_rejected(self):
         with self.assertRaises(_CatalogFailure) as caught:
             self.catalog.normalize_service_entry(
-                {"name": "github", "repos": ["owner-only"], "surfaces": ["api"]},
+                {"name": "github", "repos": ["owner-only"], "api": {"access": "read"}},
                 "ctx",
                 _fail,
             )
@@ -86,20 +126,115 @@ class ServiceCatalogNormalizeTests(unittest.TestCase):
 
     def test_github_repo_names_are_normalized_to_lowercase(self):
         result = self.catalog.normalize_service_entry(
-            {"name": "github", "repos": ["MyOrg/MyRepo"], "surfaces": ["api"]},
+            {"name": "github", "repos": ["MyOrg/MyRepo"], "api": {"access": "read"}},
             "ctx",
             _fail,
         )
         self.assertEqual(result["options"]["repos"], [("myorg", "myrepo")])
 
-    def test_unknown_surface_is_rejected(self):
+    def test_invalid_surface_access_is_rejected(self):
         with self.assertRaises(_CatalogFailure) as caught:
             self.catalog.normalize_service_entry(
-                {"name": "github", "repos": ["owner/repo"], "surfaces": ["web"]},
+                {"name": "github", "repos": ["owner/repo"], "git": {"access": "write"}},
                 "ctx",
                 _fail,
             )
-        self.assertIn("must be one of ['api', 'git']", str(caught.exception))
+        self.assertIn("git.access must be one of", str(caught.exception))
+
+    def test_top_level_access_is_rejected_for_github(self):
+        with self.assertRaises(_CatalogFailure) as caught:
+            self.catalog.normalize_service_entry(
+                {"name": "github", "repos": ["owner/repo"], "access": "read"},
+                "ctx",
+                _fail,
+            )
+        self.assertIn("access is not supported", str(caught.exception))
+
+    def test_top_level_auth_is_rejected_for_github(self):
+        with self.assertRaises(_CatalogFailure) as caught:
+            self.catalog.normalize_service_entry(
+                {
+                    "name": "github",
+                    "repos": ["owner/repo"],
+                    "auth": {"secret": "github-token"},
+                },
+                "ctx",
+                _fail,
+            )
+        self.assertIn("auth is not supported", str(caught.exception))
+
+    def test_api_auth_is_rejected_until_rest_auth_exists(self):
+        with self.assertRaises(_CatalogFailure) as caught:
+            self.catalog.normalize_service_entry(
+                {
+                    "name": "github",
+                    "repos": ["owner/repo"],
+                    "api": {"access": "read", "auth": {"secret": "github-token"}},
+                },
+                "ctx",
+                _fail,
+            )
+        self.assertIn("api.auth is not supported yet", str(caught.exception))
+
+    def test_git_auth_requires_access(self):
+        with self.assertRaises(_CatalogFailure) as caught:
+            self.catalog.normalize_service_entry(
+                {
+                    "name": "github",
+                    "repos": ["owner/repo"],
+                    "git": {"auth": {"secret": "github-token"}},
+                },
+                "ctx",
+                _fail,
+            )
+        self.assertIn("git must contain 'access'", str(caught.exception))
+
+    def test_git_readwrite_requires_auth(self):
+        with self.assertRaises(_CatalogFailure) as caught:
+            self.catalog.normalize_service_entry(
+                {
+                    "name": "github",
+                    "repos": ["owner/repo"],
+                    "git": {"access": "readwrite"},
+                },
+                "ctx",
+                _fail,
+            )
+        self.assertIn("git.auth is required", str(caught.exception))
+
+    def test_git_auth_rejects_invalid_secret_ids(self):
+        with self.assertRaises(_CatalogFailure) as caught:
+            self.catalog.normalize_service_entry(
+                {
+                    "name": "github",
+                    "repos": ["owner/repo"],
+                    "git": {
+                        "access": "read",
+                        "auth": {"secret": "../github-token"},
+                    },
+                },
+                "ctx",
+                _fail,
+            )
+        self.assertIn("must match [A-Za-z0-9._-]+", str(caught.exception))
+
+    def test_git_auth_normalizes_to_canonical_transform_metadata(self):
+        result = self.catalog.normalize_service_entry(
+            {
+                "name": "github",
+                "repos": ["owner/repo"],
+                "git": {
+                    "access": "read",
+                    "auth": {"secret": "github-token"},
+                },
+            },
+            "ctx",
+            _fail,
+        )
+
+        git = result["options"]["surface_configs"]["git"]
+        self.assertEqual(git["auth"], {"secret": "github-token"})
+        self.assertEqual(git["transform"], expected_github_auth_transform())
 
     def test_readonly_must_be_boolean(self):
         with self.assertRaises(_CatalogFailure) as caught:
@@ -180,7 +315,11 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
             {
                 "name": "github",
                 "repos": ["owner/repo"],
-                "surfaces": ["api", "git"],
+                "api": {"access": "readwrite"},
+                "git": {
+                    "access": "readwrite",
+                    "auth": {"secret": "github-token"},
+                },
             }
         )
 
@@ -202,6 +341,7 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
             ],
         )
 
+        expected_transform = expected_github_auth_transform()
         git_rules = records_by_host["github.com"]["rules"]
         self.assertEqual(
             git_rules,
@@ -211,33 +351,37 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
                     "methods": ["GET", "HEAD"],
                     "path": {"exact": "/owner/repo.git/info/refs"},
                     "query": {"exact": {"service": ["git-upload-pack"]}},
+                    "transform": expected_transform,
                 },
                 {
                     "schemes": ["http", "https"],
                     "methods": ["POST"],
                     "path": {"exact": "/owner/repo.git/git-upload-pack"},
+                    "transform": expected_transform,
                 },
                 {
                     "schemes": ["http", "https"],
                     "methods": ["GET", "HEAD"],
                     "path": {"exact": "/owner/repo.git/info/refs"},
                     "query": {"exact": {"service": ["git-receive-pack"]}},
+                    "transform": expected_transform,
                 },
                 {
                     "schemes": ["http", "https"],
                     "methods": ["POST"],
                     "path": {"exact": "/owner/repo.git/git-receive-pack"},
+                    "transform": expected_transform,
                 },
             ],
         )
 
-    def test_github_repo_scoped_readonly_emits_only_upload_pack_paths(self):
+    def test_github_repo_scoped_read_emits_only_upload_pack_paths(self):
         expansion = self.expand(
             {
                 "name": "github",
-                "readonly": True,
                 "repos": ["owner/repo"],
-                "surfaces": ["api", "git"],
+                "api": {"access": "read"},
+                "git": {"access": "read"},
             }
         )
 
@@ -275,7 +419,7 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
             {
                 "name": "github",
                 "repos": ["owner/repo"],
-                "surfaces": ["api"],
+                "api": {"access": "readwrite"},
             }
         )
         hosts = [record["host"] for record in expansion["records"]]
@@ -286,7 +430,7 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
             {
                 "name": "github",
                 "repos": ["owner/repo"],
-                "surfaces": ["git"],
+                "git": {"access": "read"},
             }
         )
         hosts = [record["host"] for record in expansion["records"]]
@@ -297,7 +441,7 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
             {
                 "name": "github",
                 "repos": ["owner/a", "owner/b"],
-                "surfaces": ["api"],
+                "api": {"access": "readwrite"},
             }
         )
         api_rules = expansion["records"][0]["rules"]
@@ -316,7 +460,7 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
             {
                 "name": "github",
                 "repos": ["Owner/A", "owner/a"],
-                "surfaces": ["api"],
+                "api": {"access": "readwrite"},
             }
         )
         api_rules = expansion["records"][0]["rules"]

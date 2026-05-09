@@ -11,7 +11,16 @@ that are fed through the same merge pipeline the renderer already uses for
 authored `domains` entries.
 """
 
+import os
+import sys
 from copy import deepcopy
+
+
+MODULE_DIR = os.path.dirname(os.path.realpath(__file__))
+if MODULE_DIR not in sys.path:
+    sys.path.insert(0, MODULE_DIR)
+
+import policy_injection  # noqa: E402
 
 
 DEFAULT_RULE_SCHEMES = ("http", "https")
@@ -20,6 +29,10 @@ WRITE_METHODS = ("POST",)
 
 SURFACE_API = "api"
 SURFACE_GIT = "git"
+
+ACCESS_READ = "read"
+ACCESS_READWRITE = "readwrite"
+GITHUB_ACCESS_VALUES = (ACCESS_READ, ACCESS_READWRITE)
 
 MERGE_MODE_REPLACE = "replace"
 
@@ -103,10 +116,10 @@ GITHUB_DEFAULT_HOSTS = (
 
 GITHUB_API_HOST = "api.github.com"
 GITHUB_GIT_HOST = "github.com"
-GITHUB_SURFACES = (SURFACE_API, SURFACE_GIT)
 
 GIT_UPLOAD_PACK_SERVICE = "git-upload-pack"
 GIT_RECEIVE_PACK_SERVICE = "git-receive-pack"
+GITHUB_TOKEN_USERNAME = "x-access-token"
 
 
 RICH_SERVICES = frozenset({"github"})
@@ -115,7 +128,7 @@ KNOWN_SERVICES = frozenset(set(SIMPLE_SERVICE_HOSTS.keys()) | RICH_SERVICES)
 
 _COMMON_SERVICE_KEYS = {"name", "merge_mode", "readonly"}
 _SERVICE_SPECIFIC_KEYS = {
-    "github": {"repos", "surfaces"},
+    "github": {"repos", "git", "api", "surfaces", "access", "auth"},
 }
 
 
@@ -138,6 +151,17 @@ def _catch_all_rule(readonly):
 
 def _host_record(host, rules):
     return {"host": host, "rules": [dict(rule) for rule in rules]}
+
+
+def _apply_rule_transform(rules, transform):
+    if transform is None:
+        return rules
+    transformed = []
+    for rule in rules:
+        transformed_rule = dict(rule)
+        transformed_rule["transform"] = deepcopy(transform)
+        transformed.append(transformed_rule)
+    return transformed
 
 
 def _require_string(value, context, fail):
@@ -222,29 +246,147 @@ def _normalize_repo_list(value, context, fail):
     return normalized
 
 
-def _normalize_surface_list(value, context, fail, allowed):
-    if not isinstance(value, list):
+def _normalize_access(value, context, fail):
+    access = _require_string(value, context, fail).lower()
+    if access not in GITHUB_ACCESS_VALUES:
         fail(
-            f"{context}.surfaces must be a YAML list, got "
+            f"{context} must be one of {list(GITHUB_ACCESS_VALUES)}, "
+            f"got {value!r}"
+        )
+    return access
+
+
+def _normalize_github_git_auth(value, context, fail):
+    if not isinstance(value, dict):
+        fail(
+            f"{context} must be a YAML mapping, got "
             f"{type(value).__name__}: {value!r}"
         )
-    if not value:
-        fail(f"{context}.surfaces must not be empty when set")
 
-    seen = set()
-    ordered = []
-    for index, item in enumerate(value):
-        name = _require_string(item, f"{context}.surfaces[{index}]", fail).lower()
-        if name not in allowed:
-            fail(
-                f"{context}.surfaces[{index}] must be one of "
-                f"{sorted(allowed)}, got {item!r}"
+    unknown_keys = sorted(set(value) - {"secret"})
+    if unknown_keys:
+        fail(f"{context} contains unsupported keys: {unknown_keys}")
+    if "secret" not in value:
+        fail(f"{context} must contain 'secret'")
+
+    return {
+        "secret": policy_injection.normalize_secret_id(
+            value["secret"],
+            f"{context}.secret",
+            fail,
+        )
+    }
+
+
+def _normalize_github_surface(value, context, fail, *, allow_auth):
+    if not isinstance(value, dict):
+        fail(
+            f"{context} must be a YAML mapping, got "
+            f"{type(value).__name__}: {value!r}"
+        )
+
+    supported_keys = {"access", "auth"}
+    unknown_keys = sorted(set(value) - supported_keys)
+    if unknown_keys:
+        fail(f"{context} contains unsupported keys: {unknown_keys}")
+    if "access" not in value:
+        fail(f"{context} must contain 'access'")
+
+    normalized = {
+        "access": _normalize_access(value["access"], f"{context}.access", fail),
+    }
+
+    if "auth" in value:
+        if not allow_auth:
+            fail(f"{context}.auth is not supported yet")
+        normalized["auth"] = _normalize_github_git_auth(
+            value["auth"],
+            f"{context}.auth",
+            fail,
+        )
+
+    return normalized
+
+
+def _github_auth_transform(secret_id, context, fail):
+    return policy_injection.normalize_rule_transform(
+        {
+            "request": {
+                "headers": {
+                    "Authorization": {
+                        "secret": secret_id,
+                        "transform": {
+                            "type": "basic",
+                            "username": GITHUB_TOKEN_USERNAME,
+                        },
+                    },
+                },
+                "on_existing_header": "fail",
+            },
+        },
+        context,
+        fail,
+    )
+
+
+def _normalize_github_mapping_entry(entry, context, fail):
+    merge_mode = _normalize_merge_mode(entry.get("merge_mode", MISSING), context, fail)
+
+    if "access" in entry:
+        fail(f"{context}.access is not supported; use git.access or api.access")
+    if "auth" in entry:
+        fail(f"{context}.auth is not supported; use git.auth")
+    if "surfaces" in entry:
+        fail(f"{context}.surfaces is not supported; use git or api mappings")
+
+    repos_present = "repos" in entry
+    git_present = SURFACE_GIT in entry
+    api_present = SURFACE_API in entry
+
+    if repos_present:
+        if "readonly" in entry:
+            fail(f"{context}.readonly is not supported for repo-scoped github entries")
+        if not git_present and not api_present:
+            fail(f"{context} must set at least one of 'git' or 'api' when 'repos' is set")
+
+        options = {
+            "repos": _normalize_repo_list(entry["repos"], context, fail),
+            "surface_configs": {},
+        }
+        if git_present:
+            git = _normalize_github_surface(
+                entry[SURFACE_GIT],
+                f"{context}.git",
+                fail,
+                allow_auth=True,
             )
-        if name in seen:
-            continue
-        seen.add(name)
-        ordered.append(name)
-    return ordered
+            if git["access"] == ACCESS_READWRITE and "auth" not in git:
+                fail(f"{context}.git.auth is required when git.access is 'readwrite'")
+            if "auth" in git:
+                git["transform"] = _github_auth_transform(
+                    git["auth"]["secret"],
+                    f"{context}.git.auth.transform",
+                    fail,
+                )
+            options["surface_configs"][SURFACE_GIT] = git
+        if api_present:
+            options["surface_configs"][SURFACE_API] = _normalize_github_surface(
+                entry[SURFACE_API],
+                f"{context}.api",
+                fail,
+                allow_auth=False,
+            )
+        return {"name": "github", "merge_mode": merge_mode, "options": options}
+
+    if git_present or api_present:
+        fail(f"{context} must set 'repos' when 'git' or 'api' is set")
+
+    readonly = _normalize_readonly(entry.get("readonly", MISSING), context, fail)
+    return {
+        "name": "github",
+        "merge_mode": merge_mode,
+        "options": {"readonly": readonly},
+    }
 
 
 def _normalize_mapping_entry(entry, context, fail):
@@ -260,26 +402,12 @@ def _normalize_mapping_entry(entry, context, fail):
             f"{unknown_keys}"
         )
 
+    if name == "github":
+        return _normalize_github_mapping_entry(entry, context, fail)
+
     merge_mode = _normalize_merge_mode(entry.get("merge_mode", MISSING), context, fail)
     readonly = _normalize_readonly(entry.get("readonly", MISSING), context, fail)
-
     options = {"readonly": readonly}
-
-    if name == "github":
-        repos_value = entry.get("repos", MISSING)
-        surfaces_value = entry.get("surfaces", MISSING)
-
-        if repos_value is not MISSING and surfaces_value is MISSING:
-            fail(f"{context} must set 'surfaces' when 'repos' is set")
-        if surfaces_value is not MISSING and repos_value is MISSING:
-            fail(f"{context} must set 'repos' when 'surfaces' is set")
-
-        if repos_value is not MISSING:
-            options["repos"] = _normalize_repo_list(repos_value, context, fail)
-            options["surfaces"] = _normalize_surface_list(
-                surfaces_value, context, fail, allowed=GITHUB_SURFACES
-            )
-
     return {"name": name, "merge_mode": merge_mode, "options": options}
 
 
@@ -306,9 +434,9 @@ def _expand_simple_service(name, options):
     ]
 
 
-def _github_api_rules_for_repo(owner, name, readonly):
+def _github_api_rules_for_repo(owner, name, access):
     base = f"/repos/{owner}/{name}"
-    methods = list(READONLY_METHODS) if readonly else None
+    methods = list(READONLY_METHODS) if access == ACCESS_READ else None
     return [
         _build_rule(methods=methods, path={"exact": base}),
         _build_rule(methods=methods, path={"prefix": base + "/"}),
@@ -329,20 +457,20 @@ def _github_smart_http_pair(base, git_service):
     ]
 
 
-def _github_git_rules_for_repo(owner, name, readonly):
+def _github_git_rules_for_repo(owner, name, access, transform=None):
     base = f"/{owner}/{name}.git"
     # git-upload-pack POST transfers clone/fetch pack data; it does not grant
     # push/write access. git-receive-pack is the write-capable path.
     rules = list(_github_smart_http_pair(base, GIT_UPLOAD_PACK_SERVICE))
-    if not readonly:
+    if access == ACCESS_READWRITE:
         rules.extend(_github_smart_http_pair(base, GIT_RECEIVE_PACK_SERVICE))
-    return rules
+    return _apply_rule_transform(rules, transform)
 
 
 def _expand_github_service(options):
     readonly = options.get("readonly", False)
     repos = options.get("repos")
-    surfaces = options.get("surfaces")
+    surface_configs = options.get("surface_configs", {})
 
     if not repos:
         return [
@@ -352,16 +480,26 @@ def _expand_github_service(options):
 
     records = []
 
-    if SURFACE_API in surfaces:
+    if SURFACE_API in surface_configs:
+        access = surface_configs[SURFACE_API]["access"]
         api_rules = []
         for owner, name in repos:
-            api_rules.extend(_github_api_rules_for_repo(owner, name, readonly))
+            api_rules.extend(_github_api_rules_for_repo(owner, name, access))
         records.append(_host_record(GITHUB_API_HOST, api_rules))
 
-    if SURFACE_GIT in surfaces:
+    if SURFACE_GIT in surface_configs:
+        git_options = surface_configs[SURFACE_GIT]
+        transform = git_options.get("transform")
         git_rules = []
         for owner, name in repos:
-            git_rules.extend(_github_git_rules_for_repo(owner, name, readonly))
+            git_rules.extend(
+                _github_git_rules_for_repo(
+                    owner,
+                    name,
+                    git_options["access"],
+                    transform=transform,
+                )
+            )
         records.append(_host_record(GITHUB_GIT_HOST, git_rules))
 
     return records

@@ -1,5 +1,34 @@
 # Execution Log: m15.5 - Service Catalog Auth
 
+## 2026-05-09 17:59 UTC - Implementation complete
+
+Implemented surface-scoped GitHub service catalog auth. The catalog now accepts repo-scoped `git` and `api` mappings,
+rejects the unshipped `surfaces` field, rejects repo-scoped `readonly`, top-level `access`, and top-level `auth`, and
+requires at least one of `git` or `api` when `repos` is present. Broad `name: github` behavior without `repos` remains
+unchanged.
+
+Git rules now support `git.access: read` without auth for public clone/fetch and require `git.auth.secret` for
+`git.access: readwrite`. Authenticated Git rules emit canonical rule-scoped Basic `Authorization` transform metadata
+with username `x-access-token`; API rules remain unauthenticated and `api.auth` is rejected for later REST work.
+
+Updated catalog, renderer, and matcher tests from the unshipped `surfaces` shape to the `git` / `api` mapping model.
+Added coverage for rejected fields, missing surface defaults, unauthenticated read, unauthenticated readwrite rejection,
+auth transform metadata, merge behavior, and generic matcher enforcement.
+
+Verified with:
+
+- `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
+- `go test ./...`
+
+**Decision:** Keep direct Git auth `on_existing_header: fail`. Replacement remains a compatibility-shim concern for
+`m15.6`.
+
+**Learning:** When a renderer helper gains a new shared-module dependency, import-path tests must copy and isolate that
+dependency too. Otherwise the test can accidentally pass by reusing a module already loaded from the repo path.
+
+**Learning:** Keep internal names distinct from rejected author-facing fields. The catalog now uses `surface_configs`
+internally so `surfaces` remains clearly an unsupported policy field.
+
 ## 2026-05-09 05:22 UTC - Repo-scoped entries have no default surface
 
 Updated the task plan and parent milestone entry to make repo-scoped GitHub surface selection explicit.
