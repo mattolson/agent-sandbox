@@ -20,6 +20,7 @@ MODULE_DIR = os.path.dirname(os.path.realpath(__file__))
 if MODULE_DIR not in sys.path:
     sys.path.insert(0, MODULE_DIR)
 
+import credential_shim  # noqa: E402
 import policy_injection  # noqa: E402
 
 
@@ -263,19 +264,26 @@ def _normalize_github_git_auth(value, context, fail):
             f"{type(value).__name__}: {value!r}"
         )
 
-    unknown_keys = sorted(set(value) - {"secret"})
+    unknown_keys = sorted(set(value) - {"secret", "client_shim"})
     if unknown_keys:
         fail(f"{context} contains unsupported keys: {unknown_keys}")
     if "secret" not in value:
         fail(f"{context} must contain 'secret'")
 
-    return {
+    normalized = {
         "secret": policy_injection.normalize_secret_id(
             value["secret"],
             f"{context}.secret",
             fail,
         )
     }
+    if "client_shim" in value:
+        normalized["client_shim"] = credential_shim.normalize_credential_shim_config(
+            value["client_shim"],
+            f"{context}.client_shim",
+            fail,
+        )
+    return normalized
 
 
 def _normalize_github_surface(value, context, fail, *, allow_auth):
@@ -308,7 +316,7 @@ def _normalize_github_surface(value, context, fail, *, allow_auth):
     return normalized
 
 
-def _github_auth_transform(secret_id, context, fail):
+def _github_auth_transform(secret_id, context, fail, *, on_existing_header="fail"):
     return policy_injection.normalize_rule_transform(
         {
             "request": {
@@ -321,7 +329,7 @@ def _github_auth_transform(secret_id, context, fail):
                         },
                     },
                 },
-                "on_existing_header": "fail",
+                "on_existing_header": on_existing_header,
             },
         },
         context,
@@ -363,10 +371,21 @@ def _normalize_github_mapping_entry(entry, context, fail):
             if git["access"] == ACCESS_READWRITE and "auth" not in git:
                 fail(f"{context}.git.auth is required when git.access is 'readwrite'")
             if "auth" in git:
+                on_existing_header = "fail"
+                if "client_shim" in git["auth"]:
+                    on_existing_header = "replace"
+                    git["credential_shim_hints"] = [
+                        credential_shim.make_github_git_askpass_hint(
+                            git["auth"]["secret"],
+                            f"{context}.git.auth.client_shim",
+                            fail,
+                        )
+                    ]
                 git["transform"] = _github_auth_transform(
                     git["auth"]["secret"],
                     f"{context}.git.auth.transform",
                     fail,
+                    on_existing_header=on_existing_header,
                 )
             options["surface_configs"][SURFACE_GIT] = git
         if api_present:
@@ -505,6 +524,12 @@ def _expand_github_service(options):
     return records
 
 
+def _github_credential_shim_hints(options):
+    surface_configs = options.get("surface_configs", {})
+    git_options = surface_configs.get(SURFACE_GIT, {})
+    return list(git_options.get("credential_shim_hints", []))
+
+
 def expand_service_entry(entry, context, fail):
     normalized = normalize_service_entry(entry, context, fail)
     name = normalized["name"]
@@ -512,11 +537,14 @@ def expand_service_entry(entry, context, fail):
 
     if name == "github":
         records = _expand_github_service(options)
+        credential_shim_hints = _github_credential_shim_hints(options)
     else:
         records = _expand_simple_service(name, options)
+        credential_shim_hints = []
 
     return {
         "name": name,
         "merge_mode": normalized["merge_mode"],
         "records": records,
+        "credential_shim": credential_shim_hints,
     }

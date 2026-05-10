@@ -12,6 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 RENDER_POLICY_PATH = REPO_ROOT / "images" / "proxy" / "render-policy"
 SERVICE_CATALOG_PATH = REPO_ROOT / "images" / "proxy" / "service_catalog.py"
 POLICY_INJECTION_PATH = REPO_ROOT / "images" / "proxy" / "policy_injection.py"
+CREDENTIAL_SHIM_PATH = REPO_ROOT / "images" / "proxy" / "credential_shim.py"
 
 
 def load_render_policy_module():
@@ -39,12 +40,16 @@ class RenderPolicyImportTests(unittest.TestCase):
             (lib_dir / "policy_injection.py").write_bytes(
                 POLICY_INJECTION_PATH.read_bytes()
             )
+            (lib_dir / "credential_shim.py").write_bytes(
+                CREDENTIAL_SHIM_PATH.read_bytes()
+            )
             render_policy_link = bin_dir / "render-policy"
             render_policy_link.symlink_to(render_policy_target)
 
             old_sys_path = list(sys.path)
             previous_catalog = sys.modules.pop("service_catalog", None)
             previous_injection = sys.modules.pop("policy_injection", None)
+            previous_credential_shim = sys.modules.pop("credential_shim", None)
             try:
                 loader = SourceFileLoader(
                     "render_policy_symlink_module",
@@ -58,10 +63,13 @@ class RenderPolicyImportTests(unittest.TestCase):
                 sys.path[:] = old_sys_path
                 sys.modules.pop("service_catalog", None)
                 sys.modules.pop("policy_injection", None)
+                sys.modules.pop("credential_shim", None)
                 if previous_catalog is not None:
                     sys.modules["service_catalog"] = previous_catalog
                 if previous_injection is not None:
                     sys.modules["policy_injection"] = previous_injection
+                if previous_credential_shim is not None:
+                    sys.modules["credential_shim"] = previous_credential_shim
 
 
 class RenderPolicyTests(unittest.TestCase):
@@ -659,6 +667,156 @@ services:
             },
             git_rules,
         )
+        self.assertNotIn("credential_shim", rendered)
+
+    def test_github_git_client_shim_renders_replace_transform_and_credential_hint(self):
+        rendered = self.render_single(
+            """
+services:
+  - name: github
+    repos:
+      - owner/repo
+    git:
+      access: readwrite
+      auth:
+        secret: github-token
+        client_shim:
+          kind: git-askpass
+"""
+        )
+
+        expected_transform = {
+            "request": {
+                "headers": {
+                    "Authorization": {
+                        "secret": "github-token",
+                        "transform": {
+                            "type": "basic",
+                            "username": "x-access-token",
+                        },
+                    },
+                },
+                "on_existing_header": "replace",
+            },
+        }
+        records = {record["host"]: record for record in rendered["domains"]}
+        git_rules = records["github.com"]["rules"]
+        self.assertEqual(len(git_rules), 4)
+        self.assertTrue(all(rule["transform"] == expected_transform for rule in git_rules))
+        self.assertEqual(
+            rendered["credential_shim"],
+            {
+                "version": 1,
+                "hints": [
+                    {
+                        "service": "github",
+                        "surface": "git",
+                        "kind": "git-askpass",
+                        "host": "github.com",
+                        "username": "x-access-token",
+                        "fake_password": "agentbox-proxy-managed",
+                        "secrets": ["github-token"],
+                    }
+                ],
+            },
+        )
+
+    def test_top_level_credential_shim_is_rejected(self):
+        with self.assertRaises(self.render_policy.RenderPolicyError) as context:
+            self.render_single(
+                """
+credential_shim:
+  version: 1
+  hints: []
+domains:
+  - api.github.com
+"""
+            )
+
+        self.assertIn("credential_shim is renderer-owned", str(context.exception))
+
+    def test_service_merge_mode_replace_discards_credential_shim_hints(self):
+        rendered = self.render_layered(
+            "pi",
+            shared="""
+services:
+  - name: github
+    repos:
+      - owner/repo
+    git:
+      access: readwrite
+      auth:
+        secret: github-token
+        client_shim:
+          kind: git-askpass
+""",
+            agent="""
+services:
+  - name: github
+    merge_mode: replace
+    repos:
+      - owner/repo
+    api:
+      access: read
+""",
+        )
+
+        self.assertNotIn("credential_shim", rendered)
+        records = {record["host"]: record for record in rendered["domains"]}
+        self.assertEqual(set(records), {"api.github.com"})
+
+    def test_write_credential_shim_init_writes_aggregate_and_git_askpass_fragment(self):
+        rendered = self.render_single(
+            """
+services:
+  - name: github
+    repos:
+      - owner/repo
+    git:
+      access: readwrite
+      auth:
+        secret: github-token
+        client_shim:
+          kind: git-askpass
+"""
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            init_path = Path(tempdir) / "init.zsh"
+            git_env_path = Path(tempdir) / "git-askpass" / "env.zsh"
+            self.render_policy.write_credential_shim_init(rendered, str(init_path))
+            init_body = init_path.read_text(encoding="utf-8")
+            git_env_body = git_env_path.read_text(encoding="utf-8")
+
+        self.assertIn(str(git_env_path), init_body)
+        self.assertIn("GIT_ASKPASS=/usr/local/bin/agentbox-git-askpass", git_env_body)
+        self.assertIn("AGENTBOX_GIT_FAKE_PASSWORD=agentbox-proxy-managed", git_env_body)
+        self.assertIn("GIT_TERMINAL_PROMPT=0", git_env_body)
+        self.assertNotIn("github-token", init_body)
+        self.assertNotIn("github-token", git_env_body)
+
+    def test_write_credential_shim_init_clears_stale_fragments_without_hints(self):
+        rendered = self.render_single(
+            """
+domains:
+  - api.github.com
+"""
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            init_path = Path(tempdir) / "init.zsh"
+            git_env_path = Path(tempdir) / "git-askpass" / "env.zsh"
+            git_env_path.parent.mkdir(parents=True)
+            init_path.write_text("source /stale\n", encoding="utf-8")
+            git_env_path.write_text("export GIT_ASKPASS=/stale\n", encoding="utf-8")
+            self.render_policy.write_credential_shim_init(rendered, str(init_path))
+            init_body = init_path.read_text(encoding="utf-8")
+            git_env_body = git_env_path.read_text(encoding="utf-8")
+
+        self.assertIn("No credential shims are active", init_body)
+        self.assertIn("No git-askpass credential shim is active", git_env_body)
+        self.assertNotIn("/stale", init_body)
+        self.assertNotIn("/stale", git_env_body)
 
     def test_github_git_auth_does_not_broaden_to_same_host_domain_rules(self):
         rendered = self.render_single(

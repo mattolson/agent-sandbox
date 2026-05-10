@@ -7,6 +7,7 @@ set -e
 CA_DIR="/home/mitmproxy/.mitmproxy"
 EXPORT_DIR="/ca-export"
 RENDERED_POLICY_PATH="${AGENTBOX_RENDERED_POLICY_PATH:-/tmp/agent-sandbox-policy.yaml}"
+CREDENTIAL_SHIM_INIT_PATH="${AGENTBOX_CREDENTIAL_SHIM_INIT_PATH:-/run/agentbox/credential-shims/init.zsh}"
 
 # Generate the CA if it doesn't exist yet
 if [ ! -f "$CA_DIR/mitmproxy-ca-cert.pem" ]; then
@@ -19,7 +20,7 @@ if [ -f "$CA_DIR/mitmproxy-ca-cert.pem" ] && [ -d "$EXPORT_DIR" ]; then
   cp "$CA_DIR/mitmproxy-ca-cert.pem" "$EXPORT_DIR/ca.crt"
 fi
 
-/usr/local/bin/render-policy --output "$RENDERED_POLICY_PATH"
+/usr/local/bin/render-policy --output "$RENDERED_POLICY_PATH" --credential-shim-output "$CREDENTIAL_SHIM_INIT_PATH"
 export POLICY_PATH="$RENDERED_POLICY_PATH"
 
 # Run mitmdump with all passed arguments, using the same confdir
