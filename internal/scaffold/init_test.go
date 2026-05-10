@@ -41,6 +41,7 @@ func TestInitializeCLIWritesRepresentativeClaudeScaffold(t *testing.T) {
 	assertContainsManagedBind(t, base.Services.Proxy.Volumes, sharedPolicyMountSource, sharedPolicyMountTarget, true)
 	assertProxySecretRuntime(t, base.Services.Proxy)
 	assertNoProxySecretRuntime(t, base.Services.Agent)
+	assertCredentialShimRuntime(t, base)
 	if base.Services.Proxy.Image != "agent-sandbox-proxy:local" {
 		t.Fatalf("unexpected proxy image: %q", base.Services.Proxy.Image)
 	}
@@ -99,6 +100,7 @@ func TestInitializeDevcontainerWritesRepresentativeCodexScaffold(t *testing.T) {
 	base := readCompose(t, runtime.CLIBaseComposeFile(repoRoot))
 	assertProxySecretRuntime(t, base.Services.Proxy)
 	assertNoProxySecretRuntime(t, base.Services.Agent)
+	assertCredentialShimRuntime(t, base)
 
 	modeFile := readCompose(t, runtime.CLIDevcontainerModeComposeFile(repoRoot))
 	if modeFile.Name != "project-sandbox-devcontainer" {
@@ -262,8 +264,30 @@ func assertProxySecretRuntime(t *testing.T, service *composeService) {
 	if service == nil {
 		t.Fatal("expected service to exist")
 	}
-	assertContains(t, service.Environment, proxySecretSourceEnvName+"="+proxySecretSourceEnvValue)
 	assertContainsManagedBind(t, service.Volumes, proxySecretMountSource, proxySecretMountTarget, true)
+}
+
+func assertCredentialShimRuntime(t *testing.T, doc composeDocument) {
+	t.Helper()
+	hasNamedVolume := false
+	for _, volume := range doc.Volumes {
+		if volume.Name == credentialShimVolumeName {
+			hasNamedVolume = true
+			break
+		}
+	}
+	if !hasNamedVolume {
+		t.Fatalf("expected top-level named volume %q in %+v", credentialShimVolumeName, doc.Volumes)
+	}
+	if doc.Services.Proxy == nil {
+		t.Fatal("expected proxy service to exist")
+	}
+	if doc.Services.Agent == nil {
+		t.Fatal("expected agent service to exist")
+	}
+	assertContainsVolumeString(t, doc.Services.Proxy.Volumes, credentialShimVolume)
+	assertContainsVolumeString(t, doc.Services.Agent.Volumes, credentialShimReadonlyVolume)
+	assertNoVolumeReference(t, doc.Services.Agent.Volumes, proxySecretMountTarget)
 }
 
 func assertNoProxySecretRuntime(t *testing.T, service *composeService) {
@@ -272,7 +296,7 @@ func assertNoProxySecretRuntime(t *testing.T, service *composeService) {
 		return
 	}
 	for _, entry := range service.Environment {
-		if strings.HasPrefix(entry, proxySecretSourceEnvName+"=") {
+		if strings.HasPrefix(entry, "AGENTBOX_SECRET_SOURCE=") {
 			t.Fatalf("did not expect proxy secret env in %v", service.Environment)
 		}
 	}

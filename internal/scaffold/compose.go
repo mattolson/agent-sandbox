@@ -20,10 +20,13 @@ type composeDocument struct {
 }
 
 const (
-	proxySecretMountSource    = "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
-	proxySecretMountTarget    = "/run/secrets/agentbox"
-	proxySecretSourceEnvName  = "AGENTBOX_SECRET_SOURCE"
-	proxySecretSourceEnvValue = "file:/run/secrets/agentbox"
+	proxySecretMountSource = "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
+	proxySecretMountTarget = "/run/secrets/agentbox"
+
+	credentialShimVolumeName     = "proxy-credential-shims"
+	credentialShimMountTarget    = "/run/agentbox/credential-shims"
+	credentialShimVolume         = credentialShimVolumeName + ":" + credentialShimMountTarget
+	credentialShimReadonlyVolume = credentialShimVolumeName + ":" + credentialShimMountTarget + ":ro"
 
 	sharedPolicyMountSource = "../policy/user.policy.yaml"
 	sharedPolicyMountTarget = "/etc/agent-sandbox/policy/user.policy.yaml"
@@ -497,9 +500,22 @@ func ensureAgentService(doc *composeDocument) {
 
 func ensureCLIBaseProxyRuntimeConfig(doc *composeDocument) {
 	ensureProxyService(doc)
+	ensureAgentService(doc)
+	doc.Volumes = ensureNamedVolume(doc.Volumes, credentialShimVolumeName)
 	doc.Services.Proxy.Volumes = ensureManagedBindMount(doc.Services.Proxy.Volumes, sharedPolicyMountSource, sharedPolicyMountTarget, true)
 	doc.Services.Proxy.Volumes = ensureManagedBindMount(doc.Services.Proxy.Volumes, proxySecretMountSource, proxySecretMountTarget, true)
-	doc.Services.Proxy.Environment = setEnvironmentVar(doc.Services.Proxy.Environment, proxySecretSourceEnvName, proxySecretSourceEnvValue)
+	doc.Services.Proxy.Volumes = ensureVolumeString(doc.Services.Proxy.Volumes, credentialShimVolume)
+	doc.Services.Agent.Volumes = ensureVolumeString(doc.Services.Agent.Volumes, credentialShimReadonlyVolume)
+}
+
+func ensureNamedVolume(volumes composeNamedVolumes, name string) composeNamedVolumes {
+	for _, existing := range volumes {
+		if existing.Name == name {
+			return volumes
+		}
+	}
+
+	return append(volumes, composeNamedVolumeEntry{Name: name})
 }
 
 func ensureString(values []string, value string) []string {

@@ -47,6 +47,7 @@ func TestEnsureCLIAgentRuntimeFilesCreatesMissingFilesAndPersistsState(t *testin
 	base := readCompose(t, runtime.CLIBaseComposeFile(repoRoot))
 	assertContainsManagedBind(t, base.Services.Proxy.Volumes, sharedPolicyMountSource, sharedPolicyMountTarget, true)
 	assertProxySecretRuntime(t, base.Services.Proxy)
+	assertCredentialShimRuntime(t, base)
 
 	agent := readCompose(t, runtime.CLIAgentComposeFile(repoRoot, "claude"))
 	if agent.Services.Agent.Image != "ghcr.io/mattolson/agent-sandbox-claude@sha256:abc123" {
@@ -135,6 +136,7 @@ func TestEnsureDevcontainerRuntimeFilesRepairsMissingMetadataAndPersistsState(t 
 	}
 	assertContainsManagedBind(t, base.Services.Proxy.Volumes, sharedPolicyMountSource, sharedPolicyMountTarget, true)
 	assertProxySecretRuntime(t, base.Services.Proxy)
+	assertCredentialShimRuntime(t, base)
 
 	agent := readCompose(t, runtime.CLIAgentComposeFile(repoRoot, "codex"))
 	assertContainsManagedBind(t, agent.Services.Proxy.Volumes, "../policy/user.agent.codex.policy.yaml", "/etc/agent-sandbox/policy/user.agent.policy.yaml", true)
