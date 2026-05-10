@@ -115,6 +115,7 @@ COPY init-firewall.sh /usr/local/bin/
 COPY install-proxy-ca.sh /usr/local/bin/
 COPY configure-apt-proxy.sh /usr/local/bin/
 COPY link-dotfiles.sh /usr/local/bin/
+COPY agentbox-git-askpass.sh /usr/local/bin/
 COPY entrypoint.sh /usr/local/bin/
 
 # System-level zshrc: sources shell-init.sh before ~/.zshrc so hooks survive
@@ -134,7 +135,7 @@ RUN chmod 644 /etc/agent-sandbox/shell-init.sh /etc/agent-sandbox/path-helpers.s
   chown root:root /usr/local/etc/gitconfig && \
   chmod -R 755 /etc/agent-sandbox/stacks && \
   chown -R root:root /etc/agent-sandbox/stacks && \
-  chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/install-proxy-ca.sh /usr/local/bin/configure-apt-proxy.sh /usr/local/bin/link-dotfiles.sh /usr/local/bin/entrypoint.sh && \
+  chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/install-proxy-ca.sh /usr/local/bin/configure-apt-proxy.sh /usr/local/bin/link-dotfiles.sh /usr/local/bin/agentbox-git-askpass.sh /usr/local/bin/entrypoint.sh && \
   echo "${USERNAME} ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh, /usr/local/bin/install-proxy-ca.sh, /usr/local/bin/configure-apt-proxy.sh" > /etc/sudoers.d/firewall && \
   chmod 0440 /etc/sudoers.d/firewall
 
@@ -163,6 +164,8 @@ RUN if [ -n "$STACKS" ]; then \
 # Then create shell.d subdirectory owned by root (prevents agent from injecting malicious scripts)
 RUN mkdir -p /home/${USERNAME}/.config && \
   chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.config && \
+  mkdir -p /run/agentbox/credential-shims/git-askpass && \
+  chown -R ${USERNAME}:${USERNAME} /run/agentbox && \
   mkdir -p /home/${USERNAME}/.config/agent-sandbox/shell.d && \
   chown root:root /home/${USERNAME}/.config/agent-sandbox && \
   chown root:root /home/${USERNAME}/.config/agent-sandbox/shell.d && \
