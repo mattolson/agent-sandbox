@@ -26,7 +26,7 @@ def _fail(message):
     raise _CatalogFailure(message)
 
 
-def expected_github_auth_transform(secret="github-token"):
+def expected_github_auth_transform(secret="github-token", on_existing_header="fail"):
     return {
         "request": {
             "headers": {
@@ -38,8 +38,20 @@ def expected_github_auth_transform(secret="github-token"):
                     },
                 },
             },
-            "on_existing_header": "fail",
+            "on_existing_header": on_existing_header,
         },
+    }
+
+
+def expected_github_git_askpass_hint(secret="github-token"):
+    return {
+        "service": "github",
+        "surface": "git",
+        "kind": "git-askpass",
+        "host": "github.com",
+        "username": "x-access-token",
+        "fake_password": "agentbox-proxy-managed",
+        "secrets": [secret],
     }
 
 
@@ -236,6 +248,81 @@ class ServiceCatalogNormalizeTests(unittest.TestCase):
         self.assertEqual(git["auth"], {"secret": "github-token"})
         self.assertEqual(git["transform"], expected_github_auth_transform())
 
+    def test_git_auth_client_shim_normalizes_to_replace_transform_and_hint(self):
+        result = self.catalog.normalize_service_entry(
+            {
+                "name": "github",
+                "repos": ["owner/repo"],
+                "git": {
+                    "access": "readwrite",
+                    "auth": {
+                        "secret": "github-token",
+                        "client_shim": {"kind": "git-askpass"},
+                    },
+                },
+            },
+            "ctx",
+            _fail,
+        )
+
+        git = result["options"]["surface_configs"]["git"]
+        self.assertEqual(
+            git["auth"],
+            {
+                "secret": "github-token",
+                "client_shim": {"kind": "git-askpass"},
+            },
+        )
+        self.assertEqual(
+            git["transform"],
+            expected_github_auth_transform(on_existing_header="replace"),
+        )
+        self.assertEqual(
+            git["credential_shim_hints"],
+            [expected_github_git_askpass_hint()],
+        )
+
+    def test_git_auth_client_shim_rejects_unknown_kind(self):
+        with self.assertRaises(_CatalogFailure) as caught:
+            self.catalog.normalize_service_entry(
+                {
+                    "name": "github",
+                    "repos": ["owner/repo"],
+                    "git": {
+                        "access": "read",
+                        "auth": {
+                            "secret": "github-token",
+                            "client_shim": {"kind": "env-bearer"},
+                        },
+                    },
+                },
+                "ctx",
+                _fail,
+            )
+        self.assertIn("client_shim.kind must be one of", str(caught.exception))
+
+    def test_git_auth_client_shim_rejects_unknown_keys(self):
+        with self.assertRaises(_CatalogFailure) as caught:
+            self.catalog.normalize_service_entry(
+                {
+                    "name": "github",
+                    "repos": ["owner/repo"],
+                    "git": {
+                        "access": "read",
+                        "auth": {
+                            "secret": "github-token",
+                            "client_shim": {
+                                "kind": "git-askpass",
+                                "env": "GITHUB_TOKEN",
+                            },
+                        },
+                    },
+                },
+                "ctx",
+                _fail,
+            )
+        self.assertIn("client_shim contains unsupported keys", str(caught.exception))
+
     def test_readonly_must_be_boolean(self):
         with self.assertRaises(_CatalogFailure) as caught:
             self.catalog.normalize_service_entry(
@@ -373,6 +460,36 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
                     "transform": expected_transform,
                 },
             ],
+        )
+        self.assertEqual(expansion["credential_shim"], [])
+
+    def test_github_git_client_shim_expansion_emits_credential_hint(self):
+        expansion = self.expand(
+            {
+                "name": "github",
+                "repos": ["owner/repo"],
+                "git": {
+                    "access": "readwrite",
+                    "auth": {
+                        "secret": "github-token",
+                        "client_shim": {"kind": "git-askpass"},
+                    },
+                },
+            }
+        )
+
+        self.assertEqual(
+            expansion["credential_shim"],
+            [expected_github_git_askpass_hint()],
+        )
+        git_rules = expansion["records"][0]["rules"]
+        self.assertTrue(
+            all(
+                rule["transform"] == expected_github_auth_transform(
+                    on_existing_header="replace"
+                )
+                for rule in git_rules
+            )
         )
 
     def test_github_repo_scoped_read_emits_only_upload_pack_paths(self):

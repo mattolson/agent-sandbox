@@ -8,6 +8,7 @@ import sys
 import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import credential_shim  # noqa: E402
 import policy_injection  # noqa: E402
 import service_catalog  # noqa: E402
 
@@ -79,8 +80,15 @@ def remove_policy_list_fields(policy):
     return {
         key: value
         for key, value in policy.items()
-        if key not in ("services", "domains")
+        if key not in ("services", "domains", "credential_shim")
     }
+
+
+def reject_renderer_owned_fields(policy, context):
+    if "credential_shim" in policy:
+        fail(
+            f"{context}.credential_shim is renderer-owned and cannot be authored in policy files"
+        )
 
 
 def normalize_string(value, context):
@@ -423,6 +431,7 @@ def make_render_state():
         "hosts": {},
         "order": [],
         "other": {},
+        "credential_shim": [],
     }
 
 
@@ -467,6 +476,11 @@ def discard_service_contributions(state, service_name):
             del state["hosts"][host]
             state["order"] = [existing for existing in state["order"] if existing != host]
 
+    state["credential_shim"] = [
+        entry for entry in state["credential_shim"]
+        if entry["owner"] != service_owner
+    ]
+
 
 def apply_service_expansion(state, expansion):
     service_name = expansion["name"]
@@ -476,9 +490,15 @@ def apply_service_expansion(state, expansion):
     service_owner = ("service", service_name)
     for record in expansion["records"]:
         apply_host_record(state, record, owner=service_owner)
+    for hint in expansion.get("credential_shim") or []:
+        state["credential_shim"].append({
+            "owner": service_owner,
+            "hint": hint,
+        })
 
 
 def apply_policy_layer(state, policy, context):
+    reject_renderer_owned_fields(policy, context)
     state["other"] = merge_other_fields(
         state["other"],
         remove_policy_list_fields(policy),
@@ -519,6 +539,12 @@ def finalize_render_state(state):
         ordered_records,
         key=lambda record: host_sort_key(record, order_by_host[record["host"]]),
     )
+    shim_payload = credential_shim.payload_from_hints(
+        [entry["hint"] for entry in state["credential_shim"]],
+        fail,
+    )
+    if shim_payload["hints"]:
+        rendered["credential_shim"] = shim_payload
     return rendered
 
 
@@ -558,28 +584,46 @@ def render_policy():
     return render_single_policy()
 
 
+def write_credential_shim_init(rendered_policy, init_path=None):
+    path = init_path
+    if path is None:
+        path = os.getenv("AGENTBOX_CREDENTIAL_SHIM_INIT_PATH", "").strip()
+    if not path:
+        return
+    credential_shim.write_init(
+        path,
+        rendered_policy.get("credential_shim"),
+        fail,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Render the effective proxy policy")
     parser.add_argument("--output", help="Write rendered YAML to this path instead of stdout")
+    parser.add_argument(
+        "--credential-shim-output",
+        help="Write generated credential shim init script to this path",
+    )
     args = parser.parse_args()
 
     try:
         rendered_policy = render_policy()
-    except RenderPolicyError as error:
+        rendered_yaml = yaml.safe_dump(rendered_policy, sort_keys=False)
+
+        if args.output:
+            output_dir = os.path.dirname(args.output)
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
+            with open(args.output, "w", encoding="utf-8") as handle:
+                handle.write(rendered_yaml)
+        else:
+            sys.stdout.write(rendered_yaml)
+
+        if args.credential_shim_output:
+            write_credential_shim_init(rendered_policy, args.credential_shim_output)
+    except (RenderPolicyError, OSError) as error:
         print(str(error), file=sys.stderr)
         sys.exit(1)
-
-    rendered_yaml = yaml.safe_dump(rendered_policy, sort_keys=False)
-
-    if args.output:
-        output_dir = os.path.dirname(args.output)
-        if output_dir:
-            os.makedirs(output_dir, exist_ok=True)
-        with open(args.output, "w", encoding="utf-8") as handle:
-            handle.write(rendered_yaml)
-        return
-
-    sys.stdout.write(rendered_yaml)
 
 
 if __name__ == "__main__":

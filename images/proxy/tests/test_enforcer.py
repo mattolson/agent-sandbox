@@ -495,7 +495,40 @@ domains:
             "Bearer replacement-token",
         )
 
-    def test_missing_secret_source_fails_closed_for_matching_transform(self):
+    def test_existing_fake_authorization_replace_can_render_basic_header(self):
+        matcher = self.matcher_from_domains(
+            [
+                self.transformed_domain(
+                    transform_type="basic",
+                    username="x-access-token",
+                    on_existing_header="replace",
+                )
+            ]
+        )
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(io.StringIO()),
+            response_factory=self.make_response,
+            secret_resolver_factory=self.secret_resolver_factory(
+                {"openai-api-token": "real-github-token"}
+            ),
+        )
+        flow = FakeFlow(
+            "api.openai.com",
+            scheme="https",
+            method="GET",
+            path="/v1/models",
+            headers={"Authorization": "Basic fake"},
+        )
+
+        enforcer.request(flow)
+
+        encoded = base64.b64encode(b"x-access-token:real-github-token").decode("ascii")
+        self.assertIsNone(flow.response)
+        self.assertEqual(flow.request.headers["Authorization"], f"Basic {encoded}")
+
+    def test_default_secret_source_fails_closed_when_default_root_missing(self):
         logger_output = io.StringIO()
         matcher = self.matcher_from_domains([self.transformed_domain()])
         enforcer = self.enforcer_module.PolicyEnforcer(
@@ -512,8 +545,9 @@ domains:
         self.assertIsNotNone(flow.response)
         log_output = logger_output.getvalue()
         self.assertIn('"reason": "header_injection_failed"', log_output)
-        self.assertIn('"detail": "secret_resolver_unavailable"', log_output)
-        self.assertIn("AGENTBOX_SECRET_SOURCE", log_output)
+        self.assertIn('"detail": "secret_resolution_failed"', log_output)
+        self.assertIn("Secret source root does not exist", log_output)
+        self.assertIn("/run/secrets/agentbox", log_output)
 
     def test_missing_secret_file_fails_closed_without_leaking_values(self):
         logger_output = io.StringIO()

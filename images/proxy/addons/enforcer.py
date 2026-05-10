@@ -233,12 +233,15 @@ class PolicyEnforcer:
             )
 
     def _render_matcher(self):
+        module = None
         if self.reload_renderer is not None:
             rendered_policy = self.reload_renderer()
         else:
             module = _load_render_policy_module(RENDER_POLICY_PATH)
             rendered_policy = module.render_policy()
         matcher = PolicyMatcher.from_policy_data(rendered_policy, path="reloaded policy")
+        if module is not None and hasattr(module, "write_credential_shim_init"):
+            module.write_credential_shim_init(rendered_policy)
         return matcher
 
     def _reload_event(self, action, error=None):
