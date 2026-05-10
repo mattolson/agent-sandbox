@@ -58,6 +58,10 @@ Lessons learned during project execution. Review at the start of each planning s
   too; otherwise tests can accidentally pass by reusing a module already loaded from the repo path
 - Keep internal catalog field names distinct from rejected author-facing policy fields so test failures and future
   refactors do not blur unsupported syntax with canonical intermediate representation
+- Shared named-volume mount targets should be pre-created with compatible ownership in every image that may initialize
+  the volume. Startup order is useful, but it should not be the only thing making a shared runtime file writable.
+- Agent-visible credential shim metadata should remain renderer- and catalog-owned, not arbitrary author-facing
+  environment surfaces, so fake credential setup stays coupled to the proxy replacement rules that make it safe.
 
 ## Architecture
 
