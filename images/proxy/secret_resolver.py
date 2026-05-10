@@ -23,6 +23,7 @@ import policy_injection  # noqa: E402
 
 SECRET_SOURCE_ENV = "AGENTBOX_SECRET_SOURCE"
 FILE_SOURCE_SCHEME = "file"
+DEFAULT_SECRET_SOURCE = "file:/run/secrets/agentbox"
 _SECRET_READ_SIZE = 64 * 1024
 
 
@@ -82,7 +83,10 @@ class SecretResolver:
     def from_env(cls, env=None):
         if env is None:
             env = os.environ
-        return cls.from_source(env.get(SECRET_SOURCE_ENV))
+        source = env.get(SECRET_SOURCE_ENV)
+        if source is None or not str(source).strip():
+            source = DEFAULT_SECRET_SOURCE
+        return cls.from_source(source)
 
     @classmethod
     def from_source(cls, source):

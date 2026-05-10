@@ -53,12 +53,23 @@ class SecretResolverTests(unittest.TestCase):
         self.assertEqual(result.value.as_text(), "secret-token")
         self.assertEqual(result.warnings, ())
 
-    def test_missing_source_has_actionable_error(self):
-        with self.assertRaises(self.secret_resolver.SecretResolverError) as context:
-            self.secret_resolver.SecretResolver.from_env({})
+    def test_missing_source_uses_default_file_source(self):
+        resolver = self.secret_resolver.SecretResolver.from_env({})
 
-        self.assertIn("AGENTBOX_SECRET_SOURCE", str(context.exception))
-        self.assertIn("file:/run/secrets/agentbox", str(context.exception))
+        self.assertEqual(
+            resolver.root,
+            Path("/run/secrets/agentbox"),
+        )
+
+    def test_empty_source_uses_default_file_source(self):
+        resolver = self.secret_resolver.SecretResolver.from_env(
+            {"AGENTBOX_SECRET_SOURCE": "  "}
+        )
+
+        self.assertEqual(
+            resolver.root,
+            Path("/run/secrets/agentbox"),
+        )
 
     def test_unsupported_source_scheme_is_rejected(self):
         with self.assertRaises(self.secret_resolver.SecretResolverError) as context:
