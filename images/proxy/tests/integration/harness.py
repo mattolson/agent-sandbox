@@ -9,15 +9,19 @@ Designed to work with `unittest`, matching the existing proxy test style.
 
 from __future__ import annotations
 
+import http.server
+import importlib.util
 import json
 import os
 import shutil
 import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
+from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -270,3 +274,172 @@ def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_override
         )
 
     return harness
+
+
+class _RecordingHTTPServer(http.server.ThreadingHTTPServer):
+    def __init__(self, server_address, handler_class):
+        super().__init__(server_address, handler_class)
+        self._requests = []
+        self._requests_lock = threading.Lock()
+
+    def record_request(self, method, path, body, headers):
+        with self._requests_lock:
+            self._requests.append({
+                "method": method,
+                "path": path,
+                "body": body,
+                "headers": headers,
+            })
+
+    def snapshot_requests(self):
+        with self._requests_lock:
+            return list(self._requests)
+
+
+class _UpstreamHandler(http.server.BaseHTTPRequestHandler):
+    def _respond(self):
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        body = self.rfile.read(length) if length else b""
+        self.server.record_request(self.command, self.path, body, dict(self.headers.items()))
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", "2")
+        self.end_headers()
+        self.wfile.write(b"ok")
+
+    def do_GET(self):  # noqa: N802 - BaseHTTPRequestHandler convention
+        self._respond()
+
+    def do_POST(self):  # noqa: N802
+        self._respond()
+
+    def log_message(self, format, *args):  # noqa: A002 - silence default logging
+        return
+
+
+class FakeUpstream:
+    """Plain-HTTP recording server bound to 127.0.0.1 for proxy integration tests.
+
+    Captures method, path, headers, and body for each request so tests can assert
+    on what the proxy actually forwarded after policy match and request mutation.
+    """
+
+    def __init__(self):
+        self.server = _RecordingHTTPServer(("127.0.0.1", 0), _UpstreamHandler)
+        self.port = self.server.server_address[1]
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+
+    def start(self):
+        self.thread.start()
+
+    def stop(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=2.0)
+
+    @property
+    def url(self):
+        return f"http://127.0.0.1:{self.port}/"
+
+    def snapshot_requests(self):
+        return self.server.snapshot_requests()
+
+
+def provision_secret_dir(secrets):
+    """Materialize a 0700 directory containing 0600 secret files.
+
+    Returns (TemporaryDirectory, source_url) where source_url is the
+    `file:<path>` URL suitable for `AGENTBOX_SECRET_SOURCE`. The caller is
+    responsible for cleaning up the directory.
+    """
+    tempdir = tempfile.TemporaryDirectory(prefix="agentbox-secrets-")
+    root = Path(tempdir.name)
+    os.chmod(root, 0o700)
+    for name, value in secrets.items():
+        path = root / name
+        path.write_text(value, encoding="utf-8")
+        os.chmod(path, 0o600)
+    return tempdir, f"file:{root}"
+
+
+_RENDER_POLICY_MODULE = None
+
+
+def _load_render_policy_module():
+    global _RENDER_POLICY_MODULE
+    if _RENDER_POLICY_MODULE is not None:
+        return _RENDER_POLICY_MODULE
+
+    proxy_dir = REPO_ROOT / "images" / "proxy"
+    added_path = False
+    if str(proxy_dir) not in sys.path:
+        sys.path.insert(0, str(proxy_dir))
+        added_path = True
+
+    try:
+        loader = SourceFileLoader("agentbox_harness_render_policy", str(RENDER_POLICY_PATH))
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        module = importlib.util.module_from_spec(spec)
+        loader.exec_module(module)
+    finally:
+        if added_path:
+            sys.path.remove(str(proxy_dir))
+
+    _RENDER_POLICY_MODULE = module
+    return module
+
+
+def render_authored_policy(source_text):
+    """Render an authored policy YAML through the real `render-policy` module.
+
+    Returns the rendered policy dict. Tests can mutate the result (for example,
+    to remap host names onto the fake upstream) before serializing it for
+    `spawn_proxy`.
+    """
+    import yaml
+
+    render_policy = _load_render_policy_module()
+    with tempfile.TemporaryDirectory(prefix="agentbox-render-") as tempdir:
+        source_path = Path(tempdir) / "source.yaml"
+        source_path.write_text(source_text, encoding="utf-8")
+        old_env = {}
+        keys = (
+            "AGENTBOX_POLICY_SOURCE_PATH",
+            "AGENTBOX_SHARED_POLICY_PATH",
+            "AGENTBOX_AGENT_POLICY_PATH",
+            "AGENTBOX_DEVCONTAINER_POLICY_PATH",
+            "AGENTBOX_ACTIVE_AGENT",
+        )
+        for key in keys:
+            old_env[key] = os.environ.get(key)
+        os.environ["AGENTBOX_POLICY_SOURCE_PATH"] = str(source_path)
+        os.environ.pop("AGENTBOX_ACTIVE_AGENT", None)
+        try:
+            return render_policy.render_single_policy()
+        finally:
+            for key, value in old_env.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+
+def remap_rendered_host(rendered_policy, host_map):
+    """Rewrite host values in a rendered policy's `domains` entries.
+
+    `host_map` is a dict like `{"github.com": "127.0.0.1"}`. Returns a new
+    policy dict; the input is left unmodified.
+    """
+    if "domains" not in rendered_policy:
+        return dict(rendered_policy)
+
+    remapped = dict(rendered_policy)
+    new_domains = []
+    for record in rendered_policy["domains"]:
+        new_record = dict(record)
+        host = new_record.get("host")
+        if host in host_map:
+            new_record["host"] = host_map[host]
+        new_domains.append(new_record)
+    remapped["domains"] = new_domains
+    return remapped

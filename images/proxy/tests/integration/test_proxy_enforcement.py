@@ -11,15 +11,13 @@ pull it in.
 
 from __future__ import annotations
 
-import http.server
 import tempfile
-import threading
 import unittest
 from pathlib import Path
 
 import yaml
 
-from .harness import mitmdump_available, spawn_proxy
+from .harness import FakeUpstream, mitmdump_available, spawn_proxy
 
 
 def _yaml_policy(domains):
@@ -30,69 +28,6 @@ def _skip_reason():
     return "mitmdump not available on PATH; install mitmproxy to run integration tests"
 
 
-class _RecordingHTTPServer(http.server.ThreadingHTTPServer):
-    def __init__(self, server_address, handler_class):
-        super().__init__(server_address, handler_class)
-        self._requests = []
-        self._requests_lock = threading.Lock()
-
-    def record_request(self, method, path, body, headers):
-        with self._requests_lock:
-            self._requests.append({
-                "method": method,
-                "path": path,
-                "body": body,
-                "headers": headers,
-            })
-
-    def snapshot_requests(self):
-        with self._requests_lock:
-            return list(self._requests)
-
-
-class _UpstreamHandler(http.server.BaseHTTPRequestHandler):
-    def _respond(self):
-        length = int(self.headers.get("Content-Length", "0") or 0)
-        body = self.rfile.read(length) if length else b""
-        self.server.record_request(self.command, self.path, body, dict(self.headers.items()))
-        self.send_response(200)
-        self.send_header("Content-Type", "text/plain")
-        self.send_header("Content-Length", "2")
-        self.end_headers()
-        self.wfile.write(b"ok")
-
-    def do_GET(self):  # noqa: N802 - BaseHTTPRequestHandler convention
-        self._respond()
-
-    def do_POST(self):  # noqa: N802
-        self._respond()
-
-    def log_message(self, format, *args):  # noqa: A002 - silence default logging
-        return
-
-
-class _Upstream:
-    def __init__(self):
-        self.server = _RecordingHTTPServer(("127.0.0.1", 0), _UpstreamHandler)
-        self.port = self.server.server_address[1]
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-
-    def start(self):
-        self.thread.start()
-
-    def stop(self):
-        self.server.shutdown()
-        self.server.server_close()
-        self.thread.join(timeout=2.0)
-
-    @property
-    def url(self):
-        return f"http://127.0.0.1:{self.port}/"
-
-    def snapshot_requests(self):
-        return self.server.snapshot_requests()
-
-
 class _ProxyTestCase(unittest.TestCase):
     def spawn(self, policy_text, **kwargs):
         harness = spawn_proxy(policy_text, **kwargs)
@@ -100,7 +35,7 @@ class _ProxyTestCase(unittest.TestCase):
         return harness
 
     def upstream(self):
-        upstream = _Upstream()
+        upstream = FakeUpstream()
         upstream.start()
         self.addCleanup(upstream.stop)
         return upstream
