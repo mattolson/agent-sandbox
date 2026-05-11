@@ -30,28 +30,28 @@ CLI and devcontainer compose layouts.
 
 ## Acceptance Criteria
 
-- [ ] Integration test proves private upload-pack discovery (`/owner/repo.git/info/refs?service=git-upload-pack`) and
+- [x] Integration test proves private upload-pack discovery (`/owner/repo.git/info/refs?service=git-upload-pack`) and
       pack transfer (`/owner/repo.git/git-upload-pack`) reach the fake upstream with `Authorization: Basic ...`
       derived from the file-backed secret
-- [ ] Integration test proves push discovery (`/owner/repo.git/info/refs?service=git-receive-pack`) and pack transfer
+- [x] Integration test proves push discovery (`/owner/repo.git/info/refs?service=git-receive-pack`) and pack transfer
       (`/owner/repo.git/git-receive-pack`) reach the fake upstream with `Authorization: Basic ...`
-- [ ] Integration test proves public `git.access: read` without `git.auth` emits no `transform` metadata and that
+- [x] Integration test proves public `git.access: read` without `git.auth` emits no `transform` metadata and that
       matching upload-pack requests reach the fake upstream without `Authorization`
-- [ ] Integration test proves a request that pre-sends a fake `Authorization` header for the shimmed flow gets that
+- [x] Integration test proves a request that pre-sends a fake `Authorization` header for the shimmed flow gets that
       header replaced (not failed) and the upstream sees the real proxy-injected value
-- [ ] Integration test proves a request that pre-sends an `Authorization` header for a direct (non-shim) injection rule
+- [x] Integration test proves a request that pre-sends an `Authorization` header for a direct (non-shim) injection rule
       is failed closed by the proxy and never reaches the upstream
-- [ ] Integration test asserts proxy logs and emitted events contain the secret ID and redacted markers only — no
+- [x] Integration test asserts proxy logs and emitted events contain the secret ID and redacted markers only — no
       file-backed secret value appears in any captured event line
-- [ ] Scaffold test proves generated CLI and devcontainer base compose layers mount `/run/secrets/agentbox` into
+- [x] Scaffold test proves generated CLI and devcontainer base compose layers mount `/run/secrets/agentbox` into
       `proxy` only and that `agent` has no bind, named-volume, or env reference to the host secret path
-- [ ] Scaffold test proves generated CLI and devcontainer base compose layers mount
+- [x] Scaffold test proves generated CLI and devcontainer base compose layers mount
       `proxy-credential-shims:/run/agentbox/credential-shims` read-only into `agent` and read/write into `proxy`
-- [ ] Renderer test proves a `git.auth.client_shim.kind: git-askpass` entry produces a rendered `credential_shim`
+- [x] Renderer test proves a `git.auth.client_shim.kind: git-askpass` entry produces a rendered `credential_shim`
       block, an `init.zsh` aggregate, and a `git-askpass/env.zsh` fragment that contain only fake values and logical
       secret IDs, never the resolved secret
-- [ ] `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
-- [ ] `go test ./...`
+- [x] `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
+- [x] `go test ./...`
 
 ## Applicable Learnings
 
@@ -197,18 +197,21 @@ harness pattern. This task should not introduce a CI dependency that breaks envi
 
 ### Implementation Steps
 
-- [ ] Lift the `_Upstream` fake server out of `test_proxy_enforcement.py` into a shared helper in `harness.py`
-- [ ] Add a `provision_secret_dir(secrets)` helper to `harness.py` that returns a `(dir, source_url)` tuple with the
-      file backend rooted at a `0700` temp directory containing `0600` secret files
-- [ ] Allow `spawn_proxy` to receive a service-catalog-shorthand policy by routing through `render-policy`-compatible
-      input the same way the harness already accepts authored policy text
-- [ ] Add `test_github_git_injection.py` with the read-with-auth, readwrite, and public-read scenarios
-- [ ] Add `test_credential_shim_replace.py` with the shimmed replace and direct fail-closed scenarios
-- [ ] Extend `test_render_policy.py` with the rendered-output and shell-fragment redaction boundary test
-- [ ] Extend `internal/scaffold/init_test.go` agent-service negative assertions for the secret mount
-- [ ] Extend `internal/scaffold/sync_test.go` to mirror the negative assertion on the repair path
-- [ ] Run `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
-- [ ] Run `go test ./...`
+- [x] Lift the `_Upstream` fake server out of `test_proxy_enforcement.py` into a shared `FakeUpstream` helper in
+      `harness.py`
+- [x] Add a `provision_secret_dir(secrets)` helper to `harness.py` that returns a `(TemporaryDirectory, source_url)`
+      tuple with the file backend rooted at a `0700` temp directory containing `0600` secret files
+- [x] Add `render_authored_policy` plus `remap_rendered_host` helpers so integration tests can drive `services:`
+      shorthand through the real `render-policy` module and rebind the catalog's `github.com` host onto loopback
+- [x] Add `test_github_git_injection.py` with private-read-with-auth, readwrite, and public-read scenarios plus a
+      negative check that public-read does not authorize receive-pack
+- [x] Add `test_credential_shim_replace.py` with the shimmed replace and direct fail-closed scenarios
+- [x] Extend `test_render_policy.py` with the rendered-output and shell-fragment redaction boundary test
+- [x] Extend `internal/scaffold/init_test.go` agent-service negative assertions and add
+      `assertCredentialShimAgentReadOnly` walking all generated layers
+- [x] Extend `internal/scaffold/sync_test.go` to mirror the same negative assertions on the repair paths
+- [x] Run `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
+- [x] Run `go test ./...`
 
 ### Open Questions
 
@@ -227,16 +230,49 @@ harness pattern. This task should not introduce a CI dependency that breaks envi
 
 ### Acceptance Verification
 
-- [ ] Each acceptance-criteria checkbox has a corresponding test or assertion identified by file and test name.
-- [ ] Test runs for both the Python proxy suite and `go test ./...` are recorded in the execution log.
+- [x] Private read with auth covered by
+      `images/proxy/tests/integration/test_github_git_injection.py::GitHubGitInjectionTests::test_private_read_with_auth_injects_authorization_on_upload_pack_rules`
+- [x] Readwrite covered by
+      `test_github_git_injection.py::GitHubGitInjectionTests::test_readwrite_injects_authorization_on_all_four_smart_http_rules`
+- [x] Public read without auth covered by
+      `test_github_git_injection.py::GitHubGitInjectionTests::test_public_read_without_auth_emits_no_authorization`
+      and
+      `test_public_read_does_not_allow_push_path`
+- [x] Shim replace covered by
+      `images/proxy/tests/integration/test_credential_shim_replace.py::CredentialShimReplaceTests::test_client_shim_replaces_fake_authorization_with_real_secret`
+- [x] Direct fail-closed covered by
+      `test_credential_shim_replace.py::CredentialShimReplaceTests::test_direct_injection_fails_closed_when_authorization_already_present`
+- [x] Log-line redaction asserted inline in each integration scenario via
+      `self.assertNotIn(secret_value, "\n".join(harness.snapshot_lines()))`
+- [x] Secret mount negative assertions covered by `assertNoProxySecretRuntime` calls on every generated layer
+      (`base`, `agent`, `sharedOverride`, `agentOverride`, `modeFile`) in `internal/scaffold/init_test.go` and
+      `internal/scaffold/sync_test.go`
+- [x] Credential-shim volume read-only assertion covered by `assertCredentialShimAgentReadOnly` in both scaffold
+      test files
+- [x] Rendered-output and shell-fragment redaction covered by
+      `images/proxy/tests/test_render_policy.py::RenderPolicyTests::test_rendered_output_never_contains_resolved_secret_value`
+- [x] `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'` — 163 tests pass
+- [x] `go test ./...` — all packages pass
 
 ### Learnings
 
-(To be filled in during execution.)
+- The mitmproxy enforcer matches the URL host but forwards to the upstream named in that URL. Integration tests for
+  catalog rules that hard-code real hostnames (e.g. `github.com`) must either own DNS or rebind the rendered host
+  onto loopback. Rebinding through `remap_rendered_host` keeps the catalog's path, method, query, and transform
+  shapes intact while isolating the test from the real internet.
+- Loading `render-policy` as a Python module from a non-`.py` filename requires `SourceFileLoader` plus
+  `importlib.util.spec_from_loader` and `exec_module`; the deprecated `loader.load_module()` still works but the
+  modern form matches `test_render_policy.py` and avoids deprecation noise.
+- The renderer never reads resolved secret values today, so the rendered-output redaction test passes trivially. It
+  is still worth keeping as a defense-in-depth guard against a future refactor that resolves secrets at render time
+  or accidentally embeds values into shell fragments.
 
 ### Follow-up Items
 
 - `m15.8` should reference the integration scenarios pinned here as the canonical examples for read, readwrite,
-  public-read, and shimmed-replace flows.
+  public-read, and shimmed-replace flows. The `git.access: read` plus `git.auth` case should be documented as
+  "private read" terminology since the catalog does not distinguish that case in error messages today.
 - A future task should add a base-image smoke test that exercises `agentbox-git-askpass.sh` end-to-end inside a
   container; m15.7 keeps base-image runtime out of scope.
+- Consider lifting `assertCredentialShimAgentReadOnly` and `assertNoProxySecretRuntime` into a small helper file so
+  future per-mount boundary tests can share them across init/sync test files without further duplication.
