@@ -7,6 +7,8 @@ from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from unittest import mock
 
+import yaml
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RENDER_POLICY_PATH = REPO_ROOT / "images" / "proxy" / "render-policy"
@@ -817,6 +819,70 @@ domains:
         self.assertIn("No git-askpass credential shim is active", git_env_body)
         self.assertNotIn("/stale", init_body)
         self.assertNotIn("/stale", git_env_body)
+
+    def test_rendered_output_never_contains_resolved_secret_value(self):
+        """Even with a provisioned secret source, the renderer must not surface
+        the resolved value anywhere in its outputs.
+
+        The renderer does not resolve secrets today, but this is a defense-in-
+        depth guard against a future refactor that accidentally embeds resolved
+        values into rendered policy, the init aggregate, or the shim fragments.
+        """
+        secret_value = "renderer-boundary-secret-value"
+        secret_id = "github.agent-sandbox.boundary-token"
+
+        with tempfile.TemporaryDirectory() as secret_dir, tempfile.TemporaryDirectory() as output_dir:
+            secret_root = Path(secret_dir)
+            os.chmod(secret_root, 0o700)
+            secret_file = secret_root / secret_id
+            secret_file.write_text(secret_value, encoding="utf-8")
+            os.chmod(secret_file, 0o600)
+
+            policy_text = f"""
+services:
+  - name: github
+    repos:
+      - owner/repo
+    git:
+      access: readwrite
+      auth:
+        secret: {secret_id}
+        client_shim:
+          kind: git-askpass
+domains:
+  - host: api.example.test
+    transform:
+      request:
+        headers:
+          Authorization:
+            secret: {secret_id}
+            transform:
+              type: bearer
+    rules:
+      - path:
+          exact: /
+"""
+
+            with mock.patch.dict(
+                os.environ,
+                {"AGENTBOX_SECRET_SOURCE": f"file:{secret_root}"},
+                clear=False,
+            ):
+                rendered = self.render_single(policy_text)
+
+            rendered_yaml = yaml.safe_dump(rendered, sort_keys=False)
+            self.assertNotIn(secret_value, rendered_yaml)
+
+            init_path = Path(output_dir) / "init.zsh"
+            git_env_path = Path(output_dir) / "git-askpass" / "env.zsh"
+            self.render_policy.write_credential_shim_init(rendered, str(init_path))
+            init_body = init_path.read_text(encoding="utf-8")
+            git_env_body = git_env_path.read_text(encoding="utf-8")
+
+            self.assertNotIn(secret_value, init_body)
+            self.assertNotIn(secret_value, git_env_body)
+
+            self.assertIn(secret_id, rendered_yaml)
 
     def test_github_git_auth_does_not_broaden_to_same_host_domain_rules(self):
         rendered = self.render_single(
