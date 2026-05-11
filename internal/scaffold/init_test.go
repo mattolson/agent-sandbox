@@ -66,10 +66,14 @@ func TestInitializeCLIWritesRepresentativeClaudeScaffold(t *testing.T) {
 	} {
 		assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, volume)
 	}
+	assertNoProxySecretRuntime(t, sharedOverride.Services.Agent)
 
 	agentOverride := readCompose(t, runtime.CLIUserAgentOverrideFile(repoRoot, "claude"))
 	assertContainsVolumeString(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro`)
 	assertContainsVolumeString(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro`)
+	assertNoProxySecretRuntime(t, agentOverride.Services.Agent)
+
+	assertCredentialShimAgentReadOnly(t, base, agent, sharedOverride, agentOverride)
 
 	assertFileExists(t, runtime.SharedPolicyFile(repoRoot))
 	assertFileExists(t, runtime.UserAgentPolicyFile(repoRoot, "claude"))
@@ -116,6 +120,8 @@ func TestInitializeDevcontainerWritesRepresentativeCodexScaffold(t *testing.T) {
 	assertNotContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, "../../.idea:/workspace/.idea:ro")
 	assertNotContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, "../../.vscode:/workspace/.vscode:ro")
 	assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro`)
+	assertNoProxySecretRuntime(t, sharedOverride.Services.Agent)
+	assertCredentialShimAgentReadOnly(t, base, modeFile, sharedOverride)
 
 	devcontainerJSON := readJSONMap(t, filepath.Join(repoRoot, ".devcontainer", "devcontainer.json"))
 	dockerComposeFiles := devcontainerJSON["dockerComposeFile"].([]any)
@@ -306,6 +312,34 @@ func assertNoProxySecretRuntime(t *testing.T, service *composeService) {
 		".config/agent-sandbox/secrets",
 	} {
 		assertNoVolumeReference(t, service.Volumes, value)
+	}
+}
+
+// assertCredentialShimAgentReadOnly walks the provided compose documents and
+// fails the test if any agent service entry mounts the credential-shim target
+// without the read-only flag. This guards against a managed override layer
+// quietly upgrading agent access to read/write.
+func assertCredentialShimAgentReadOnly(t *testing.T, docs ...composeDocument) {
+	t.Helper()
+	for _, doc := range docs {
+		if doc.Services.Agent == nil {
+			continue
+		}
+		for _, volume := range doc.Services.Agent.Volumes {
+			mount, ok := volume.bindMount()
+			if !ok {
+				continue
+			}
+			if mount.Target != credentialShimMountTarget {
+				continue
+			}
+			if !mount.ReadOnly {
+				t.Fatalf(
+					"agent mount of %q must be read-only, got source=%q read_only=%v",
+					credentialShimMountTarget, mount.Source, mount.ReadOnly,
+				)
+			}
+		}
 	}
 }
 

@@ -60,10 +60,14 @@ func TestEnsureCLIAgentRuntimeFilesCreatesMissingFilesAndPersistsState(t *testin
 	sharedOverride := readCompose(t, runtime.CLIUserOverrideFile(repoRoot))
 	assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro`)
 	assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro`)
+	assertNoProxySecretRuntime(t, sharedOverride.Services.Agent)
 
 	agentOverride := readCompose(t, runtime.CLIUserAgentOverrideFile(repoRoot, "claude"))
 	assertContainsVolumeString(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro`)
 	assertContainsVolumeString(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro`)
+	assertNoProxySecretRuntime(t, agentOverride.Services.Agent)
+
+	assertCredentialShimAgentReadOnly(t, base, agent, sharedOverride, agentOverride)
 
 	assertFileExists(t, runtime.SharedPolicyFile(repoRoot))
 	assertFileExists(t, runtime.UserAgentPolicyFile(repoRoot, "claude"))
@@ -142,11 +146,14 @@ func TestEnsureDevcontainerRuntimeFilesRepairsMissingMetadataAndPersistsState(t 
 	assertContainsManagedBind(t, agent.Services.Proxy.Volumes, "../policy/user.agent.codex.policy.yaml", "/etc/agent-sandbox/policy/user.agent.policy.yaml", true)
 	assertNotContainsVolumeString(t, agent.Services.Proxy.Volumes, "../policy-cli-codex.yaml:/etc/mitmproxy/policy.yaml:ro")
 	assertContains(t, agent.Services.Proxy.Environment, "AGENTBOX_ACTIVE_AGENT=codex")
+	assertNoProxySecretRuntime(t, agent.Services.Agent)
 
 	modeFile := readCompose(t, runtime.CLIDevcontainerModeComposeFile(repoRoot))
 	if modeFile.Name != runtime.ApplyModeSuffix(wantProjectName, runtime.ModeDevcontainer) {
 		t.Fatalf("unexpected mode project name: %q", modeFile.Name)
 	}
+	assertNoProxySecretRuntime(t, modeFile.Services.Agent)
+	assertCredentialShimAgentReadOnly(t, base, agent, modeFile)
 
 	policy := readPolicy(t, runtime.DevcontainerManagedPolicyFile(repoRoot))
 	if len(policy.Services) != 0 {
