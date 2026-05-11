@@ -62,6 +62,13 @@ Lessons learned during project execution. Review at the start of each planning s
   the volume. Startup order is useful, but it should not be the only thing making a shared runtime file writable.
 - Agent-visible credential shim metadata should remain renderer- and catalog-owned, not arbitrary author-facing
   environment surfaces, so fake credential setup stays coupled to the proxy replacement rules that make it safe.
+- mitmproxy forwards requests to the host named in the URL it receives, so integration tests against catalog rules
+  that hard-code real hostnames (e.g. `github.com`) must rebind the rendered host onto loopback rather than relying
+  on DNS or matcher tricks; rebinding preserves the catalog's rule shape under test while isolating the proxy from
+  the real internet.
+- `SourceFileLoader.load_module()` is deprecated in modern Python; prefer
+  `spec_from_loader` + `module_from_spec` + `exec_module` when loading non-`.py` scripts such as `render-policy` so
+  test runs stay free of DeprecationWarnings.
 
 ## Architecture
 
