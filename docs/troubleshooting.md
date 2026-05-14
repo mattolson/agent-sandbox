@@ -57,6 +57,52 @@ mkdir -p "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
 chmod 700 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
 ```
 
+## Proxy fails to inject a header (missing or unreadable secret file)
+
+A rule with `transform.request.headers` (or a GitHub `git.auth.secret`) requires the proxy to resolve the named secret at request time. If the file is missing or unreadable, the request is blocked before reaching the upstream and the proxy emits a structured rejection event:
+
+```json
+{"ts": "...", "phase": "request", "action": "blocked", "reason": "header_injection_failed", "detail": "secret_resolution_failed", "secret": "<id>"}
+```
+
+Common causes and fixes:
+
+- **Secret file does not exist.** Create it with the same name as the secret ID under `${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}`. Use `printf '%s' "<value>" > <path>` to avoid an extra trailing newline.
+- **Secret file is a symlink or non-regular file.** The resolver opens with `O_NOFOLLOW` and rejects non-regular files. Replace the symlink with the real file.
+- **Secret value has embedded NUL/CR/LF or is not UTF-8.** The resolver rejects those. Rewrite the file with the literal token bytes only (one trailing newline is fine and is stripped).
+
+See [docs/secrets.md](secrets.md) for the storage layout and ID grammar.
+
+## Secret file has unsafe permissions
+
+When the secret directory or a secret file is group/other readable or writable, the resolver flags it as `unsafe_permissions`. The warning rides along inside the successful `header_injection` event:
+
+```json
+{"ts": "...", "type": "header_injection", "action": "applied", "headers": [...], "warnings": [{"code": "unsafe_permissions", "path": "...", "secret": "<id>"}]}
+```
+
+Resolution still succeeds today, but tighten the mode so the warnings stop:
+
+```bash
+chmod 700 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
+chmod 600 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"/*
+```
+
+If the path is a symlink, remove the symlink and place the real file at the resolver's expected location instead.
+
+## Credential-shim env vars not visible inside the container
+
+Policies that use `services[].git.auth.client_shim` rely on shell env exports (`GIT_ASKPASS`, `AGENTBOX_GIT_FAKE_USERNAME`, `AGENTBOX_GIT_FAKE_PASSWORD`, `GIT_TERMINAL_PROMPT`) that are loaded at shell startup by `/etc/agent-sandbox/shell-init.sh`. Already-running processes — including the agent process you started before applying the policy — do not see updated exports.
+
+If `git push` prompts for credentials or fails with no Authorization injection, open a new shell or restart the container:
+
+```bash
+agentbox proxy reload   # apply policy change (no container restart needed)
+agentbox exec           # open a fresh shell to pick up shim env exports
+```
+
+The proxy's own header injection takes effect immediately on the next matching request; only the agent-side askpass exports need a fresh shell.
+
 ## Policy reload rejected
 
 `agentbox proxy reload` triggers a hot reload of the proxy policy. If the rendered policy is invalid the

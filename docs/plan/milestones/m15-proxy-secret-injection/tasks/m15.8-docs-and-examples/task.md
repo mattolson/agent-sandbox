@@ -41,33 +41,33 @@ storage layout, freshness and reload semantics, and the explicit non-goals. Refr
 
 ## Acceptance Criteria
 
-- [ ] `docs/policy/schema.md` documents the m15.5 GitHub shape (`git`/`api` with `access` plus optional `auth`),
+- [x] `docs/policy/schema.md` documents the m15.5 GitHub shape (`git`/`api` with `access` plus optional `auth`),
       the m15.1 `transform.request` shape with secret IDs and transforms, and the m15.6 `client_shim` opt-in
-- [ ] `docs/policy/schema.md` removes documentation of repo-scoped `surfaces` and repo-scoped `readonly` as
+- [x] `docs/policy/schema.md` removes documentation of repo-scoped `surfaces` and repo-scoped `readonly` as
       supported authoring surfaces and lists them as rejected fields
-- [ ] `docs/policy/schema.md` documents that authored top-level `credential_shim` is rejected and that the
+- [x] `docs/policy/schema.md` documents that authored top-level `credential_shim` is rejected and that the
       rendered output may include a renderer-owned `credential_shim` block for shimmed services
-- [ ] `docs/policy/schema.md` documents `transform.response` as reserved and rejected when non-empty
-- [ ] `docs/policy/examples/github-repos.yaml` uses the m15.5 syntax and matches a scenario covered by renderer or
+- [x] `docs/policy/schema.md` documents `transform.response` as reserved and rejected when non-empty
+- [x] `docs/policy/examples/github-repos.yaml` uses the m15.5 syntax and matches a scenario covered by renderer or
       integration tests
-- [ ] `docs/policy/examples/github-private-git.yaml`, `docs/policy/examples/github-git-push.yaml`, and
+- [x] `docs/policy/examples/github-private-git.yaml`, `docs/policy/examples/github-git-push.yaml`, and
       `docs/policy/examples/request-transform.yaml` each render cleanly and demonstrate one canonical m15 flow
-- [ ] `README.md` shows the new GitHub repo-scoped snippet and links to a brief subsection that points at the
+- [x] `README.md` shows the new GitHub repo-scoped snippet and links to a brief subsection that points at the
       proxy-side credential injection flow plus the new `docs/secrets.md` reference
-- [ ] `docs/git.md` describes proxy-side injection as the default GitHub Git path; the plaintext credential-store
+- [x] `docs/git.md` describes proxy-side injection as the default GitHub Git path; the plaintext credential-store
       path remains documented as a trade-off
-- [ ] `docs/secrets.md` covers the host secret directory layout, permission expectations, secret ID rules, manual
+- [x] `docs/secrets.md` covers the host secret directory layout, permission expectations, secret ID rules, manual
       provisioning, scope direction (global today; project/target later), freshness/reload, the Keychain direction,
       and the explicit non-goal of request/response content scanning
-- [ ] No new file under `docs/upgrades/`. The `surfaces` and repo-scoped `readonly` removal is a schema-doc
+- [x] No new file under `docs/upgrades/`. The `surfaces` and repo-scoped `readonly` removal is a schema-doc
       correction, not a release migration, because that syntax never shipped
-- [ ] `docs/troubleshooting.md` adds at least sections for missing/unreadable secret files, unsafe permissions,
+- [x] `docs/troubleshooting.md` adds at least sections for missing/unreadable secret files, unsafe permissions,
       and compatibility-shim env exports not being live in existing shells
-- [ ] Every committed example under `docs/policy/examples/` renders without error through `render-policy`
-- [ ] Docs explain the security boundary without claiming exfiltration detection, body scanning, or credential
+- [x] Every committed example under `docs/policy/examples/` renders without error through `render-policy`
+- [x] Docs explain the security boundary without claiming exfiltration detection, body scanning, or credential
       leak prevention
-- [ ] `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
-- [ ] `go test ./...`
+- [x] `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
+- [x] `go test ./...`
 
 ## Applicable Learnings
 
@@ -178,20 +178,20 @@ For `docs/troubleshooting.md`, three short sections are enough:
 
 ### Implementation Steps
 
-- [ ] Read the m15.7 integration test files and pin the example YAML shapes to those scenarios
-- [ ] Rewrite `docs/policy/schema.md` GitHub section, add the `transform.request` section, add the
+- [x] Read the m15.7 integration test files and pin the example YAML shapes to those scenarios
+- [x] Rewrite `docs/policy/schema.md` GitHub section, add the `transform.request` section, add the
       `credential_shim` rejection paragraph, and update the rejected-fields list
-- [ ] Rewrite `docs/policy/examples/github-repos.yaml` to the m15.5 shape
-- [ ] Add `docs/policy/examples/github-private-git.yaml`
-- [ ] Add `docs/policy/examples/github-git-push.yaml`
-- [ ] Add `docs/policy/examples/request-transform.yaml`
-- [ ] Verify each example renders cleanly through the real `render-policy`
-- [ ] Update `README.md`: snippet plus short subsection plus security-section pointer
-- [ ] Update `docs/git.md` to frame proxy injection as the default GitHub Git path
-- [ ] Add `docs/secrets.md`
-- [ ] Update `docs/troubleshooting.md` with the three new sections
-- [ ] Run `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
-- [ ] Run `go test ./...`
+- [x] Rewrite `docs/policy/examples/github-repos.yaml` to the m15.5 shape
+- [x] Add `docs/policy/examples/github-private-git.yaml`
+- [x] Add `docs/policy/examples/github-git-push.yaml`
+- [x] Add `docs/policy/examples/request-transform.yaml`
+- [x] Verify each example renders cleanly through the real `render-policy`
+- [x] Update `README.md`: snippet plus short subsection plus security-section pointer
+- [x] Update `docs/git.md` to frame proxy injection as the default GitHub Git path
+- [x] Add `docs/secrets.md`
+- [x] Update `docs/troubleshooting.md` with the three new sections
+- [x] Run `/opt/proxy-python/bin/python3 -m unittest discover -s images/proxy/tests -p 'test_*.py'`
+- [x] Run `go test ./...`
 
 ### Open Questions
 
@@ -212,12 +212,46 @@ For `docs/troubleshooting.md`, three short sections are enough:
 
 ### Acceptance Verification
 
-- [ ] Each acceptance-criteria checkbox cites the doc section or example file that satisfies it.
-- [ ] Example-render verification output is recorded in the execution log.
+- [x] Each acceptance-criteria checkbox is satisfied by the corresponding doc surface:
+  - Schema rewrite: `docs/policy/schema.md` GitHub section (`### GitHub service`), `## Request transforms`
+    section (including secret ID grammar, `bearer`/`basic`, `on_existing_header`, reserved
+    `transform.response`), and `### Renderer-owned fields` paragraph for the `credential_shim` rejection.
+  - Examples: `docs/policy/examples/github-repos.yaml` (readwrite plus shim, `api: read`),
+    `github-private-git.yaml` (private read), `github-git-push.yaml` (readwrite with askpass shim, mirrors
+    `test_client_shim_replaces_fake_authorization_with_real_secret`), `request-transform.yaml` (host-scoped
+    `transform.request` with `bearer`, mirrors `test_header_injection_reaches_upstream_for_matched_rule`).
+  - README: GitHub policy snippet uses the m15.5 shape; "GitHub Git from inside the container" subsection
+    appears after the policy reference; "Git credentials" under Security adds proxy-injection as a defense
+    bullet; Customization list adds `docs/secrets.md`.
+  - `docs/git.md`: "Credential setup (preferred): proxy-side injection" precedes "Credential setup
+    (fallback): credential-store with a PAT".
+  - `docs/secrets.md`: storage layout table, permission expectations, secret ID grammar, `printf` provisioning
+    steps, scope direction with `SecretResolutionContext` reference, freshness contract, Keychain direction,
+    explicit non-goals.
+  - `docs/troubleshooting.md`: three new sections — "Proxy fails to inject a header", "Secret file has unsafe
+    permissions", "Credential-shim env vars not visible inside the container".
+- [x] Example-render verification: all six committed examples under `docs/policy/examples/` render with
+      exit code 0 under `AGENTBOX_POLICY_SOURCE_PATH=<example> /opt/proxy-python/bin/python3 images/proxy/render-policy`.
+      `github-repos.yaml` and `github-git-push.yaml` emit the renderer-owned `credential_shim` block with the
+      `git-askpass` hint as expected.
+- [x] Test suites: `163 tests in 13.486s OK` for proxy Python tests; `go test ./...` all `ok`.
 
 ### Learnings
 
-(To be filled in during execution.)
+- Pinning user-facing example YAML to existing integration tests (`test_github_git_injection.py`,
+  `test_credential_shim_replace.py`, `test_proxy_enforcement.py::test_header_injection_reaches_upstream_for_matched_rule`)
+  is a stronger guarantee than re-deriving "canonical" shapes from the schema. Each example then has a tested
+  scenario that breaks loudly if the renderer ever changes, instead of drifting silently.
+- Structured log shapes that show up in troubleshooting docs need to be verified against the actual enforcer
+  emit sites before publishing. The initial draft asserted a standalone `"type": "secret_warning"` event that
+  does not exist; the real shape rides `unsafe_permissions` warnings inside `"type": "header_injection"`. Doc
+  fidelity here matters because users will grep proxy logs for the literal strings the doc shows.
+- Keeping the schema doc as the single source of truth for the secret ID grammar, transform types, and
+  rejected fields keeps the other docs short. `docs/secrets.md`, `docs/git.md`, and the troubleshooting
+  sections all link back to schema.md rather than re-stating the grammar.
+- The renderer's `credential_shim` rejection is for *authored* top-level blocks; the rendered output still
+  emits a `credential_shim` block when a service entry opts in. Docs need both halves: "authored = rejected"
+  and "rendered = expected for shimmed services".
 
 ### Follow-up Items
 
@@ -228,4 +262,4 @@ For `docs/troubleshooting.md`, three short sections are enough:
 - A future task should add a macOS Keychain resolver backend; m15.8 documents the constraint that logical secret
   IDs stay backend-neutral so the policy shape does not change.
 - `docs/upgrades/m14-request-aware-rules.md` is a feature tour misfiled under `docs/upgrades/`. A future cleanup
-  task should move or rename it; m15.8 leaves it in place.
+  task should move or rename it; m15.8 leaves it in place. The schema doc still links to it as the m14 tour.

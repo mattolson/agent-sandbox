@@ -1,0 +1,31 @@
+# Private GitHub repo: read-only clone and fetch with proxy-side auth
+#
+# Demonstrates the simplest m15 GitHub Git auth flow: `git.access: read`
+# narrows the emitted rules to git-upload-pack (clone, fetch) and
+# `git.auth.secret` injects an Authorization header on every matched request.
+# No `client_shim` is needed because `git clone` and `git fetch` do not
+# pre-set Authorization themselves, so `on_existing_header: fail` is safe.
+#
+# Emits rules for:
+#   - github.com: GET/HEAD /owner/private.git/info/refs?service=git-upload-pack
+#                 POST     /owner/private.git/git-upload-pack
+#                 Authorization: Basic base64(x-access-token:<secret>) on each
+#
+# Prerequisites:
+#   - A secret file at $AGENTBOX_SECRET_DIR/github.agent-sandbox.read-token
+#     (default: ~/.config/agent-sandbox/secrets/github.agent-sandbox.read-token)
+#     containing a fine-grained PAT scoped to owner/private with read access.
+#
+# Push (git-receive-pack) is intentionally not authorized by this entry. For
+# a readwrite flow that also injects credentials on push, see
+# github-git-push.yaml.
+
+services:
+  - name: github
+    merge_mode: replace
+    repos:
+      - owner/private
+    git:
+      access: read
+      auth:
+        secret: github.agent-sandbox.read-token

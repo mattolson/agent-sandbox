@@ -1,5 +1,31 @@
 # Execution Log: m15.8 - Docs And Examples
 
+## 2026-05-13 - Execution complete
+
+Worked the plan as written. All six examples under `docs/policy/examples/` render cleanly through the real
+`/opt/proxy-python/bin/python3 images/proxy/render-policy` with `AGENTBOX_POLICY_SOURCE_PATH`. The two
+shim-enabled GitHub examples (`github-repos.yaml`, `github-git-push.yaml`) emit the renderer-owned
+`credential_shim` block as expected. Test suites: 163 proxy tests OK; `go test ./...` all `ok`.
+
+**Decision (mid-execution):** Initial troubleshooting draft asserted a `"type": "secret_warning"` standalone
+log event. Verified against `images/proxy/addons/enforcer.py:382-401` and `images/proxy/addons/enforcer.py:478-483`
+that warnings actually ride along inside the successful `"type": "header_injection"` event under `"warnings"`.
+Corrected the doc before commit.
+
+**Observation:** The schema doc's "Header and request-body inspection are out of scope" sentence in the
+Enforcement Phases section was no longer accurate now that header injection is a first-class feature.
+Rewrote it to keep the original "body scanning is not a feature" framing while acknowledging that header
+injection is in scope when a rule declares it.
+
+**Observation:** `docs/upgrades/m14-request-aware-rules.md` still references `surfaces` and `readonly: true`
+on the GitHub catalog. The task plan explicitly says to leave it; documenting as a follow-up. The schema
+doc still links to that page as the m14 feature tour.
+
+**Cross-check:** Confirmed by grep that no user-facing doc under `docs/policy/`, `docs/git.md`,
+`docs/troubleshooting.md`, `docs/secrets.md`, or `README.md` still authoritatively documents the rejected
+`surfaces` / repo-scoped `readonly` shape after the rewrite. Remaining matches are in `docs/plan/` planning
+text and the m14 upgrade doc, both out of scope per CLAUDE.md.
+
 ## 2026-05-10 - Dropped the upgrade doc entirely
 
 User feedback: nothing in m15 has shipped, so an in-milestone change like the m15.5 catalog rewrite is not a

@@ -1,0 +1,34 @@
+# Host-scoped header injection without the service catalog
+#
+# Demonstrates the authoring shape behind `services.github.git.auth`: an
+# explicit `domains[].transform.request` block that injects an Authorization
+# header on every matched request. This is the right shape when no service
+# shorthand fits (custom internal API, a non-GitHub partner, a test fixture)
+# or when you want to see the underlying mechanism.
+#
+# `on_existing_header: fail` is the default. The proxy blocks the request
+# before any bytes reach the upstream when the header is already set, which
+# fails closed if an agent process happens to send its own Authorization.
+#
+# Prerequisites:
+#   - A secret file at $AGENTBOX_SECRET_DIR/internal.api-token
+#     (default: ~/.config/agent-sandbox/secrets/internal.api-token).
+#
+# See docs/policy/schema.md "Request transforms" for the supported transform
+# types and secret ID grammar, and docs/secrets.md for storage and freshness.
+
+domains:
+  - host: api.internal.example.com
+    transform:
+      request:
+        headers:
+          Authorization:
+            secret: internal.api-token
+            transform:
+              type: bearer
+        on_existing_header: fail
+    rules:
+      - schemes: [https]
+        methods: [GET]
+        path:
+          prefix: /v1/

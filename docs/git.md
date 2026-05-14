@@ -37,13 +37,63 @@ git@github.com:user/repo.git -> https://github.com/user/repo.git
 
 Those defaults live in the container's system git config (`/usr/local/etc/gitconfig`), so mounting your own `~/.gitconfig` via dotfiles does not replace them.
 
-**Credential setup.** To push or access private repos, create a [fine-grained personal access token](https://github.com/settings/tokens?type=beta) scoped to specific repositories. Then configure git to store it:
+### Credential setup (preferred): proxy-side injection
+
+The recommended way to push to or read a private GitHub repo from inside the container is to let the proxy inject the credential at request time. No token is stored in the container.
+
+1. Provision the secret on the host (one file per token, mode `0600`):
+
+   ```bash
+   printf '%s' "ghp_examplevalue" \
+     > "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}/github.agent-sandbox.push-token"
+   chmod 600 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}/github.agent-sandbox.push-token"
+   ```
+
+   See [docs/secrets.md](secrets.md) for the directory layout, permission rules, and secret ID grammar.
+
+2. Add a repo-scoped GitHub entry to your user policy (`agentbox edit policy`). For a readwrite push flow, use the `git-askpass` client shim so `git push` runs non-interactively:
+
+   ```yaml
+   services:
+     - name: github
+       merge_mode: replace
+       repos:
+         - owner/repo
+       git:
+         access: readwrite
+         auth:
+           secret: github.agent-sandbox.push-token
+           client_shim:
+             kind: git-askpass
+   ```
+
+   For read-only clone/fetch on a private repo, drop the `client_shim` and use `access: read`. The proxy still injects the Authorization header on every matched request.
+
+3. Apply the policy and open a new shell. The proxy reload picks up the new policy without restarting; the agent-side shim env exports (`GIT_ASKPASS`, `AGENTBOX_GIT_FAKE_USERNAME`, `AGENTBOX_GIT_FAKE_PASSWORD`, `GIT_TERMINAL_PROMPT`) are loaded by `/etc/agent-sandbox/shell-init.sh`, so already-running shells will not see them until they restart.
+
+   ```bash
+   agentbox proxy reload
+   # then open a new shell (e.g. `agentbox exec`) inside the container
+   ```
+
+Focused policy examples under `docs/policy/examples/`:
+
+- [github-private-git.yaml](policy/examples/github-private-git.yaml) — read-only clone/fetch.
+- [github-git-push.yaml](policy/examples/github-git-push.yaml) — readwrite with the askpass shim.
+
+See [docs/policy/schema.md](policy/schema.md) for the full authored shape, including non-GitHub services via `domains[].transform.request`.
+
+### Credential setup (fallback): credential-store with a PAT
+
+If proxy-side injection is not an option (a service the catalog does not cover, an experimental policy, an offline test), git can store a PAT on disk inside the container. **This trades the proxy-side guarantee for a plaintext-on-disk credential.**
+
+Create a [fine-grained personal access token](https://github.com/settings/tokens?type=beta) scoped to specific repositories, then:
 
 ```bash
 git config --global credential.helper store
 ```
 
-On the next `git push` or `git pull` against a private repo, git will prompt for your username and token. Enter your GitHub username and paste the PAT as the password. The credential is saved to `~/.git-credentials` and reused automatically from then on.
+On the next `git push` or `git pull` against a private repo, git prompts for username and token. Enter your GitHub username and paste the PAT as the password. The credential is saved to `~/.git-credentials` and reused automatically from then on.
 
 Credentials are stored in plaintext on disk inside the container. The file persists in the agent's Docker volume across rebuilds. See the [security section](../README.md#git-credentials) for ways to limit exposure.
 
