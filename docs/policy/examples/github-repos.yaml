@@ -1,20 +1,35 @@
-# Repo-scoped GitHub access
+# Repo-scoped GitHub access (readwrite Git plus read-only API)
 #
-# Narrows GitHub access to one or more specific repositories. The `readonly`
-# flag keeps clone and fetch working while excluding push endpoints.
+# Demonstrates the m15 GitHub catalog shape. The `git` surface uses the
+# `git-askpass` client shim so `git push` can run non-interactively from
+# inside the container: the agent supplies a placeholder credential via the
+# shim, and the proxy replaces it with the real secret before the request
+# reaches github.com.
 #
 # Emits rules for:
+#   - github.com:     git-upload-pack and git-receive-pack (clone, fetch, push)
+#                     with Authorization injection on every matched request
 #   - api.github.com: GET/HEAD on /repos/{owner}/{name} and its subtree
-#   - github.com: clone/fetch smart-HTTP endpoints for each listed repo
 #
-# See docs/policy/schema.md for the full authored shape.
+# Prerequisites:
+#   - A secret file at $AGENTBOX_SECRET_DIR/github.agent-sandbox.push-token
+#     (default: ~/.config/agent-sandbox/secrets/github.agent-sandbox.push-token)
+#     containing a fine-grained PAT scoped to owner/repo.
+#
+# See docs/policy/schema.md and docs/secrets.md for the full authored shape
+# and secret storage layout. For a focused private-read flow without push,
+# see github-private-git.yaml.
 
 services:
   - name: github
     merge_mode: replace
-    readonly: true
     repos:
       - owner/repo
-    surfaces:
-      - api
-      - git
+    git:
+      access: readwrite
+      auth:
+        secret: github.agent-sandbox.push-token
+        client_shim:
+          kind: git-askpass
+    api:
+      access: read

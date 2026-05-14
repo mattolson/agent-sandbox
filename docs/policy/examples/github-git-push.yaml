@@ -1,0 +1,46 @@
+# Private GitHub repo: readwrite clone, fetch, and push via git-askpass shim
+#
+# Demonstrates the m15 GitHub readwrite flow with the `git-askpass` client
+# shim. `git.access: readwrite` emits both git-upload-pack and git-receive-pack
+# rules, and `git.auth.client_shim.kind: git-askpass` switches the renderer to
+# `on_existing_header: replace` so the askpass-supplied placeholder credential
+# can be overwritten with the real secret in-flight.
+#
+# The renderer also emits a renderer-owned `credential_shim` block. The agent
+# container sources it at shell startup and exports:
+#   GIT_ASKPASS=/usr/local/bin/agentbox-git-askpass.sh
+#   AGENTBOX_GIT_FAKE_USERNAME=x-access-token
+#   AGENTBOX_GIT_FAKE_PASSWORD=agentbox-proxy-managed
+#   GIT_TERMINAL_PROMPT=0
+# This lets `git push` run non-interactively without storing a real token on
+# disk in the container. The proxy replaces the placeholder Authorization
+# header with the real secret on every matched request.
+#
+# Emits rules for:
+#   - github.com: GET/HEAD /owner/push.git/info/refs?service=git-upload-pack
+#                 POST     /owner/push.git/git-upload-pack
+#                 GET/HEAD /owner/push.git/info/refs?service=git-receive-pack
+#                 POST     /owner/push.git/git-receive-pack
+#                 Authorization: Basic base64(x-access-token:<secret>) on each
+#
+# Prerequisites:
+#   - A secret file at $AGENTBOX_SECRET_DIR/github.agent-sandbox.push-token
+#     containing a fine-grained PAT scoped to owner/push with contents:write.
+#   - A fresh shell inside the container after the policy takes effect, since
+#     the shim env exports are loaded on shell startup and are not visible to
+#     already-running processes. See docs/troubleshooting.md.
+#
+# See docs/secrets.md for the host secret directory layout and freshness
+# semantics, and docs/git.md for the in-container Git workflow this enables.
+
+services:
+  - name: github
+    merge_mode: replace
+    repos:
+      - owner/push
+    git:
+      access: readwrite
+      auth:
+        secret: github.agent-sandbox.push-token
+        client_shim:
+          kind: git-askpass

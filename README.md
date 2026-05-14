@@ -191,17 +191,21 @@ domains:
 Public package registries such as PyPI are intentionally not allowed by default. If you need them, add them explicitly
 to your user or per-agent policy. Prefer a private mirror or proxy when you have one.
 
-GitHub can also be narrowed by repository:
+GitHub can also be narrowed by repository, with the `git` and `api` surfaces configured independently:
 
 ```yaml
 services:
   - name: github
     merge_mode: replace
-    readonly: true
     repos:
       - owner/repo
-    surfaces: [api, git]
+    git:
+      access: read
+    api:
+      access: read
 ```
+
+For a private repo that needs proxy-side credential injection, add `git.auth.secret` and (for `readwrite`) a `client_shim`. See [GitHub Git from inside the container](#github-git-from-inside-the-container) below.
 
 If you edit policy files directly, apply changes without restarting the proxy:
 
@@ -214,9 +218,18 @@ If you want to make customizations that apply to a single agent, you can edit th
 
 See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format reference and [docs/upgrades/m14-request-aware-rules.md](./docs/upgrades/m14-request-aware-rules.md) for a tour of request-aware rules.
 
+### GitHub Git from inside the container
+
+The recommended way to clone, fetch, or push private GitHub repos from inside the container is to let the proxy inject the credential. The token lives in a host-side secret directory, never in the container's filesystem or Docker volumes.
+
+- [docs/git.md](./docs/git.md) - end-to-end setup for read-only and readwrite Git flows
+- [docs/secrets.md](./docs/secrets.md) - host secret directory layout, permissions, freshness, and non-goals
+- Example policies: [github-private-git.yaml](./docs/policy/examples/github-private-git.yaml), [github-git-push.yaml](./docs/policy/examples/github-git-push.yaml)
+
 ## Customization
 
 - **[Git inside the container](docs/git.md)** - Credential setup and SSH-to-HTTPS rewriting
+- **[Secrets](docs/secrets.md)** - Host secret directory layout, permissions, and freshness for proxy-side credential injection
 - **[Dotfiles and shell customization](docs/dotfiles.md)** - Mount dotfiles and shell.d scripts
 - **[Language stacks](docs/stacks/)** - Extend the base image with Python, Node, Go, Rust and stack-specific guides
 - **[Image versioning](docs/images.md)** - Pin and bump image digests
@@ -234,11 +247,12 @@ Key principles:
 
 ### Git credentials
 
-If you store git credentials inside the container (via `git credential-store` or any other method), the token grants access to whatever repositories it was scoped to. A classic personal access token or OAuth token grants access to **all repositories** your GitHub account can access, not just the current project. The network policy limits which hosts and URL shapes traffic can use, but it does not inspect request headers or bodies. An agent with a broad token could still read or modify any repository reachable through an allowed GitHub endpoint.
+If you store git credentials inside the container (via `git credential-store` or any other method), the token grants access to whatever repositories it was scoped to. A classic personal access token or OAuth token grants access to **all repositories** your GitHub account can access, not just the current project. The network policy limits which hosts and URL shapes traffic can use, and it can inject credentials into matched requests, but it does not inspect request bodies or response content. An agent with a broad token could still read or modify any repository reachable through an allowed GitHub endpoint.
 
 For defense in depth, and to limit exposure:
 
 - **Run git from the host** - No credentials in the container at all
+- **Use proxy-side credential injection** - Keep the token on the host (under `~/.config/agent-sandbox/secrets`) and let the proxy attach it at request time; see [docs/git.md](./docs/git.md) and [docs/secrets.md](./docs/secrets.md)
 - **Use a fine-grained PAT** - Scope the token to specific repositories
 - **Use a separate GitHub account** - Isolate sandboxed work entirely
 

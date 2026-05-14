@@ -120,31 +120,104 @@ Unknown keys on a mapping entry fail rendering.
 
 ### GitHub service
 
-The GitHub catalog entry supports repo-scoped restriction through two
-additional keys:
+A repo-scoped GitHub entry names one or more repositories and configures the
+`git` smart-HTTP surface, the `api` REST surface, or both. Each surface is its
+own mapping with an `access` level and optional `auth` block.
 
-- `repos`: required when `surfaces` is set. A non-empty list of `owner/name`
+```yaml
+services:
+  - name: github
+    repos:
+      - owner/repo
+    git:
+      access: read
+      auth:
+        secret: github.agent-sandbox.read-token
+    api:
+      access: read
+```
+
+Repo-scoped keys:
+
+- `repos`: required when `git` or `api` is set. A non-empty list of `owner/name`
   strings. Multi-repo entries expand to linear rule fragments in input order.
   Duplicate repos are deduplicated.
-- `surfaces`: required when `repos` is set. A non-empty list naming the
-  surfaces to emit rules for. Supported values: `api` (the REST API on
-  `api.github.com`) and `git` (Git smart-HTTP on `github.com`).
+- `git`: optional mapping. Configures the Git smart-HTTP surface on
+  `github.com` for the listed repos.
+- `api`: optional mapping. Configures the REST API surface on
+  `api.github.com` for the listed repos.
 
-If neither `repos` nor `surfaces` is set, a mapping entry expands to the same
-catch-all host records as the plain-string entry.
+At least one of `git` or `api` must be present when `repos` is set.
 
-`readonly` on the GitHub `api` surface narrows methods literally to
-`GET` and `HEAD`. On the `git` surface, `readonly` is semantic enough to
-support clone and fetch even though those operations use `POST`:
+Surface mapping keys:
 
-- `readonly: true` emits repo-scoped rules for
+- `access`: required. One of `read` or `readwrite`.
+- `auth`: optional. Supported on `git` only; rejected on `api` in this
+  milestone.
+
+On the `api` surface, `access: read` narrows methods to `GET` and `HEAD`. On
+the `git` surface, `access` is semantic enough to keep clone and fetch working
+even though they use `POST`:
+
+- `access: read` emits repo-scoped rules for
   `info/refs?service=git-upload-pack` (GET, HEAD) and POST to
   `/{owner}/{repo}.git/git-upload-pack`.
-- Omitted or `readonly: false` adds the matching `git-receive-pack` discovery
-  and POST endpoints used by push.
+- `access: readwrite` adds the matching `git-receive-pack` discovery and POST
+  endpoints used by push.
 
-See [examples/github-repos.yaml](examples/github-repos.yaml) for a focused
-repo-scoped policy example.
+The `git.auth` mapping configures proxy-side credential injection for the
+emitted Git rules. See [Request transforms](#request-transforms) for the
+underlying mechanism.
+
+```yaml
+git:
+  access: readwrite
+  auth:
+    secret: github.agent-sandbox.push-token
+    client_shim:
+      kind: git-askpass
+```
+
+`git.auth` keys:
+
+- `secret`: required. A secret ID (see
+  [Request transforms](#request-transforms) for grammar). The renderer
+  attaches an `Authorization: Basic` header with username `x-access-token`
+  and the resolved secret as the password to every Git rule in this entry.
+- `client_shim`: optional. When present, the only supported shape is
+  `kind: git-askpass`. The renderer switches the emitted Git rules from
+  `on_existing_header: fail` to `on_existing_header: replace` and adds a
+  renderer-owned `credential_shim` block to the rendered policy. The agent
+  container sources the rendered shim to export `GIT_ASKPASS`,
+  `AGENTBOX_GIT_FAKE_USERNAME`, `AGENTBOX_GIT_FAKE_PASSWORD`, and
+  `GIT_TERMINAL_PROMPT=0`, so `git push` non-interactively supplies a
+  placeholder credential that the proxy replaces with the real secret.
+
+`git.auth` is required when `git.access` is `readwrite`. Without `client_shim`,
+a `readwrite` flow still injects the real secret, but any pre-existing
+`Authorization` header on a matched request fails closed at the proxy.
+
+Rejected legacy fields on a GitHub mapping entry (renderer fails with a
+descriptive error):
+
+- `surfaces`: use `git` and `api` mappings instead.
+- Top-level `access` or `auth`: nest them inside `git` or `api`.
+- `readonly` on a repo-scoped entry: use `access: read` or `access: readwrite`
+  on each surface mapping. `readonly` is still accepted on a non-repo-scoped
+  mapping entry as a way to narrow the catch-all GitHub records.
+
+If neither `repos`, `git`, nor `api` is set, a mapping entry expands to the
+same catch-all host records as the plain-string entry, optionally narrowed by
+`readonly: true`.
+
+Focused examples under `docs/policy/examples/`:
+
+- [github-private-git.yaml](examples/github-private-git.yaml) - private read
+  with `git.auth.secret`.
+- [github-git-push.yaml](examples/github-git-push.yaml) - readwrite with the
+  `git-askpass` client shim.
+- [github-repos.yaml](examples/github-repos.yaml) - mixed `git` and `api`
+  surfaces for a repo-scoped policy.
 
 ## domains
 
@@ -268,6 +341,72 @@ query:
 - Query-param names and values remain case-sensitive. Matching happens on the
   decoded query-param map, not on raw escape spelling
 
+## Request transforms
+
+A `domains[]` mapping entry can attach a host-scoped request transform that
+injects one or more headers into every matched request:
+
+```yaml
+domains:
+  - host: api.example.com
+    transform:
+      request:
+        headers:
+          Authorization:
+            secret: service-token
+            transform:
+              type: bearer
+        on_existing_header: fail
+    rules:
+      - schemes: [https]
+        methods: [GET]
+        path:
+          prefix: /v1/
+```
+
+The renderer attaches the transform to every rule under the host; rule-level
+`transform` is not an authoring surface.
+
+`transform.request` keys:
+
+- `headers`: required non-empty mapping from header name to header
+  configuration. Header names follow the HTTP token grammar and are matched
+  case-insensitively against any pre-existing request header.
+- `on_existing_header`: optional; one of `fail` (default) or `replace`. `fail`
+  blocks the request before it reaches the upstream when the header is already
+  set. `replace` overwrites the existing value with the rendered one.
+
+Each header configuration takes two keys:
+
+- `secret`: required secret ID. Must match `[A-Za-z0-9._-]+`. The proxy
+  resolves the secret from its configured backend at request time. See
+  [secrets.md](../secrets.md) for the backing storage layout, freshness
+  contract, and non-goals.
+- `transform`: required mapping describing how to render the resolved secret
+  into the header value.
+
+Supported `transform.type` values:
+
+- `bearer`: emits `Bearer <secret>`. No other keys.
+- `basic`: emits `Basic base64(username:secret)`. Requires `username`.
+
+Request-aware enforcement: when a rule carries a request transform, the proxy
+forces request inspection at CONNECT time for HTTPS and stages every header
+value before mutating the flow. A failed secret resolution or
+`on_existing_header: fail` conflict blocks the request before any bytes reach
+the upstream.
+
+`transform.response` is reserved for future use. Setting `response` to a
+non-empty value fails rendering today.
+
+### Renderer-owned fields
+
+- `credential_shim`: rejected at the top level of a source policy file. The
+  renderer emits this key in the rendered output when a service catalog entry
+  (currently only `services[].git.auth.client_shim`) requests an agent-side
+  shim. Authored top-level `credential_shim` blocks fail rendering with
+  `credential_shim is renderer-owned and cannot be authored in policy files`.
+
 ## Rendered Policy Intermediate Representation (IR)
 
 The renderer compiles authored `services` and `domains` into one canonical
@@ -336,6 +475,7 @@ depends on the rule fields it uses.
 | `methods`     | Request             | Needs the decrypted request                                                        |
 | `path`        | Request             | Needs the decrypted request                                                        |
 | `query`       | Request             | Needs the decrypted request                                                        |
+| `transform`   | CONNECT and Request | A rule with `transform.request` forces request inspection at CONNECT for HTTPS; header staging and injection happen on the decrypted request |
 
 Host-only rules take the CONNECT fast path: if the requested host has no
 matching record, the proxy returns `403` before any TLS handshake completes.
@@ -346,7 +486,10 @@ is already installed in the agent image) and evaluates the rule on the real
 `Request` object. HTTP requests evaluate the same rules without TLS.
 
 A matched URL rule still implies the endpoint is trusted with the full
-request. Header and request-body inspection are out of scope.
+request. The proxy injects request headers when a rule's `transform.request`
+declares one (see [Request transforms](#request-transforms)); it does not
+inspect request bodies, response bodies, or arbitrary URLs for leaked secret
+values.
 
 ## Policy Inputs
 
@@ -419,6 +562,9 @@ Focused examples:
 
 - [examples/request-rules.yaml](examples/request-rules.yaml) shows method, path, and query constraints.
 - [examples/github-repos.yaml](examples/github-repos.yaml) shows repo-scoped GitHub API and Git smart-HTTP access.
+- [examples/github-private-git.yaml](examples/github-private-git.yaml) shows a private read with `git.auth.secret`.
+- [examples/github-git-push.yaml](examples/github-git-push.yaml) shows a readwrite push flow with the `git-askpass` client shim.
+- [examples/request-transform.yaml](examples/request-transform.yaml) shows host-scoped header injection with a `bearer` transform.
 - [examples/layered-merge.yaml](examples/layered-merge.yaml) shows additive host merges and `merge_mode: replace`.
 
 For a concise feature tour, see
