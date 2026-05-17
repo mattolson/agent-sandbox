@@ -4,7 +4,12 @@
 services:
   proxy:
     volumes:
-      - ../policy/user.agent.claude.policy.yaml:/etc/agent-sandbox/policy/user.agent.policy.yaml:ro
+      - type: bind
+        source: ../policy/user.agent.claude.policy.yaml
+        target: /etc/agent-sandbox/policy/user.agent.policy.yaml
+        read_only: true
+        bind:
+          create_host_path: false
     environment:
       - AGENTBOX_ACTIVE_AGENT=claude
   agent:
