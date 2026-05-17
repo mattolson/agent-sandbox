@@ -379,17 +379,22 @@ The renderer attaches the transform to every rule under the host; rule-level
 
 Each header configuration takes two keys:
 
-- `secret`: required secret ID. Must match `[A-Za-z0-9._-]+`. The proxy
-  resolves the secret from its configured backend at request time. See
-  [secrets.md](../secrets.md) for the backing storage layout, freshness
-  contract, and non-goals.
+- `secret`: required secret ID. Must match `[A-Za-z0-9._-]+`. Literal `.`
+  and `..` are rejected. The proxy resolves the secret from its configured
+  backend at request time. See [secrets.md](../secrets.md) for the backing
+  storage layout, freshness contract, and non-goals.
 - `transform`: required mapping describing how to render the resolved secret
   into the header value.
 
 Supported `transform.type` values:
 
 - `bearer`: emits `Bearer <secret>`. No other keys.
-- `basic`: emits `Basic base64(username:secret)`. Requires `username`.
+- `basic`: emits `Basic base64(username:secret)`. Requires `username`. The
+  username must not contain control characters or `:`.
+
+See [examples/request-transform.yaml](examples/request-transform.yaml) for
+a focused example of host-scoped `transform.request` outside the service
+catalog.
 
 Request-aware enforcement: when a rule carries a request transform, the proxy
 forces request inspection at CONNECT time for HTTPS and stages every header
@@ -402,11 +407,41 @@ non-empty value fails rendering today.
 
 ### Renderer-owned fields
 
-- `credential_shim`: rejected at the top level of a source policy file. The
-  renderer emits this key in the rendered output when a service catalog entry
-  (currently only `services[].git.auth.client_shim`) requests an agent-side
-  shim. Authored top-level `credential_shim` blocks fail rendering with
-  `credential_shim is renderer-owned and cannot be authored in policy files`.
+`credential_shim` is rejected at the top level of a source policy file.
+Authored top-level `credential_shim` blocks fail rendering with
+`credential_shim is renderer-owned and cannot be authored in policy files`.
+
+The renderer emits the same key in its **output** when a service catalog
+entry (currently only `services[].git.auth.client_shim`) requests an
+agent-side shim. The rendered payload is intentionally narrow:
+
+```yaml
+credential_shim:
+  version: 1
+  hints:
+    - service: github
+      surface: git
+      kind: git-askpass
+      host: github.com
+      username: x-access-token
+      fake_password: agentbox-proxy-managed
+      secrets:
+        - github.agent-sandbox.push-token
+```
+
+- `version`: schema version, always `1` today.
+- `hints[]`: one entry per shim. The agent container's
+  `/etc/agent-sandbox/shell-init.sh` reads the rendered init fragment and
+  exports the corresponding env vars (`GIT_ASKPASS`,
+  `AGENTBOX_GIT_FAKE_USERNAME`, `AGENTBOX_GIT_FAKE_PASSWORD`,
+  `GIT_TERMINAL_PROMPT=0` for `kind: git-askpass`).
+- `fake_password`: a placeholder value. The proxy replaces it with the
+  resolved real secret on every matched request before the upstream sees
+  the header.
+
+The rendered `credential_shim` block contains no resolved secret values.
+Real values stay on the host secret directory and are never read into the
+rendered policy.
 
 ## Rendered Policy Intermediate Representation (IR)
 

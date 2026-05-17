@@ -44,6 +44,8 @@ The recommended way to push to or read a private GitHub repo from inside the con
 1. Provision the secret on the host (one file per token, mode `0600`):
 
    ```bash
+   mkdir -p "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
+   chmod 700 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
    printf '%s' "ghp_examplevalue" \
      > "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}/github.agent-sandbox.push-token"
    chmod 600 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}/github.agent-sandbox.push-token"
@@ -67,7 +69,7 @@ The recommended way to push to or read a private GitHub repo from inside the con
              kind: git-askpass
    ```
 
-   For read-only clone/fetch on a private repo, drop the `client_shim` and use `access: read`. The proxy still injects the Authorization header on every matched request.
+   For read-only clone/fetch on a private repo, omit `client_shim` and use `access: read`. `client_shim` is only needed when an agent process pre-sets `Authorization` itself, which `git push` does and `git clone`/`git fetch` do not.
 
 3. Apply the policy and open a new shell. The proxy reload picks up the new policy without restarting; the agent-side shim env exports (`GIT_ASKPASS`, `AGENTBOX_GIT_FAKE_USERNAME`, `AGENTBOX_GIT_FAKE_PASSWORD`, `GIT_TERMINAL_PROMPT`) are loaded by `/etc/agent-sandbox/shell-init.sh`, so already-running shells will not see them until they restart.
 

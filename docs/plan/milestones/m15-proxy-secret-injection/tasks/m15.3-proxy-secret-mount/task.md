@@ -15,9 +15,9 @@ Wire the host file-backed secret directory into the runtime so only the proxy ca
 
 ## Acceptance Criteria
 
-- [ ] Generated CLI and devcontainer compose stacks mount the secret directory into `proxy` only
-- [ ] Compose tests prove `agent` has no `/run/secrets/agentbox` or host secret-directory mount
-- [ ] Missing local secret directories have clear documented behavior rather than silent Docker-created surprises
+- [x] Generated CLI and devcontainer compose stacks mount the secret directory into `proxy` only
+- [x] Compose tests prove `agent` has no `/run/secrets/agentbox` or host secret-directory mount
+- [x] Missing local secret directories have clear documented behavior rather than silent Docker-created surprises
 
 ## Applicable Learnings
 

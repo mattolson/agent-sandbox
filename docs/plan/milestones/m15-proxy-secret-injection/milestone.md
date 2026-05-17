@@ -244,12 +244,15 @@ The required m15 backend is a host-owned file source rooted at `~/.config/agent-
 be created with `0700` permissions, and individual secret files should be `0600`. Compose should mount this directory
 read-only into the proxy, for example as `/run/secrets/agentbox`, and must not mount it into the agent container.
 
-The policy should not mention `~/.config/agent-sandbox/secrets` directly. The proxy should receive a runtime secret
-source configuration such as:
+The policy should not mention `~/.config/agent-sandbox/secrets` directly. The proxy resolves logical secret IDs
+against the value of `AGENTBOX_SECRET_SOURCE`, which defaults to:
 
 ```text
 AGENTBOX_SECRET_SOURCE=file:/run/secrets/agentbox
 ```
+
+The generated proxy compose service does not set this variable explicitly; the resolver applies the same default
+when the env var is unset.
 
 The file backend maps each logical secret ID to one file below the mounted secret directory. File contents should be raw
 secret values, not preformatted HTTP headers. m15 should support two generic header transforms in the first pass:
@@ -579,4 +582,37 @@ push-capable GitHub smart-HTTP rules without credentials are not useful and make
 ### 2026-05-09: Rejected repo-scoped GitHub defaults
 
 Repo-scoped GitHub entries do not infer a default surface. `repos` must be paired with at least one of `git` or `api`.
+
+### 2026-05-10: Settled `client_shim` opt-in and renderer-owned `credential_shim`
+
+m15.6 landed the GitHub Git askpass compatibility shim as an explicit opt-in: `services[].git.auth.client_shim`
+takes only `kind: git-askpass` today. When present, the renderer switches the emitted Git rules from
+`on_existing_header: fail` to `on_existing_header: replace` and emits a top-level `credential_shim` block in the
+rendered output. The agent container sources the rendered shim at shell startup
+(`/etc/agent-sandbox/shell-init.sh`) and exports `GIT_ASKPASS`, `AGENTBOX_GIT_FAKE_USERNAME`,
+`AGENTBOX_GIT_FAKE_PASSWORD`, and `GIT_TERMINAL_PROMPT=0`. The proxy then replaces the askpass-supplied
+placeholder credential with the real resolved secret in-flight. Authored top-level `credential_shim` is rejected:
+the block is renderer-owned only.
+
+### 2026-05-10: Default secret source moved into the resolver
+
+`AGENTBOX_SECRET_SOURCE=file:/run/secrets/agentbox` is no longer set on the generated proxy compose service.
+The resolver applies the same value as its built-in default when the env var is unset, so the compose surface
+shrinks while the runtime contract is unchanged.
+
+### 2026-05-10: End-to-end integration coverage and boundary asserts
+
+m15.7 added integration tests that drive the real `render-policy` and `mitmdump` through the GitHub Git smart-HTTP
+catalog and the explicit `domains[].transform.request` authoring shape, asserting both injection success and
+header-injection boundary behavior. The integration suite also pins that no resolved secret value appears in proxy
+stdout, structured event payloads, or rendered policy output, and that the scaffolded compose stack never mounts
+the secret directory or the credential-shims volume read-write into the agent.
+
+### 2026-05-13: Docs rewritten end-to-end for the m15 model
+
+m15.8 rewrote `docs/policy/schema.md`, refreshed `README.md`, `docs/git.md`, and `docs/troubleshooting.md`,
+and added `docs/secrets.md` plus three focused examples (`github-private-git.yaml`, `github-git-push.yaml`,
+`request-transform.yaml`) pinned to the m15.7 integration scenarios. The stale `surfaces` and repo-scoped
+`readonly` paragraphs were removed; the docs now treat them as rejected legacy fields. No `docs/upgrades/`
+entry was added — nothing in m15 had shipped, so the cleanup is a doc correction rather than a release migration.
 When `repos` is absent, the existing broad `name: github` service behavior remains the default.
