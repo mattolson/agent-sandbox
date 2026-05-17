@@ -4,7 +4,12 @@
 services:
   proxy:
     volumes:
-      - ../policy/user.agent.codex.policy.yaml:/etc/agent-sandbox/policy/user.agent.policy.yaml:ro
+      - type: bind
+        source: ../policy/user.agent.codex.policy.yaml
+        target: /etc/agent-sandbox/policy/user.agent.policy.yaml
+        read_only: true
+        bind:
+          create_host_path: false
     environment:
       - AGENTBOX_ACTIVE_AGENT=codex
   agent:
