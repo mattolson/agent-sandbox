@@ -40,6 +40,8 @@ Minor issues in the CLI codebase.
 
 - [x] **Fallback scripts use `sh` instead of `bash`.** `cli/libexec/compose/_` and `cli/libexec/exec/_` use `#!/bin/sh` while everything else uses `#!/usr/bin/env bash`.
 
+- [ ] **Proxy log entries omit the query string from `path`.** `images/proxy/addons/enforcer.py` builds log entries with `flow.request.path`, but the rendered output (e.g. `"path": "/mattolson/agent-sandbox.git/info/refs"`) drops the `?service=git-upload-pack` / `?service=git-receive-pack` portion that the matcher actually uses to distinguish rules 2 vs 3. The matching is correct — `_normalize_request_target` in `policy_matcher.py` parses query parameters — but operators reading the log can't tell which discovery variant was hit without consulting `matched_rule_index` and cross-referencing the rendered policy. Fix: log path and query together (e.g. `flow.request.url` or explicit `path + "?" + query`) on `decision`, `response`, `header_injection`, and `error` entries so smart-HTTP debugging doesn't require mental decoding.
+
 ## Worth Discussing
 
 Design decisions that may or may not need action.
