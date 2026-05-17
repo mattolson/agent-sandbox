@@ -31,6 +31,7 @@ import sys
 from datetime import datetime, timezone
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
+from urllib.parse import urlencode, urlsplit
 
 
 ADDON_DIR = Path(__file__).resolve().parent
@@ -319,6 +320,46 @@ class PolicyEnforcer:
 
         return entry
 
+    def _request_path_for_log(self, request):
+        if request is None:
+            return "unknown"
+
+        request_url = getattr(request, "url", None)
+        if isinstance(request_url, str) and request_url:
+            parsed = urlsplit(request_url)
+            path = parsed.path or "/"
+            if parsed.query:
+                return f"{path}?{parsed.query}"
+            return path
+
+        path = getattr(request, "path", None) or "/"
+        if "?" in path:
+            return path
+
+        query = self._request_query_for_log(request)
+        if query:
+            return f"{path}?{query}"
+        return path
+
+    def _request_query_for_log(self, request):
+        query = getattr(request, "query", None)
+        if query is None:
+            return ""
+        if isinstance(query, str):
+            return query.lstrip("?")
+
+        try:
+            items = list(query.items(multi=True))
+        except (AttributeError, TypeError):
+            try:
+                items = list(query.items())
+            except AttributeError:
+                return ""
+
+        if not items:
+            return ""
+        return urlencode(items, doseq=True)
+
     def _get_secret_resolver(self):
         if self._secret_resolver is None:
             self._secret_resolver = self._secret_resolver_factory()
@@ -552,7 +593,7 @@ class PolicyEnforcer:
                 "ts": self.logger.timestamp(),
                 "method": flow.request.method,
                 "host": flow.request.host,
-                "path": flow.request.path,
+                "path": self._request_path_for_log(flow.request),
                 "status": flow.response.status_code,
                 "action": "allowed",
             })
@@ -568,7 +609,7 @@ class PolicyEnforcer:
                 "host": flow.request.host,
                 "scheme": flow.request.scheme,
                 "method": flow.request.method,
-                "path": flow.request.path,
+                "path": self._request_path_for_log(flow.request),
                 "status": flow.response.status_code,
             })
             return
@@ -585,7 +626,7 @@ class PolicyEnforcer:
         entry = {
             "ts": self.logger.timestamp(),
             "host": flow.request.host if flow.request else "unknown",
-            "path": flow.request.path if flow.request else "unknown",
+            "path": self._request_path_for_log(flow.request),
             "error": str(flow.error) if flow.error else "unknown",
         }
 
@@ -594,6 +635,8 @@ class PolicyEnforcer:
             if decision is not None:
                 entry["phase"] = decision.phase
                 entry["reason"] = decision.reason
+                if decision.path is not None:
+                    entry["path"] = decision.path
                 if decision.matched_host is not None:
                     entry["matched_host"] = decision.matched_host
 

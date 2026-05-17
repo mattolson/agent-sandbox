@@ -150,6 +150,12 @@ class RequestPhaseTests(_ProxyTestCase):
         self.assertEqual(status, 200)
         status, _ = harness.send_get(self.upstream_url + "search?version=v1")
         self.assertEqual(status, 403)
+        event = harness.wait_for_event(
+            lambda e: e.get("phase") == "request"
+            and e.get("action") == "blocked"
+            and e.get("path", "").endswith("/search?version=v1")
+        )
+        self.assertEqual(event.get("reason"), "no_rule_matched")
 
     def test_header_injection_reaches_upstream_for_matched_rule(self):
         secret_source = self._secret_source({"service-token": "integration-secret"})

@@ -513,6 +513,9 @@ class PolicyMatcher:
     def _normalize_request_target(request_target):
         parsed = urlsplit(request_target)
         path = PolicyMatcher._normalize_uri_component_for_match(parsed.path or "/")
+        log_path = path
+        if parsed.query:
+            log_path = f"{path}?{parsed.query}"
         query_map = {}
         for pair in parsed.query.split("&"):
             if not pair:
@@ -528,7 +531,7 @@ class PolicyMatcher:
             (name, tuple(sorted(values)))
             for name, values in sorted(query_map.items())
         )
-        return path, normalized_query
+        return path, normalized_query, log_path
 
     def is_allowed(self, host):
         return self._find_host_record(host) is not None
@@ -582,7 +585,7 @@ class PolicyMatcher:
     def evaluate_request(self, host, scheme, method, request_target):
         normalized_scheme = scheme.lower()
         normalized_method = method.upper()
-        path, normalized_query = self._normalize_request_target(request_target)
+        path, normalized_query, log_path = self._normalize_request_target(request_target)
         record = self._find_host_record(host)
 
         if record is None:
@@ -593,7 +596,7 @@ class PolicyMatcher:
                 host=host,
                 scheme=normalized_scheme,
                 method=normalized_method,
-                path=path,
+                path=log_path,
             )
 
         for rule_index, rule in enumerate(record.rules):
@@ -611,7 +614,7 @@ class PolicyMatcher:
                     scheme=normalized_scheme,
                     matched_host=record.host,
                     method=normalized_method,
-                    path=path,
+                    path=log_path,
                     matched_rule_index=rule_index,
                     rule_transform=rule.transform,
                 )
@@ -628,5 +631,5 @@ class PolicyMatcher:
             scheme=normalized_scheme,
             matched_host=record.host,
             method=normalized_method,
-            path=path,
+            path=log_path,
         )

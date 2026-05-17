@@ -323,7 +323,51 @@ domains:
         self.assertIn('"action": "allowed"', log_output)
         self.assertIn('"reason": "request_rule_matched"', log_output)
         self.assertIn('"status": 200', log_output)
-        self.assertIn('"path": "/v1/models"', log_output)
+        self.assertIn('"path": "/v1/models?limit=10"', log_output)
+
+    def test_blocked_request_log_includes_query_string(self):
+        logger_output = io.StringIO()
+        matcher = self.matcher_from_domains(
+            [
+                {
+                    "host": "github.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "methods": ["GET"],
+                            "path": {"exact": "/owner/repo.git/info/refs"},
+                            "query": {
+                                "exact": {
+                                    "service": ["git-upload-pack"],
+                                }
+                            },
+                        }
+                    ],
+                }
+            ]
+        )
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(logger_output),
+            response_factory=self.make_response,
+        )
+        flow = FakeFlow(
+            "github.com",
+            scheme="https",
+            method="GET",
+            path="/owner/repo.git/info/refs?service=git-receive-pack",
+        )
+
+        enforcer.request(flow)
+
+        event = self.parse_events(logger_output)[-1]
+        self.assertEqual(event["action"], "blocked")
+        self.assertEqual(event["reason"], "no_rule_matched")
+        self.assertEqual(
+            event["path"],
+            "/owner/repo.git/info/refs?service=git-receive-pack",
+        )
 
     def test_request_injects_bearer_header_for_matching_rule(self):
         logger_output = io.StringIO()
@@ -355,6 +399,33 @@ domains:
             "sentinel-secret-token",
             json.dumps(flow.metadata, sort_keys=True),
         )
+
+    def test_header_injection_log_includes_query_string(self):
+        logger_output = io.StringIO()
+        matcher = self.matcher_from_domains([self.transformed_domain()])
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="enforce",
+            matcher=matcher,
+            logger=self.make_logger(logger_output),
+            response_factory=self.make_response,
+            secret_resolver_factory=self.secret_resolver_factory(
+                {"openai-api-token": "sentinel-secret-token"}
+            ),
+        )
+        flow = FakeFlow(
+            "api.openai.com",
+            scheme="https",
+            method="GET",
+            path="/v1/models?limit=10",
+        )
+
+        enforcer.requestheaders(flow)
+
+        event = [
+            item for item in self.parse_events(logger_output)
+            if item.get("type") == "header_injection"
+        ][0]
+        self.assertEqual(event["path"], "/v1/models?limit=10")
 
     def test_request_injects_basic_header_for_matching_rule(self):
         matcher = self.matcher_from_domains(
@@ -610,6 +681,45 @@ domains:
 
         self.assertIsNone(connect_flow.response)
         self.assertIsNone(request_flow.response)
+
+    def test_log_mode_response_log_includes_query_string(self):
+        logger_output = io.StringIO()
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="log",
+            logger=self.make_logger(logger_output),
+        )
+        flow = FakeFlow(
+            "api.openai.com",
+            scheme="https",
+            method="GET",
+            path="/v1/models?limit=10",
+        )
+        flow.response = FakeResponse(200, "ok")
+
+        enforcer.response(flow)
+
+        event = self.parse_events(logger_output)[-1]
+        self.assertEqual(event["path"], "/v1/models?limit=10")
+
+    def test_error_log_includes_query_string(self):
+        logger_output = io.StringIO()
+        enforcer = self.enforcer_module.PolicyEnforcer(
+            mode="log",
+            logger=self.make_logger(logger_output),
+        )
+        flow = FakeFlow(
+            "api.openai.com",
+            scheme="https",
+            method="GET",
+            path="/v1/models?limit=10",
+        )
+        flow.error = RuntimeError("upstream closed")
+
+        enforcer.error(flow)
+
+        event = self.parse_events(logger_output)[-1]
+        self.assertEqual(event["path"], "/v1/models?limit=10")
+        self.assertEqual(event["error"], "upstream closed")
 
 
 class PolicyEnforcerReloadTests(unittest.TestCase):

@@ -288,9 +288,9 @@ class PolicyMatcherTests(unittest.TestCase):
         )
 
         self.assertEqual(exact.action, "allowed")
-        self.assertEqual(exact.path, "/v1/models")
+        self.assertEqual(exact.path, "/v1/models?limit=10")
         self.assertEqual(prefix.action, "allowed")
-        self.assertEqual(prefix.path, "/v1/files/abc")
+        self.assertEqual(prefix.path, "/v1/files/abc?download=1")
 
     def test_request_matches_exact_query_independent_of_pair_order(self):
         matcher = self.matcher_from_domains(
@@ -321,6 +321,7 @@ class PolicyMatcherTests(unittest.TestCase):
         )
 
         self.assertEqual(decision.action, "allowed")
+        self.assertEqual(decision.path, "/v1/models?b=2&a=1")
 
     def test_request_matches_repeated_query_values_with_order_independence(self):
         matcher = self.matcher_from_domains(
