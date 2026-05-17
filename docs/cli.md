@@ -164,30 +164,14 @@ Generates shell completion scripts for supported shells.
 ## Proxy Secret Directory
 
 Managed compose stacks mount the host secret directory read-only into the `proxy` service at
-`/run/secrets/agentbox`. The `agent` service does not receive this mount.
+`/run/secrets/agentbox`. The `agent` service does not receive this mount. Override the host source with
+`AGENTBOX_SECRET_DIR`; it defaults to `${HOME}/.config/agent-sandbox/secrets`.
 
-The host source defaults to:
+Agentbox-managed bind mounts set `bind.create_host_path: false`, so a missing directory fails startup
+instead of creating an empty host path silently.
 
-```bash
-${HOME}/.config/agent-sandbox/secrets
-```
-
-Override it with `AGENTBOX_SECRET_DIR` when generating or running the compose stack. Keep this directory outside the
-project workspace and outside any path mounted into the agent. A custom path inside the repo is not proxy-only because
-the repo itself is mounted into the agent at `/workspace`.
-
-Create the directory before starting the runtime:
-
-```bash
-mkdir -p "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
-chmod 700 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
-```
-
-Store each file-backed secret as a raw secret value below that directory. Use restrictive file permissions such as
-`0600` for individual secret files.
-
-Agentbox-managed bind mounts set `bind.create_host_path: false`. If the secret directory is missing, Docker Compose
-fails startup instead of silently creating an empty host path. Create the directory explicitly, then rerun the command.
+See [docs/secrets.md](secrets.md) for the host directory layout, permission expectations, secret ID
+grammar, manual provisioning, and freshness contract.
 
 ## Environment Variables
 

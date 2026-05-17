@@ -16,10 +16,10 @@ Inject configured headers at request time after a rule with request transform me
 
 ## Acceptance Criteria
 
-- [ ] Proxy/enforcer tests prove injected headers reach a fake upstream only for matched rules
-- [ ] Tests prove unmatched requests do not receive injected headers
-- [ ] Existing-header behavior is covered for fail and explicit replacement modes
-- [ ] Logs, errors, and rendered decisions never include the secret value
+- [x] Proxy/enforcer tests prove injected headers reach a fake upstream only for matched rules
+- [x] Tests prove unmatched requests do not receive injected headers
+- [x] Existing-header behavior is covered for fail and explicit replacement modes
+- [x] Logs, errors, and rendered decisions never include the secret value
 
 ## Applicable Learnings
 
