@@ -9,9 +9,12 @@ services:
   - name: github
     repos:
       - mattolson/agent-sandbox
-    surfaces:
-      - api
-      - git
+    git:
+      access: readwrite
+      auth:
+        secret: github.agent-sandbox.push-token
+        client_shim:
+          kind: git-askpass
 domains:
   - raw.githubusercontent.com
   - mcp.linear.app

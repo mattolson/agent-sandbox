@@ -10,7 +10,19 @@ services:
     volumes:
       - proxy-state:/home/mitmproxy/.mitmproxy
       - proxy-ca:/ca-export
-      - ../policy/user.policy.yaml:/etc/agent-sandbox/policy/user.policy.yaml:ro
+      - type: bind
+        source: ../policy/user.policy.yaml
+        target: /etc/agent-sandbox/policy/user.policy.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}
+        target: /run/secrets/agentbox
+        read_only: true
+        bind:
+          create_host_path: false
+      - proxy-credential-shims:/run/agentbox/credential-shims
     environment:
       - PROXY_MODE=enforce
     healthcheck:
@@ -38,6 +50,7 @@ services:
       - ../..:/workspace
       - ..:/workspace/.agent-sandbox:ro
       - proxy-ca:/etc/mitmproxy:ro
+      - proxy-credential-shims:/run/agentbox/credential-shims:ro
     working_dir: /workspace
     stdin_open: true
     tty: true
@@ -50,3 +63,4 @@ services:
 volumes:
   proxy-state:
   proxy-ca:
+  proxy-credential-shims:
