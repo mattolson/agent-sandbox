@@ -26,7 +26,7 @@ GITHUB_HOST = "github.com"
 GITHUB_TOKEN_USERNAME = "x-access-token"
 
 GIT_FAKE_PASSWORD = "agentbox-proxy-managed"
-GIT_ASKPASS_PATH = "/usr/local/bin/agentbox-git-askpass"
+GIT_ASKPASS_PATH = "/usr/local/bin/agentbox-git-askpass.sh"
 
 DEFAULT_CREDENTIAL_SHIM_INIT_PATH = "/run/agentbox/credential-shims/init.zsh"
 GIT_ASKPASS_ENV_RELATIVE_PATH = "git-askpass/env.zsh"

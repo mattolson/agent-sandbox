@@ -74,18 +74,19 @@ services:
 
 ### Mapping entries
 
-Mapping entries take a richer shape:
+Mapping entries take a richer shape. The GitHub catalog accepts repo-scoped
+options; see [GitHub service](#github-service) for the full set.
 
 ```yaml
 services:
   - name: github
     merge_mode: replace
-    readonly: true
     repos:
       - owner/repo
-    surfaces:
-      - api
-      - git
+    git:
+      access: read
+    api:
+      access: read
 ```
 
 Supported keys common to every service:
