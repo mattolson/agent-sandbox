@@ -133,7 +133,7 @@ services:
     git:
       access: read
       auth:
-        secret: github.agent-sandbox.read-token
+        secret: github.owner.repo.read-token
     api:
       access: read
 ```
@@ -174,7 +174,7 @@ underlying mechanism.
 git:
   access: readwrite
   auth:
-    secret: github.agent-sandbox.push-token
+    secret: github.owner.repo.push-token
     client_shim:
       kind: git-askpass
 ```
@@ -426,7 +426,7 @@ credential_shim:
       username: x-access-token
       fake_password: agentbox-proxy-managed
       secrets:
-        - github.agent-sandbox.push-token
+        - github.owner.repo.push-token
 ```
 
 - `version`: schema version, always `1` today.

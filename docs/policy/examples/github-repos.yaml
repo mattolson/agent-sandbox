@@ -28,7 +28,7 @@ services:
     git:
       access: readwrite
       auth:
-        secret: github.agent-sandbox.push-token
+        secret: github.owner.repo.push-token
         client_shim:
           kind: git-askpass
     api:
