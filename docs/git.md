@@ -85,19 +85,27 @@ Focused policy examples under `docs/policy/examples/`:
 
 See [docs/policy/schema.md](policy/schema.md) for the full authored shape, including non-GitHub services via `domains[].transform.request`.
 
-### Credential setup (fallback): credential-store with a PAT
+### Credential setup (last resort): credential-store with a PAT
 
-If proxy-side injection is not an option (a service the catalog does not cover, an experimental policy, an offline test), git can store a PAT on disk inside the container. **This trades the proxy-side guarantee for a plaintext-on-disk credential.**
+**Prefer proxy-side injection.** Reach for this only when the catalog cannot cover the host (a non-GitHub service with no `domains[].transform.request` entry, an offline test, etc.). For private GitHub git operations, use the proxy-injection path above — not this.
 
-Create a [fine-grained personal access token](https://github.com/settings/tokens?type=beta) scoped to specific repositories, then:
+Trade-offs you are accepting:
+
+- The credential lives in plaintext at `~/.git-credentials` inside the container.
+- The file persists in the agent's Docker volume across image bumps. Clearing it requires `agentbox destroy`.
+- A leaked token is as broad as its scope. The proxy cannot constrain a request once the agent is the one sending the credential.
+
+Create a [fine-grained personal access token](https://github.com/settings/tokens?type=beta) scoped to the minimum necessary repositories, then:
 
 ```bash
 git config --global credential.helper store
 ```
 
-On the next `git push` or `git pull` against a private repo, git prompts for username and token. Enter your GitHub username and paste the PAT as the password. The credential is saved to `~/.git-credentials` and reused automatically from then on.
+On the next authenticated `git` operation, git prompts for username and token. The credential is saved to `~/.git-credentials` and reused from then on. See the [security section](../README.md#git-credentials) for ways to limit exposure.
 
-Credentials are stored in plaintext on disk inside the container. The file persists in the agent's Docker volume across rebuilds. See the [security section](../README.md#git-credentials) for ways to limit exposure.
+#### Don't set `credential.helper = store` globally
+
+The proxy-injection path doesn't need a credential helper. Drop `credential.helper = store` from any gitconfig you mount via dotfiles — leaving it set risks writing plaintext credentials to `~/.git-credentials` on any flow that bypasses the askpass shim.
 
 ## Git identity
 
