@@ -64,7 +64,7 @@ The recommended way to push to or read a private GitHub repo from inside the con
        git:
          access: readwrite
          auth:
-           secret: github.agent-sandbox.push-token
+           secret: github.owner.repo.push-token
            client_shim:
              kind: git-askpass
    ```

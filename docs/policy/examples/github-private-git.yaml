@@ -24,8 +24,8 @@ services:
   - name: github
     merge_mode: replace
     repos:
-      - owner/private
+      - owner/repo
     git:
       access: read
       auth:
-        secret: github.agent-sandbox.read-token
+        secret: github.owner.repo.read-token
