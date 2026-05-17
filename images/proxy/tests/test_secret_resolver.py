@@ -189,6 +189,17 @@ class SecretResolverTests(unittest.TestCase):
 
         self.assertEqual(result.value.as_text(), "secret-token")
 
+    def test_empty_secret_after_trimming_is_rejected(self):
+        for value in (b"", b"\n"):
+            with self.subTest(value=value):
+                root = self.make_root()
+                self.write_secret(root, value=value)
+
+                with self.assertRaises(self.secret_resolver.SecretResolverError) as context:
+                    self.resolver_for_root(root).resolve("service-token")
+
+                self.assertIn("must not be empty", str(context.exception))
+
     def test_embedded_newline_is_rejected_without_leaking_secret(self):
         root = self.make_root()
         self.write_secret(root, value=b"top-secret\nstill-secret")

@@ -282,11 +282,16 @@ def _decode_secret_bytes(raw_secret, secret_id):
         )
 
     try:
-        return raw_secret.decode("utf-8")
+        decoded = raw_secret.decode("utf-8")
     except UnicodeDecodeError:
         raise SecretResolverError(
             f"Secret file for secret ID {secret_id!r} must contain UTF-8 text"
         ) from None
+    if not decoded:
+        raise SecretResolverError(
+            f"Secret file for secret ID {secret_id!r} must not be empty"
+        )
+    return decoded
 
 
 def render_header_value(secret_value, transform):
