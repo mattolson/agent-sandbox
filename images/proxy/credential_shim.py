@@ -227,6 +227,7 @@ def render_git_askpass_fragment_from_hints(hints):
         lines.append("# No git-askpass credential shim is active.")
         return "\n".join(lines) + "\n"
 
+    # All git-askpass hints share the same fake credentials; use the first one.
     hint = git_askpass_hints[0]
     exports = {
         "AGENTBOX_GIT_FAKE_USERNAME": hint["username"],
