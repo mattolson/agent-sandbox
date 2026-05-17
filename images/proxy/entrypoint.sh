@@ -22,6 +22,7 @@ fi
 
 /usr/local/bin/render-policy --output "$RENDERED_POLICY_PATH" --credential-shim-output "$CREDENTIAL_SHIM_INIT_PATH"
 export POLICY_PATH="$RENDERED_POLICY_PATH"
+export AGENTBOX_CREDENTIAL_SHIM_INIT_PATH="$CREDENTIAL_SHIM_INIT_PATH"
 
 # Run mitmdump with all passed arguments, using the same confdir
 # --quiet suppresses mitmproxy's built-in logging (we use our own JSON logs)
