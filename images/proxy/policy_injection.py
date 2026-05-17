@@ -37,6 +37,11 @@ def normalize_secret_id(value, context, fail):
             fail,
             f"{context} must match [A-Za-z0-9._-]+, got {value!r}",
         )
+    if secret_id in (".", ".."):
+        _fail(
+            fail,
+            f"{context} must not be {secret_id!r}; secret IDs are direct child file names",
+        )
     return secret_id
 
 
@@ -76,13 +81,20 @@ def normalize_header_transform(value, context, fail):
             _fail(fail, f"{context}.transform contains unsupported keys: {unknown_keys}")
         if "username" not in value:
             _fail(fail, f"{context}.transform.username is required for basic transform")
+        username = normalize_string(
+            value["username"],
+            f"{context}.transform.username",
+            fail,
+        )
+        if any(ord(ch) < 0x20 or ord(ch) == 0x7F or ch == ":" for ch in username):
+            _fail(
+                fail,
+                f"{context}.transform.username must not contain control characters or ':', "
+                f"got {value['username']!r}",
+            )
         return {
             "type": "basic",
-            "username": normalize_string(
-                value["username"],
-                f"{context}.transform.username",
-                fail,
-            ),
+            "username": username,
         }
 
     unknown_keys = sorted(set(value) - {"type"})

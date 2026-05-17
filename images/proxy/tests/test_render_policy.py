@@ -382,6 +382,75 @@ domains:
 
         self.assertIn("must match [A-Za-z0-9._-]+", str(context.exception))
 
+    def test_domain_transform_request_rejects_dot_secret_ids(self):
+        for bad_id in (".", ".."):
+            with self.subTest(secret_id=bad_id):
+                with self.assertRaises(self.render_policy.RenderPolicyError) as context:
+                    self.render_single(
+                        f"""
+domains:
+  - host: github.com
+    transform:
+      request:
+        headers:
+          Authorization:
+            secret: {bad_id!r}
+            transform:
+              type: bearer
+    rules:
+      - schemes: [https]
+"""
+                    )
+                self.assertIn(
+                    "direct child file names", str(context.exception)
+                )
+
+    def test_domain_transform_request_rejects_basic_username_with_control_chars(self):
+        with self.assertRaises(self.render_policy.RenderPolicyError) as context:
+            self.render_single(
+                """
+domains:
+  - host: github.com
+    transform:
+      request:
+        headers:
+          Authorization:
+            secret: github-token
+            transform:
+              type: basic
+              username: "user\\nname"
+    rules:
+      - schemes: [https]
+"""
+            )
+
+        self.assertIn(
+            "must not contain control characters", str(context.exception)
+        )
+
+    def test_domain_transform_request_rejects_basic_username_with_colon(self):
+        with self.assertRaises(self.render_policy.RenderPolicyError) as context:
+            self.render_single(
+                """
+domains:
+  - host: github.com
+    transform:
+      request:
+        headers:
+          Authorization:
+            secret: github-token
+            transform:
+              type: basic
+              username: "user:other"
+    rules:
+      - schemes: [https]
+"""
+            )
+
+        self.assertIn(
+            "must not contain control characters or ':'", str(context.exception)
+        )
+
     def test_domain_transform_request_rejects_invalid_transforms(self):
         with self.assertRaises(self.render_policy.RenderPolicyError) as context:
             self.render_single(
@@ -791,7 +860,7 @@ services:
             git_env_body = git_env_path.read_text(encoding="utf-8")
 
         self.assertIn(str(git_env_path), init_body)
-        self.assertIn("GIT_ASKPASS=/usr/local/bin/agentbox-git-askpass", git_env_body)
+        self.assertIn("GIT_ASKPASS=/usr/local/bin/agentbox-git-askpass.sh", git_env_body)
         self.assertIn("AGENTBOX_GIT_FAKE_PASSWORD=agentbox-proxy-managed", git_env_body)
         self.assertIn("GIT_TERMINAL_PROMPT=0", git_env_body)
         self.assertNotIn("github-token", init_body)
