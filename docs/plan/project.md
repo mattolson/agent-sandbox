@@ -230,7 +230,7 @@ filtering.
 - SIGHUP-based policy hot reload through `agentbox proxy reload` and `agentbox edit policy`
 - Schema docs, examples, troubleshooting guidance, and proxy integration coverage
 
-### m15-proxy-secret-injection
+### m15-proxy-secret-injection (done)
 
 Make the proxy the primary credential path for HTTP-native auth by keeping real secrets out of the agent container and injecting them into matched outbound requests.
 
