@@ -111,7 +111,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Domain-only rules remain backward-compatible and keep the CONNECT fast path
 - `agentbox proxy reload` and `agentbox edit policy` hot-reload policy changes with last-known-good fallback
 
-## m15: Proxy-side secret injection (planned)
+## m15: Proxy-side secret injection (done)
 
 - Make proxy injection the primary mechanism for HTTP-native credentials
 - Store raw secret values in a host-only source and mount them into the proxy only

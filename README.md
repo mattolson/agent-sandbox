@@ -6,7 +6,8 @@
 Run AI coding agents in a locked-down local sandbox with:
 
 - Minimal filesystem access (read/write access to only your repository directory)
-- Configurable network egress policy enforced by a sidecar proxy (restrict by hostname, as well as other attributes, like scheme, method, path, and query string)
+- Configurable network egress policy enforced by a sidecar proxy (restrict by hostname, as well as fine-grained attributes, like scheme, method, path, and query string)
+- Secret injection conducted in the proxy, so the agent container never sees secrets such as API keys
 - Iptables firewall preventing direct outbound (all traffic must go through the proxy)
 - Reproducible environments (Debian container with pinned dependencies)
 - Persistent volume for agent state - auth and config preserved across container restarts
@@ -160,6 +161,9 @@ The agent's iptables firewall (`init-firewall.sh`) blocks all direct outbound ex
 
 The proxy's CA certificate is shared via a Docker volume and automatically installed into the agent's system trust store at startup.
 
+For matched requests, policy can also tell the proxy to inject an HTTP header from a host-side secret file. The secret
+directory is mounted into the proxy only; the agent container sees neither the raw token nor the secret mount.
+
 ### Customizing the policy
 
 The network policy lives in your project in the `.agent-sandbox/policy/` directory.
@@ -205,7 +209,25 @@ services:
       access: read
 ```
 
-For a private repo that needs proxy-side credential injection, add `git.auth.secret` and (for `readwrite`) a `client_shim`. See [GitHub Git from inside the container](#github-git-from-inside-the-container) below.
+For a private repo that needs proxy-side credential injection, add `git.auth.secret`. For push access, use
+`git.access: readwrite` and add the `git-askpass` client shim so Git can run non-interactively while the proxy replaces
+the fake credential before the request reaches GitHub:
+
+```yaml
+services:
+  - name: github
+    merge_mode: replace
+    repos:
+      - owner/repo
+    git:
+      access: readwrite
+      auth:
+        secret: github.owner.repo.push-token
+        client_shim:
+          kind: git-askpass
+```
+
+See [GitHub Git from inside the container](#github-git-from-inside-the-container) below for the host-side secret setup.
 
 If you edit policy files directly, apply changes without restarting the proxy:
 
@@ -221,6 +243,19 @@ See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format 
 ### GitHub Git from inside the container
 
 The recommended way to clone, fetch, or push private GitHub repos from inside the container is to let the proxy inject the credential. The token lives in a host-side secret directory, never in the container's filesystem or Docker volumes.
+
+Create the secret directory on the host before starting the sandbox:
+
+```bash
+mkdir -p "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
+chmod 700 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
+printf '%s' "ghp_examplevalue" \
+  > "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}/github.owner.repo.push-token"
+chmod 600 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}/github.owner.repo.push-token"
+```
+
+After changing policy, run `agentbox proxy reload`. If the policy uses `client_shim`, open a new `agentbox exec` shell
+so Git sees the generated askpass environment.
 
 - [docs/git.md](./docs/git.md) - end-to-end setup for read-only and readwrite Git flows
 - [docs/secrets.md](./docs/secrets.md) - host secret directory layout, permissions, freshness, and non-goals
@@ -243,6 +278,7 @@ Key principles:
 
 - Minimal mounts: only the repo workspace + project-scoped agent state
 - Network egress is tightly controlled through sidecar proxy with default deny policy
+- Raw proxy-injected secrets are mounted into the proxy only, not the agent container
 - Firewall verification runs at every container start
 
 ### Git credentials

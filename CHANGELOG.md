@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+Proxy-side credential injection from `m15`.
+
+### Added
+
+- **Proxy-side request header injection.** Policy can now attach `domains[].transform.request.headers` to matched rules so the proxy injects `Bearer` or `Basic` auth headers at request time, with `on_existing_header: fail` as the default fail-closed behavior.
+- **File-backed proxy secret source.** The proxy now resolves logical secret IDs from `${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}`, mounted read-only into the proxy as `/run/secrets/agentbox`. Secret files are read on demand, kept out of the agent container, and validated for path safety, file type, UTF-8 text, non-empty content, and newline handling.
+- **GitHub Git credential injection.** Repo-scoped GitHub service entries can now configure `git.access: read | readwrite` and `git.auth.secret` so clone, fetch, and push over smart HTTP receive proxy-injected credentials without storing real tokens in the agent container.
+- **Git askpass compatibility shim.** Authenticated GitHub Git entries can opt into `git.auth.client_shim.kind: git-askpass`, which gives Git deterministic fake credentials inside the agent container while the proxy replaces the outbound `Authorization` header with the real secret.
+- **Secret and credential docs.** Added `docs/secrets.md`, refreshed Git and policy schema docs, and added focused examples for private GitHub fetch, readwrite GitHub push, and explicit host-scoped request transforms.
+
+### Changed
+
+- **Managed compose files now mount secrets and credential shims.** The proxy receives the host secret directory with `bind.create_host_path: false`, and the agent receives only the generated credential-shim volume read-only.
+- **GitHub repo-scoped policy syntax now uses surface mappings.** `git` and `api` mappings replace the earlier `surfaces` list. Repo-scoped `surfaces`, top-level `access`, top-level `auth`, and repo-scoped `readonly` are rejected with targeted migration errors.
+- **Proxy logs now include query strings in request paths.** Decision, response, header-injection, and error logs include `?query` data so Git smart-HTTP discovery requests can be distinguished without cross-referencing `matched_rule_index`.
+
+### Fixed
+
+- **Credential shim reloads now update live shim files.** The proxy entrypoint exports `AGENTBOX_CREDENTIAL_SHIM_INIT_PATH`, so SIGHUP policy reloads can rewrite generated shim fragments instead of silently skipping them.
+- **Secret-file errors are clearer.** Empty secret files and files with extra trailing newlines now fail at the proxy with explicit messages instead of producing empty auth headers or generic invalid-byte errors.
+
 ## [0.14.0] - 2026-05-01
 
 Fine-grained proxy rules from `m14`.
