@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-05-21
+
 Proxy-side credential injection from `m15`.
 
 ### Added
