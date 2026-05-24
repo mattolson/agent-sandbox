@@ -255,7 +255,32 @@ Make the proxy the primary credential path for HTTP-native auth by keeping real 
 
 **Dependencies:** m14 (request-phase MITM matching), m3 (proxy foundation)
 
-### m16-github-rest-wrapper
+### m16-provider-api-key-injection
+
+Extend the `m15` proxy-side credential model from GitHub Git auth to model-provider API-key traffic, so current agents
+can call supported provider APIs without the real API key being readable inside the agent container.
+
+**Goals:**
+- Add a generic raw-header transform for provider headers whose value is the secret itself
+- Add service-catalog-owned auth expansion for OpenAI, Anthropic, and Gemini provider API patterns
+- Support a generic renderer-owned fake env-var shim primitive, first used for clients that require `OPENAI_API_KEY`,
+  `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY` before making requests
+- Cover Codex, Claude API-key mode, Gemini API-key mode, and provider-backed Pi/OpenCode flows where they use supported
+  providers
+- Keep OAuth, browser login, device-code, subscription-login, and local credential-helper flows out of this layer
+- Document supported and unsupported agent/provider combinations clearly
+
+**Out of scope:**
+- Copilot and Factory primary auth unless a concrete API-key flow is identified during discovery
+- OAuth, device-code, refresh-token, and browser-login flows
+- Request-body mutation, response mutation, or scanning for leaked secret values
+- Local delivery of real credentials into the agent container
+- Arbitrary user-authored env exports that are not paired with catalog-owned proxy replacement rules
+- Broad provider support beyond OpenAI, Anthropic, and Gemini
+
+**Dependencies:** m15 (proxy-side secret injection), m14 (request-phase matching and transforms)
+
+### m17-github-rest-wrapper
 
 Provide an officially supported GitHub wrapper that uses REST-only endpoints so repo identity stays visible in request
 URLs and can be constrained by `m14` policies.
@@ -275,7 +300,7 @@ URLs and can be constrained by `m14` policies.
 
 **Dependencies:** m14 (fine-grained proxy and repo/path-aware policy matching), m15 (primary HTTP credential path)
 
-### m17-cli-monitoring
+### m18-cli-monitoring
 
 CLI tools for monitoring proxy activity and managing policy interactively.
 
@@ -287,7 +312,7 @@ CLI tools for monitoring proxy activity and managing policy interactively.
 
 **Dependencies:** m13 (Go CLI), m14 (fine-grained proxy and hot reload)
 
-### m18-host-credential-service
+### m19-host-credential-service
 
 Add a narrower, secondary credential path for tools and auth flows that cannot be handled cleanly by proxy-side injection.
 

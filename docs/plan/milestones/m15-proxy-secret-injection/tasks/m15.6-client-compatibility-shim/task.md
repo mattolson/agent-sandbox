@@ -215,8 +215,9 @@ should still prove:
   env-token system needs a concrete provider target and should not be smuggled into GitHub Git work.
 - Resolved for this plan: direct GitHub smart-HTTP auth remains the default and keeps `on_existing_header: fail`.
   `client_shim` is opt-in because replacement weakens the existing-header guardrail.
-- Resolved for this plan: m15.6 does not implement GitHub REST auth or stock `gh` support. M16 owns the REST wrapper
-  direction, and M18 owns residual real credential-helper delivery.
+- Resolved for this plan: m15.6 does not implement provider API-key auth, GitHub REST auth, or stock `gh` support. M16
+  owns provider API-key injection, M17 owns the REST wrapper direction, and M19 owns residual real credential-helper
+  delivery.
 - Resolved in implementation: source the generated environment from zsh shell initialization only. Direct
   `agentbox exec <command>` invocations that bypass zsh remain a documented follow-up rather than changing exec
   quoting or environment semantics in this task.

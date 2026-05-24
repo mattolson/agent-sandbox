@@ -1,4 +1,4 @@
-# m18: Host Credential Service
+# Milestone: m19 - Host Credential Service
 
 Run a narrower host-side credential service for auth flows that cannot be handled cleanly by `m15-proxy-secret-injection`. The helper keeps credentials off disk inside the container, but unlike proxy injection it does allow the client to receive credential material when that is unavoidable.
 

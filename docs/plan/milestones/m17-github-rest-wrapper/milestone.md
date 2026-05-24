@@ -1,4 +1,4 @@
-# Milestone: m16 - GitHub REST Wrapper
+# Milestone: m17 - GitHub REST Wrapper
 
 Provide an officially supported GitHub wrapper that uses REST-only endpoints so repo identity stays visible in request
 URLs and can be constrained by `m14` policies. The goal is not to replace stock `gh` wholesale; it is to provide a
@@ -76,7 +76,7 @@ This milestone should not invent a second credential path. It should use `m15` p
 the wrapper's REST calls can be matched safely by host, method, and path. Residual flows that require the client to
 receive credential material belong in later helper work:
 
-- `m18` for residual helper-based flows
+- `m19` for residual helper-based flows
 
 ### Distribution
 
@@ -92,7 +92,7 @@ This milestone may later become its own open-source project. The current rationa
 an obvious standalone-binary equivalent to `gh` that intentionally stays on REST-only endpoints for use in constrained
 environments with network proxy inspection.
 
-That project-boundary decision is deferred for now. `m16` should proceed in a way that keeps extraction feasible later:
+That project-boundary decision is deferred for now. `m17` should proceed in a way that keeps extraction feasible later:
 
 - keep the wrapper surface narrow and well documented
 - avoid coupling the command surface too tightly to Agent Sandbox internals
