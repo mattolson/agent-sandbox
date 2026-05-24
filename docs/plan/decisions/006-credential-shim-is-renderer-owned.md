@@ -80,9 +80,8 @@ read only at request time inside the proxy.
 
 - The shim-and-replace pairing cannot be partially configured. Either both halves are present
   in the rendered policy or neither.
-- Future credential-injection work (REST APIs in `m16`, host credential helpers in `m18`) can
-  define new shim kinds without adopting a generic env-export surface that would be hard to
-  constrain.
+- Future credential-injection work (provider API keys in `m16`, GitHub REST APIs in `m17`, and host credential helpers
+  in `m19`) can define new shim kinds without adopting a generic env-export surface that would be hard to constrain.
 - Rendered policy stays small. The `credential_shim` block only appears when something needs
   it, and the payload's only consumer is `/etc/agent-sandbox/shell-init.sh`.
 
