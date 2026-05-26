@@ -35,12 +35,12 @@ to hold the real secret.
 - Request body mutation
 - Request, response, header, or URL scanning for leaked secret values
 - Replacing every credential flow with proxy injection
-- A full host credential helper service; that remains `m19`
+- A full host credential helper service; that remains `m20`
 - macOS Keychain-backed secret resolution; m15 should preserve the extension point but ship file-backed storage first
 - A complete secret-management CLI with project, target, and session scoped storage
 - A new live-update control plane beyond the existing policy reload path
-- Provider API-key injection; that moves to `m16`
-- GitHub REST wrapper work; that moves to `m17`
+- Provider API-key injection; that moves to `m17`
+- GitHub REST wrapper work; that moves to `m18`
 
 ## Design
 

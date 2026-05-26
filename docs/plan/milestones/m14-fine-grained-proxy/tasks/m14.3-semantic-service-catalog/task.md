@@ -182,7 +182,7 @@ For GitHub `git`, the intended `readonly` mapping is:
 That keeps clone and fetch working under `readonly: true` while still excluding push.
 
 That is enough to keep repo-scoped Git transport visible in the URL path and to support `m15` credential injection
-without quietly broadening the host allowlist. `m17` remains about the higher-level REST wrapper surface; adding Git
+without quietly broadening the host allowlist. `m18` remains about the higher-level REST wrapper surface; adding Git
 smart-HTTP to `m14.3` does not replace that milestone.
 
 #### Merge And Override Semantics
@@ -353,5 +353,5 @@ Test runs after the simplify pass:
 - If future services duplicate the pattern of "named surfaces plus scoped selectors," revisit whether the per-service
   Python expander can be factored into a shared helper; `m14.3` deliberately resisted that abstraction until a second
   rich service exists.
-- Downstream `m17` still owns the GitHub REST wrapper work; the repo-scoped `api` surface added here intentionally
+- Downstream `m18` still owns the GitHub REST wrapper work; the repo-scoped `api` surface added here intentionally
   stops at URL-shape filtering. Credential-aware behavior belongs to `m15`.

@@ -22,8 +22,8 @@ request-aware rules, semantic GitHub service expansion, hot reload, integration 
 
 **Excluded:**
 - Secret injection, header substitution, or other credential features from `m15`
-- GitHub REST wrapper work from `m17`
-- Monitoring UI or interactive unblock workflows from `m18`
+- GitHub REST wrapper work from `m18`
+- Monitoring UI or interactive unblock workflows from `m19`
 - Non-HTTP protocols
 - Header matching and request body inspection. For now, a matched URL rule implies the endpoint is trusted to receive
   the full request.

@@ -146,8 +146,8 @@ services:
         secret: github.agent-sandbox.push-token
 ```
 
-Reject `api.auth` for now with a clear reserved/unsupported error. Provider API-key injection belongs to `m16`, GitHub
-REST wrapper behavior belongs to `m17`, and M15.5 should not imply API credential injection.
+Reject `api.auth` for now with a clear reserved/unsupported error. Provider API-key injection belongs to `m17`, GitHub
+REST wrapper behavior belongs to `m18`, and M15.5 should not imply API credential injection.
 
 For authenticated Git rules, emit the same canonical rule-scoped transform shape as explicit `domains[].transform`
 authoring:

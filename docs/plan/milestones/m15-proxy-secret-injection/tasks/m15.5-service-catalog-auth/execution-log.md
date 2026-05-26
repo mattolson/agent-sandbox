@@ -71,8 +71,8 @@ with surface-scoped GitHub mappings. The preferred policy shape is now `git.acce
 `readonly` for unauthenticated GitHub repo-scoped policies, but that compatibility path was removed after confirming the
 syntax had not shipped.
 
-**Decision:** `api.auth` is reserved and rejected in m15.5. Provider API-key behavior belongs to `m16`, and GitHub REST
-wrapper behavior belongs to `m17`.
+**Decision:** `api.auth` is reserved and rejected in m15.5. Provider API-key behavior belongs to `m17`, and GitHub REST
+wrapper behavior belongs to `m18`.
 
 ## 2026-05-07 04:00 UTC - Initial task plan
 
