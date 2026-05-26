@@ -60,6 +60,7 @@ For each item under review:
 - CodeSandbox SDK
 - E2B
 - Runloop
+- exe.dev
 - GKE Agent Sandbox
 - Vercel Sandbox
 - MCP gateway and host-side registry
@@ -1483,6 +1484,17 @@ For each commercial product, capture:
 - Network policies appear hostname-oriented in the product blog, while some docs also mention SSH access through a transparent proxy
 - Fit: VM-backed sandbox platform with additional containerization or image layering inside the VM
 
+### exe.dev
+
+- Docs describe exe.dev as a subscription service for quickly-created virtual machines with persistent disks
+- Docs state exe.dev VMs run on rented bare metal and currently use Cloud Hypervisor, while warning that this is an implementation detail and may change
+- Docs say new VMs start from a container image wired to a block device, making creation take about two seconds, with the tradeoff that users do not choose the kernel
+- The product positions VMs as normal Linux computers that can run `apt`, `systemd`, agents, and Docker-oriented workflows
+- Networking is exposed through exe.dev-managed HTTPS/TLS termination and proxying rather than giving each VM its own public IP; SSH is also brokered through the service
+- Pricing docs describe many VMs sharing a user's CPU and RAM pool, with persistent disk charged or pooled separately
+- Fit: hosted Cloud Hypervisor-backed persistent VM cloud with fast creation, copy-friendly VM semantics, and Docker-capable guest environments
+- Difference from this project's local-runtime question: exe.dev makes the remote VM the primary computer, so it avoids the hardest local requirement here: low-latency synchronization with an existing host workspace
+
 ### GKE Agent Sandbox
 
 - Google documents this as a Kubernetes controller and API for creating ephemeral runtime environments
@@ -1769,6 +1781,9 @@ Choose:
 - [Runloop Devboxes docs](https://docs.runloop.ai/features/devboxes): isolated ephemeral VMs, snapshots, and blueprints
 - [Runloop security page](https://www.runloop.ai/security): custom hypervisor and layered security claims
 - [Runloop network policies](https://docs.runloop.ai/features/network-policies): outbound network controls
+- [exe.dev docs](https://exe.dev/docs): VM product overview, feature list, and use-case docs
+- [exe.dev how it works](https://exe.dev/docs/faq/how-exedev-works): Cloud Hypervisor implementation detail, container-image-to-block-device boot model, and proxied networking
+- [exe.dev pricing](https://exe.dev/docs/pricing): pooled CPU/RAM, VM count, persistent disk, and cloud pool model
 - [Google Cloud GKE Agent Sandbox](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/agent-sandbox): Kubernetes-native sandbox controller
 - [Google Cloud GKE Sandbox](https://docs.cloud.google.com/kubernetes-engine/docs/concepts/sandbox-pods): gVisor-based pod sandboxing
 - [Google Cloud agent sandbox templates and runtime classes](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/agent-sandbox#sandbox_templates): templates, warm pools, and runtimes
