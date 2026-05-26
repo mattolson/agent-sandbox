@@ -249,4 +249,31 @@ Critical path: m16.1 → m16.4 → m16.5 → m16.7.
 
 ## Changes
 
-(None yet)
+### 2026-05-25: m16.1 discovery complete
+
+Findings recorded in `tasks/m16.1-discovery/discovery.md`, pinned to upstream commit
+`cea87d9139044870752aafdcdf9ca253049ae175`. Material updates that affect downstream task scope:
+
+- **Hermes is a Python+uv app, not an npm CLI.** Heavier image footprint than Pi/OpenCode (Python 3.11, uv, Node,
+  ripgrep, ffmpeg, Playwright, build tooling). m16.2 scope shifts accordingly; treat upstream's Dockerfile as
+  reference, not a literal base. Recommended v1 shape: clone at `--branch ${HERMES_VERSION}`, run
+  `uv pip install -e ".[<extras>]"`, skip Node/Playwright/ffmpeg/docker-cli/s6. Verify the plain CLI works without
+  the Ink TUI as a m16.2 spike before locking the shape.
+- **Hermes is published to PyPI** as `hermes-agent` (calver-tagged publish workflow), and **upstream also publishes
+  a Docker image** `nousresearch/hermes-agent` on Docker Hub. For m16.2 we still prefer clone-at-tag because the PyPI
+  wheel omits `ui-tui/` and `web/`, and the upstream Docker image (~5 GB, s6-supervised cluster) is too heavy and
+  breaks our "extend agent-sandbox-base" convention. PyPI install remains a viable simpler revision later.
+- **Upstream publishes calver release tags** (`v2026.M.D`), so `HERMES_VERSION` can pin to a tag. m16.6's
+  version-check workflow queries `https://pypi.org/pypi/hermes-agent/json` and reads `.info.version` (same endpoint
+  Hermes uses for its own update check). PyPI tracks the calver tag, so the version we check mirrors the tag we'd
+  clone. Accept a few-minute lag between tag push and PyPI publish.
+- **`security.allow_lazy_installs: false` must be baked** into the image's default `cli-config.yaml`. Otherwise
+  Hermes will pip-install Python deps from pypi.org at runtime, which the sandbox does not allow.
+- **`HERMES_YOLO_MODE=1`** is the unattended-execution toggle (env var, set in the compose template).
+- **`HERMES_HOME` defaults to `~/.hermes`**, used by the upstream-supervised image as `/opt/data`. m16.4 will mount a
+  named volume at this path so learned skills persist across restarts.
+- **Default `hermes` service in the proxy is just `["hermes-agent.nousresearch.com"]`**. `inference-api.nousresearch.com`,
+  `firecrawl-gateway.nousresearch.com`, and `api.github.com` are opt-in per use case and documented in m16.7.
+
+Downstream tasks (m16.2-m16.7) should reference `discovery.md` for concrete env var names, domain lists, state paths,
+and feature-flag strings rather than re-deriving them.

@@ -69,6 +69,19 @@ Lessons learned during project execution. Review at the start of each planning s
 - `SourceFileLoader.load_module()` is deprecated in modern Python; prefer
   `spec_from_loader` + `module_from_spec` + `exec_module` when loading non-`.py` scripts such as `render-policy` so
   test runs stay free of DeprecationWarnings.
+- The proxy's GitHub repo matcher is case-sensitive on `owner/repo`, on both the `repos:` policy entry AND the
+  request path. `repos: [NousResearch/hermes-agent]` does not match a `git clone` request that uses lowercase, and
+  vice versa, even though GitHub serves both cases as the same repo. Workaround: lowercase the policy entry AND use
+  a lowercase clone URL. Durable fix: case-fold owner/repo on both sides of the match in the catalog. m14 follow-up.
+- For an agent with runtime self-modification behavior (lazy installs, plugin auto-install, on-demand model registry
+  fetches), the sandbox needs **both** env-var defaults AND a baked config file that disables those behaviors. Env
+  vars alone do not catch a config-driven knob, and an unsandboxed lazy-install path turns the container into a
+  moving target. Surface this during discovery for every new agent and bake the disable into the image, not just
+  into the compose env.
+- For agent-discovery work that must read upstream source, prefer a local clone (`git clone --depth 1` into `/tmp`)
+  over WebFetch. WebFetch summarizes content even when asked for verbatim text, which is lossy for grep-style
+  extraction of env var names, hardcoded URLs, and exact config-key strings. Pin the clone to a commit SHA in the
+  discovery output so findings remain interpretable when downstream tasks execute later.
 
 ## Architecture
 
