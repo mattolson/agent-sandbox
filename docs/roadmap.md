@@ -120,7 +120,15 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Keep GitHub tokens out of the agent container for clone, fetch, and push over smart HTTP
 - Evaluate other HTTP-native clients after the GitHub Git flow is proven
 
-## m16: Provider API-key injection (planned)
+## m16: [Hermes](https://hermes-agent.nousresearch.com/docs/) support (planned)
+
+- agent-sandbox-hermes image and templates for the Nous Research Hermes agent
+- Installation from upstream shell installer with a pinned version
+- Network policy with the Hermes service domains (TBD during discovery)
+- Provider-agnostic posture: Hermes supports Nous Portal, OpenRouter, OpenAI, and custom endpoints; users add the relevant provider service to their policy
+- Scope limited to CLI mode; non-CLI integrations (Telegram, Discord, Slack, etc.) are out of scope
+
+## m17: Provider API-key injection (planned)
 
 - Extend proxy-side secret injection from GitHub Git auth to model-provider API-key traffic
 - Add raw-header injection for provider headers whose value is the secret itself
@@ -130,7 +138,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Support Codex, Claude API-key mode, Gemini API-key mode, and provider-backed Pi/OpenCode flows where practical
 - Explicitly exclude OAuth, browser login, device-code, subscription-login, and helper-protocol flows
 
-## m17: GitHub REST wrapper (planned)
+## m18: GitHub REST wrapper (planned)
 
 - Repo-scoped GitHub wrapper using REST-only endpoints
 - Keep repo identity visible in request URLs so m14 policies can constrain access to one repo
@@ -139,14 +147,14 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Define and document the supported subset and explicitly exclude GraphQL-dependent `gh` flows
 - Use `m15` proxy-side credential injection where practical instead of storing GitHub tokens in the agent container
 
-## m18: CLI monitoring and policy management (planned)
+## m19: CLI monitoring and policy management (planned)
 
 - Filtered log view for blocked requests
 - Interactive unblock workflow
 - Integration with hot reload for immediate policy updates
 - UI approach TBD (filtered stream, TUI, or hybrid)
 
-## m19: Host credential service (planned)
+## m20: Host credential service (planned)
 
 - Secondary credential path for flows that cannot be handled by proxy injection
 - Host-side service bridging container to native credential store or helper backend

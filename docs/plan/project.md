@@ -255,7 +255,32 @@ Make the proxy the primary credential path for HTTP-native auth by keeping real 
 
 **Dependencies:** m14 (request-phase MITM matching), m3 (proxy foundation)
 
-### m16-provider-api-key-injection
+### m16-hermes
+
+Add [Hermes](https://hermes-agent.nousresearch.com/docs/) (Nous Research's self-improving agent) as a supported agent
+in Agent Sandbox. Users can initialize, run, and switch to Hermes via the standard `agentbox` workflow.
+
+**Goals:**
+- agent-sandbox-hermes Docker image extending the base image
+- Install Hermes from its upstream shell installer with a pinned version, not `main`
+- CLI templates (compose layer, devcontainer) following the established pattern for provider-agnostic agents
+- Register Hermes in `internal/runtime/agents.go` and update Go tests
+- Proxy service entry: Hermes-specific domains plus `hermes` in `KNOWN_AGENTS`
+- `images/build.sh` support, build job in `build-images.yml`, daily version-check workflow
+- Agent docs (`docs/agents/hermes.md`) and README support-matrix update
+- Discovery first: Hermes's public docs do not enumerate auth env vars, API endpoints, telemetry, or sandbox-relevant
+  flags, so the milestone opens with a discovery task before any code is written
+
+**Out of scope:**
+- Non-CLI Hermes integrations (Telegram, Discord, Slack, WhatsApp, Signal, etc.) — Hermes ships 20+ adapters; the
+  sandbox only covers CLI mode
+- Hermes's self-improving "skills" persistence behavior beyond ensuring the relevant state volume is mounted
+- Provider-specific proxy domains; users add `claude`, `codex`, `openai`, `gemini`, or `openrouter` services to their
+  policy based on which provider they point Hermes at
+
+**Dependencies:** m13 (Go CLI defines the registration surface), m8 (agent switching), m3 (proxy)
+
+### m17-provider-api-key-injection
 
 Extend the `m15` proxy-side credential model from GitHub Git auth to model-provider API-key traffic, so current agents
 can call supported provider APIs without the real API key being readable inside the agent container.
@@ -280,7 +305,7 @@ can call supported provider APIs without the real API key being readable inside 
 
 **Dependencies:** m15 (proxy-side secret injection), m14 (request-phase matching and transforms)
 
-### m17-github-rest-wrapper
+### m18-github-rest-wrapper
 
 Provide an officially supported GitHub wrapper that uses REST-only endpoints so repo identity stays visible in request
 URLs and can be constrained by `m14` policies.
@@ -300,7 +325,7 @@ URLs and can be constrained by `m14` policies.
 
 **Dependencies:** m14 (fine-grained proxy and repo/path-aware policy matching), m15 (primary HTTP credential path)
 
-### m18-cli-monitoring
+### m19-cli-monitoring
 
 CLI tools for monitoring proxy activity and managing policy interactively.
 
@@ -312,7 +337,7 @@ CLI tools for monitoring proxy activity and managing policy interactively.
 
 **Dependencies:** m13 (Go CLI), m14 (fine-grained proxy and hot reload)
 
-### m19-host-credential-service
+### m20-host-credential-service
 
 Add a narrower, secondary credential path for tools and auth flows that cannot be handled cleanly by proxy-side injection.
 
