@@ -87,6 +87,10 @@ Lessons learned during project execution. Review at the start of each planning s
   check inside a `RUN` step in the Dockerfile (it runs without the entrypoint). For runtime probes that don't need
   the full sandbox stack, pass `--entrypoint ""` to unset the entrypoint and pass the command as the CMD. Full
   sandbox runs happen via `agentbox exec` which brings up the compose stack and proxy.
+- When extending a list (agents, modes, IDEs) that gets rendered into a user-facing error message, grep for the
+  joined-list string form (e.g., `"claude codex gemini opencode pi copilot factory"`) — not just individual
+  list-member names. Tests for the *invalid* case assert against the literal error string and are easy to miss
+  with a name-only grep. Patterns to grep: `"expected: <first>"` and `"<first>,<second>"`.
 
 ## Architecture
 

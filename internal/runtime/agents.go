@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-var supportedAgents = []string{"claude", "codex", "gemini", "opencode", "pi", "copilot", "factory"}
+var supportedAgents = []string{"claude", "codex", "gemini", "opencode", "pi", "copilot", "factory", "hermes"}
 
 func SupportedAgents() []string {
 	return slices.Clone(supportedAgents)

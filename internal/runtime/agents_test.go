@@ -6,7 +6,7 @@ import (
 )
 
 func TestSupportedAgentsOrder(t *testing.T) {
-	want := "claude,codex,gemini,opencode,pi,copilot,factory"
+	want := "claude,codex,gemini,opencode,pi,copilot,factory,hermes"
 	got := strings.Join(SupportedAgents(), ",")
 	if got != want {
 		t.Fatalf("unexpected agent order: got %q want %q", got, want)
