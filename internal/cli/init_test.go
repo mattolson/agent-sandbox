@@ -12,7 +12,7 @@ func TestInitRejectsInvalidAgentValue(t *testing.T) {
 	repoRoot := t.TempDir()
 	cmd := NewRootCommand(Options{WorkingDir: repoRoot})
 	_, _, err := testutil.ExecuteCommand(cmd, "init", "--name", "my-project", "--agent", "invalid", "--path", repoRoot)
-	if err == nil || err.Error() != "Invalid agent: invalid (expected: claude codex gemini opencode pi copilot factory)" {
+	if err == nil || err.Error() != "Invalid agent: invalid (expected: claude codex gemini opencode pi copilot factory hermes)" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

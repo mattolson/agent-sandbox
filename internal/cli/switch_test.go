@@ -24,7 +24,7 @@ func TestSwitchRejectsInvalidAgentBeforeLegacyLayoutHandling(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected invalid agent error")
 	}
-	if got := err.Error(); got != "Invalid agent: invalid (expected: claude codex gemini opencode pi copilot factory)" {
+	if got := err.Error(); got != "Invalid agent: invalid (expected: claude codex gemini opencode pi copilot factory hermes)" {
 		t.Fatalf("unexpected error: %q", got)
 	}
 	if strings.Contains(err.Error(), "legacy single-file layout") {
