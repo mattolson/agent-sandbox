@@ -28,6 +28,32 @@ func TestReadTemplateLoadsNestedAgentTemplate(t *testing.T) {
 	}
 }
 
+func TestReadTemplateLoadsHermesAgentTemplate(t *testing.T) {
+	data, err := ReadTemplate("hermes/cli/agent.yml")
+	if err != nil {
+		t.Fatalf("ReadTemplate failed: %v", err)
+	}
+	if !strings.Contains(string(data), "agent-sandbox-hermes") {
+		t.Fatalf("unexpected hermes template contents: %q", string(data))
+	}
+	if !strings.Contains(string(data), "hermes-state:/home/dev/.hermes") {
+		t.Fatalf("hermes template missing expected state volume mapping: %q", string(data))
+	}
+}
+
+func TestReadTemplateLoadsHermesDevcontainerTemplate(t *testing.T) {
+	data, err := ReadTemplate("hermes/devcontainer/devcontainer.json")
+	if err != nil {
+		t.Fatalf("ReadTemplate failed: %v", err)
+	}
+	if !strings.Contains(string(data), "Hermes Sandbox") {
+		t.Fatalf("unexpected hermes devcontainer template contents: %q", string(data))
+	}
+	if !strings.Contains(string(data), "agent.hermes.yml") {
+		t.Fatalf("hermes devcontainer missing expected compose file ref: %q", string(data))
+	}
+}
+
 func TestYAMLTemplatesUseTwoSpaceIndentation(t *testing.T) {
 	checkYAMLTemplateIndentation(t, "embedded", TemplatesFS())
 }
