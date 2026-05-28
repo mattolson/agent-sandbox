@@ -35,7 +35,8 @@ USER dev
 
 ENV HERMES_HOME="/home/dev/.hermes" \
     HERMES_YOLO_MODE=1 \
-    HERMES_DISABLE_LAZY_INSTALLS=1
+    HERMES_DISABLE_LAZY_INSTALLS=1 \
+    HERMES_MANAGED=AgentSandbox
 
 LABEL org.opencontainers.image.description="Agent Sandbox with Nous Research Hermes agent"
 LABEL com.mattolson.agentsandbox.hermes-version="${HERMES_VERSION}"

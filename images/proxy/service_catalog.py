@@ -60,6 +60,9 @@ SIMPLE_SERVICE_HOSTS = {
         "generativelanguage.googleapis.com",
         "oauth2.googleapis.com",
     ],
+    "hermes": [
+        "hermes-agent.nousresearch.com",
+    ],
     "opencode": [
         "opencode.ai",
         "*.opencode.ai",

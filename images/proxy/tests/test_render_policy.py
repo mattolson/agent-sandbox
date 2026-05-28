@@ -146,6 +146,15 @@ domains:
                 [{"schemes": ["http", "https"]}],
             )
 
+    def test_hermes_active_agent_expands_to_hermes_service_host(self):
+        rendered = self.render_layered("hermes")
+        records = {record["host"]: record for record in rendered["domains"]}
+        self.assertIn("hermes-agent.nousresearch.com", records)
+        self.assertEqual(
+            records["hermes-agent.nousresearch.com"]["rules"],
+            [{"schemes": ["http", "https"]}],
+        )
+
     def test_layer_order_is_shared_then_agent_then_devcontainer(self):
         rendered = self.render_layered(
             "pi",
