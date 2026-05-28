@@ -256,13 +256,15 @@ Findings recorded in `tasks/m16.1-discovery/discovery.md`, pinned to upstream co
 
 - **Hermes is a Python+uv app, not an npm CLI.** Heavier image footprint than Pi/OpenCode (Python 3.11, uv, Node,
   ripgrep, ffmpeg, Playwright, build tooling). m16.2 scope shifts accordingly; treat upstream's Dockerfile as
-  reference, not a literal base. Recommended v1 shape: clone at `--branch ${HERMES_VERSION}`, run
-  `uv pip install -e ".[<extras>]"`, skip Node/Playwright/ffmpeg/docker-cli/s6. Verify the plain CLI works without
-  the Ink TUI as a m16.2 spike before locking the shape.
+  reference, not a literal base. Recommended v1 shape: `uv pip install hermes-agent==${HERMES_VERSION}` from PyPI
+  into `/opt/hermes/.venv`, skip Node/Playwright/ffmpeg/docker-cli/s6. Verify (a) the plain CLI works without the
+  Ink TUI and (b) PyPI-installed Hermes can find its bundled skills, both as m16.2 spike steps before locking the
+  shape.
 - **Hermes is published to PyPI** as `hermes-agent` (calver-tagged publish workflow), and **upstream also publishes
-  a Docker image** `nousresearch/hermes-agent` on Docker Hub. For m16.2 we still prefer clone-at-tag because the PyPI
-  wheel omits `ui-tui/` and `web/`, and the upstream Docker image (~5 GB, s6-supervised cluster) is too heavy and
-  breaks our "extend agent-sandbox-base" convention. PyPI install remains a viable simpler revision later.
+  a Docker image** `nousresearch/hermes-agent` on Docker Hub. For m16.2 we use the PyPI install — `ui-tui/` and `web/`
+  are omitted from the wheel but v1 skips both anyway; the upstream Docker image (~5 GB, s6-supervised cluster) is
+  too heavy and breaks our "extend agent-sandbox-base" convention. Clone-install remains the documented fallback if
+  PyPI install proves broken at runtime (skills resolution being the main risk).
 - **Upstream publishes calver release tags** (`v2026.M.D`), so `HERMES_VERSION` can pin to a tag. m16.6's
   version-check workflow queries `https://pypi.org/pypi/hermes-agent/json` and reads `.info.version` (same endpoint
   Hermes uses for its own update check). PyPI tracks the calver tag, so the version we check mirrors the tag we'd

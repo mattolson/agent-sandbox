@@ -82,6 +82,11 @@ Lessons learned during project execution. Review at the start of each planning s
   over WebFetch. WebFetch summarizes content even when asked for verbatim text, which is lossy for grep-style
   extraction of env var names, hardcoded URLs, and exact config-key strings. Pin the clone to a commit SHA in the
   discovery output so findings remain interpretable when downstream tasks execute later.
+- One-shot `docker run --rm <agent-image> <cmd>` hangs or fails on any image extending `agent-sandbox-base` because
+  the base entrypoint runs firewall init (requires NET_ADMIN + a proxy sidecar). For build-time validation, put the
+  check inside a `RUN` step in the Dockerfile (it runs without the entrypoint). For runtime probes that don't need
+  the full sandbox stack, pass `--entrypoint ""` to unset the entrypoint and pass the command as the CMD. Full
+  sandbox runs happen via `agentbox exec` which brings up the compose stack and proxy.
 
 ## Architecture
 
