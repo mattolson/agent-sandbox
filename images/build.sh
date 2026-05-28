@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Build agent-sandbox images locally
 #
-# Usage: ./build.sh [base|proxy|claude|copilot|codex|gemini|factory|opencode|pi|all] [docker build options...]
+# Usage: ./build.sh [base|proxy|claude|copilot|codex|gemini|factory|opencode|pi|hermes|all] [docker build options...]
 #
 # Environment variables (all optional):
 #   TZ                      - Timezone (default: America/Los_Angeles)
@@ -41,7 +41,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Parse target and extra args
 # If first arg is a known target, use it; otherwise default to 'all'
 case "${1:-}" in
-  base|claude|proxy|copilot|codex|gemini|factory|opencode|pi|all)
+  base|claude|proxy|copilot|codex|gemini|factory|opencode|pi|hermes|all)
     TARGET="$1"
     shift
     ;;
@@ -63,6 +63,7 @@ DOCKER_BUILD_ARGS=("$@")
 : "${FACTORY_VERSION:=latest}"
 : "${PI_VERSION:=latest}"
 : "${OPENCODE_VERSION:=latest}"
+: "${HERMES_VERSION:=latest}"
 
 : "${EXTRA_PACKAGES:=}"
 : "${CLAUDE_EXTRA_PACKAGES:=}"
@@ -72,6 +73,7 @@ DOCKER_BUILD_ARGS=("$@")
 : "${FACTORY_EXTRA_PACKAGES:=}"
 : "${PI_EXTRA_PACKAGES:=}"
 : "${OPENCODE_EXTRA_PACKAGES:=}"
+: "${HERMES_EXTRA_PACKAGES:=}"
 : "${PROXY_EXTRA_PACKAGES:=}"
 : "${STACKS:=}"
 : "${TAG:=local}"
@@ -206,6 +208,20 @@ build_opencode() {
     "$SCRIPT_DIR/agents/opencode"
 }
 
+build_hermes() {
+  echo "Building agent-sandbox-hermes..."
+  echo "  HERMES_VERSION=$HERMES_VERSION"
+  [ -n "$HERMES_EXTRA_PACKAGES" ] && echo "  EXTRA_PACKAGES=$HERMES_EXTRA_PACKAGES"
+  [ "$TAG" != "local" ] && echo "  TAG=$TAG"
+  docker build \
+    --build-arg BASE_IMAGE=agent-sandbox-base:$TAG \
+    --build-arg HERMES_VERSION="$HERMES_VERSION" \
+    --build-arg EXTRA_PACKAGES="$HERMES_EXTRA_PACKAGES" \
+    ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \
+    -t agent-sandbox-hermes:$TAG \
+    "$SCRIPT_DIR/agents/hermes"
+}
+
 case "$TARGET" in
   base)
     build_base
@@ -234,6 +250,9 @@ case "$TARGET" in
   pi)
     build_pi
     ;;
+  hermes)
+    build_hermes
+    ;;
   all)
     build_base
     build_proxy
@@ -244,9 +263,10 @@ case "$TARGET" in
     build_factory
     build_opencode
     build_pi
+    build_hermes
     ;;
   *)
-    echo "Usage: $0 [base|proxy|claude|copilot|codex|factory|gemini|opencode|pi|all] [docker build options...]"
+    echo "Usage: $0 [base|proxy|claude|copilot|codex|factory|gemini|opencode|pi|hermes|all] [docker build options...]"
     echo ""
     echo "Any additional arguments are passed to docker build."
     echo ""
@@ -262,6 +282,7 @@ case "$TARGET" in
     echo "  FACTORY_VERSION         Factory CLI version (default: latest)"
     echo "  OPENCODE_VERSION        OpenCode version (default: latest)"
     echo "  PI_VERSION              Pi coding agent version (default: latest)"
+    echo "  HERMES_VERSION          Hermes agent version (default: latest)"
     echo "  EXTRA_PACKAGES          Additional apt packages for base image"
     echo "  CLAUDE_EXTRA_PACKAGES   Additional apt packages for claude image"
     echo "  COPILOT_EXTRA_PACKAGES  Additional apt packages for copilot image"
@@ -270,6 +291,7 @@ case "$TARGET" in
     echo "  FACTORY_EXTRA_PACKAGES  Additional apt packages for factory image"
     echo "  OPENCODE_EXTRA_PACKAGES Additional apt packages for opencode image"
     echo "  PI_EXTRA_PACKAGES       Additional apt packages for pi image"
+    echo "  HERMES_EXTRA_PACKAGES   Additional apt packages for hermes image"
     echo "  PROXY_EXTRA_PACKAGES    Additional apt packages for proxy image"
     echo "  STACKS                  Language stacks for base image, comma-separated (e.g. python,go:1.23)"
     echo "  TAG                     Image tag (default: local)"

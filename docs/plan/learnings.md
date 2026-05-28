@@ -91,6 +91,15 @@ Lessons learned during project execution. Review at the start of each planning s
   joined-list string form (e.g., `"claude codex gemini opencode pi copilot factory"`) — not just individual
   list-member names. Tests for the *invalid* case assert against the literal error string and are easy to miss
   with a name-only grep. Patterns to grep: `"expected: <first>"` and `"<first>,<second>"`.
+- Match upstream agent-Dockerfile conventions for `ARG <AGENT>_VERSION` defaults: use `latest` as the sentinel and
+  put any install-source-specific handling (e.g., conditional `==${VERSION}` vs unpinned install for pip,
+  `releases/latest` vs `releases/download/<v>` URL for binaries) in the RUN block. Deviating by pinning a specific
+  version as the ARG default creates a hidden interaction with `build.sh`'s default of `<AGENT>_VERSION=latest` —
+  the bug only surfaces when build.sh and the Dockerfile are exercised together via `./images/build.sh <agent>`.
+- `build.sh`'s pre-target case (line ~43) and main case (line ~225) are two separate places that list known agent
+  targets. Both must be updated when adding a new agent — the pre-target case decides whether `$1` is recognized
+  vs. falling through to the `all` default. Missing the pre-target case makes `./build.sh <newagent>` silently
+  build everything instead of just the new agent.
 
 ## Architecture
 
