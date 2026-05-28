@@ -20,10 +20,16 @@ RUN set -e && \
 # Install hermes-agent from PyPI into a dedicated venv at /opt/hermes/.venv.
 # Upstream maintains two version tracks: PyPI uses semver (e.g. 0.14.0) while
 # git tags use calver (e.g. v2026.5.16); they refer to the same release.
-# HERMES_VERSION uses the PyPI form.
-ARG HERMES_VERSION=0.14.0
+# HERMES_VERSION uses the PyPI form. "latest" is treated as a sentinel and
+# resolves to whatever PyPI is currently shipping at build time (CI overrides
+# this with the explicit version from the PyPI query step).
+ARG HERMES_VERSION=latest
 RUN python3 -m venv /opt/hermes/.venv && \
-    /opt/hermes/.venv/bin/pip install --no-cache-dir "hermes-agent==${HERMES_VERSION}" && \
+    if [ "$HERMES_VERSION" = "latest" ]; then \
+      /opt/hermes/.venv/bin/pip install --no-cache-dir "hermes-agent"; \
+    else \
+      /opt/hermes/.venv/bin/pip install --no-cache-dir "hermes-agent==${HERMES_VERSION}"; \
+    fi && \
     ln -s /opt/hermes/.venv/bin/hermes /usr/local/bin/hermes && \
     chmod -R a+rX /opt/hermes && \
     hermes --version

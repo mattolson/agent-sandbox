@@ -1,0 +1,72 @@
+name: Check Hermes Agent Version
+
+on:
+  schedule:
+    - cron: '0 13 * * *'  # Daily at 13 UTC (offset from OpenCode at 12)
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-hermes
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      actions: write  # Needed to trigger workflows
+
+    steps:
+      - name: Get latest hermes-agent version from PyPI
+        id: pypi
+        run: |
+          VERSION=$(curl -fsSL https://pypi.org/pypi/hermes-agent/json | jq -r .info.version)
+          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            echo "Failed to fetch version from PyPI"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Latest PyPI version: $VERSION"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if version tag exists in registry
+        id: check
+        run: |
+          TAG="hermes-${{ steps.pypi.outputs.version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
+
+          # Use docker manifest inspect to check if tag exists (no pull required)
+          if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "Tag $TAG already exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Tag $TAG does not exist"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          DOCKER_CLI_EXPERIMENTAL: enabled
+
+      - name: Trigger image rebuild
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Triggering build-images workflow for hermes-agent ${{ steps.pypi.outputs.version }}..."
+          gh workflow run build-images.yml --repo ${{ github.repository }}
+
+      - name: Summary
+        run: |
+          echo "## Hermes Agent Version Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| PyPI latest | ${{ steps.pypi.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag exists | ${{ steps.check.outputs.exists }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Rebuild triggered | ${{ steps.check.outputs.exists == 'false' }} |" >> $GITHUB_STEP_SUMMARY
