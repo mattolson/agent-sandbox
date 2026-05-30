@@ -193,14 +193,18 @@ agents'. m16.1 should choose the shape so this task does not stall mid-implement
 - Create `docs/agents/hermes.md` covering: install path, authentication (the env vars and provider choices identified in
   m16.1), provider policy setup (which provider services to add depending on Nous Portal vs. OpenRouter vs. OpenAI vs.
   custom), state persistence across restarts, and any sandbox-specific env vars or flags
-- **Upgrade path documentation.** `hermes update` is intentionally disabled in the sandbox via `HERMES_MANAGED=AgentSandbox`
-  (set in m16.3). The doc must explain (a) why — the venv is read-only and we want reproducible image upgrades, not
-  in-place self-updates — and (b) what to do instead: the CI version-check workflow opens a PR bumping `HERMES_VERSION`,
-  merge it, image is rebuilt and republished, run `agentbox bump` to pull the new digest, then `agentbox down && agentbox up`.
-  Existing `HERMES_HOME` volume persists across the swap. Also call out that `hermes` ships separate user-invoked
-  migration subcommands (`hermes gateway migrate-legacy`, `hermes claw migrate`, `hermes setup`) which are NOT triggered
-  by upgrade and should be run manually when upstream release notes call out a schema change. `hermes backup` and
-  `hermes import` are available for pre-upgrade snapshotting.
+- **Upgrade path documentation.** `hermes update` is intentionally disabled in the sandbox via a wrapper at
+  `/usr/local/bin/hermes` that intercepts the `update` and `uninstall` subcommands. (We originally used the upstream
+  `HERMES_MANAGED=AgentSandbox` env var for this in m16.3, but during m16.7 verification we found it has side effects
+  we don't want — it also blocks `hermes setup` and demands the "package manager" pre-create `~/.hermes/{cron,sessions,logs,memories}`,
+  with NixOS-flavored error messaging. The wrapper gives us the same refusal without those side effects.) The doc must
+  explain (a) why — the venv is read-only and we want reproducible image upgrades, not in-place self-updates — and
+  (b) what to do instead: the CI version-check workflow opens a PR bumping `HERMES_VERSION`, merge it, image is rebuilt
+  and republished, run `agentbox bump` to pull the new digest, then `agentbox down && agentbox up`. Existing `HERMES_HOME`
+  volume persists across the swap. Also call out that `hermes` ships separate user-invoked migration subcommands
+  (`hermes gateway migrate-legacy`, `hermes claw migrate`, `hermes setup`) which are NOT triggered by upgrade and should
+  be run manually when upstream release notes call out a schema change. `hermes backup` and `hermes import` are available
+  for pre-upgrade snapshotting.
 - Update `README.md` supported-agents table with a Hermes row
 - Mark m16 as done in `docs/plan/project.md` and `docs/roadmap.md`
 - End-to-end manual verification: build the image, run `agentbox init --agent hermes`, configure a real provider, run a
