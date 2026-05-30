@@ -255,7 +255,7 @@ Make the proxy the primary credential path for HTTP-native auth by keeping real 
 
 **Dependencies:** m14 (request-phase MITM matching), m3 (proxy foundation)
 
-### m16-hermes
+### m16-hermes (done)
 
 Add [Hermes](https://hermes-agent.nousresearch.com/docs/) (Nous Research's self-improving agent) as a supported agent
 in Agent Sandbox. Users can initialize, run, and switch to Hermes via the standard `agentbox` workflow.
