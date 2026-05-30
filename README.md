@@ -33,6 +33,7 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 | [Pi](https://github.com/badlogic/pi-mono) | :heavy_check_mark: | :no_entry_sign: | :no_entry_sign: |
 | [Factory](https://docs.factory.ai/cli) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | [Copilot](https://github.com/github/copilot-cli) | :heavy_check_mark: | :heavy_check_mark: | :no_entry_sign: |
+| [Hermes](https://hermes-agent.nousresearch.com/docs/) | :heavy_check_mark: | :no_entry_sign: | :no_entry_sign: |
 
 * :white_check_mark: **Full Support** - stable, heavily used by maintainers
 * :heavy_check_mark: **Preview** - tested during initial integration, but not heavily used by maintainers. Contributions, documentation, and bug reports welcome.
@@ -41,6 +42,7 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
   * No official Google Gemini plugin available for JetBrains
   * No JetBrains extension available for OpenCode
   * No IDE extensions available for Pi
+  * No IDE extensions available for Hermes
 
 ## Quick start (macOS + Colima)
 
@@ -133,6 +135,7 @@ Follow the setup instructions specific to the agent image you are using:
 - [Pi](docs/agents/pi.md)
 - [Factory](docs/agents/factory.md)
 - [Copilot](docs/agents/copilot.md)
+- [Hermes](docs/agents/hermes.md)
 
 ## Switching agents
 
