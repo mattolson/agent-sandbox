@@ -38,17 +38,22 @@ Available provider services: `claude` (Anthropic), `codex` (OpenAI), `gemini` (G
 
 Edit the policy with `agentbox edit policy`; active-policy changes hot-reload automatically when the proxy is running.
 
-### Authenticate Hermes (first run only)
+### First-run setup
 
-Two paths, depending on whether your provider supports OAuth:
-
-**OAuth subscription** (Nous Portal, Anthropic, OpenAI, Gemini, etc.): use `hermes login` inside the container to walk through the provider's auth flow. Credentials persist in the `HERMES_HOME` Docker volume.
+The setup wizard makes network calls that require your provider's host to be reachable, so add the provider to your policy first (see [Provider configuration](#provider-configuration) above). Then inside the container:
 
 ```bash
-hermes login
+hermes setup   # interactive setup wizard
+hermes auth    # add a credential
 ```
 
-**API key**: set the provider's API key in `.agent-sandbox/compose/user.agent.hermes.override.yml` so it flows into the container at start:
+Some wizard choices pull in optional features (skills hub, Honcho memory, Langfuse, Firecrawl) that need extra policy entries — see [Optional features](#optional-features) below. Both commands write to `HERMES_HOME`, so the configuration persists across `agentbox down && agentbox up`.
+
+`hermes auth` is interactive: choose "Add a credential," then your provider. OAuth-capable providers run a device-code login (open the printed URL on the host, enter the code); API-key-only providers prompt for the key. If a provider's host isn't in the active policy, the device-code call will surface as a TLS error rather than a clean "blocked by policy" message — fix the policy first, then retry.
+
+To change the active model later, run `hermes model`.
+
+**Alternative: API keys via env vars.** For scripted or CI setups, flow keys through compose instead of `hermes auth`. Set them in `.agent-sandbox/compose/user.agent.hermes.override.yml`:
 
 ```yaml
 # user.agent.hermes.override.yml
@@ -61,7 +66,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
 ```
 
-Then export the relevant keys in your host shell before running `agentbox up`. Use the env var that matches your active provider:
+Export the matching key in your host shell before running `agentbox up`:
 
 | Provider | Env var |
 |----------|---------|
@@ -72,7 +77,7 @@ Then export the relevant keys in your host shell before running `agentbox up`. U
 | Gemini | `GEMINI_API_KEY` |
 | Novita | `NOVITA_API_KEY` |
 
-You only need to set the key for the provider you actually use.
+Prefer `hermes auth` for interactive use.
 
 ### Use Hermes
 
