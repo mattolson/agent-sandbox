@@ -120,7 +120,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Keep GitHub tokens out of the agent container for clone, fetch, and push over smart HTTP
 - Evaluate other HTTP-native clients after the GitHub Git flow is proven
 
-## m16: [Hermes](https://hermes-agent.nousresearch.com/docs/) support (planned)
+## m16: [Hermes](https://hermes-agent.nousresearch.com/docs/) support (done)
 
 - agent-sandbox-hermes image and templates for the Nous Research Hermes agent
 - Installation from upstream shell installer with a pinned version
