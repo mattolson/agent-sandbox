@@ -1,5 +1,39 @@
 # Execution Log: m16.3 - Hermes Proxy Service & KNOWN_AGENTS Entry
 
+## 2026-05-29 - Reversal: HERMES_MANAGED replaced with wrapper script
+
+End-to-end testing during m16.7 surfaced that `HERMES_MANAGED=AgentSandbox` is not the targeted knob I assumed. It
+blocks `hermes update` (the behavior we wanted), but it also:
+
+1. Blocks `hermes setup` and `hermes postinstall` via the same `is_managed()` check, so first-run provider config is
+   impossible from inside the container.
+2. Causes `ensure_hermes_home()` to call `_ensure_hermes_home_managed()`, which requires the package manager to
+   pre-create `~/.hermes/{cron,sessions,logs,memories}` with 2770 perms. We don't do that, so every command that
+   touches config (`chat`, `model`, `auth`, ...) raises `RuntimeError: /home/dev/.hermes/cron does not exist. Run
+   'sudo nixos-rebuild switch' first.`
+3. Surfaces NixOS-specific error messaging even with a custom `HERMES_MANAGED=AgentSandbox` value. Upstream only
+   really tests the NixOS managed path; the messaging is hardcoded.
+
+Net effect: the image as shipped from m16.3 is unusable end-to-end. The m16.3 acceptance only exercised
+`hermes update --yes`; it never tested `hermes setup` or first-run provider config. That gap is what slipped through.
+
+**Fix:** drop `HERMES_MANAGED=AgentSandbox` from the Dockerfile ENV; install a thin shell wrapper at
+`/usr/local/bin/hermes` that intercepts `update` and `uninstall` with a clean message pointing at `agentbox bump`,
+and delegates all other args to `/opt/hermes/.venv/bin/hermes`. All other behavior (state dirs auto-created by the
+normal `ensure_hermes_home()` path, `hermes setup` available for provider config) is restored.
+
+**Files changed in the fix:**
+- `images/agents/hermes/hermes-wrapper.sh` (new)
+- `images/agents/hermes/Dockerfile` — drop `HERMES_MANAGED`, replace `ln -s` with `COPY hermes-wrapper.sh`
+- `docs/agents/hermes.md` — rewrite the "Upgrading" and env-var sections
+- `docs/plan/milestones/m16-hermes/milestone.md` — update upgrade-path scope note
+- `docs/plan/milestones/m16-hermes/tasks/m16.7-docs-and-readme/task.md` — match
+- This log entry
+
+**Learning:** when adopting an upstream "managed install" flag, verify its full surface contract before relying on
+it. Look beyond the one subcommand whose behavior you want to change. The cost of skipping that check here was a
+shipped-but-broken intermediate state.
+
 ## 2026-05-27 - All acceptance checks pass
 
 Made four edits as planned:
