@@ -102,6 +102,15 @@ ENV COLORTERM=truecolor
 # Set default lang to support unicode characters
 ENV LANG=C.utf8
 
+# Point Python's TLS stack at the system CA bundle so it trusts the mitmproxy
+# CA installed by entrypoint.sh. Python's ssl/httpx/requests stack uses the
+# certifi bundle inside each venv by default and ignores the system trust
+# store, which would otherwise produce CERTIFICATE_VERIFY_FAILED for any
+# Python tool tunneled through the proxy. The file is populated at runtime by
+# update-ca-certificates, so these values are safe to bake into the image.
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
 # Create minimal .zshrc - users can mount their own dotfiles for customization
 COPY --chown=${USERNAME}:${USERNAME} zshrc /home/${USERNAME}/.zshrc
 COPY --chown=${USERNAME}:${USERNAME} tmux.conf /home/${USERNAME}/.tmux.conf
