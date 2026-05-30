@@ -30,9 +30,45 @@ RUN python3 -m venv /opt/hermes/.venv && \
     else \
       /opt/hermes/.venv/bin/pip install --no-cache-dir "hermes-agent==${HERMES_VERSION}"; \
     fi && \
-    ln -s /opt/hermes/.venv/bin/hermes /usr/local/bin/hermes && \
     chmod -R a+rX /opt/hermes && \
-    hermes --version
+    /opt/hermes/.venv/bin/hermes --version
+
+# Silence `hermes doctor`'s "Reinstall entry point" false positive. Doctor
+# resolves PROJECT_ROOT from hermes_cli/config.py via Path(__file__).parent.parent,
+# which on a PyPI/venv install lands at site-packages and then probes for a
+# sibling venv at PROJECT_ROOT/{venv,.venv}/bin/hermes — a layout that only
+# exists for `pip install -e .` development checkouts. Plant the symlink doctor
+# expects so the check passes. See docs/agents/hermes.md.
+RUN SITE_PACKAGES="$(/opt/hermes/.venv/bin/python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" && \
+    mkdir -p "$SITE_PACKAGES/.venv/bin" && \
+    ln -s /opt/hermes/.venv/bin/hermes "$SITE_PACKAGES/.venv/bin/hermes"
+
+# Plant the ~/.local/bin/hermes symlink doctor's "Command Installation" check
+# expects. Doctor compares the resolved target against the venv entry point,
+# so we point at /opt/hermes/.venv/bin/hermes (not /usr/local/bin/hermes).
+# Our wrapper still wins for `hermes <subcmd>` because ~/.local/bin is not on
+# PATH in the base image, so update/uninstall interception stays intact. When
+# the symlink is already correct, doctor also skips its "directory on PATH?"
+# follow-up check. See docs/agents/hermes.md.
+RUN mkdir -p /home/dev/.local/bin && \
+    ln -s /opt/hermes/.venv/bin/hermes /home/dev/.local/bin/hermes && \
+    chown -R dev:dev /home/dev/.local
+
+# Work around upstream hermes-agent#15768: setup's free-text prompts (API
+# keys, file paths, y/n confirmations) call bare input() without ever
+# importing readline, so arrow keys leak escape sequences as literal text
+# instead of doing line editing. Python's site.py auto-imports any module
+# named sitecustomize at interpreter startup, so dropping one into the venv
+# site-packages enables readline for every Python invocation under this
+# venv — and nowhere else. Curses menus are unaffected; this only restores
+# behavior at input() prompts. See docs/agents/hermes.md.
+RUN SITE_PACKAGES="$(/opt/hermes/.venv/bin/python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" && \
+    printf 'try:\n    import readline  # noqa: F401\nexcept ImportError:\n    pass\n' > "$SITE_PACKAGES/sitecustomize.py"
+
+# Install the wrapper that intercepts `hermes update` / `hermes uninstall`
+# with a clean message. See hermes-wrapper.sh for the rationale.
+COPY hermes-wrapper.sh /usr/local/bin/hermes
+RUN chmod 0755 /usr/local/bin/hermes
 
 # Create hermes state directory (HERMES_HOME default is ~/.hermes)
 RUN mkdir -p /home/dev/.hermes && chown -R dev:dev /home/dev/.hermes
@@ -41,8 +77,7 @@ USER dev
 
 ENV HERMES_HOME="/home/dev/.hermes" \
     HERMES_YOLO_MODE=1 \
-    HERMES_DISABLE_LAZY_INSTALLS=1 \
-    HERMES_MANAGED=AgentSandbox
+    HERMES_DISABLE_LAZY_INSTALLS=1
 
 LABEL org.opencontainers.image.description="Agent Sandbox with Nous Research Hermes agent"
 LABEL com.mattolson.agentsandbox.hermes-version="${HERMES_VERSION}"
