@@ -18,7 +18,7 @@ HOST_BINARY_LINK := ../$(patsubst ./%,%,$(HOST_BINARY))
 
 .DEFAULT_GOAL := build
 
-.PHONY: setup build test test-go test-proxy run fmt tidy clean
+.PHONY: setup build test test-go test-proxy run fmt tidy clean install
 
 setup:
 	./scripts/build-dev-image.bash $(SETUP_ARGS)
@@ -57,3 +57,6 @@ tidy:
 
 clean:
 	rm -rf "$(BIN_DIR)" "$(DIST_DIR)"
+
+install: build
+	cp $(HOST_BINARY) ~/.local/bin/agentbox

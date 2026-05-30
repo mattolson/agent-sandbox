@@ -10,7 +10,7 @@ IMAGE_BUILDER="${IMAGE_BUILDER:-$REPO_ROOT/images/build.sh}"
 
 is_supported_agent() {
 	case "$1" in
-		claude|copilot|codex|gemini|factory|opencode|pi)
+		claude|copilot|codex|gemini|factory|opencode|pi|hermes)
 			return 0
 			;;
 		*)
@@ -80,6 +80,7 @@ OVERRIDE_FILE="$REPO_ROOT/.agent-sandbox/compose/user.agent.$AGENT.override.yml"
 
 printf 'Building prerequisite local images for %s\n' "$AGENT"
 "$IMAGE_BUILDER" base "$@"
+"$IMAGE_BUILDER" proxy "$@"
 "$IMAGE_BUILDER" "$AGENT" "$@"
 
 printf 'Building %s from %s\n' "$IMAGE_TAG" "$DOCKERFILE_PATH"
