@@ -5,7 +5,7 @@
 # main process to `sleep infinity`. This deliberately decouples the
 # container's lifetime from the gateway: if the gateway exits or crashes,
 # the container stays up so `agentbox exec` keeps working and the gateway
-# can be restarted (re-run this script, or `hermes gateway run` by hand).
+# can be restarted by running `hermes gateway run` by hand.
 #
 # The gateway inherits this process's stdout/stderr, so its logs surface in
 # `agentbox logs agent`. `hermes` resolves to the /usr/local/bin/hermes
