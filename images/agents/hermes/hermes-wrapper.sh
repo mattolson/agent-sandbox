@@ -12,10 +12,9 @@
 
 set -e
 
-for arg in "$@"; do
-    case "$arg" in
-        update|uninstall)
-            cat >&2 <<'MSG'
+case "$1" in
+    update|uninstall)
+        cat >&2 <<'MSG'
 hermes update/uninstall is disabled in Agent Sandbox: the Hermes venv
 is baked into the image and read-only at runtime. To upgrade, rebuild
 the image:
@@ -27,9 +26,8 @@ the image:
 Your HERMES_HOME volume persists across the swap. See
 docs/agents/hermes.md for the full upgrade path.
 MSG
-            exit 1
-            ;;
-    esac
-done
+        exit 1
+        ;;
+esac
 
 exec /opt/hermes/.venv/bin/hermes "$@"
