@@ -6,6 +6,10 @@ services:
     volumes: []
   agent:
     image: ghcr.io/mattolson/agent-sandbox-hermes:latest
+    # Run tini as PID 1 to reap zombies. The default command backgrounds the
+    # gateway under `sleep infinity`, which never reaps; if the gateway dies
+    # its orphaned children would otherwise accumulate as zombies.
+    init: true
     volumes:
       # Persist Hermes state: learned skills, persona, sessions, credentials
       - hermes-state:/home/dev/.hermes

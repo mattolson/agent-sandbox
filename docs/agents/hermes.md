@@ -91,6 +91,10 @@ hermes chat
 
 Subcommands like `hermes model`, `hermes skills`, `hermes doctor`, and `hermes status` work as usual. Run `hermes --help` for the full list.
 
+### Gateway
+
+The image's default command starts `hermes gateway run` in the background when the container comes up, so the gateway is ready without any extra step. The container's lifetime is deliberately decoupled from it: the gateway runs under a `sleep infinity` keep-alive, so if the gateway exits the container stays up and `agentbox exec` keeps working. Gateway output appears in `agentbox logs agent`. To restart it, re-run `hermes gateway run` inside the container (it is not auto-restarted). To launch a different default process instead, set `command:` in `.agent-sandbox/compose/user.agent.hermes.override.yml`.
+
 ## Sandbox environment
 
 The image sets these environment variables to keep Hermes well-behaved inside the locked-down container:

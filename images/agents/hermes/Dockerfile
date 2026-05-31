@@ -70,6 +70,11 @@ RUN SITE_PACKAGES="$(/opt/hermes/.venv/bin/python -c 'import sysconfig; print(sy
 COPY hermes-wrapper.sh /usr/local/bin/hermes
 RUN chmod 0755 /usr/local/bin/hermes
 
+# Launch script for the image's default command. Starts the gateway in the
+# background and keeps the container alive independently. See the script.
+COPY hermes-gateway-launch.sh /usr/local/bin/hermes-gateway-launch
+RUN chmod 0755 /usr/local/bin/hermes-gateway-launch
+
 # Create hermes state directory (HERMES_HOME default is ~/.hermes)
 RUN mkdir -p /home/dev/.hermes && chown -R dev:dev /home/dev/.hermes
 
@@ -78,6 +83,12 @@ USER dev
 ENV HERMES_HOME="/home/dev/.hermes" \
     HERMES_YOLO_MODE=1 \
     HERMES_DISABLE_LAZY_INSTALLS=1
+
+# Default the image to launching the gateway in the background while keeping
+# the container alive (see hermes-gateway-launch). Overrides the base image's
+# `sleep infinity`. Override via the compose `command:` in a user override
+# file for a different default process.
+CMD ["hermes-gateway-launch"]
 
 LABEL org.opencontainers.image.description="Agent Sandbox with Nous Research Hermes agent"
 LABEL com.mattolson.agentsandbox.hermes-version="${HERMES_VERSION}"
