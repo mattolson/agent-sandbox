@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-05-30
+
+Hermes agent support from `m16`.
+
+### Added
+
+- **Hermes agent support.** Added Nous Research's [Hermes](https://hermes-agent.nousresearch.com/docs/) agent as a supported agent. `agentbox init`, `switch`, `up`, and the devcontainer flow now work with `hermes` in both CLI and devcontainer modes.
+- **`agent-sandbox-hermes` image.** New image extending the base image, installing `hermes-agent` from PyPI into a read-only `/opt/hermes/.venv` pinned to an upstream calver version. Scoped to the Hermes CLI; the 20+ chat-platform adapters are out of scope.
+- **Hermes proxy service.** The proxy ships a default `hermes` service scoped to `hermes-agent.nousresearch.com`. Hermes is provider-agnostic, so users add their own LLM provider service (`claude`, `codex`, `gemini`, ...) to their policy; optional features (skills hub, Honcho, Langfuse, Firecrawl) are documented opt-in domains.
+- **Hermes docs and CI.** Added `docs/agents/hermes.md` (setup, provider policy, state persistence, upgrade path), a README support-matrix row, `images/build.sh` wiring, a `build-hermes` image job, and a daily `check-hermes-version.yml` version-check workflow.
+
+### Changed
+
+- **Sandbox-friendly Hermes defaults.** The image sets `HERMES_HOME=/home/dev/.hermes` (persisted on a named volume), `HERMES_YOLO_MODE=1` (auto-approves tool calls, since the container is network-locked and workspace-scoped), and `HERMES_DISABLE_LAZY_INSTALLS=1` (no runtime pip installs through the blocked PyPI host). A wrapper at `/usr/local/bin/hermes` intercepts `hermes update` / `hermes uninstall` and points at the image-rebuild upgrade path.
+
 ## [0.15.0] - 2026-05-21
 
 Proxy-side credential injection from `m15`.
