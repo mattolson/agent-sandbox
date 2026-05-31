@@ -87,7 +87,9 @@ Inside the container:
 hermes chat
 ```
 
-The sandbox image runs Hermes with `HERMES_YOLO_MODE=1` set, which disables shell-exec confirmation prompts. Subcommands like `hermes model`, `hermes skills`, `hermes doctor`, and `hermes status` work as usual. Run `hermes --help` for the full list.
+> **Auto-approval is on by default.** The sandbox image sets `HERMES_YOLO_MODE=1`, which disables the interactive confirmation prompts that normally gate shell-exec and other destructive or irreversible tool calls. Hermes self-approves these actions without asking. This is intentional for the sandbox context — the container is network-locked behind the enforcing proxy and the workspace is the only writable surface — but it means a misbehaving agent can run destructive commands against your mounted `/workspace` unattended. To restore prompting, override the env var to `0` in `.agent-sandbox/compose/user.agent.hermes.override.yml`.
+
+Subcommands like `hermes model`, `hermes skills`, `hermes doctor`, and `hermes status` work as usual. Run `hermes --help` for the full list.
 
 ## Sandbox environment
 
