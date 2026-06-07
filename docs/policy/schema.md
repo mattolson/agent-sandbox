@@ -551,6 +551,22 @@ The `.agent-sandbox/` directory, and in devcontainer workflows the
 `.devcontainer/` directory, are mounted read-only inside the agent container,
 preventing the agent from modifying the policy or compose file.
 
+## Agent-Visible Effective Policy
+
+At startup the proxy also writes a sanitized copy of the rendered allowlist to a
+shared volume that the agent container mounts read-only at
+`/run/agentbox/policy.yaml`. This lets an agent discover exactly which hosts it
+can reach without host-side tooling.
+
+The export is whitelist-sanitized: it contains only `domains` with each host's
+`schemes`, `methods`, `path`, and `query` matchers. The renderer-owned
+`credential_shim` payload and per-rule `transform` directives — both of which can
+reference secret IDs — are stripped, as are any other top-level fields. It is
+rewritten on proxy restart and on each successful hot reload (`SIGHUP`), so it
+stays in sync with the policy in force.
+
+The `operating-in-agent-sandbox` skill teaches agents to read this file.
+
 ## Reloading Policy
 
 Policy edits take effect on `SIGHUP`. The proxy re-runs `render-policy` in

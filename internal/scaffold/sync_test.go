@@ -13,6 +13,50 @@ import (
 	"github.com/mattolson/agent-sandbox/internal/testutil"
 )
 
+func TestEnsureCLIAgentRuntimeFilesMigratesLegacyCredentialShimVolume(t *testing.T) {
+	repoRoot := t.TempDir()
+	legacyBase := "name: project-sandbox\n" +
+		"services:\n" +
+		"  proxy:\n" +
+		"    image: agent-sandbox-proxy:local\n" +
+		"    volumes:\n" +
+		"      - proxy-state:/home/mitmproxy/.mitmproxy\n" +
+		"      - proxy-ca:/ca-export\n" +
+		"      - proxy-credential-shims:/run/agentbox/credential-shims\n" +
+		"  agent:\n" +
+		"    volumes:\n" +
+		"      - proxy-credential-shims:/run/agentbox/credential-shims:ro\n" +
+		"volumes:\n" +
+		"  proxy-state:\n" +
+		"  proxy-ca:\n" +
+		"  proxy-credential-shims:\n"
+	testutil.WriteFile(t, repoRoot, ".agent-sandbox/compose/base.yml", legacyBase)
+	runner := &syncStubRunner{digestByImage: map[string]string{"ghcr.io/mattolson/agent-sandbox-claude:latest": "ghcr.io/mattolson/agent-sandbox-claude@sha256:abc123"}}
+
+	if _, err := EnsureCLIAgentRuntimeFiles(context.Background(), SyncParams{
+		RepoRoot:     repoRoot,
+		Agent:        "claude",
+		PersistState: true,
+		Runner:       runner,
+		LookupEnv:    mapLookup(map[string]string{}),
+	}); err != nil {
+		t.Fatalf("EnsureCLIAgentRuntimeFiles failed: %v", err)
+	}
+
+	base := readCompose(t, runtime.CLIBaseComposeFile(repoRoot))
+	// The consolidated volume is present and read-only on the agent.
+	assertAgentboxRunRuntime(t, base)
+	assertAgentboxRunAgentReadOnly(t, base)
+	// The legacy volume and its mounts are gone, so nothing nests under /run/agentbox.
+	assertNotContainsVolumeString(t, base.Services.Proxy.Volumes, legacyCredentialShimVolume)
+	assertNotContainsVolumeString(t, base.Services.Agent.Volumes, legacyCredentialShimReadonlyVolume)
+	for _, volume := range base.Volumes {
+		if volume.Name == legacyCredentialShimVolumeName {
+			t.Fatalf("expected legacy named volume %q to be removed, found in %+v", legacyCredentialShimVolumeName, base.Volumes)
+		}
+	}
+}
+
 func TestEnsureCLIAgentRuntimeFilesCreatesMissingFilesAndPersistsState(t *testing.T) {
 	repoRoot := t.TempDir()
 	testutil.WriteFile(t, repoRoot, ".agent-sandbox/compose/base.yml", "services:\n  proxy:\n    image: agent-sandbox-proxy:local\n")
@@ -47,7 +91,7 @@ func TestEnsureCLIAgentRuntimeFilesCreatesMissingFilesAndPersistsState(t *testin
 	base := readCompose(t, runtime.CLIBaseComposeFile(repoRoot))
 	assertContainsManagedBind(t, base.Services.Proxy.Volumes, sharedPolicyMountSource, sharedPolicyMountTarget, true)
 	assertProxySecretRuntime(t, base.Services.Proxy)
-	assertCredentialShimRuntime(t, base)
+	assertAgentboxRunRuntime(t, base)
 
 	agent := readCompose(t, runtime.CLIAgentComposeFile(repoRoot, "claude"))
 	if agent.Services.Agent.Image != "ghcr.io/mattolson/agent-sandbox-claude@sha256:abc123" {
@@ -67,7 +111,7 @@ func TestEnsureCLIAgentRuntimeFilesCreatesMissingFilesAndPersistsState(t *testin
 	assertContainsVolumeString(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro`)
 	assertNoProxySecretRuntime(t, agentOverride.Services.Agent)
 
-	assertCredentialShimAgentReadOnly(t, base, agent, sharedOverride, agentOverride)
+	assertAgentboxRunAgentReadOnly(t, base, agent, sharedOverride, agentOverride)
 
 	assertFileExists(t, runtime.SharedPolicyFile(repoRoot))
 	assertFileExists(t, runtime.UserAgentPolicyFile(repoRoot, "claude"))
@@ -140,7 +184,7 @@ func TestEnsureDevcontainerRuntimeFilesRepairsMissingMetadataAndPersistsState(t 
 	}
 	assertContainsManagedBind(t, base.Services.Proxy.Volumes, sharedPolicyMountSource, sharedPolicyMountTarget, true)
 	assertProxySecretRuntime(t, base.Services.Proxy)
-	assertCredentialShimRuntime(t, base)
+	assertAgentboxRunRuntime(t, base)
 
 	agent := readCompose(t, runtime.CLIAgentComposeFile(repoRoot, "codex"))
 	assertContainsManagedBind(t, agent.Services.Proxy.Volumes, "../policy/user.agent.codex.policy.yaml", "/etc/agent-sandbox/policy/user.agent.policy.yaml", true)
@@ -153,7 +197,7 @@ func TestEnsureDevcontainerRuntimeFilesRepairsMissingMetadataAndPersistsState(t 
 		t.Fatalf("unexpected mode project name: %q", modeFile.Name)
 	}
 	assertNoProxySecretRuntime(t, modeFile.Services.Agent)
-	assertCredentialShimAgentReadOnly(t, base, agent, modeFile)
+	assertAgentboxRunAgentReadOnly(t, base, agent, modeFile)
 
 	policy := readPolicy(t, runtime.DevcontainerManagedPolicyFile(repoRoot))
 	if len(policy.Services) != 0 {

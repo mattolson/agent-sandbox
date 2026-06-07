@@ -243,6 +243,8 @@ class PolicyEnforcer:
         matcher = PolicyMatcher.from_policy_data(rendered_policy, path="reloaded policy")
         if module is not None and hasattr(module, "write_credential_shim_init"):
             module.write_credential_shim_init(rendered_policy)
+        if module is not None and hasattr(module, "write_public_policy"):
+            module.write_public_policy(rendered_policy)
         return matcher
 
     def _reload_event(self, action, error=None):

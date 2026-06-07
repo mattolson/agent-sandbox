@@ -1249,5 +1249,118 @@ class BaselinePolicyRegressionTests(unittest.TestCase):
         )
 
 
+class PublicPolicyViewTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.render_policy = load_render_policy_module()
+
+    def test_public_view_keeps_hosts_and_safe_rule_matchers(self):
+        rendered = {
+            "domains": [
+                {
+                    "host": "api.github.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "methods": ["GET"],
+                            "path": {"prefix": "/repos/"},
+                            "query": {"exact": {}},
+                        }
+                    ],
+                },
+                {"host": "*.example.com", "rules": [{"schemes": ["http", "https"]}]},
+            ]
+        }
+
+        public = self.render_policy.public_policy_view(rendered)
+
+        self.assertEqual(public, rendered)
+
+    def test_public_view_strips_credential_shim_and_transforms_and_other_fields(self):
+        rendered = {
+            "domains": [
+                {
+                    "host": "api.github.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "methods": ["GET"],
+                            "transform": {
+                                "request": {
+                                    "headers": {
+                                        "Authorization": {
+                                            "secret": "github.token",
+                                            "transform": {"type": "bearer"},
+                                        }
+                                    }
+                                }
+                            },
+                        }
+                    ],
+                }
+            ],
+            "credential_shim": {"hints": [{"secret": "github.token"}]},
+            "some_future_field": {"secret": "leak-me"},
+        }
+
+        public = self.render_policy.public_policy_view(rendered)
+
+        self.assertEqual(
+            public,
+            {
+                "domains": [
+                    {
+                        "host": "api.github.com",
+                        "rules": [{"schemes": ["https"], "methods": ["GET"]}],
+                    }
+                ]
+            },
+        )
+        serialized = yaml.safe_dump(public)
+        self.assertNotIn("secret", serialized)
+        self.assertNotIn("credential_shim", serialized)
+        self.assertNotIn("transform", serialized)
+
+    def test_write_public_policy_emits_sanitized_yaml_with_header(self):
+        rendered = {
+            "domains": [{"host": "api.github.com", "rules": [{"schemes": ["https"]}]}],
+            "credential_shim": {"hints": [{"secret": "github.token"}]},
+        }
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            out_path = Path(tempdir) / "nested" / "policy.yaml"
+            self.render_policy.write_public_policy(rendered, str(out_path))
+
+            text = out_path.read_text(encoding="utf-8")
+            self.assertTrue(text.startswith("#"))
+            self.assertIn("Effective proxy allowlist", text)
+            self.assertNotIn("credential_shim", text)
+
+            loaded = yaml.safe_load(text)
+            self.assertEqual(
+                loaded,
+                {
+                    "domains": [
+                        {"host": "api.github.com", "rules": [{"schemes": ["https"]}]}
+                    ]
+                },
+            )
+
+    def test_write_public_policy_no_op_without_path(self):
+        with mock.patch.dict(os.environ, {"AGENTBOX_PUBLIC_POLICY_PATH": ""}, clear=False):
+            # Should not raise when no destination is configured.
+            self.render_policy.write_public_policy({"domains": []})
+
+    def test_write_public_policy_swallows_filesystem_errors(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            # Make a regular file act as a parent directory to force an OSError.
+            blocker = Path(tempdir) / "blocker"
+            blocker.write_text("not a directory", encoding="utf-8")
+            doomed = blocker / "policy.yaml"
+
+            # Must not raise; proxy startup/reload should survive a bad export path.
+            self.render_policy.write_public_policy({"domains": []}, str(doomed))
+
+
 if __name__ == "__main__":
     unittest.main()
