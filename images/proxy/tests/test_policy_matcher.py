@@ -292,6 +292,78 @@ class PolicyMatcherTests(unittest.TestCase):
         self.assertEqual(prefix.action, "allowed")
         self.assertEqual(prefix.path, "/v1/files/abc?download=1")
 
+    def test_request_matches_case_insensitive_path_when_flagged(self):
+        # Mirrors github repo rules: the stored matcher is lowercase and flagged
+        # case-insensitive, so a request using the repo's canonical mixed case
+        # still matches.
+        matcher = self.matcher_from_domains(
+            [
+                {
+                    "host": "github.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "methods": ["GET", "HEAD"],
+                            "path": {"exact": "/ryanlisse/vitalink.git/info/refs"},
+                            "path_case_insensitive": True,
+                            "query": {"exact": {"service": ["git-upload-pack"]}},
+                        },
+                        {
+                            "schemes": ["https"],
+                            "path": {"prefix": "/repos/ryanlisse/vitalink/"},
+                            "path_case_insensitive": True,
+                        },
+                    ],
+                }
+            ]
+        )
+
+        mixed_exact = matcher.evaluate_request(
+            "github.com",
+            "https",
+            "GET",
+            "/RyanLisse/Vitalink.git/info/refs?service=git-upload-pack",
+        )
+        mixed_prefix = matcher.evaluate_request(
+            "github.com",
+            "https",
+            "GET",
+            "/repos/RyanLisse/Vitalink/contents/README.md",
+        )
+
+        self.assertEqual(mixed_exact.action, "allowed")
+        self.assertEqual(mixed_prefix.action, "allowed")
+        # The decision preserves the original request path, not the folded one.
+        self.assertEqual(
+            mixed_exact.path,
+            "/RyanLisse/Vitalink.git/info/refs?service=git-upload-pack",
+        )
+
+    def test_request_keeps_paths_case_sensitive_without_flag(self):
+        # Per RFC 3986, paths are case-sensitive unless a rule opts in.
+        matcher = self.matcher_from_domains(
+            [
+                {
+                    "host": "api.example.com",
+                    "rules": [
+                        {
+                            "schemes": ["https"],
+                            "path": {"exact": "/v1/Models"},
+                        }
+                    ],
+                }
+            ]
+        )
+
+        decision = matcher.evaluate_request(
+            "api.example.com",
+            "https",
+            "GET",
+            "/v1/models",
+        )
+
+        self.assertEqual(decision.action, "blocked")
+
     def test_request_matches_exact_query_independent_of_pair_order(self):
         matcher = self.matcher_from_domains(
             [

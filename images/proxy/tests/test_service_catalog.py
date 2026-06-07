@@ -397,6 +397,14 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
         expansion = self.expand("pi")
         self.assertEqual(expansion["records"], [])
 
+    def test_github_default_catch_all_rules_are_not_case_insensitive(self):
+        # Host-wide catch-all rules have no path, so the case-insensitive flag
+        # must not leak onto them; it only applies to repo-scoped path rules.
+        expansion = self.expand("github")
+        for record in expansion["records"]:
+            for rule in record["rules"]:
+                self.assertNotIn("path_case_insensitive", rule)
+
     def test_github_repo_scoped_readwrite_emits_full_api_and_git_rules(self):
         expansion = self.expand(
             {
@@ -420,10 +428,12 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
                 {
                     "schemes": ["http", "https"],
                     "path": {"exact": "/repos/owner/repo"},
+                    "path_case_insensitive": True,
                 },
                 {
                     "schemes": ["http", "https"],
                     "path": {"prefix": "/repos/owner/repo/"},
+                    "path_case_insensitive": True,
                 },
             ],
         )
@@ -437,6 +447,7 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
                     "schemes": ["http", "https"],
                     "methods": ["GET", "HEAD"],
                     "path": {"exact": "/owner/repo.git/info/refs"},
+                    "path_case_insensitive": True,
                     "query": {"exact": {"service": ["git-upload-pack"]}},
                     "transform": expected_transform,
                 },
@@ -444,12 +455,14 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
                     "schemes": ["http", "https"],
                     "methods": ["POST"],
                     "path": {"exact": "/owner/repo.git/git-upload-pack"},
+                    "path_case_insensitive": True,
                     "transform": expected_transform,
                 },
                 {
                     "schemes": ["http", "https"],
                     "methods": ["GET", "HEAD"],
                     "path": {"exact": "/owner/repo.git/info/refs"},
+                    "path_case_insensitive": True,
                     "query": {"exact": {"service": ["git-receive-pack"]}},
                     "transform": expected_transform,
                 },
@@ -457,6 +470,7 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
                     "schemes": ["http", "https"],
                     "methods": ["POST"],
                     "path": {"exact": "/owner/repo.git/git-receive-pack"},
+                    "path_case_insensitive": True,
                     "transform": expected_transform,
                 },
             ],
@@ -516,12 +530,14 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
                     "schemes": ["http", "https"],
                     "methods": ["GET", "HEAD"],
                     "path": {"exact": "/owner/repo.git/info/refs"},
+                    "path_case_insensitive": True,
                     "query": {"exact": {"service": ["git-upload-pack"]}},
                 },
                 {
                     "schemes": ["http", "https"],
                     "methods": ["POST"],
                     "path": {"exact": "/owner/repo.git/git-upload-pack"},
+                    "path_case_insensitive": True,
                 },
             ],
         )
@@ -587,10 +603,12 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
                 {
                     "schemes": ["http", "https"],
                     "path": {"exact": "/repos/owner/a"},
+                    "path_case_insensitive": True,
                 },
                 {
                     "schemes": ["http", "https"],
                     "path": {"prefix": "/repos/owner/a/"},
+                    "path_case_insensitive": True,
                 },
             ],
         )

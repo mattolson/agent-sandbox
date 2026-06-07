@@ -679,11 +679,13 @@ services:
                     "schemes": ["http", "https"],
                     "methods": ["GET", "HEAD"],
                     "path": {"exact": "/repos/owner/repo"},
+                    "path_case_insensitive": True,
                 },
                 {
                     "schemes": ["http", "https"],
                     "methods": ["GET", "HEAD"],
                     "path": {"prefix": "/repos/owner/repo/"},
+                    "path_case_insensitive": True,
                 },
             ],
         )
@@ -695,12 +697,14 @@ services:
                     "schemes": ["http", "https"],
                     "methods": ["GET", "HEAD"],
                     "path": {"exact": "/owner/repo.git/info/refs"},
+                    "path_case_insensitive": True,
                     "query": {"exact": {"service": ["git-upload-pack"]}},
                 },
                 {
                     "schemes": ["http", "https"],
                     "methods": ["POST"],
                     "path": {"exact": "/owner/repo.git/git-upload-pack"},
+                    "path_case_insensitive": True,
                 },
             ],
         )
@@ -743,6 +747,7 @@ services:
                 "schemes": ["http", "https"],
                 "methods": ["POST"],
                 "path": {"exact": "/owner/repo.git/git-receive-pack"},
+                "path_case_insensitive": True,
                 "transform": expected_transform,
             },
             git_rules,
@@ -1050,11 +1055,13 @@ services:
                     "schemes": ["http", "https"],
                     "methods": ["GET", "HEAD"],
                     "path": {"exact": "/repos/owner/repo"},
+                    "path_case_insensitive": True,
                 },
                 {
                     "schemes": ["http", "https"],
                     "methods": ["GET", "HEAD"],
                     "path": {"prefix": "/repos/owner/repo/"},
+                    "path_case_insensitive": True,
                 },
             ],
         )
