@@ -124,8 +124,12 @@ COPY init-firewall.sh /usr/local/bin/
 COPY install-proxy-ca.sh /usr/local/bin/
 COPY configure-apt-proxy.sh /usr/local/bin/
 COPY link-dotfiles.sh /usr/local/bin/
+COPY link-skills.sh /usr/local/bin/
 COPY agentbox-git-askpass.sh /usr/local/bin/
 COPY entrypoint.sh /usr/local/bin/
+
+# Static, image-baked skills surfaced to the agent at startup by link-skills.sh.
+COPY skills/ /usr/local/share/agent-sandbox/skills/
 
 # System-level zshrc: sources shell-init.sh before ~/.zshrc so hooks survive
 # custom dotfile mounts
@@ -144,7 +148,9 @@ RUN chmod 644 /etc/agent-sandbox/shell-init.sh /etc/agent-sandbox/path-helpers.s
   chown root:root /usr/local/etc/gitconfig && \
   chmod -R 755 /etc/agent-sandbox/stacks && \
   chown -R root:root /etc/agent-sandbox/stacks && \
-  chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/install-proxy-ca.sh /usr/local/bin/configure-apt-proxy.sh /usr/local/bin/link-dotfiles.sh /usr/local/bin/agentbox-git-askpass.sh /usr/local/bin/entrypoint.sh && \
+  chown -R root:root /usr/local/share/agent-sandbox/skills && \
+  chmod -R a+rX /usr/local/share/agent-sandbox/skills && \
+  chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/install-proxy-ca.sh /usr/local/bin/configure-apt-proxy.sh /usr/local/bin/link-dotfiles.sh /usr/local/bin/link-skills.sh /usr/local/bin/agentbox-git-askpass.sh /usr/local/bin/entrypoint.sh && \
   echo "${USERNAME} ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh, /usr/local/bin/install-proxy-ca.sh, /usr/local/bin/configure-apt-proxy.sh" > /etc/sudoers.d/firewall && \
   chmod 0440 /etc/sudoers.d/firewall
 

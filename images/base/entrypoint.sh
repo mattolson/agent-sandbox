@@ -43,5 +43,10 @@ if [ -x /usr/local/bin/link-dotfiles.sh ]; then
   /usr/local/bin/link-dotfiles.sh
 fi
 
+# Surface image-baked skills into the agent's skill-discovery directories
+if [ -x /usr/local/bin/link-skills.sh ]; then
+  /usr/local/bin/link-skills.sh
+fi
+
 # Execute the provided command (or default to zsh)
 exec "${@:-zsh}"
