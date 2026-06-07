@@ -25,9 +25,11 @@ for src in "$SKILLS_SRC"/*/; do
   for dest_dir in "${DEST_DIRS[@]}"; do
     link="$dest_dir/$name"
 
-    # Never clobber a real entry (e.g. a user's own same-named skill).
-    if [ -e "$link" ] && [ ! -L "$link" ]; then
-      echo "skills: $link exists and is not a symlink; leaving it alone" >&2
+    # Leave anything we don't own in place: a real file/dir, or a symlink that
+    # points somewhere other than our baked skill (e.g. a user's dotfile-managed
+    # skill installed as a directory symlink). Only refresh a link we created.
+    if { [ -e "$link" ] || [ -L "$link" ]; } && [ "$(readlink "$link" 2>/dev/null)" != "$SKILLS_SRC/$name" ]; then
+      echo "skills: $link already exists and isn't ours; leaving it alone" >&2
       continue
     fi
 
