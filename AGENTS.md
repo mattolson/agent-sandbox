@@ -14,7 +14,7 @@ Stable repo surfaces:
 4. `README.md` and `docs/` - user-facing docs, agent setup guides, policy docs, and troubleshooting
 5. `.github/workflows/` - Go tests, proxy tests, image builds, release binaries, and per-agent version checks
 
-Supported agents in the CLI: `claude`, `codex`, `gemini`, `opencode`, `pi`, `copilot`, `factory`.
+Supported agents in the CLI: `claude`, `codex`, `gemini`, `hermes`, `opencode`, `pi`, `copilot`, `factory`.
 
 Repo-wide support is defined by the combination of:
 
@@ -50,7 +50,7 @@ This repo is usually developed from inside its own sandbox container. Network re
 Container baseline:
 
 - Debian bookworm
-- Non-root `dev` user (uid/gid 500)
+- Non-root `dev` user (uid/gid 501)
 - Zsh with minimal prompt
 - `GODEBUG=http2client=0` in the compose stack to avoid Go HTTP/2 issues through mitmproxy
 - `/workspace` bind-mounted to the repo
@@ -218,6 +218,7 @@ Per-agent version check workflows exist for:
 - `copilot`
 - `factory`
 - `gemini`
+- `hermes`
 - `opencode`
 - `pi`
 
