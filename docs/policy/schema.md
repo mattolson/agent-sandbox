@@ -150,6 +150,13 @@ Repo-scoped keys:
 
 At least one of `git` or `api` must be present when `repos` is set.
 
+Repo names are normalized to lowercase, and the generated repo path rules are
+matched **case-insensitively** on the owner/repo segment. GitHub treats
+owner/repo as case-insensitive, so a clone or API call using the repository's
+canonical mixed case (for example `RyanLisse/Vitalink`) matches an entry
+authored in any case. This case-insensitivity is scoped to the GitHub repo
+rules; all other path matching remains case-sensitive per RFC 3986.
+
 Surface mapping keys:
 
 - `access`: required. One of `read` or `readwrite`.

@@ -12,6 +12,10 @@ All notable changes to this project will be documented in this file.
 
 - **Consolidated proxy-to-agent runtime volume.** The credential-shim files and the new effective-allowlist export now share a single named volume (`proxy-agentbox-run`) mounted at `/run/agentbox`, replacing the former `proxy-credential-shims` volume mounted at `/run/agentbox/credential-shims`. This avoids nesting two volumes in the same directory tree. Runtime sync migrates existing sandboxes automatically on `agentbox up` (the legacy volume and its mounts are removed and the consolidated volume added); containers must be recreated, not just restarted, and the orphaned `proxy-credential-shims` volume can be pruned.
 
+### Fixed
+
+- **Case-insensitive GitHub repo matching.** Repo-scoped GitHub policy rules now match the owner/repo path segment case-insensitively. GitHub treats `owner/repo` as case-insensitive, but the proxy previously lowercased the generated rule paths and matched them case-sensitively, so a clone or API call using a repository's canonical mixed case (e.g. `RyanLisse/Vitalink`) was blocked while the lowercase form worked. The fix is scoped to the GitHub repo rules; all other path matching stays case-sensitive per RFC 3986.
+
 ## [0.16.0] - 2026-05-30
 
 Hermes agent support from `m16`.

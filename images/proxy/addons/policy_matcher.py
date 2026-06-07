@@ -118,6 +118,7 @@ class RuntimeRule:
     methods: tuple[str, ...] | None = None
     path_exact: str | None = None
     path_prefix: str | None = None
+    path_case_insensitive: bool = False
     query_exact: tuple[tuple[str, tuple[str, ...]], ...] | None = None
     transform: RuleTransform | None = None
 
@@ -143,10 +144,16 @@ class RuntimeRule:
         if self.methods is not None and method.upper() not in self.methods:
             return False
 
-        if self.path_exact is not None and path != self.path_exact:
+        # GitHub repo paths are case-insensitive on the owner/repo segment. For
+        # rules flagged accordingly, the stored matchers are already lowercase,
+        # so fold the request path before comparing. All other paths stay
+        # case-sensitive per RFC 3986.
+        candidate_path = path.lower() if self.path_case_insensitive else path
+
+        if self.path_exact is not None and candidate_path != self.path_exact:
             return False
 
-        if self.path_prefix is not None and not path.startswith(self.path_prefix):
+        if self.path_prefix is not None and not candidate_path.startswith(self.path_prefix):
             return False
 
         # query_exact is strict: the full normalized parameter set must match.
@@ -343,10 +350,12 @@ class PolicyMatcher:
                 f"{context} must be a YAML mapping, got {type(rule).__name__}: {rule!r}"
             )
 
-        supported_keys = {"schemes", "methods", "path", "query", "transform"}
+        supported_keys = {"schemes", "methods", "path", "query", "transform", "path_case_insensitive"}
         unknown_keys = sorted(set(rule) - supported_keys)
         if unknown_keys:
             raise PolicyError(f"{context} contains unsupported keys: {unknown_keys}")
+
+        path_case_insensitive = bool(rule.get("path_case_insensitive", False))
 
         schemes_value = rule.get("schemes")
         if not isinstance(schemes_value, list) or not schemes_value:
@@ -406,6 +415,8 @@ class PolicyMatcher:
             normalized_path = PolicyMatcher._normalize_uri_component_for_match(
                 match_value
             )
+            if path_case_insensitive:
+                normalized_path = normalized_path.lower()
             if match_key == "exact":
                 path_exact = normalized_path
             else:
@@ -473,6 +484,7 @@ class PolicyMatcher:
             methods=methods,
             path_exact=path_exact,
             path_prefix=path_prefix,
+            path_case_insensitive=path_case_insensitive,
             query_exact=query_exact,
             transform=transform,
         )

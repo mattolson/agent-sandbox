@@ -136,12 +136,14 @@ _SERVICE_SPECIFIC_KEYS = {
 }
 
 
-def _build_rule(*, schemes=None, methods=None, path=None, query=None):
+def _build_rule(*, schemes=None, methods=None, path=None, query=None, path_case_insensitive=False):
     rule = {"schemes": list(schemes or DEFAULT_RULE_SCHEMES)}
     if methods is not None:
         rule["methods"] = list(methods)
     if path is not None:
         rule["path"] = dict(path)
+        if path_case_insensitive:
+            rule["path_case_insensitive"] = True
     if query is not None:
         rule["query"] = deepcopy(query)
     return rule
@@ -457,11 +459,14 @@ def _expand_simple_service(name, options):
 
 
 def _github_api_rules_for_repo(owner, name, access):
+    # GitHub treats the owner/repo segment case-insensitively, so the generated
+    # paths (built from the lowercased owner/name) are matched case-insensitively
+    # to avoid blocking requests that use the repo's canonical mixed case.
     base = f"/repos/{owner}/{name}"
     methods = list(READONLY_METHODS) if access == ACCESS_READ else None
     return [
-        _build_rule(methods=methods, path={"exact": base}),
-        _build_rule(methods=methods, path={"prefix": base + "/"}),
+        _build_rule(methods=methods, path={"exact": base}, path_case_insensitive=True),
+        _build_rule(methods=methods, path={"prefix": base + "/"}, path_case_insensitive=True),
     ]
 
 
@@ -471,10 +476,12 @@ def _github_smart_http_pair(base, git_service):
             methods=list(READONLY_METHODS),
             path={"exact": base + "/info/refs"},
             query={"exact": {"service": [git_service]}},
+            path_case_insensitive=True,
         ),
         _build_rule(
             methods=list(WRITE_METHODS),
             path={"exact": f"{base}/{git_service}"},
+            path_case_insensitive=True,
         ),
     ]
 
