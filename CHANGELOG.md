@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Agent-visible effective allowlist.** The proxy now writes a sanitized copy of the rendered allowlist to `/run/agentbox/policy.yaml`, mounted read-only into the agent container, so an agent can discover exactly which hosts it can reach without host-side tooling. The export lists only hosts and their scheme/method/path/query matchers; the renderer-owned credential-shim payload and per-rule header `transform` directives (which can reference secret IDs) are stripped, as are any other top-level fields. It is rewritten on proxy restart and on each successful `SIGHUP` reload, and a filesystem error writing it is logged rather than failing proxy startup.
+
+### Changed
+
+- **Consolidated proxy-to-agent runtime volume.** The credential-shim files and the new effective-allowlist export now share a single named volume (`proxy-agentbox-run`) mounted at `/run/agentbox`, replacing the former `proxy-credential-shims` volume mounted at `/run/agentbox/credential-shims`. This avoids nesting two volumes in the same directory tree. Runtime sync migrates existing sandboxes automatically on `agentbox up` (the legacy volume and its mounts are removed and the consolidated volume added); containers must be recreated, not just restarted, and the orphaned `proxy-credential-shims` volume can be pruned.
+
 ## [0.16.0] - 2026-05-30
 
 Hermes agent support from `m16`.

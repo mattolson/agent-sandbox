@@ -8,6 +8,8 @@ CA_DIR="/home/mitmproxy/.mitmproxy"
 EXPORT_DIR="/ca-export"
 RENDERED_POLICY_PATH="${AGENTBOX_RENDERED_POLICY_PATH:-/tmp/agent-sandbox-policy.yaml}"
 CREDENTIAL_SHIM_INIT_PATH="${AGENTBOX_CREDENTIAL_SHIM_INIT_PATH:-/run/agentbox/credential-shims/init.zsh}"
+# Sanitized allowlist exported to a volume the agent container mounts read-only.
+PUBLIC_POLICY_PATH="${AGENTBOX_PUBLIC_POLICY_PATH:-/run/agentbox/policy.yaml}"
 
 # Generate the CA if it doesn't exist yet
 if [ ! -f "$CA_DIR/mitmproxy-ca-cert.pem" ]; then
@@ -20,9 +22,12 @@ if [ -f "$CA_DIR/mitmproxy-ca-cert.pem" ] && [ -d "$EXPORT_DIR" ]; then
   cp "$CA_DIR/mitmproxy-ca-cert.pem" "$EXPORT_DIR/ca.crt"
 fi
 
-/usr/local/bin/render-policy --output "$RENDERED_POLICY_PATH" --credential-shim-output "$CREDENTIAL_SHIM_INIT_PATH"
+/usr/local/bin/render-policy --output "$RENDERED_POLICY_PATH" --credential-shim-output "$CREDENTIAL_SHIM_INIT_PATH" --public-output "$PUBLIC_POLICY_PATH"
 export POLICY_PATH="$RENDERED_POLICY_PATH"
 export AGENTBOX_CREDENTIAL_SHIM_INIT_PATH="$CREDENTIAL_SHIM_INIT_PATH"
+# Exported so the in-process SIGHUP reload path refreshes the agent-visible
+# allowlist too, keeping it in sync with hot policy reloads (not just restarts).
+export AGENTBOX_PUBLIC_POLICY_PATH="$PUBLIC_POLICY_PATH"
 
 # Run mitmdump with all passed arguments, using the same confdir
 # --quiet suppresses mitmproxy's built-in logging (we use our own JSON logs)

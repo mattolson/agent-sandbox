@@ -27,7 +27,11 @@ COPY render-policy service_catalog.py policy_injection.py secret_resolver.py cre
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/lib/agent-sandbox/proxy/render-policy \
   && ln -s /usr/local/lib/agent-sandbox/proxy/render-policy /usr/local/bin/render-policy
 
-# Ensure mitmproxy user owns its home directory, confdir, and the CA export directory.
+# Ensure mitmproxy user owns its home directory, confdir, the CA export
+# directory, and the /run/agentbox runtime export directory (credential shims
+# plus the sanitized effective allowlist). Pre-owning /run/agentbox makes Docker
+# initialize its named volume with mitmproxy ownership so the entrypoint can
+# write to it as a non-root user.
 RUN mkdir -p /home/mitmproxy/.mitmproxy /ca-export /etc/agent-sandbox/policy /run/agentbox/credential-shims/git-askpass \
   && chown -R mitmproxy:mitmproxy /home/mitmproxy /ca-export /run/agentbox
 

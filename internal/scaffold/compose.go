@@ -23,10 +23,24 @@ const (
 	proxySecretMountSource = "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
 	proxySecretMountTarget = "/run/secrets/agentbox"
 
-	credentialShimVolumeName     = "proxy-credential-shims"
-	credentialShimMountTarget    = "/run/agentbox/credential-shims"
-	credentialShimVolume         = credentialShimVolumeName + ":" + credentialShimMountTarget
-	credentialShimReadonlyVolume = credentialShimVolumeName + ":" + credentialShimMountTarget + ":ro"
+	// proxy-agentbox-run is the single volume the proxy uses to hand runtime
+	// files to the agent: the credential-shim init/scripts under
+	// credential-shims/ and the sanitized effective allowlist at policy.yaml.
+	// One volume mounted at /run/agentbox avoids nesting two volumes in the
+	// same directory tree.
+	agentboxRunVolumeName     = "proxy-agentbox-run"
+	agentboxRunMountTarget    = "/run/agentbox"
+	agentboxRunVolume         = agentboxRunVolumeName + ":" + agentboxRunMountTarget
+	agentboxRunReadonlyVolume = agentboxRunVolumeName + ":" + agentboxRunMountTarget + ":ro"
+
+	// Legacy volume superseded by proxy-agentbox-run. The credential shims used
+	// to live in their own volume mounted at /run/agentbox/credential-shims;
+	// they now share proxy-agentbox-run mounted at /run/agentbox. Removed during
+	// runtime sync so upgrading sandboxes don't end up with both volumes nested
+	// in the same directory tree.
+	legacyCredentialShimVolumeName     = "proxy-credential-shims"
+	legacyCredentialShimVolume         = legacyCredentialShimVolumeName + ":/run/agentbox/credential-shims"
+	legacyCredentialShimReadonlyVolume = legacyCredentialShimVolume + ":ro"
 
 	sharedPolicyMountSource = "../policy/user.policy.yaml"
 	sharedPolicyMountTarget = "/etc/agent-sandbox/policy/user.policy.yaml"
@@ -501,11 +515,17 @@ func ensureAgentService(doc *composeDocument) {
 func ensureCLIBaseProxyRuntimeConfig(doc *composeDocument) {
 	ensureProxyService(doc)
 	ensureAgentService(doc)
-	doc.Volumes = ensureNamedVolume(doc.Volumes, credentialShimVolumeName)
+	// Drop the legacy credential-shim volume before adding the consolidated one
+	// so an upgrading sandbox migrates cleanly instead of mounting both.
+	doc.Services.Proxy.Volumes = removeVolumeString(doc.Services.Proxy.Volumes, legacyCredentialShimVolume)
+	doc.Services.Agent.Volumes = removeVolumeString(doc.Services.Agent.Volumes, legacyCredentialShimReadonlyVolume)
+	doc.Volumes = removeNamedVolume(doc.Volumes, legacyCredentialShimVolumeName)
+
+	doc.Volumes = ensureNamedVolume(doc.Volumes, agentboxRunVolumeName)
 	doc.Services.Proxy.Volumes = ensureManagedBindMount(doc.Services.Proxy.Volumes, sharedPolicyMountSource, sharedPolicyMountTarget, true)
 	doc.Services.Proxy.Volumes = ensureManagedBindMount(doc.Services.Proxy.Volumes, proxySecretMountSource, proxySecretMountTarget, true)
-	doc.Services.Proxy.Volumes = ensureVolumeString(doc.Services.Proxy.Volumes, credentialShimVolume)
-	doc.Services.Agent.Volumes = ensureVolumeString(doc.Services.Agent.Volumes, credentialShimReadonlyVolume)
+	doc.Services.Proxy.Volumes = ensureVolumeString(doc.Services.Proxy.Volumes, agentboxRunVolume)
+	doc.Services.Agent.Volumes = ensureVolumeString(doc.Services.Agent.Volumes, agentboxRunReadonlyVolume)
 }
 
 func ensureNamedVolume(volumes composeNamedVolumes, name string) composeNamedVolumes {
@@ -516,6 +536,18 @@ func ensureNamedVolume(volumes composeNamedVolumes, name string) composeNamedVol
 	}
 
 	return append(volumes, composeNamedVolumeEntry{Name: name})
+}
+
+func removeNamedVolume(volumes composeNamedVolumes, name string) composeNamedVolumes {
+	filtered := make(composeNamedVolumes, 0, len(volumes))
+	for _, volume := range volumes {
+		if volume.Name == name {
+			continue
+		}
+		filtered = append(filtered, volume)
+	}
+
+	return filtered
 }
 
 func ensureString(values []string, value string) []string {
