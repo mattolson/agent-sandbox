@@ -167,6 +167,12 @@ The proxy's CA certificate is shared via a Docker volume and automatically insta
 For matched requests, policy can also tell the proxy to inject an HTTP header from a host-side secret file. The secret
 directory is mounted into the proxy only; the agent container sees neither the raw token nor the secret mount.
 
+### Agent guidance inside the sandbox
+
+So an agent doesn't waste turns fighting these guardrails, the image ships an `operating-in-agent-sandbox` skill that explains the proxy/firewall model, where to read the effective allowlist (`/run/agentbox/policy.yaml`), and what to do when a request is blocked. It is baked into the image at `/usr/local/share/agent-sandbox/skills/` and symlinked at startup into the agent's skill-discovery directories (`~/.agents/skills/` for the cross-agent convention and `~/.claude/skills/` for Claude), so every sandbox has it with no per-project setup.
+
+The proxy also writes the live allowlist to `/run/agentbox/policy.yaml` for the agent to read. This is a convenience, not a security hole: it is a **read-only** copy (the agent cannot edit it, and editing it would change nothing — enforcement happens in the proxy, not from this file), and it is **sanitized** to host/scheme/method/path/query rules only, with credential-shim material and request-rewriting transforms stripped. It exposes nothing the agent couldn't already learn by probing which hosts answer; it just saves it the round trips. Network policy can still only be changed on the host (`agentbox edit policy`), never from inside the container.
+
 ### Customizing the policy
 
 The network policy lives in your project in the `.agent-sandbox/policy/` directory.

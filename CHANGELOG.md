@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - **Agent-visible effective allowlist.** The proxy now writes a sanitized copy of the rendered allowlist to `/run/agentbox/policy.yaml`, mounted read-only into the agent container, so an agent can discover exactly which hosts it can reach without host-side tooling. The export lists only hosts and their scheme/method/path/query matchers; the renderer-owned credential-shim payload and per-rule header `transform` directives (which can reference secret IDs) are stripped, as are any other top-level fields. It is rewritten on proxy restart and on each successful `SIGHUP` reload, and a filesystem error writing it is logged rather than failing proxy startup.
+- **Built-in `operating-in-agent-sandbox` skill.** The base image ships a skill that teaches an agent how to operate inside the sandbox — the proxy/firewall model, reading the effective allowlist at `/run/agentbox/policy.yaml`, and what to do when a request is blocked. It is baked into the image at `/usr/local/share/agent-sandbox/skills/` and symlinked at startup into `~/.agents/skills/` (the cross-agent convention) and `~/.claude/skills/`, coexisting with any user-provided skills. No per-project setup is required.
 
 ### Changed
 
