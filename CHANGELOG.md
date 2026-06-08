@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-06-07
+
+Agent self-awareness inside the sandbox.
+
 ### Added
 
 - **Agent-visible effective allowlist.** The proxy now writes a sanitized copy of the rendered allowlist to `/run/agentbox/policy.yaml`, mounted read-only into the agent container, so an agent can discover exactly which hosts it can reach without host-side tooling. The export lists only hosts and their scheme/method/path/query matchers; the renderer-owned credential-shim payload and per-rule header `transform` directives (which can reference secret IDs) are stripped, as are any other top-level fields. It is rewritten on proxy restart and on each successful `SIGHUP` reload, and a filesystem error writing it is logged rather than failing proxy startup.
