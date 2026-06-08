@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.17.0] - 2026-06-07
+## [0.16.1] - 2026-06-07
 
 Agent self-awareness inside the sandbox.
 
