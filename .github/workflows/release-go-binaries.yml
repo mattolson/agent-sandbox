@@ -14,12 +14,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -33,12 +33,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -47,7 +47,7 @@ jobs:
         run: ./scripts/build-release-artifacts.bash --version "${GITHUB_REF_NAME}" --out-dir dist/release
 
       - name: Upload workflow artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-go-binaries
           path: dist/release/*
@@ -73,7 +73,7 @@ jobs:
 
     steps:
       - name: Download built archives
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: release-go-binaries
           path: dist/release
