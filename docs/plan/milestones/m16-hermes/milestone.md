@@ -220,6 +220,29 @@ agents'. m16.1 should choose the shape so this task does not stall mid-implement
 
 **Risks:** None substantive.
 
+### m16.8-git-install
+
+**Summary:** Replace the PyPI wheel install (m16.2) with a pinned git checkout + editable install carrying a curated
+extras set (`cli`, `mcp`, `acp`; not `web`). Silences upstream's `pip install not officially supported` launch banner
+legitimately (via `.git` detection) and gives explicit control over baked-in optional deps, while preserving the
+read-only / no-self-upgrade / image-as-unit-of-upgrade model.
+
+**Scope:** Rewrite `images/agents/hermes/Dockerfile` to clone at a pinned ref into `/opt/hermes/hermes-agent` (outside
+the state volume), `uv sync --extra cli --extra mcp --extra acp --locked` into a sibling venv, lock it read-only;
+update the wrapper exec path; switch CI version tracking from PyPI to GitHub tags; update `images/build.sh` and
+`docs/agents/hermes.md` (including the editable-install + `git pull` self-upgrade-surface security note). See
+`tasks/m16.8-git-install/task.md` for the full breakdown.
+
+**Acceptance Criteria:**
+- Launch banner no longer shows the pip warning; `detect_install_method()` resolves to `git`.
+- `hermes doctor` clean; extras `cli`/`mcp`/`acp` present, `web`/lazy backends absent; `dev` cannot write `/opt/hermes`.
+- Builds on amd64 + arm64; update/uninstall wrapper intact; lazy installs still blocked.
+
+**Dependencies:** m16.2 (supersedes its install approach), m16.6 (CI wiring), m16.7 (docs).
+
+**Risks:** Git widens the self-upgrade surface (editable code + github-keyed `git pull`); mitigated by read-only mount,
+checkout outside the volume, and egress policy. CI version mapping (PyPI semver vs git calver) must be resolved first.
+
 ## Execution Order
 
 1. **m16.1** (discovery) first — blocks everything else
@@ -227,6 +250,7 @@ agents'. m16.1 should choose the shape so this task does not stall mid-implement
 3. **m16.5** (CLI integration) — after m16.4
 4. **m16.6** (build + CI) — after m16.2
 5. **m16.7** (docs + manual verify) — after everything else
+6. **m16.8** (git editable install) — follow-up reshaping m16.2's install approach; after m16.7
 
 Critical path: m16.1 → m16.4 → m16.5 → m16.7.
 
