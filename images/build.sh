@@ -15,6 +15,8 @@ set -euo pipefail
 #   CODEX_VERSION           - OpenAI Codex CLI version (default: latest)
 #   GEMINI_VERSION          - Gemini CLI version (default: latest)
 #   OPENCODE_VERSION        - OpenCode version (default: latest)
+#   HERMES_VERSION          - Hermes calver git tag (e.g. v2026.6.5) or "latest" (default: latest)
+#   HERMES_EXTRAS           - Hermes pip extras, comma-separated (default: cli,mcp,acp)
 #   EXTRA_PACKAGES          - Additional apt packages for the base image
 #   CLAUDE_EXTRA_PACKAGES   - Additional apt packages for the claude image
 #   COPILOT_EXTRA_PACKAGES  - Additional apt packages for the copilot image
@@ -64,6 +66,7 @@ DOCKER_BUILD_ARGS=("$@")
 : "${PI_VERSION:=latest}"
 : "${OPENCODE_VERSION:=latest}"
 : "${HERMES_VERSION:=latest}"
+: "${HERMES_EXTRAS:=cli,mcp,acp}"
 
 : "${EXTRA_PACKAGES:=}"
 : "${CLAUDE_EXTRA_PACKAGES:=}"
@@ -210,12 +213,32 @@ build_opencode() {
 
 build_hermes() {
   echo "Building agent-sandbox-hermes..."
-  echo "  HERMES_VERSION=$HERMES_VERSION"
+  # HERMES_VERSION is a calver git tag (e.g. v2026.6.5) or "latest". The image
+  # is built from a git checkout of that tag; "latest" resolves to the newest
+  # GitHub release. HERMES_SEMVER (label only) is derived from the release name.
+  HERMES_REF="$HERMES_VERSION"
+  HERMES_SEMVER="$HERMES_VERSION"
+  if [ "$HERMES_VERSION" = "latest" ]; then
+    echo "  Resolving latest Hermes release from GitHub..."
+    if ! release_json=$(curl -fsSL https://api.github.com/repos/NousResearch/hermes-agent/releases/latest); then
+      echo "ERROR: could not resolve latest Hermes release. Set HERMES_VERSION=vYYYY.M.D explicitly." >&2
+      exit 1
+    fi
+    HERMES_REF=$(printf '%s' "$release_json" | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+    HERMES_SEMVER=$(printf '%s' "$release_json" | grep '"name"' | head -1 | sed -nE 's/.*v([0-9]+\.[0-9]+\.[0-9]+).*/\1/p')
+    [ -n "$HERMES_REF" ] || { echo "ERROR: failed to parse tag_name from GitHub release." >&2; exit 1; }
+    [ -n "$HERMES_SEMVER" ] || HERMES_SEMVER="${HERMES_REF#v}"
+  fi
+  echo "  HERMES_REF=$HERMES_REF"
+  echo "  HERMES_SEMVER=$HERMES_SEMVER"
+  echo "  HERMES_EXTRAS=$HERMES_EXTRAS"
   [ -n "$HERMES_EXTRA_PACKAGES" ] && echo "  EXTRA_PACKAGES=$HERMES_EXTRA_PACKAGES"
   [ "$TAG" != "local" ] && echo "  TAG=$TAG"
   docker build \
     --build-arg BASE_IMAGE=agent-sandbox-base:$TAG \
-    --build-arg HERMES_VERSION="$HERMES_VERSION" \
+    --build-arg HERMES_REF="$HERMES_REF" \
+    --build-arg HERMES_SEMVER="$HERMES_SEMVER" \
+    --build-arg HERMES_EXTRAS="$HERMES_EXTRAS" \
     --build-arg EXTRA_PACKAGES="$HERMES_EXTRA_PACKAGES" \
     ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \
     -t agent-sandbox-hermes:$TAG \
@@ -282,7 +305,8 @@ case "$TARGET" in
     echo "  FACTORY_VERSION         Factory CLI version (default: latest)"
     echo "  OPENCODE_VERSION        OpenCode version (default: latest)"
     echo "  PI_VERSION              Pi coding agent version (default: latest)"
-    echo "  HERMES_VERSION          Hermes agent version (default: latest)"
+    echo "  HERMES_VERSION          Hermes calver git tag (e.g. v2026.6.5) or latest (default: latest)"
+    echo "  HERMES_EXTRAS           Hermes pip extras, comma-separated (default: cli,mcp,acp)"
     echo "  EXTRA_PACKAGES          Additional apt packages for base image"
     echo "  CLAUDE_EXTRA_PACKAGES   Additional apt packages for claude image"
     echo "  COPILOT_EXTRA_PACKAGES  Additional apt packages for copilot image"

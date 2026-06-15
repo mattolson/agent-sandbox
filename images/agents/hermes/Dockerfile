@@ -1,14 +1,21 @@
 # Nous Research Hermes agent image
-# Extends base with hermes-agent installed from PyPI into a dedicated venv.
+# Extends base with hermes-agent installed from a pinned git checkout as an
+# editable install into a sibling venv. The git layout (a real .git directory
+# in the source tree) makes upstream's detect_install_method() resolve to
+# "git", which suppresses the "pip install not officially supported" launch
+# banner and lets us bake a curated extras set instead of the wheel's empty
+# one. See docs/agents/hermes.md and
+# docs/plan/milestones/m16-hermes/tasks/m16.8-git-install/task.md.
 
 ARG BASE_IMAGE=agent-sandbox-base:local
 FROM ${BASE_IMAGE}
 
-# Optional extra packages
+# Optional extra apt packages (validated below). base already provides git,
+# build-essential, curl, ripgrep, and ca-certificates; only Python is missing.
 ARG EXTRA_PACKAGES=""
 USER root
 RUN set -e && \
-    PACKAGES="python3 python3-venv" && \
+    PACKAGES="python3" && \
     if [ -n "$EXTRA_PACKAGES" ]; then \
       printf '%s' "$EXTRA_PACKAGES" | grep -qE '^[a-zA-Z0-9][a-zA-Z0-9.+ :-]*$' \
         || { echo "ERROR: EXTRA_PACKAGES contains invalid characters: $EXTRA_PACKAGES" >&2; exit 1; }; \
@@ -16,59 +23,85 @@ RUN set -e && \
     fi && \
     apt-get update && apt-get install -y --no-install-recommends $PACKAGES \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+# python3-dev is deliberately omitted: the chosen extras (cli/mcp/acp) plus core
+# resolve as prebuilt wheels. If a future dep needs to compile from source, add
+# python3-dev here (build-essential is already in the base image).
 
-# Install hermes-agent from PyPI into a dedicated venv at /opt/hermes/.venv.
-# Upstream maintains two version tracks: PyPI uses semver (e.g. 0.14.0) while
-# git tags use calver (e.g. v2026.5.16); they refer to the same release.
-# HERMES_VERSION uses the PyPI form. "latest" is treated as a sentinel and
-# resolves to whatever PyPI is currently shipping at build time (CI overrides
-# this with the explicit version from the PyPI query step).
-ARG HERMES_VERSION=latest
-RUN python3 -m venv /opt/hermes/.venv && \
-    if [ "$HERMES_VERSION" = "latest" ]; then \
-      /opt/hermes/.venv/bin/pip install --no-cache-dir "hermes-agent"; \
+# Install uv (build-time only) for the locked, editable install below.
+ARG UV_VERSION=latest
+RUN set -e && \
+    if [ "$UV_VERSION" = "latest" ]; then \
+      curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin INSTALLER_NO_MODIFY_PATH=1 sh; \
     else \
-      /opt/hermes/.venv/bin/pip install --no-cache-dir "hermes-agent==${HERMES_VERSION}"; \
+      curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | env UV_INSTALL_DIR=/usr/local/bin INSTALLER_NO_MODIFY_PATH=1 sh; \
     fi && \
-    chmod -R a+rX /opt/hermes && \
-    /opt/hermes/.venv/bin/hermes --version
+    uv --version
 
-# Silence `hermes doctor`'s "Reinstall entry point" false positive. Doctor
-# resolves PROJECT_ROOT from hermes_cli/config.py via Path(__file__).parent.parent,
-# which on a PyPI/venv install lands at site-packages and then probes for a
-# sibling venv at PROJECT_ROOT/{venv,.venv}/bin/hermes — a layout that only
-# exists for `pip install -e .` development checkouts. Plant the symlink doctor
-# expects so the check passes. See docs/agents/hermes.md.
-RUN SITE_PACKAGES="$(/opt/hermes/.venv/bin/python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" && \
-    mkdir -p "$SITE_PACKAGES/.venv/bin" && \
-    ln -s /opt/hermes/.venv/bin/hermes "$SITE_PACKAGES/.venv/bin/hermes"
+# Pin the upstream release. HERMES_REF is the calver git tag (e.g. v2026.6.5);
+# HERMES_SEMVER is the human-facing semver (e.g. 0.16.0) carried in a label
+# only. Upstream maintains both schemes for the same release with no link from
+# PyPI to the tag, so the build clones the tag and CI resolves both from the
+# GitHub release. The default here is a concrete tag for bare `docker build`;
+# build.sh and CI override it. Bump via the version-check workflow.
+ARG HERMES_REF=v2026.6.5
+ARG HERMES_SEMVER=${HERMES_REF}
 
-# Plant the ~/.local/bin/hermes symlink doctor's "Command Installation" check
-# expects. Doctor compares the resolved target against the venv entry point,
-# so we point at /opt/hermes/.venv/bin/hermes (not /usr/local/bin/hermes).
-# Our wrapper still wins for `hermes <subcmd>` because ~/.local/bin is not on
-# PATH in the base image, so update/uninstall interception stays intact. When
-# the symlink is already correct, doctor also skips its "directory on PATH?"
-# follow-up check. See docs/agents/hermes.md.
-RUN mkdir -p /home/dev/.local/bin && \
-    ln -s /opt/hermes/.venv/bin/hermes /home/dev/.local/bin/hermes && \
-    chown -R dev:dev /home/dev/.local
+# Curated extras (comma-separated). cli = interactive menus, mcp = Model Context
+# Protocol client, acp = Agent Client Protocol. Deliberately excludes web
+# (dashboard) and all lazy-only backends. cron/pty are empty upstream no-ops.
+ARG HERMES_EXTRAS="cli,mcp,acp"
 
-# Work around upstream hermes-agent#15768: setup's free-text prompts (API
-# keys, file paths, y/n confirmations) call bare input() without ever
-# importing readline, so arrow keys leak escape sequences as literal text
-# instead of doing line editing. Python's site.py auto-imports any module
-# named sitecustomize at interpreter startup, so dropping one into the venv
-# site-packages enables readline for every Python invocation under this
-# venv — and nowhere else. Curses menus are unaffected; this only restores
-# behavior at input() prompts. See docs/agents/hermes.md.
-RUN SITE_PACKAGES="$(/opt/hermes/.venv/bin/python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" && \
+# Shallow-clone the pinned tag (keep .git — detect_install_method() keys on it),
+# then editable-install core + the curated extras from the locked uv.lock into a
+# sibling .venv. The .venv beside the source is exactly the layout `hermes
+# doctor` probes for, so its "Reinstall entry point" check passes natively (no
+# site-packages symlink hack). The source lives at /opt/hermes/hermes-agent,
+# outside the HERMES_HOME state volume, so the runtime mount never shadows it.
+ENV UV_NO_CACHE=1 UV_LINK_MODE=copy
+RUN set -e && \
+    git clone --depth 1 --branch "$HERMES_REF" \
+      https://github.com/NousResearch/hermes-agent.git /opt/hermes/hermes-agent && \
+    cd /opt/hermes/hermes-agent && \
+    EXTRA_FLAGS="" && \
+    for e in $(printf '%s' "$HERMES_EXTRAS" | tr ',' ' '); do EXTRA_FLAGS="$EXTRA_FLAGS --extra $e"; done && \
+    uv sync --locked --python python3 $EXTRA_FLAGS && \
+    /opt/hermes/hermes-agent/.venv/bin/hermes --version
+
+# Work around upstream hermes-agent#15768: setup's free-text prompts call bare
+# input() without importing readline, so arrow keys leak escape sequences.
+# site.py auto-imports any sitecustomize module at interpreter startup, so this
+# enables readline for every Python invocation under this venv — and nowhere
+# else. Curses menus are unaffected. See docs/agents/hermes.md.
+RUN SITE_PACKAGES="$(/opt/hermes/hermes-agent/.venv/bin/python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" && \
     printf 'try:\n    import readline  # noqa: F401\nexcept ImportError:\n    pass\n' > "$SITE_PACKAGES/sitecustomize.py"
 
-# Install the wrapper that intercepts `hermes update` / `hermes uninstall`
-# with a clean message. See hermes-wrapper.sh for the rationale.
-COPY hermes-wrapper.sh /usr/local/bin/hermes
-RUN chmod 0755 /usr/local/bin/hermes
+# Make the wrapper the canonical hermes entry point. Rename the real venv
+# console script aside to hermes-real and install the update/uninstall-
+# intercepting wrapper in its place at .venv/bin/hermes. This is the only layout
+# that keeps `hermes doctor` green AND routes every invocation through the
+# wrapper: doctor's "Command Installation" check does a strict equality of
+# ~/.local/bin/hermes against the venv entry point path (.venv/bin/hermes), so
+# the symlink must point there — and because that path now holds the wrapper,
+# PATH lookups, ~/.local/bin, and the full venv path all run it. The wrapper
+# execs hermes-real. See hermes-wrapper.sh and docs/agents/hermes.md.
+RUN mv /opt/hermes/hermes-agent/.venv/bin/hermes /opt/hermes/hermes-agent/.venv/bin/hermes-real
+COPY hermes-wrapper.sh /opt/hermes/hermes-agent/.venv/bin/hermes
+RUN chmod 0755 /opt/hermes/hermes-agent/.venv/bin/hermes
+
+# Doctor expects ~/.local/bin/hermes -> the venv entry point (the upstream
+# installer drops it there); point it at .venv/bin/hermes (now the wrapper).
+RUN mkdir -p /home/dev/.local/bin && \
+    ln -s /opt/hermes/hermes-agent/.venv/bin/hermes /home/dev/.local/bin/hermes && \
+    chown -R dev:dev /home/dev/.local
+
+# Put the wrapper on PATH for the dev user (the venv bin dir is not on PATH).
+RUN ln -s /opt/hermes/hermes-agent/.venv/bin/hermes /usr/local/bin/hermes
+
+# Lock the install down: root-owned and not writable by dev. With the wrapper as
+# the entry point this also makes it read-only. This — not the wrapper — is what
+# blocks self-upgrade (no editable-source edits, no `git pull`); the wrapper is
+# UX. See the security note in docs/agents/hermes.md.
+RUN chown -R root:root /opt/hermes && chmod -R a+rX /opt/hermes
 
 # Launch script for the image's default command. Starts the gateway in the
 # background and keeps the container alive independently. See the script.
@@ -91,4 +124,5 @@ ENV HERMES_HOME="/home/dev/.hermes" \
 CMD ["hermes-gateway-launch"]
 
 LABEL org.opencontainers.image.description="Agent Sandbox with Nous Research Hermes agent"
-LABEL com.mattolson.agentsandbox.hermes-version="${HERMES_VERSION}"
+LABEL com.mattolson.agentsandbox.hermes-version="${HERMES_SEMVER}"
+LABEL com.mattolson.agentsandbox.hermes-ref="${HERMES_REF}"
