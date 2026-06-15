@@ -62,6 +62,10 @@ RUN set -e && \
     git clone --depth 1 --branch "$HERMES_REF" \
       https://github.com/NousResearch/hermes-agent.git /opt/hermes/hermes-agent && \
     cd /opt/hermes/hermes-agent && \
+    if [ -n "$HERMES_EXTRAS" ]; then \
+      printf '%s' "$HERMES_EXTRAS" | grep -qE '^[a-zA-Z0-9][a-zA-Z0-9._,-]*$' \
+        || { echo "ERROR: HERMES_EXTRAS contains invalid characters: $HERMES_EXTRAS" >&2; exit 1; }; \
+    fi && \
     EXTRA_FLAGS="" && \
     for e in $(printf '%s' "$HERMES_EXTRAS" | tr ',' ' '); do EXTRA_FLAGS="$EXTRA_FLAGS --extra $e"; done && \
     uv sync --locked --python python3 $EXTRA_FLAGS && \
