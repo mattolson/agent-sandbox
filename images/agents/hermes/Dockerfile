@@ -75,22 +75,22 @@ RUN set -e && \
 RUN SITE_PACKAGES="$(/opt/hermes/hermes-agent/.venv/bin/python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" && \
     printf 'try:\n    import readline  # noqa: F401\nexcept ImportError:\n    pass\n' > "$SITE_PACKAGES/sitecustomize.py"
 
-# Lock the install down: root-owned and not writable by dev. This — not the
-# wrapper — is what blocks self-upgrade (no editable-source edits, no `git
-# pull`). See the security note in docs/agents/hermes.md.
+# Lock the install down: root-owned and read-only for dev. This is what makes
+# self-upgrade impossible — `hermes update` (or a direct `git pull`) fails on the
+# read-only, root-owned checkout. There is no in-sandbox upgrade path; rebuild
+# the image instead (see docs/agents/hermes.md). We deliberately do NOT wrap or
+# intercept `hermes update`: a wrapper added more failure modes (gateway status
+# detection, doctor symlink equality) than the error message it dressed up.
 RUN chown -R root:root /opt/hermes && chmod -R a+rX /opt/hermes
 
-# Install the update/uninstall-intercepting wrapper on PATH. It execs the real
-# venv entry point, which is left untouched: renaming it would break `hermes
-# gateway` status detection (which scans process cmdlines for ".../hermes
-# gateway") and change the CLI's program name. We deliberately do NOT plant
-# ~/.local/bin/hermes — doctor's "Command Installation" check expects it, but
-# pointing it at the real binary would shadow this wrapper on PATH (update
-# bypass) and pointing it at the wrapper fails doctor's strict equality check.
-# We accept the one cosmetic doctor note. See hermes-wrapper.sh and
-# docs/agents/hermes.md.
-COPY hermes-wrapper.sh /usr/local/bin/hermes
-RUN chmod 0755 /usr/local/bin/hermes
+# Put the real, unmodified hermes on PATH. /usr/local/bin is always on PATH;
+# ~/.local/bin is where `hermes doctor`'s "Command Installation" check looks (the
+# upstream installer drops it there). Both symlink straight to the venv entry
+# point, so gateway status detection and the CLI program name are unaffected.
+RUN ln -s /opt/hermes/hermes-agent/.venv/bin/hermes /usr/local/bin/hermes && \
+    mkdir -p /home/dev/.local/bin && \
+    ln -s /opt/hermes/hermes-agent/.venv/bin/hermes /home/dev/.local/bin/hermes && \
+    chown -R dev:dev /home/dev/.local
 
 # Launch script for the image's default command. Starts the gateway in the
 # background and keeps the container alive independently. See the script.

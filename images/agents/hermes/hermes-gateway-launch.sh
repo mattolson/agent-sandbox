@@ -8,8 +8,8 @@
 # can be restarted by running `hermes gateway run` by hand.
 #
 # The gateway inherits this process's stdout/stderr, so its logs surface in
-# `agentbox logs agent`. `hermes` resolves to the /usr/local/bin/hermes
-# wrapper on PATH (update/uninstall interception stays intact).
+# `agentbox logs agent`. `hermes` resolves via /usr/local/bin/hermes (a symlink
+# to the venv entry point) on PATH.
 set -e
 
 hermes gateway run &

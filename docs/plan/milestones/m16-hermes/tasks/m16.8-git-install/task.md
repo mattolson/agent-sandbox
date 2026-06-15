@@ -136,7 +136,8 @@ Design:
 - [ ] `hermes doctor` is clean — no "Reinstall entry point" and no "Command Installation" / missing-symlink warnings.
 - [ ] Extras present: `import mcp`, `import simple_term_menu`, and the acp module import succeed in the venv; `import
       fastapi` **fails** (web excluded) without breaking the agent.
-- [ ] `hermes update` and `hermes uninstall` print the rebuild-guidance message (wrapper intact).
+- [ ] `hermes update`/`hermes uninstall` fail against the read-only checkout (not intercepted; no wrapper). Upgrade
+      procedure is documented instead.
 - [ ] The `dev` user cannot write under `/opt/hermes` (no editable self-modify, no `git pull`).
 - [ ] Lazy install still blocked: triggering an opt-in backend yields a clean unavailable error, no PyPI reach.
 - [ ] Image carries `com.mattolson.agentsandbox.hermes-version=<ref>` label.
@@ -225,18 +226,17 @@ To verify (may not need changes):
 ## Outcome
 
 _Complete; build-verified on host._ All static checks pass (`go build`/`go test`, `bash -n`, workflow YAML), and a host
-build (Apple Silicon / arm64) confirmed: the launch banner no longer shows the pip warning, `hermes update` is
-intercepted by the wrapper even with `~/.local/bin` on PATH, `hermes gateway status` correctly detects the running
-gateway, and the image runs an existing Hermes install. `hermes doctor` is green except one cosmetic "Command
-Installation: missing `~/.local/bin/hermes`" note — an accepted trade-off (see Learnings). Cross-arch amd64 resolution
-of `uv sync` is left to the CI build matrix.
+build (Apple Silicon / arm64) confirmed: the launch banner no longer shows the pip warning, `hermes gateway status`
+detects the running gateway, and the image runs an existing Hermes install. After the simplification below there is **no
+wrapper**: `hermes` is the real, unmodified CLI symlinked onto PATH, so `hermes doctor` is fully green (`~/.local/bin/hermes`
+points at the venv entry point) and `hermes update` simply fails against the read-only checkout (documented, not
+intercepted). Cross-arch amd64 resolution of `uv sync` is left to the CI build matrix.
 
 Files changed:
 - `images/agents/hermes/Dockerfile` — git clone + editable `uv sync` with `HERMES_EXTRAS`; uv install; read-only
-  lockdown; wrapper on PATH at `/usr/local/bin/hermes` execing the untouched real venv entry point; no `~/.local/bin`
-  symlink; dropped the site-packages doctor symlink; `HERMES_REF`/`HERMES_SEMVER`/`HERMES_EXTRAS` build args.
-- `images/agents/hermes/hermes-wrapper.sh` — `/bin/sh`; intercepts `update`/`uninstall`, execs the real
-  `.../.venv/bin/hermes`.
+  lockdown; `hermes` symlinked onto PATH at `/usr/local/bin/hermes` and `~/.local/bin/hermes` (real, unmodified entry
+  point); dropped the site-packages doctor symlink; `HERMES_REF`/`HERMES_SEMVER`/`HERMES_EXTRAS` build args.
+- `images/agents/hermes/hermes-wrapper.sh` — **removed** (no longer wrap/intercept `update`/`uninstall`).
 - `images/build.sh` — `HERMES_VERSION` (git tag or `latest`) resolution via GitHub release; `HERMES_EXTRAS`; new
   build args.
 - `.github/workflows/check-hermes-version.yml` and `build-images.yml` — version source PyPI → GitHub `releases/latest`;
@@ -266,3 +266,10 @@ Files changed:
   interception (1) and gateway detection (3) and the `hermes` program name, at the cost of one cosmetic doctor note
   (missing `~/.local/bin/hermes`). The lesson: don't rename or shadow the upstream entry point — too many of its
   behaviors (process self-detection, prog name) assume it is named `hermes` and is the real CLI.
+- **Final decision: drop the wrapper entirely.** All of the above was machinery to turn one `hermes update` error into a
+  clean message. Not worth it. The wrapper was removed: `hermes` is now the real, unmodified CLI symlinked onto PATH at
+  both `/usr/local/bin/hermes` and `~/.local/bin/hermes`. With nothing to shadow or rename, constraint (1) collapses to
+  "documented behavior" — `hermes update` fails on the read-only checkout (the read-only lockdown is the real enforcement
+  anyway) — while (2) doctor is now **fully green** (the `~/.local/bin` symlink points at the venv entry point with no
+  wrapper to conflict) and (3) gateway detection works. The proper upgrade procedure lives in `docs/agents/hermes.md`
+  (Upgrading) and `CHANGELOG.md`.

@@ -112,17 +112,9 @@ Two reasons for the git layout over the wheel:
 - It silences upstream's `⚠ pip install not officially supported` launch banner legitimately — `detect_install_method()` keys on the `.git` directory and resolves to `git`.
 - It lets us bake a **curated extras set** instead of the wheel's empty one. The build installs `cli` (interactive menus), `mcp` (Model Context Protocol client), and `acp` (Agent Client Protocol) — the `HERMES_EXTRAS` build arg (default `cli,mcp,acp`). The `web` dashboard and all lazy-only backends (voice, matrix, messaging, honcho, …) are deliberately excluded. To add one, rebuild with it appended to `HERMES_EXTRAS`; note some backends also need a build-time system dependency and a network-policy entry.
 
-> **Security note.** A git editable install widens the self-upgrade surface relative to a wheel: the running code *is* the source tree (so "modify yourself" is a file edit), and the native upgrade path becomes `git pull` against github (a host policies often allow) rather than `pip install` against pypi (always blocked here). The mitigations are the read-only, root-owned `/opt/hermes` tree and the egress policy — **not** the wrapper, which is UX only. If your policy allows github at runtime, treat that as a security-relevant choice.
+> **Security note.** A git editable install widens the self-upgrade surface relative to a wheel: the running code *is* the source tree (so "modify yourself" is a file edit), and the native upgrade path becomes `git pull` against github (a host policies often allow) rather than `pip install` against pypi (always blocked here). The mitigations are the read-only, root-owned `/opt/hermes` tree and the egress policy. If your policy allows github at runtime, treat that as a security-relevant choice.
 
-A small wrapper at `/usr/local/bin/hermes` intercepts `hermes update` and `hermes uninstall` (see [Upgrading](#upgrading)) and passes every other subcommand straight through to the real venv entry point, which is left untouched. Because nothing named `hermes` is planted in `~/.local/bin`, a PATH lookup resolves to the wrapper, so interception holds.
-
-There's a deliberate trade-off here, governed by three constraints that can't all be satisfied at once:
-
-- **Update interception** needs the wrapper to win on PATH.
-- **`hermes doctor`**'s "Command Installation" check wants `~/.local/bin/hermes` to point (by strict equality) at the venv entry point `.venv/bin/hermes`.
-- **`hermes gateway status`** detects the gateway by scanning process command lines for `.../hermes gateway`, so the entry point must keep the name `hermes`.
-
-Planting `~/.local/bin/hermes → .venv/bin/hermes` (what doctor wants) would shadow the wrapper when `~/.local/bin` is ahead of `/usr/local/bin` on PATH — which it commonly is (user dotfiles, the python stack, Debian's `~/.profile`) — letting `update`/`uninstall` slip through to the read-only checkout and fail with a confusing git error. Making the wrapper *itself* the entry point (renaming the real binary) satisfies doctor but renames the gateway process and breaks status detection. So the image leaves the real entry point in place, installs the wrapper only on PATH, and does **not** plant `~/.local/bin/hermes`. Doctor's "Reinstall entry point" check still passes natively (the editable `.venv` sits beside the source), but its "Command Installation" check shows one cosmetic "missing `~/.local/bin/hermes`" note. That cosmetic line is the accepted cost of keeping update interception and gateway detection both working.
+The upstream `hermes` CLI is the real, unmodified entry point — symlinked onto PATH at `/usr/local/bin/hermes` and at `~/.local/bin/hermes` (where `hermes doctor`'s "Command Installation" check looks for it). There is no wrapper or interception layer. `hermes update`/`hermes uninstall` are not blocked by tooling; they simply fail against the read-only, root-owned checkout (`git` reports a "dubious ownership" error). The supported way to move versions is to rebuild the image — see [Upgrading](#upgrading).
 
 The image also plants `sitecustomize.py` in the venv's `site-packages` that does `import readline`. This works around upstream [hermes-agent#15768](https://github.com/NousResearch/hermes-agent/issues/15768): `hermes setup`'s free-text prompts (API keys, paths, y/n) call bare `input()` without importing `readline`, so arrow keys leak escape sequences as literal text instead of doing line editing. Python's `site` module auto-imports any module named `sitecustomize` at interpreter startup, which installs the readline hook before `input()` ever runs. Scoped to the hermes venv only — curses-based menus (`prompt_choice`, `prompt_checklist`) are unaffected.
 
@@ -134,21 +126,17 @@ Shell history persists on a separate `hermes-history` volume mounted at `/comman
 
 ## Upgrading
 
-`hermes update` and `hermes uninstall` are **intentionally disabled** in the sandbox. A wrapper at `/usr/local/bin/hermes` catches them and prints:
+**Do not run `hermes update` or `hermes uninstall` in the sandbox.** They are not supported: the Hermes checkout and venv live under `/opt/hermes` and are root-owned and read-only at runtime, so `hermes update` fails (`git` reports `fatal: detected dubious ownership in repository at '/opt/hermes/hermes-agent'`). This is by design — the sandbox model is "image is the unit of reproducible, reviewed state," and in-place self-upgrades (`git pull` / editable edits) would defeat that. The image deliberately does not intercept these commands; the read-only checkout is what enforces the policy.
 
-```
-hermes update/uninstall is disabled in Agent Sandbox: the Hermes venv
-is baked into the image and read-only at runtime. To upgrade, rebuild
-the image:
+To move to a new Hermes version, rebuild the image:
 
-    # on the host
-    agentbox bump
-    agentbox down && agentbox up
+```bash
+# on the host
+agentbox bump
+agentbox down && agentbox up
 ```
 
-This is by design: the Hermes checkout and venv live under `/opt/hermes` and are read-only at runtime, and the sandbox model is "image is the unit of reproducible, reviewed state." In-place self-upgrades (`git pull` / editable edits) would defeat that. (Hermes also ships an upstream `HERMES_MANAGED` env var that would refuse `update` with a similar message, but it has side effects we don't want — it blocks `hermes setup` and requires the package manager to pre-create `~/.hermes/{cron,sessions,logs,memories}`. The wrapper gives us the same refusal without those side effects.)
-
-The supported upgrade path:
+The supported upgrade path in full:
 
 1. The daily CI version-check workflow (`check-hermes-version.yml`) reads the latest `hermes-agent` GitHub release (the calver tag, e.g. `v2026.6.5`; the image is tagged `hermes-2026.6.5`).
 2. When a new release appears, it triggers a rebuild of `agent-sandbox-hermes` and republishes it to GHCR.
