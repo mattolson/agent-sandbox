@@ -194,15 +194,18 @@ To verify (may not need changes):
 
 ### Implementation Steps
 
-- [ ] **Step 0 / discovery:** confirm the PyPI-semver ↔ git-calver tag mapping and pick GitHub tags as the version
-      source of truth (see Open Questions 1). Confirm a clean `uv sync --extra cli --extra mcp --extra acp --locked`
-      on both arches (Open Question 2).
-- [ ] Rewrite Dockerfile per Approach.
-- [ ] Update `hermes-wrapper.sh` exec path.
-- [ ] Build locally (amd64 + arm64) and walk the acceptance criteria via `agentbox exec`.
-- [ ] Update the two workflows and `images/build.sh`.
-- [ ] Update `docs/agents/hermes.md`.
-- [ ] Verify `agents.go`; run Go + proxy test suites.
+- [x] **Step 0 / discovery (version mapping):** confirmed semver/calver split; GitHub `releases/latest` chosen as the
+      source of truth (Open Question 1 resolved). The arm64 `uv sync` confirmation (Open Question 2) still requires an
+      actual build.
+- [x] Rewrite Dockerfile per Approach.
+- [x] Update `hermes-wrapper.sh` exec path.
+- [x] Update the two workflows (`check-hermes-version.yml`, `build-images.yml`) and `images/build.sh`.
+- [x] Update `docs/agents/hermes.md` (+ `CHANGELOG.md` Unreleased entry).
+- [x] Verify `agents.go` (no change needed — it only lists `hermes` in `supportedAgents`); `go build ./...` and
+      `go test ./...` pass; `bash -n images/build.sh` and workflow YAML validate.
+- [x] Build locally and walk the acceptance criteria — verified on host (arm64): clean banner, green `hermes doctor`,
+      `hermes update` intercepted (incl. with `~/.local/bin` on PATH), runs an existing install. Cross-arch amd64 left
+      to the CI build matrix.
 
 ### Open Questions
 
@@ -221,4 +224,38 @@ To verify (may not need changes):
 
 ## Outcome
 
-_Not started._
+_Complete; build-verified on host._ All static checks pass (`go build`/`go test`, `bash -n`, workflow YAML), and a host
+build (Apple Silicon / arm64) confirmed: the launch banner no longer shows the pip warning, `hermes doctor` is green
+(both "Reinstall entry point" and "Command Installation"), `hermes update` is intercepted by the wrapper even with
+`~/.local/bin` on PATH, and the image runs an existing Hermes install. Cross-arch amd64 resolution of `uv sync` is left
+to the CI build matrix.
+
+Files changed:
+- `images/agents/hermes/Dockerfile` — git clone + editable `uv sync` with `HERMES_EXTRAS`; uv install; read-only
+  lockdown; wrapper installed AS the venv entry point (real script → `hermes-real`); dropped the site-packages doctor
+  symlink; `HERMES_REF`/`HERMES_SEMVER`/`HERMES_EXTRAS` build args.
+- `images/agents/hermes/hermes-wrapper.sh` — now the canonical entry point; `bash` + `exec -a hermes
+  .../.venv/bin/hermes-real`.
+- `images/build.sh` — `HERMES_VERSION` (git tag or `latest`) resolution via GitHub release; `HERMES_EXTRAS`; new
+  build args.
+- `.github/workflows/check-hermes-version.yml` and `build-images.yml` — version source PyPI → GitHub `releases/latest`;
+  image tag `hermes-<calver>`; semver as label.
+- `docs/agents/hermes.md`, `CHANGELOG.md` — install layout, extras, upgrade path, self-upgrade-surface security note.
+
+### Learnings (build verification)
+
+- **The wrapper must BE the venv entry point; a plain `~/.local/bin/hermes` symlink can't satisfy both doctor and
+  interception.** First on-image test showed `hermes update` running the *real* update (failing with `fatal: detected
+  dubious ownership in repository at '/opt/hermes/hermes-agent'`) instead of hitting the wrapper. Cause: `~/.local/bin`
+  is prepended to PATH ahead of `/usr/local/bin` (user dotfiles / the python stack / Debian's `~/.profile`), so the
+  doctor symlink pointing at the real venv binary shadowed the wrapper — the "~/.local/bin is not on PATH" assumption
+  carried over from the m16.2 wheel image is false. Repointing the symlink at the wrapper (`/usr/local/bin/hermes`)
+  fixed interception but then **doctor warned** `Command Installation: points to wrong target (→ /usr/local/bin/hermes,
+  expected → .../.venv/bin/hermes)` — confirming doctor does a strict equality against the venv entry point path,
+  exactly as the m16.2 comment said. (An intermediate read of a pre-rebuild doctor run wrongly suggested doctor
+  accepted the wrapper.) Resolution: rename the real console script to `.venv/bin/hermes-real` and install the wrapper
+  AS `.venv/bin/hermes`, symlinking both `/usr/local/bin/hermes` and `~/.local/bin/hermes` to it. The symlink now
+  equals the expected venv path (doctor green) and every invocation path — including the full venv path — routes
+  through the wrapper. The dubious-ownership failure also confirmed the read-only/root-owned lockdown blocks
+  self-upgrade at the filesystem layer regardless of which `hermes` is invoked (defense in depth working); the wrapper
+  is UX only.
