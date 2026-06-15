@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Hermes installed from a git checkout instead of the PyPI wheel.** The `agent-sandbox-hermes` image now shallow-clones the upstream release tag to `/opt/hermes/hermes-agent` and editable-installs it (`uv sync --locked`) into a sibling venv at `/opt/hermes/hermes-agent/.venv`, with a curated extras set (`cli,mcp,acp`, via the `HERMES_EXTRAS` build arg) instead of the wheel's empty set. The git layout makes upstream's `detect_install_method()` resolve to `git`, suppressing the `pip install not officially supported` launch banner, and lets `hermes doctor`'s "Reinstall entry point" check pass natively (dropping the former site-packages symlink hack). The checkout is root-owned and read-only at runtime and lives outside the `HERMES_HOME` volume. Image version tracking moved from PyPI to the upstream GitHub release: the image tag now follows the calver git tag (e.g. `hermes-2026.6.5`) rather than the PyPI semver, with the semver kept as an OCI label. See `docs/agents/hermes.md` for the install layout and the self-upgrade-surface security note.
+
 ## [0.16.1] - 2026-06-07
 
 Agent self-awareness inside the sandbox.

@@ -101,16 +101,22 @@ The image sets these environment variables to keep Hermes well-behaved inside th
 
 - `HERMES_HOME=/home/dev/.hermes` — state directory (learned skills, persona, sessions, credentials)
 - `HERMES_YOLO_MODE=1` — auto-approve shell exec; sandbox already constrains the surface
-- `HERMES_DISABLE_LAZY_INSTALLS=1` — Hermes can normally pip-install Python deps on demand from PyPI; the sandbox doesn't allow pypi.org, so this is disabled. Some adapters (Telegram, Honcho, etc.) will refuse to start instead of silently self-installing — install via `EXTRA_PACKAGES` at image build time, or layer your own image
+- `HERMES_DISABLE_LAZY_INSTALLS=1` — Hermes can normally pip-install Python deps on demand from PyPI; the sandbox doesn't allow pypi.org, so this is disabled. Optional backends (Telegram, Honcho, etc.) will refuse to start instead of silently self-installing — bake them in at build time by adding their extra to `HERMES_EXTRAS` (see [Install layout](#install-layout)), or layer your own image
 
-The image installs a small wrapper at `/usr/local/bin/hermes` that intercepts `hermes update` and `hermes uninstall` (see [Upgrading](#upgrading)). All other subcommands pass straight through to `/opt/hermes/.venv/bin/hermes`.
+### Install layout
 
-The image also plants two symlinks to keep `hermes doctor` clean:
+Hermes is installed from a **pinned git checkout**, not the PyPI wheel. The image shallow-clones the upstream release tag to `/opt/hermes/hermes-agent` and editable-installs it (`uv sync --locked`) into a sibling venv at `/opt/hermes/hermes-agent/.venv`. The whole tree is root-owned and read-only at runtime; the source lives outside the `HERMES_HOME` volume so the runtime mount never shadows it.
 
-- `<site-packages>/.venv/bin/hermes -> /opt/hermes/.venv/bin/hermes` satisfies doctor's "Reinstall entry point" check. Doctor's entry-point probe assumes a `pip install -e .` development checkout where a sibling `venv/` exists next to the source tree; on a PyPI install into a clean venv that layout never exists, and without the symlink doctor emits a misleading `Reinstall entry point: cd <site-packages> && source venv/bin/activate && pip install -e '.[all]'` warning.
-- `~/.local/bin/hermes -> /opt/hermes/.venv/bin/hermes` satisfies doctor's "Command Installation" check. The standard install path (`install.sh` from upstream) drops a symlink here; PyPI installs don't, so without it doctor reports `Missing ~/.local/bin/hermes symlink — run 'hermes doctor --fix'`. We point it at the venv binary (not the wrapper) so doctor's resolved-target equality check passes; `~/.local/bin` is deliberately *not* on PATH in the base image, so the wrapper at `/usr/local/bin/hermes` still takes precedence for `hermes <subcommand>` and `update`/`uninstall` interception remains intact.
+Two reasons for the git layout over the wheel:
 
-Both symlinks are cosmetic — the real entry point at `/opt/hermes/.venv/bin/hermes` (via the wrapper) is what actually runs.
+- It silences upstream's `⚠ pip install not officially supported` launch banner legitimately — `detect_install_method()` keys on the `.git` directory and resolves to `git`.
+- It lets us bake a **curated extras set** instead of the wheel's empty one. The build installs `cli` (interactive menus), `mcp` (Model Context Protocol client), and `acp` (Agent Client Protocol) — the `HERMES_EXTRAS` build arg (default `cli,mcp,acp`). The `web` dashboard and all lazy-only backends (voice, matrix, messaging, honcho, …) are deliberately excluded. To add one, rebuild with it appended to `HERMES_EXTRAS`; note some backends also need a build-time system dependency and a network-policy entry.
+
+> **Security note.** A git editable install widens the self-upgrade surface relative to a wheel: the running code *is* the source tree (so "modify yourself" is a file edit), and the native upgrade path becomes `git pull` against github (a host policies often allow) rather than `pip install` against pypi (always blocked here). The mitigations are the read-only, root-owned `/opt/hermes` tree and the egress policy — **not** the wrapper, which is UX only. If your policy allows github at runtime, treat that as a security-relevant choice.
+
+A small wrapper intercepts `hermes update` and `hermes uninstall` (see [Upgrading](#upgrading)) and passes every other subcommand through to the real CLI. Rather than sit in front of the venv binary on PATH, the wrapper **is** the venv entry point: the build renames the real console script to `.venv/bin/hermes-real` and installs the wrapper at `.venv/bin/hermes`, with `/usr/local/bin/hermes` and `~/.local/bin/hermes` both symlinked to it. So every way of invoking `hermes` — a PATH lookup, `~/.local/bin`, or the full venv path — routes through the wrapper.
+
+This layout is also what keeps `hermes doctor` green. Doctor's "Reinstall entry point" check passes natively because the editable install puts the `.venv` beside the source tree (the wheel install needed a symlink hack here; the git install does not). Its "Command Installation" check does a strict equality of `~/.local/bin/hermes` against the venv entry point path (`.venv/bin/hermes`), so the symlink must point exactly there — which it does, and because that path now holds the wrapper, interception survives. An earlier attempt to point `~/.local/bin/hermes` straight at the wrapper (`/usr/local/bin/hermes`) failed doctor's equality check; making the wrapper the entry point resolves both at once. The reason this matters: `~/.local/bin` is commonly prepended to PATH ahead of `/usr/local/bin` (user dotfiles, the python stack, Debian's `~/.profile`), so an entry pointing at the *real* binary there would shadow the wrapper and let `update`/`uninstall` slip through to the read-only checkout, failing with a confusing git error instead of the wrapper's clean message.
 
 The image also plants `sitecustomize.py` in the venv's `site-packages` that does `import readline`. This works around upstream [hermes-agent#15768](https://github.com/NousResearch/hermes-agent/issues/15768): `hermes setup`'s free-text prompts (API keys, paths, y/n) call bare `input()` without importing `readline`, so arrow keys leak escape sequences as literal text instead of doing line editing. Python's `site` module auto-imports any module named `sitecustomize` at interpreter startup, which installs the readline hook before `input()` ever runs. Scoped to the hermes venv only — curses-based menus (`prompt_choice`, `prompt_checklist`) are unaffected.
 
@@ -134,12 +140,12 @@ the image:
     agentbox down && agentbox up
 ```
 
-This is by design: the Hermes venv lives at `/opt/hermes/.venv` and is read-only at runtime, and the sandbox model is "image is the unit of reproducible, reviewed state." In-place self-upgrades would defeat that. (Hermes also ships an upstream `HERMES_MANAGED` env var that would refuse `update` with a similar message, but it has side effects we don't want — it blocks `hermes setup` and requires the package manager to pre-create `~/.hermes/{cron,sessions,logs,memories}`. The wrapper gives us the same refusal without those side effects.)
+This is by design: the Hermes checkout and venv live under `/opt/hermes` and are read-only at runtime, and the sandbox model is "image is the unit of reproducible, reviewed state." In-place self-upgrades (`git pull` / editable edits) would defeat that. (Hermes also ships an upstream `HERMES_MANAGED` env var that would refuse `update` with a similar message, but it has side effects we don't want — it blocks `hermes setup` and requires the package manager to pre-create `~/.hermes/{cron,sessions,logs,memories}`. The wrapper gives us the same refusal without those side effects.)
 
 The supported upgrade path:
 
-1. The daily CI version-check workflow (`check-hermes-version.yml`) queries PyPI for the latest `hermes-agent` release.
-2. When a new version appears, it triggers a rebuild of `agent-sandbox-hermes` and republishes it to GHCR.
+1. The daily CI version-check workflow (`check-hermes-version.yml`) reads the latest `hermes-agent` GitHub release (the calver tag, e.g. `v2026.6.5`; the image is tagged `hermes-2026.6.5`).
+2. When a new release appears, it triggers a rebuild of `agent-sandbox-hermes` and republishes it to GHCR.
 3. Run `agentbox bump` to pull the new image digest.
 4. `agentbox down && agentbox up` swaps to the new image. Your `HERMES_HOME` volume persists across the swap.
 
