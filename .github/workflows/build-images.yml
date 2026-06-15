@@ -9,9 +9,17 @@ on:
   release:
     types: [published]
   workflow_dispatch:  # Allow manual trigger
+    inputs:
+      hermes_extras:
+        description: 'Override Hermes pip extras (comma-separated); blank uses the default'
+        required: false
+        default: ''
 
 env:
   REGISTRY: ghcr.io
+  # Single source for the Hermes extras baked into published images. A
+  # workflow_dispatch run can override via the hermes_extras input.
+  HERMES_EXTRAS: cli,mcp,acp
   BASE_IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-base
   CLAUDE_IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-claude
   CODEX_IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-codex
@@ -676,6 +684,7 @@ jobs:
             BASE_IMAGE=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}@${{ needs.build-base.outputs.digest }}
             HERMES_REF=${{ steps.version.outputs.ref }}
             HERMES_SEMVER=${{ steps.version.outputs.semver }}
+            HERMES_EXTRAS=${{ inputs.hermes_extras || env.HERMES_EXTRAS }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
