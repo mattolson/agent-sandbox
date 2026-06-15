@@ -18,16 +18,23 @@ jobs:
       actions: write  # Needed to trigger workflows
 
     steps:
-      - name: Get latest hermes-agent version from PyPI
-        id: pypi
+      - name: Resolve latest Hermes release from GitHub
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=$(curl -fsSL https://pypi.org/pypi/hermes-agent/json | jq -r .info.version)
-          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
-            echo "Failed to fetch version from PyPI"
+          # Image tags track upstream's calver git tag (e.g. v2026.6.5 ->
+          # hermes-2026.6.5), not the PyPI semver. PyPI exposes no link to the
+          # tag, so GitHub releases are the source of truth.
+          REF=$(gh api repos/NousResearch/hermes-agent/releases/latest --jq .tag_name)
+          if [ -z "$REF" ] || [ "$REF" = "null" ]; then
+            echo "Failed to resolve Hermes release tag from GitHub"
             exit 1
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Latest PyPI version: $VERSION"
+          CALVER=${REF#v}
+          echo "ref=$REF" >> $GITHUB_OUTPUT
+          echo "calver=$CALVER" >> $GITHUB_OUTPUT
+          echo "Latest Hermes release: $REF (image tag hermes-$CALVER)"
 
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -39,7 +46,7 @@ jobs:
       - name: Check if version tag exists in registry
         id: check
         run: |
-          TAG="hermes-${{ steps.pypi.outputs.version }}"
+          TAG="hermes-${{ steps.release.outputs.calver }}"
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
 
           # Use docker manifest inspect to check if tag exists (no pull required)
@@ -58,7 +65,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Triggering build-images workflow for hermes-agent ${{ steps.pypi.outputs.version }}..."
+          echo "Triggering build-images workflow for hermes-agent ${{ steps.release.outputs.ref }}..."
           gh workflow run build-images.yml --repo ${{ github.repository }}
 
       - name: Summary
@@ -67,6 +74,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Check | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| PyPI latest | ${{ steps.pypi.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Latest release | ${{ steps.release.outputs.ref }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Tag exists | ${{ steps.check.outputs.exists }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Rebuild triggered | ${{ steps.check.outputs.exists == 'false' }} |" >> $GITHUB_STEP_SUMMARY

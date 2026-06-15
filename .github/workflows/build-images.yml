@@ -607,22 +607,36 @@ jobs:
 
     outputs:
       digest: ${{ steps.build.outputs.digest }}
-      hermes_version: ${{ steps.version.outputs.version }}
+      hermes_version: ${{ steps.version.outputs.semver }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Get latest hermes-agent version from PyPI
+      - name: Resolve latest Hermes release from GitHub
         id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=$(curl -fsSL https://pypi.org/pypi/hermes-agent/json | jq -r .info.version)
-          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
-            echo "Failed to fetch hermes-agent version from PyPI"
+          # Upstream tags releases with calver (e.g. v2026.6.5) and embeds the
+          # semver in the release name ("Hermes Agent v0.16.0 (2026.6.5) ...").
+          # PyPI carries no link to the tag, so GitHub releases are the source
+          # of truth: ref (calver tag) is cloned, calver names the image tag,
+          # semver is a cosmetic label only.
+          RELEASE=$(gh api repos/NousResearch/hermes-agent/releases/latest)
+          REF=$(printf '%s' "$RELEASE" | jq -r .tag_name)
+          NAME=$(printf '%s' "$RELEASE" | jq -r .name)
+          if [ -z "$REF" ] || [ "$REF" = "null" ]; then
+            echo "Failed to resolve Hermes release tag from GitHub"
             exit 1
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "hermes-agent version: $VERSION"
+          CALVER=${REF#v}
+          SEMVER=$(printf '%s' "$NAME" | sed -nE 's/.*v([0-9]+\.[0-9]+\.[0-9]+).*/\1/p')
+          [ -n "$SEMVER" ] || SEMVER="$CALVER"
+          echo "ref=$REF" >> $GITHUB_OUTPUT
+          echo "calver=$CALVER" >> $GITHUB_OUTPUT
+          echo "semver=$SEMVER" >> $GITHUB_OUTPUT
+          echo "Hermes release: $REF (semver $SEMVER)"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -644,7 +658,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.HERMES_IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=hermes-${{ steps.version.outputs.version }}
+            type=raw,value=hermes-${{ steps.version.outputs.calver }}
             type=sha,prefix=sha-
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -660,7 +674,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BASE_IMAGE=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}@${{ needs.build-base.outputs.digest }}
-            HERMES_VERSION=${{ steps.version.outputs.version }}
+            HERMES_REF=${{ steps.version.outputs.ref }}
+            HERMES_SEMVER=${{ steps.version.outputs.semver }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
