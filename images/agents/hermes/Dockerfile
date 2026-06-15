@@ -27,14 +27,27 @@ RUN set -e && \
 # resolve as prebuilt wheels. If a future dep needs to compile from source, add
 # python3-dev here (build-essential is already in the base image).
 
-# Install uv (build-time only) for the locked, editable install below.
-ARG UV_VERSION=latest
+# Install a pinned, checksum-verified uv (build-time only) for the locked,
+# editable install below. Download the binary straight from the GitHub release
+# instead of piping the installer to sh, so a compromised CDN/DNS can't
+# substitute a malicious binary. Bump UV_VERSION and both SHA-256s together from
+# the release's <asset>.sha256 files.
+ARG UV_VERSION=0.11.21
+ARG UV_SHA256_AMD64=8c88519b0ef0af9801fcdee419bbb12116bd9e6b18e162ae093c932d8b264050
+ARG UV_SHA256_ARM64=88e800834007cc5efd4675f166eb2a51e7e3ad19876d85fa8805a6fb5c922397
+ARG TARGETARCH
 RUN set -e && \
-    if [ "$UV_VERSION" = "latest" ]; then \
-      curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin INSTALLER_NO_MODIFY_PATH=1 sh; \
-    else \
-      curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | env UV_INSTALL_DIR=/usr/local/bin INSTALLER_NO_MODIFY_PATH=1 sh; \
-    fi && \
+    case "$TARGETARCH" in \
+      amd64) UV_TRIPLE=x86_64-unknown-linux-gnu; UV_SHA="$UV_SHA256_AMD64" ;; \
+      arm64) UV_TRIPLE=aarch64-unknown-linux-gnu; UV_SHA="$UV_SHA256_ARM64" ;; \
+      *) echo "unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
+    esac && \
+    curl -fsSL -o /tmp/uv.tar.gz \
+      "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${UV_TRIPLE}.tar.gz" && \
+    echo "${UV_SHA}  /tmp/uv.tar.gz" | sha256sum -c - && \
+    tar -xzf /tmp/uv.tar.gz -C /tmp && \
+    install -m 0755 "/tmp/uv-${UV_TRIPLE}/uv" /usr/local/bin/uv && \
+    rm -rf /tmp/uv.tar.gz "/tmp/uv-${UV_TRIPLE}" && \
     uv --version
 
 # Pin the upstream release. HERMES_REF is the calver git tag (e.g. v2026.6.5);
