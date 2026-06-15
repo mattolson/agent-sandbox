@@ -1,16 +1,20 @@
-#!/bin/bash
-# The canonical hermes entry point. Installed AS the venv console script at
-# /opt/hermes/hermes-agent/.venv/bin/hermes (the real script is renamed aside to
-# hermes-real) and symlinked from /usr/local/bin/hermes and ~/.local/bin/hermes,
-# so every way of invoking `hermes` — PATH lookup, ~/.local/bin, or the full
-# venv path — routes through here.
+#!/bin/sh
+# Wrapper around /opt/hermes/hermes-agent/.venv/bin/hermes that intercepts the
+# `update` and `uninstall` subcommands. The Hermes checkout at /opt/hermes is
+# root-owned and read-only at runtime (no editable-source edits, no `git pull`),
+# so a real update would fail with a confusing git/EACCES traceback; the wrapper
+# substitutes a clear message pointing at the image-rebuild upgrade path. All
+# other args pass straight through to the real entry point unchanged.
 #
-# It intercepts the `update` and `uninstall` subcommands. Both would fail anyway
-# because the Hermes checkout at /opt/hermes is owned by root and read-only at
-# runtime (no editable-source edits, no `git pull`), but the resulting traceback
-# reads like a broken tool. The wrapper substitutes a clear message that points
-# at the Agent Sandbox image-rebuild upgrade path. All other args pass through to
-# hermes-real unchanged (with argv[0] preserved as `hermes`).
+# Installed ONLY at /usr/local/bin/hermes (on PATH). The image deliberately does
+# not plant ~/.local/bin/hermes, even though `hermes doctor`'s "Command
+# Installation" check expects it: pointing that symlink at the real venv binary
+# (what doctor wants) would shadow this wrapper when ~/.local/bin is ahead on
+# PATH and let `update`/`uninstall` slip through, while making the wrapper itself
+# the venv entry point (the other way to satisfy doctor) renames the binary and
+# breaks `hermes gateway` status detection, which scans process command lines for
+# ".../hermes gateway". So we leave the real entry point untouched and accept
+# doctor's one cosmetic "missing symlink" note. See docs/agents/hermes.md.
 #
 # HERMES_MANAGED is deliberately NOT set in the image: it would block
 # `hermes setup` and require pre-existing state subdirectories that the
@@ -36,4 +40,4 @@ MSG
         ;;
 esac
 
-exec -a hermes /opt/hermes/hermes-agent/.venv/bin/hermes-real "$@"
+exec /opt/hermes/hermes-agent/.venv/bin/hermes "$@"

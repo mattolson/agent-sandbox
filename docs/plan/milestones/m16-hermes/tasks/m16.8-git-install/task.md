@@ -225,17 +225,18 @@ To verify (may not need changes):
 ## Outcome
 
 _Complete; build-verified on host._ All static checks pass (`go build`/`go test`, `bash -n`, workflow YAML), and a host
-build (Apple Silicon / arm64) confirmed: the launch banner no longer shows the pip warning, `hermes doctor` is green
-(both "Reinstall entry point" and "Command Installation"), `hermes update` is intercepted by the wrapper even with
-`~/.local/bin` on PATH, and the image runs an existing Hermes install. Cross-arch amd64 resolution of `uv sync` is left
-to the CI build matrix.
+build (Apple Silicon / arm64) confirmed: the launch banner no longer shows the pip warning, `hermes update` is
+intercepted by the wrapper even with `~/.local/bin` on PATH, `hermes gateway status` correctly detects the running
+gateway, and the image runs an existing Hermes install. `hermes doctor` is green except one cosmetic "Command
+Installation: missing `~/.local/bin/hermes`" note — an accepted trade-off (see Learnings). Cross-arch amd64 resolution
+of `uv sync` is left to the CI build matrix.
 
 Files changed:
 - `images/agents/hermes/Dockerfile` — git clone + editable `uv sync` with `HERMES_EXTRAS`; uv install; read-only
-  lockdown; wrapper installed AS the venv entry point (real script → `hermes-real`); dropped the site-packages doctor
-  symlink; `HERMES_REF`/`HERMES_SEMVER`/`HERMES_EXTRAS` build args.
-- `images/agents/hermes/hermes-wrapper.sh` — now the canonical entry point; `bash` + `exec -a hermes
-  .../.venv/bin/hermes-real`.
+  lockdown; wrapper on PATH at `/usr/local/bin/hermes` execing the untouched real venv entry point; no `~/.local/bin`
+  symlink; dropped the site-packages doctor symlink; `HERMES_REF`/`HERMES_SEMVER`/`HERMES_EXTRAS` build args.
+- `images/agents/hermes/hermes-wrapper.sh` — `/bin/sh`; intercepts `update`/`uninstall`, execs the real
+  `.../.venv/bin/hermes`.
 - `images/build.sh` — `HERMES_VERSION` (git tag or `latest`) resolution via GitHub release; `HERMES_EXTRAS`; new
   build args.
 - `.github/workflows/check-hermes-version.yml` and `build-images.yml` — version source PyPI → GitHub `releases/latest`;
@@ -244,18 +245,24 @@ Files changed:
 
 ### Learnings (build verification)
 
-- **The wrapper must BE the venv entry point; a plain `~/.local/bin/hermes` symlink can't satisfy both doctor and
-  interception.** First on-image test showed `hermes update` running the *real* update (failing with `fatal: detected
-  dubious ownership in repository at '/opt/hermes/hermes-agent'`) instead of hitting the wrapper. Cause: `~/.local/bin`
-  is prepended to PATH ahead of `/usr/local/bin` (user dotfiles / the python stack / Debian's `~/.profile`), so the
-  doctor symlink pointing at the real venv binary shadowed the wrapper — the "~/.local/bin is not on PATH" assumption
-  carried over from the m16.2 wheel image is false. Repointing the symlink at the wrapper (`/usr/local/bin/hermes`)
-  fixed interception but then **doctor warned** `Command Installation: points to wrong target (→ /usr/local/bin/hermes,
-  expected → .../.venv/bin/hermes)` — confirming doctor does a strict equality against the venv entry point path,
-  exactly as the m16.2 comment said. (An intermediate read of a pre-rebuild doctor run wrongly suggested doctor
-  accepted the wrapper.) Resolution: rename the real console script to `.venv/bin/hermes-real` and install the wrapper
-  AS `.venv/bin/hermes`, symlinking both `/usr/local/bin/hermes` and `~/.local/bin/hermes` to it. The symlink now
-  equals the expected venv path (doctor green) and every invocation path — including the full venv path — routes
-  through the wrapper. The dubious-ownership failure also confirmed the read-only/root-owned lockdown blocks
-  self-upgrade at the filesystem layer regardless of which `hermes` is invoked (defense in depth working); the wrapper
-  is UX only.
+- **Three-way constraint on the `hermes` entry point — you can keep all functional behaviors, but not a fully green
+  `hermes doctor`.** The interactions, found one at a time on-image:
+  1. *Update interception* needs the wrapper to win on PATH. The m16.2 "~/.local/bin is not on PATH" assumption is
+     false — user dotfiles / the python stack / Debian's `~/.profile` prepend it ahead of `/usr/local/bin` — so a
+     `~/.local/bin/hermes` symlink pointing at the real venv binary shadows the wrapper, and `hermes update` runs the
+     real updater (which then fails with `fatal: detected dubious ownership in repository at '/opt/hermes/hermes-agent'`
+     — the read-only lockdown blocking it as defense in depth, but with an ugly message).
+  2. *Doctor's "Command Installation"* does a **strict equality** of `~/.local/bin/hermes` against the venv entry point
+     path `.../.venv/bin/hermes` (confirmed by its `points to wrong target` warning when the symlink pointed at the
+     wrapper). So satisfying doctor forces the symlink to the venv binary — which reintroduces (1).
+  3. *Gateway status* (`hermes_cli/gateway.py::_scan_gateway_pids`) detects the gateway by scanning process command
+     lines for patterns like `"hermes gateway"` / `"hermes_cli.main gateway"`. Making the wrapper the entry point by
+     renaming the real script to `hermes-real` (the fix that satisfied 1+2) changed the gateway process cmdline to
+     `.../hermes-real gateway run`, which matches **no** pattern → `gateway status` falsely reports "not running" even
+     though the gateway is up. (The procps `ps eww -ax` Docker bug from issues #9723/#10761 is *not* the cause; this
+     version scans `/proc` first.)
+  Resolution (Approach R): leave the real console script as the untouched venv entry point, install the wrapper only at
+  `/usr/local/bin/hermes` (execs the real binary), and do **not** plant `~/.local/bin/hermes`. This keeps update
+  interception (1) and gateway detection (3) and the `hermes` program name, at the cost of one cosmetic doctor note
+  (missing `~/.local/bin/hermes`). The lesson: don't rename or shadow the upstream entry point — too many of its
+  behaviors (process self-detection, prog name) assume it is named `hermes` and is the real CLI.
