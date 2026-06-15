@@ -75,33 +75,22 @@ RUN set -e && \
 RUN SITE_PACKAGES="$(/opt/hermes/hermes-agent/.venv/bin/python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" && \
     printf 'try:\n    import readline  # noqa: F401\nexcept ImportError:\n    pass\n' > "$SITE_PACKAGES/sitecustomize.py"
 
-# Make the wrapper the canonical hermes entry point. Rename the real venv
-# console script aside to hermes-real and install the update/uninstall-
-# intercepting wrapper in its place at .venv/bin/hermes. This is the only layout
-# that keeps `hermes doctor` green AND routes every invocation through the
-# wrapper: doctor's "Command Installation" check does a strict equality of
-# ~/.local/bin/hermes against the venv entry point path (.venv/bin/hermes), so
-# the symlink must point there — and because that path now holds the wrapper,
-# PATH lookups, ~/.local/bin, and the full venv path all run it. The wrapper
-# execs hermes-real. See hermes-wrapper.sh and docs/agents/hermes.md.
-RUN mv /opt/hermes/hermes-agent/.venv/bin/hermes /opt/hermes/hermes-agent/.venv/bin/hermes-real
-COPY hermes-wrapper.sh /opt/hermes/hermes-agent/.venv/bin/hermes
-RUN chmod 0755 /opt/hermes/hermes-agent/.venv/bin/hermes
-
-# Doctor expects ~/.local/bin/hermes -> the venv entry point (the upstream
-# installer drops it there); point it at .venv/bin/hermes (now the wrapper).
-RUN mkdir -p /home/dev/.local/bin && \
-    ln -s /opt/hermes/hermes-agent/.venv/bin/hermes /home/dev/.local/bin/hermes && \
-    chown -R dev:dev /home/dev/.local
-
-# Put the wrapper on PATH for the dev user (the venv bin dir is not on PATH).
-RUN ln -s /opt/hermes/hermes-agent/.venv/bin/hermes /usr/local/bin/hermes
-
-# Lock the install down: root-owned and not writable by dev. With the wrapper as
-# the entry point this also makes it read-only. This — not the wrapper — is what
-# blocks self-upgrade (no editable-source edits, no `git pull`); the wrapper is
-# UX. See the security note in docs/agents/hermes.md.
+# Lock the install down: root-owned and not writable by dev. This — not the
+# wrapper — is what blocks self-upgrade (no editable-source edits, no `git
+# pull`). See the security note in docs/agents/hermes.md.
 RUN chown -R root:root /opt/hermes && chmod -R a+rX /opt/hermes
+
+# Install the update/uninstall-intercepting wrapper on PATH. It execs the real
+# venv entry point, which is left untouched: renaming it would break `hermes
+# gateway` status detection (which scans process cmdlines for ".../hermes
+# gateway") and change the CLI's program name. We deliberately do NOT plant
+# ~/.local/bin/hermes — doctor's "Command Installation" check expects it, but
+# pointing it at the real binary would shadow this wrapper on PATH (update
+# bypass) and pointing it at the wrapper fails doctor's strict equality check.
+# We accept the one cosmetic doctor note. See hermes-wrapper.sh and
+# docs/agents/hermes.md.
+COPY hermes-wrapper.sh /usr/local/bin/hermes
+RUN chmod 0755 /usr/local/bin/hermes
 
 # Launch script for the image's default command. Starts the gateway in the
 # background and keeps the container alive independently. See the script.
