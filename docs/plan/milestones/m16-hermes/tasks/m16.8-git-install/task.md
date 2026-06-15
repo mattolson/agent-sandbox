@@ -217,7 +217,9 @@ To verify (may not need changes):
 2. **Build-time compiler needs.** `cli`/`mcp`/`acp` + core are expected to resolve as prebuilt wheels (no compile),
    but core deps (pydantic-core, cryptography) need per-arch wheels; `build-essential` is already in base as a
    fallback. Confirm a clean `uv sync` on arm64.
-3. **uv version to pin** and install method (astral curl installer vs `pip install uv`) — match repo convention.
+3. **uv version to pin** and install method. — RESOLVED. Pinned to uv `0.11.21`, downloaded directly from the GitHub
+   release and verified against per-arch SHA-256s (`UV_SHA256_AMD64`/`UV_SHA256_ARM64`) via `TARGETARCH`, mirroring the
+   Codex image — not `curl | sh` (no checksum) or `pip install uv`.
 4. **Does `--depth 1 --branch <tag>` leave a `.git` dir** sufficient for `detect_install_method` (it checks
    `(root/'.git').is_dir()`)? Expected yes; confirm during build.
 5. **`agents.go` / image-tag scheme** — confirm whether the Go side encodes a version that needs updating for the
