@@ -118,6 +118,16 @@ The upstream `hermes` CLI is the real, unmodified entry point — symlinked onto
 
 The image also plants `sitecustomize.py` in the venv's `site-packages` that does `import readline`. This works around upstream [hermes-agent#15768](https://github.com/NousResearch/hermes-agent/issues/15768): `hermes setup`'s free-text prompts (API keys, paths, y/n) call bare `input()` without importing `readline`, so arrow keys leak escape sequences as literal text instead of doing line editing. Python's `site` module auto-imports any module named `sitecustomize` at interpreter startup, which installs the readline hook before `input()` ever runs. Scoped to the hermes venv only — curses-based menus (`prompt_choice`, `prompt_checklist`) are unaffected.
 
+### SQLite (WAL-reset fix)
+
+Debian bookworm ships SQLite **3.40.1**, which python3.11's `sqlite3` module links dynamically. 3.40.1 is inside the range affected by the SQLite [WAL-reset bug](https://www.sqlite.org/wal.html) (all releases 3.7.0–3.51.2): under WAL mode, two connections in separate threads/processes that write or checkpoint at the same instant can corrupt the database. Because the Hermes **gateway runs as a long-lived background process** while the CLI is a second process on the same state DB, that concurrency pattern is reachable here. Upstream fixed it in **3.51.3** (backports **3.50.7** / **3.44.6**).
+
+The image compiles the official SQLite amalgamation (pinned version, verified against sqlite.org's published SHA3-256) and drops it over the multiarch `libsqlite3.so.0` that Python links. SQLite keeps ABI stability across the 3.x series, so no Python rebuild is needed and `sqlite3.sqlite_version` reports the fixed release.
+
+> **`hermes doctor` note.** Doctor flags SQLite 3.40.1 and tells you to `run hermes update`. Ignore that remedy: it does not apply here. `hermes update` only updates the Hermes *Python package* — it can never change the linked C `libsqlite3` — and in this sandbox it fails outright against the read-only checkout (see [Upgrading](#upgrading)). After a rebuild that includes this fix, the warning clears on its own.
+
+To bump SQLite, update `SQLITE_YEAR`, `SQLITE_VERSION`, and `SQLITE_SHA3_256` together in `images/agents/hermes/Dockerfile` from [sqlite.org/download.html](https://www.sqlite.org/download.html). `SQLITE_VERSION` is the zero-padded `X_YY_ZZ_WW` form (3.51.3 → `3510300`); keep it at or above a fixed release. The build fails closed if `SQLITE_SHA3_256` is unset or mismatched.
+
 ## State persistence
 
 `HERMES_HOME` is mounted on a named Docker volume (`hermes-state`), so learned skills, the persona Hermes builds of you, session history, and any provider credentials survive `agentbox down && agentbox up`. They do NOT survive `agentbox destroy` — that wipes all volumes by design.
