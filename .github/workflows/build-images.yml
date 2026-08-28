@@ -19,7 +19,7 @@ env:
   REGISTRY: ghcr.io
   # Single source for the Hermes extras baked into published images. A
   # workflow_dispatch run can override via the hermes_extras input.
-  HERMES_EXTRAS: cli,mcp,acp
+  HERMES_EXTRAS: mcp,acp
   BASE_IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-base
   CLAUDE_IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-claude
   CODEX_IMAGE_NAME: ${{ github.repository_owner }}/agent-sandbox-codex

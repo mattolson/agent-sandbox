@@ -110,7 +110,9 @@ Hermes is installed from a **pinned git checkout**, not the PyPI wheel. The imag
 Two reasons for the git layout over the wheel:
 
 - It silences upstream's `⚠ pip install not officially supported` launch banner legitimately — `detect_install_method()` keys on the `.git` directory and resolves to `git`.
-- It lets us bake a **curated extras set** instead of the wheel's empty one. The build installs `cli` (interactive menus), `mcp` (Model Context Protocol client), and `acp` (Agent Client Protocol) — the `HERMES_EXTRAS` build arg (default `cli,mcp,acp`). The `web` dashboard and all lazy-only backends (voice, matrix, messaging, honcho, …) are deliberately excluded. To add one, rebuild with it appended to `HERMES_EXTRAS`; note some backends also need a build-time system dependency and a network-policy entry.
+- It lets us bake a **curated extras set** instead of the wheel's empty one. The build installs `mcp` (Model Context Protocol client) and `acp` (Agent Client Protocol) — the `HERMES_EXTRAS` build arg (default `mcp,acp`). The `web` dashboard and all lazy-only backends (voice, matrix, messaging, honcho, …) are deliberately excluded. To add one, rebuild with it appended to `HERMES_EXTRAS`; note some backends also need a build-time system dependency and a network-policy entry.
+
+  Extras are upstream's to rename or remove, and `uv sync` fails closed on a name that the pinned tag doesn't define. `cli` (interactive menus, a single `simple-term-menu` pin) was in this set until upstream dropped it in `v2026.8.27`. When bumping across a release that reshuffles extras, re-check the list against that tag's `[project.optional-dependencies]` table.
 
 > **Security note.** A git editable install widens the self-upgrade surface relative to a wheel: the running code *is* the source tree (so "modify yourself" is a file edit), and the native upgrade path becomes `git pull` against github (a host policies often allow) rather than `pip install` against pypi (always blocked here). The mitigations are the read-only, root-owned `/opt/hermes` tree and the egress policy. If your policy allows github at runtime, treat that as a security-relevant choice.
 

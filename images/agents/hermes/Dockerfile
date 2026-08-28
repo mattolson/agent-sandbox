@@ -126,10 +126,18 @@ RUN set -e && \
 ARG HERMES_REF=v2026.6.5
 ARG HERMES_SEMVER=${HERMES_REF}
 
-# Curated extras (comma-separated). cli = interactive menus, mcp = Model Context
-# Protocol client, acp = Agent Client Protocol. Deliberately excludes web
-# (dashboard) and all lazy-only backends. cron/pty are empty upstream no-ops.
-ARG HERMES_EXTRAS="cli,mcp,acp"
+# Curated extras (comma-separated). mcp = Model Context Protocol client,
+# acp = Agent Client Protocol. Deliberately excludes web (dashboard) and all
+# lazy-only backends. cron/pty are empty upstream no-ops.
+#
+# Every name here must exist in the pinned tag's [project.optional-dependencies]
+# table: `uv sync` fails closed on an unknown extra, so an upstream rename or
+# removal breaks the build. That is what happened to `cli` (a single pin,
+# simple-term-menu), dropped upstream in v2026.8.27 — it is gone from both
+# pyproject.toml and uv.lock there, so nothing imports it any more. When bumping
+# HERMES_REF across a release that reshuffles extras, re-check this list against
+# https://raw.githubusercontent.com/NousResearch/hermes-agent/<tag>/pyproject.toml
+ARG HERMES_EXTRAS="mcp,acp"
 
 # Shallow-clone the pinned tag (keep .git — detect_install_method() keys on it),
 # then editable-install core + the curated extras from the locked uv.lock into a

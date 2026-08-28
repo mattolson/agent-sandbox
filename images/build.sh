@@ -16,7 +16,7 @@ set -euo pipefail
 #   GEMINI_VERSION          - Gemini CLI version (default: latest)
 #   OPENCODE_VERSION        - OpenCode version (default: latest)
 #   HERMES_VERSION          - Hermes calver git tag (e.g. v2026.6.5) or "latest" (default: latest)
-#   HERMES_EXTRAS           - Hermes pip extras, comma-separated (default: cli,mcp,acp)
+#   HERMES_EXTRAS           - Hermes pip extras, comma-separated (default: mcp,acp)
 #   EXTRA_PACKAGES          - Additional apt packages for the base image
 #   CLAUDE_EXTRA_PACKAGES   - Additional apt packages for the claude image
 #   COPILOT_EXTRA_PACKAGES  - Additional apt packages for the copilot image
@@ -66,7 +66,7 @@ DOCKER_BUILD_ARGS=("$@")
 : "${PI_VERSION:=latest}"
 : "${OPENCODE_VERSION:=latest}"
 : "${HERMES_VERSION:=latest}"
-: "${HERMES_EXTRAS:=cli,mcp,acp}"
+: "${HERMES_EXTRAS:=mcp,acp}"
 
 : "${EXTRA_PACKAGES:=}"
 : "${CLAUDE_EXTRA_PACKAGES:=}"
@@ -306,7 +306,7 @@ case "$TARGET" in
     echo "  OPENCODE_VERSION        OpenCode version (default: latest)"
     echo "  PI_VERSION              Pi coding agent version (default: latest)"
     echo "  HERMES_VERSION          Hermes calver git tag (e.g. v2026.6.5) or latest (default: latest)"
-    echo "  HERMES_EXTRAS           Hermes pip extras, comma-separated (default: cli,mcp,acp)"
+    echo "  HERMES_EXTRAS           Hermes pip extras, comma-separated (default: mcp,acp)"
     echo "  EXTRA_PACKAGES          Additional apt packages for base image"
     echo "  CLAUDE_EXTRA_PACKAGES   Additional apt packages for claude image"
     echo "  COPILOT_EXTRA_PACKAGES  Additional apt packages for copilot image"
