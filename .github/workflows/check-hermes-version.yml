@@ -18,6 +18,9 @@ jobs:
       actions: write  # Needed to trigger workflows
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
       - name: Resolve latest Hermes release from GitHub
         id: release
         env:
@@ -60,6 +63,68 @@ jobs:
         env:
           DOCKER_CLI_EXPERIMENTAL: enabled
 
+      - name: Validate curated extras against the release
+        id: extras
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HERMES_REF: ${{ steps.release.outputs.ref }}
+        run: |
+          # The extras baked into the image are upstream's to rename or remove,
+          # and `uv sync` fails closed on a name the pinned tag does not define.
+          # Catching that here costs one API call; catching it in build-images
+          # costs a two-arch buildx run that reports only a Docker exit code.
+          # Upstream dropped the `cli` extra in v2026.8.27 — this is the check
+          # that would have named it.
+          #
+          # Deliberately fails the run rather than filtering unknown extras out
+          # of the build: silently shipping an image without `mcp` would be a
+          # worse outcome than a red workflow.
+
+          # One value, three files. Extract all three and require agreement, so
+          # a partial edit is caught here rather than as a surprise difference
+          # between `./images/build.sh hermes` and the published image.
+          CI_EXTRAS=$(grep -oP '^\s*HERMES_EXTRAS:\s*\K\S+' .github/workflows/build-images.yml | head -n1)
+          ARG_EXTRAS=$(grep -oP '^ARG HERMES_EXTRAS="\K[^"]+' images/agents/hermes/Dockerfile | head -n1)
+          SH_EXTRAS=$(grep -oP '\$\{HERMES_EXTRAS:=\K[^}]+' images/build.sh | head -n1)
+          for pair in "build-images.yml:$CI_EXTRAS" "Dockerfile:$ARG_EXTRAS" "build.sh:$SH_EXTRAS"; do
+            [ -n "${pair#*:}" ] || { echo "Could not read HERMES_EXTRAS from ${pair%%:*}"; exit 1; }
+          done
+          if [ "$CI_EXTRAS" != "$ARG_EXTRAS" ] || [ "$CI_EXTRAS" != "$SH_EXTRAS" ]; then
+            echo "::error::HERMES_EXTRAS drift: build-images.yml='$CI_EXTRAS' Dockerfile='$ARG_EXTRAS' build.sh='$SH_EXTRAS'"
+            exit 1
+          fi
+          echo "extras=$CI_EXTRAS" >> $GITHUB_OUTPUT
+
+          gh api "repos/NousResearch/hermes-agent/contents/pyproject.toml?ref=$HERMES_REF" \
+            -H "Accept: application/vnd.github.raw" > /tmp/hermes-pyproject.toml
+
+          python3 - "$CI_EXTRAS" <<'PY'
+          import sys, tomllib
+
+          requested = [e for e in sys.argv[1].split(",") if e]
+          with open("/tmp/hermes-pyproject.toml", "rb") as fh:
+              project = tomllib.load(fh).get("project", {})
+          defined = project.get("optional-dependencies", {})
+
+          print("requires-python:", project.get("requires-python"))
+          print("requested extras:", ", ".join(requested))
+          print("extras defined upstream:", ", ".join(sorted(defined)))
+
+          missing = [e for e in requested if e not in defined]
+          if missing:
+              print(
+                  "::error::Hermes extras not defined in this release: "
+                  + ", ".join(missing)
+                  + ". uv sync fails closed on unknown extras, so the image build "
+                  "will fail. Update HERMES_EXTRAS in "
+                  ".github/workflows/build-images.yml, images/agents/hermes/Dockerfile, "
+                  "and images/build.sh, then re-run."
+              )
+              sys.exit(1)
+          print("All requested extras are defined in this release.")
+          PY
+
       - name: Trigger image rebuild
         if: steps.check.outputs.exists == 'false'
         env:
@@ -76,4 +141,5 @@ jobs:
           echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Latest release | ${{ steps.release.outputs.ref }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Tag exists | ${{ steps.check.outputs.exists }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Extras validated | ${{ steps.extras.outputs.extras || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Rebuild triggered | ${{ steps.check.outputs.exists == 'false' }} |" >> $GITHUB_STEP_SUMMARY
