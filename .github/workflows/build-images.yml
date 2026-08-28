@@ -31,12 +31,28 @@ on:
 # per-run scope is never read by a later run, which turns the cache off
 # entirely - the failure this workflow just spent two changes recovering from.
 #
-# cancel-in-progress is false so an in-flight release build is queued behind,
-# not killed. GitHub keeps only one pending run per group and cancels further
-# ones; a dispatch dropped that way is re-sent by the next daily version check,
-# which re-detects the missing tag.
+# cancel-in-progress is false so an in-flight build is queued behind, not
+# killed. GitHub allows one pending run per group and cancels the previously
+# pending one, so the newest request always survives. What that costs depends
+# on the trigger:
+#
+#   push        - nothing. A superseding push run checks out a later commit
+#                 that already contains the dropped one's changes.
+#   dispatch    - nothing durable. Version-check dispatches are re-sent by the
+#                 next daily run once it re-detects the missing tag; a manual
+#                 one is visibly cancelled and can be re-run.
+#   release     - lossy, and nothing recovers it. Release runs are the only
+#                 ones that publish the type=semver tags (the other tag types
+#                 are latest/sha), so a dropped release build leaves those
+#                 versions unpublished for good.
+#
+# So releases get their own group, keyed by tag: never queued behind or
+# cancelled by a push or a dispatch, and distinct releases never cancel each
+# other. Everything else shares one serialized group. The cost is that a
+# release can overlap a push and the two contend for a cache scope - rare, and
+# it degrades cache reuse rather than correctness, which is the right way round.
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'release' && github.ref_name || 'shared' }}
   cancel-in-progress: false
 
 env:
