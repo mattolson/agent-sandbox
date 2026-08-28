@@ -20,6 +20,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          # Only needed to read HERMES_EXTRAS out of the tree; no step here runs
+          # a git operation. Keep GITHUB_TOKEN out of .git/config, where the
+          # default would leave it readable for the rest of the job - including
+          # the step that dispatches build-images with actions: write.
+          persist-credentials: false
 
       - name: Resolve latest Hermes release from GitHub
         id: release
