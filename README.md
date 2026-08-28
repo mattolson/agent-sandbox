@@ -26,14 +26,14 @@ Target platform: [Colima](https://github.com/abiosoft/colima) + [Docker Engine](
 
 | Agent | CLI | VS Code | JetBrains |
 |-------|-----|---------|-----------|
-| [Claude Code](https://code.claude.com/docs/en/overview) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [Claude Code](https://code.claude.com/docs/en/overview) | :white_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | [Codex](https://github.com/openai/codex) | :white_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | [Gemini](https://github.com/google-gemini/gemini-cli) | :heavy_check_mark: | :heavy_check_mark: | :no_entry_sign: |
 | [OpenCode](https://github.com/anomalyco/opencode) | :heavy_check_mark: | :heavy_check_mark: | :no_entry_sign: |
 | [Pi](https://github.com/badlogic/pi-mono) | :heavy_check_mark: | :no_entry_sign: | :no_entry_sign: |
 | [Factory](https://docs.factory.ai/cli) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | [Copilot](https://github.com/github/copilot-cli) | :heavy_check_mark: | :heavy_check_mark: | :no_entry_sign: |
-| [Hermes](https://hermes-agent.nousresearch.com/docs/) | :heavy_check_mark: | :no_entry_sign: | :no_entry_sign: |
+| [Hermes](https://hermes-agent.nousresearch.com/docs/) | :white_check_mark: | :no_entry_sign: | :no_entry_sign: |
 
 * :white_check_mark: **Full Support** - stable, heavily used by maintainers
 * :heavy_check_mark: **Preview** - tested during initial integration, but not heavily used by maintainers. Contributions, documentation, and bug reports welcome.
