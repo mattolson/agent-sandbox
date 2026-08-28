@@ -1,0 +1,22 @@
+version: 2
+
+updates:
+  # Actions are pinned to full commit SHAs (see .github/workflows/*.yml), which
+  # is what makes a retargeted tag a non-event here. The tradeoff is that a
+  # pinned SHA never picks up upstream fixes on its own, so this exists to keep
+  # them moving: Dependabot reads the `# vX.Y.Z` comment beside each pin, opens
+  # a PR when a newer release exists, and rewrites both the SHA and the comment.
+  # Drop either the pin format or this config and the pins quietly go stale.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # One PR per upstream org rather than ten. The docker/* actions in
+      # build-images.yml are used together and are easiest to review together.
+      actions:
+        patterns:
+          - actions/*
+      docker:
+        patterns:
+          - docker/*
