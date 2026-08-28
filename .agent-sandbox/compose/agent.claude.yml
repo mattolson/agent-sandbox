@@ -13,7 +13,7 @@ services:
     environment:
       - AGENTBOX_ACTIVE_AGENT=claude
   agent:
-    image: ghcr.io/mattolson/agent-sandbox-claude@sha256:09182e0bb1744a52df1f0ab2ad6b0d2971d09291b45117a53377b810612b5eae
+    image: ghcr.io/mattolson/agent-sandbox-claude@sha256:9be7b28671ece64fda0627fb42935b6ca105924737d03d20ea37f65952822935
     volumes:
       - claude-state:/home/dev/.claude
       - claude-history:/commandhistory
