@@ -82,13 +82,21 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
+          # scope= is mandatory here, not decoration. type=gha defaults to
+          # scope=buildkit, so without it all ten image jobs write one shared
+          # cache index; they run concurrently, last writer wins, and every
+          # other job's manifest is lost. The layers survive as content-
+          # addressed blobs but nothing points at them, so cache-from restores
+          # nothing. Give every job its own scope. Agent images consume base
+          # through BASE_IMAGE by digest from the registry, not through this
+          # cache, so separate scopes cost no reuse.
+          cache-from: type=gha,scope=base
           # mode=max, unlike the single-stage images below: it is the only thing
           # that caches the git-builder and yq-builder stages, and git is
           # compiled from source once per target platform (the arm64 pass runs
           # under QEMU). Losing that layer is the difference between a ~20 minute
           # job and a few minutes. Keep in step with images/base/Dockerfile.
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,scope=base
 
       - name: Output digest
         run: echo "Base image digest - ${{ steps.build.outputs.digest }}"
@@ -139,8 +147,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=min
+          cache-from: type=gha,scope=proxy
+          cache-to: type=gha,mode=min,scope=proxy
 
       - name: Output digest
         run: echo "Proxy image digest - ${{ steps.build.outputs.digest }}"
@@ -204,8 +212,8 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}@${{ needs.build-base.outputs.digest }}
             CLAUDE_CODE_VERSION=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=min
+          cache-from: type=gha,scope=claude
+          cache-to: type=gha,mode=min,scope=claude
 
       - name: Output digest
         run: echo "Claude image digest - ${{ steps.build.outputs.digest }}"
@@ -269,8 +277,8 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}@${{ needs.build-base.outputs.digest }}
             COPILOT_VERSION=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=min
+          cache-from: type=gha,scope=copilot
+          cache-to: type=gha,mode=min,scope=copilot
 
       - name: Output digest
         run: echo "Copilot image digest - ${{ steps.build.outputs.digest }}"
@@ -337,8 +345,8 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}@${{ needs.build-base.outputs.digest }}
             CODEX_VERSION=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=min
+          cache-from: type=gha,scope=codex
+          cache-to: type=gha,mode=min,scope=codex
 
       - name: Output digest
         run: echo "Codex image digest - ${{ steps.build.outputs.digest }}"
@@ -402,8 +410,8 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}@${{ needs.build-base.outputs.digest }}
             GEMINI_VERSION=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=min
+          cache-from: type=gha,scope=gemini
+          cache-to: type=gha,mode=min,scope=gemini
 
       - name: Output digest
         run: echo "Gemini image digest - ${{ steps.build.outputs.digest }}"
@@ -471,8 +479,8 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}@${{ needs.build-base.outputs.digest }}
             FACTORY_VERSION=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=min
+          cache-from: type=gha,scope=factory
+          cache-to: type=gha,mode=min,scope=factory
 
       - name: Output digest
         run: echo "Factory image digest - ${{ steps.build.outputs.digest }}"
@@ -540,8 +548,8 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}@${{ needs.build-base.outputs.digest }}
             PI_VERSION=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=min
+          cache-from: type=gha,scope=pi
+          cache-to: type=gha,mode=min,scope=pi
 
       - name: Output digest
         run: echo "Pi image digest - ${{ steps.build.outputs.digest }}"
@@ -609,8 +617,8 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}@${{ needs.build-base.outputs.digest }}
             OPENCODE_VERSION=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=min
+          cache-from: type=gha,scope=opencode
+          cache-to: type=gha,mode=min,scope=opencode
 
       - name: Output digest
         run: echo "OpenCode image digest - ${{ steps.build.outputs.digest }}"
@@ -713,11 +721,11 @@ jobs:
             HERMES_REF=${{ steps.version.outputs.ref }}
             HERMES_SEMVER=${{ steps.version.outputs.semver }}
             HERMES_EXTRAS=${{ inputs.hermes_extras || env.HERMES_EXTRAS }}
-          cache-from: type=gha
+          cache-from: type=gha,scope=hermes
           # mode=max, unlike the single-stage images: hermes has a sqlite-builder
           # stage that compiles the SQLite amalgamation once per target platform.
           # Keep in step with images/agents/hermes/Dockerfile.
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,scope=hermes
 
       - name: Output digest
         run: echo "Hermes image digest - ${{ steps.build.outputs.digest }}"
