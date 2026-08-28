@@ -14,6 +14,10 @@ on:
         description: 'Override Hermes pip extras (comma-separated); blank uses the default'
         required: false
         default: ''
+      hermes_ref:
+        description: 'Build this Hermes calver tag (e.g. v2026.8.27); blank resolves the latest release'
+        required: false
+        default: ''
 
 env:
   REGISTRY: ghcr.io
@@ -621,17 +625,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Resolve latest Hermes release from GitHub
+      - name: Resolve Hermes release from GitHub
         id: version
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Via env, never interpolated into the script below: a
+          # workflow_dispatch input is attacker-influenced in the same way
+          # hermes_extras is, and is validated before use for the same reason.
+          REQUESTED_REF: ${{ inputs.hermes_ref }}
         run: |
           # Upstream tags releases with calver (e.g. v2026.6.5) and embeds the
           # semver in the release name ("Hermes Agent v0.16.0 (2026.6.5) ...").
           # PyPI carries no link to the tag, so GitHub releases are the source
           # of truth: ref (calver tag) is cloned, calver names the image tag,
           # semver is a cosmetic label only.
-          RELEASE=$(gh api repos/NousResearch/hermes-agent/releases/latest)
+          #
+          # check-hermes-version.yml validates the curated extras against a
+          # specific release and then dispatches this workflow with that same
+          # tag in hermes_ref. Honouring it is what keeps the two workflows on
+          # one release: re-resolving `latest` here would let a release cut in
+          # the gap get built without ever being validated - the exact
+          # two-arch build failure the guard exists to prevent. Blank (push,
+          # release, or a manual run) falls back to resolving latest.
+          if [ -n "$REQUESTED_REF" ]; then
+            printf '%s' "$REQUESTED_REF" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+              || { echo "ERROR: hermes_ref is not a calver tag (expected vYYYY.M.D): $REQUESTED_REF" >&2; exit 1; }
+            echo "Building the Hermes release requested by the caller: $REQUESTED_REF"
+            RELEASE=$(gh api "repos/NousResearch/hermes-agent/releases/tags/$REQUESTED_REF")
+          else
+            RELEASE=$(gh api repos/NousResearch/hermes-agent/releases/latest)
+          fi
           REF=$(printf '%s' "$RELEASE" | jq -r .tag_name)
           NAME=$(printf '%s' "$RELEASE" | jq -r .name)
           if [ -z "$REF" ] || [ "$REF" = "null" ]; then

@@ -135,9 +135,14 @@ jobs:
         if: steps.check.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HERMES_REF: ${{ steps.release.outputs.ref }}
         run: |
-          echo "Triggering build-images workflow for hermes-agent ${{ steps.release.outputs.ref }}..."
-          gh workflow run build-images.yml --repo ${{ github.repository }}
+          # Pass the tag the extras were validated against rather than letting
+          # build-images resolve `latest` a second time. Without this the two
+          # workflows can land on different releases if upstream publishes in
+          # the gap, and the build would run unvalidated.
+          echo "Triggering build-images workflow for hermes-agent $HERMES_REF..."
+          gh workflow run build-images.yml --repo "$GITHUB_REPOSITORY" -f "hermes_ref=$HERMES_REF"
 
       - name: Summary
         run: |
