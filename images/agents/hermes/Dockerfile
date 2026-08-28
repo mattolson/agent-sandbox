@@ -117,13 +117,13 @@ RUN set -e && \
     rm -rf /tmp/uv.tar.gz "/tmp/uv-${UV_TRIPLE}" && \
     uv --version
 
-# Pin the upstream release. HERMES_REF is the calver git tag (e.g. v2026.6.5);
-# HERMES_SEMVER is the human-facing semver (e.g. 0.16.0) carried in a label
+# Pin the upstream release. HERMES_REF is the calver git tag (e.g. v2026.8.27);
+# HERMES_SEMVER is the human-facing semver (e.g. 0.20.6) carried in a label
 # only. Upstream maintains both schemes for the same release with no link from
 # PyPI to the tag, so the build clones the tag and CI resolves both from the
 # GitHub release. The default here is a concrete tag for bare `docker build`;
 # build.sh and CI override it. Bump via the version-check workflow.
-ARG HERMES_REF=v2026.6.5
+ARG HERMES_REF=v2026.8.27
 ARG HERMES_SEMVER=${HERMES_REF}
 
 # Curated extras (comma-separated). mcp = Model Context Protocol client,
