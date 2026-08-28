@@ -22,7 +22,7 @@ services:
         read_only: true
         bind:
           create_host_path: false
-      - proxy-credential-shims:/run/agentbox/credential-shims
+      - proxy-agentbox-run:/run/agentbox
     environment:
       - PROXY_MODE=enforce
     healthcheck:
@@ -50,7 +50,7 @@ services:
       - ../..:/workspace
       - ..:/workspace/.agent-sandbox:ro
       - proxy-ca:/etc/mitmproxy:ro
-      - proxy-credential-shims:/run/agentbox/credential-shims:ro
+      - proxy-agentbox-run:/run/agentbox:ro
     working_dir: /workspace
     stdin_open: true
     tty: true
@@ -63,4 +63,4 @@ services:
 volumes:
   proxy-state:
   proxy-ca:
-  proxy-credential-shims:
+  proxy-agentbox-run:
