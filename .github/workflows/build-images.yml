@@ -19,6 +19,26 @@ on:
         required: false
         default: ''
 
+# Serialize runs of this workflow. Two things break when they overlap:
+#
+#   1. Cache. Each job exports to a fixed scope (scope=base, scope=claude, ...),
+#      so concurrent runs of the same job contend for one scope exactly as the
+#      ten jobs did before they were scoped at all.
+#   2. Tags. Both runs push the same :latest and :hermes-<calver> tags to GHCR,
+#      and the winner is whichever finishes last.
+#
+# Serializing is the fix rather than adding a run dimension to the scope: a
+# per-run scope is never read by a later run, which turns the cache off
+# entirely - the failure this workflow just spent two changes recovering from.
+#
+# cancel-in-progress is false so an in-flight release build is queued behind,
+# not killed. GitHub keeps only one pending run per group and cancels further
+# ones; a dispatch dropped that way is re-sent by the next daily version check,
+# which re-detects the missing tag.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   # Single source for the Hermes extras baked into published images. A
