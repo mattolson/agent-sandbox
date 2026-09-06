@@ -105,6 +105,7 @@ Lessons learned during project execution. Review at the start of each planning s
 - Renderer-owned shim fragments must be rewritten on every render, including the "not active" form, so a shim that was removed from policy leaves an inert file rather than stale exports that keep working by accident (m17.2)
 - A skill's quick check must target a path the policy actually allows. Curling a host root under a path-scoped allowlist returns 403 even when access is on, which teaches the agent the opposite of the truth (m17.4)
 - Render every policy example through the integration harness's `render_authored_policy` before committing it. It is a two-line check that catches a broken example before a user does (m17.5)
+- Attach security invariants to the construct they protect, not to conventions around it. Credential transforms are https-only because `apply_rule_transform` enforces it in both the catalog and the renderer, not because every rule author remembered to write `schemes: [https]` (m17.2 review)
 
 ## Architecture
 

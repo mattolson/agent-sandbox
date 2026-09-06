@@ -1,5 +1,21 @@
 # Execution Log: m17.2 - api surface auth and shim
 
+## 2026-09-06 - Review fix: credential-carrying rules are https-only
+
+**Issue:** Review found that api rules with `auth` inherited both `http` and `https`, so a client requesting
+`http://api.github.com/repos/...` would have the real bearer token injected and forwarded in plaintext. The git
+surface had the same defect since m15.
+**Solution:** Fixed the class, not the instance. The catalog's `_apply_rule_transform` now drops `http` from any rule
+it attaches a transform to, and the renderer's `apply_rule_transform` does the same for authored `domains`
+transforms, failing rendering when a rule permitted only `http`. Unauthenticated rules keep both schemes.
+
+**Issue:** The integration harness's fake upstream is plaintext, so every injection test would stop matching.
+**Solution:** `remap_rendered_host` re-admits `http` on the rules of a host it remaps to the fake upstream, with a
+docstring calling it a test-only downgrade. The enforcement test that builds rendered dicts directly was unaffected.
+
+**Learning:** A security property that holds "because every rule happens to be https" is not a property. Attach the
+invariant to the thing it protects: the transform, not the rule author.
+
 ## 2026-09-06 - Env shim kind landed with integration coverage
 
 Added `kind: env` to `credential_shim.py`, wired the api surface to emit a `GH_TOKEN` hint and flip to
