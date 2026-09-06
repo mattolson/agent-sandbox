@@ -1,6 +1,6 @@
 ---
 name: operating-in-agent-sandbox
-description: Read this when you are an AI coding agent running inside an Agent Sandbox container. Explains the network proxy, allowlist policy, filesystem/git constraints, how to discover your own limits from the read-only .agent-sandbox directory, and what to do when a request fails with "Blocked by proxy policy" (HTTP 403) or a direct connection is refused. Use it before fighting a network/permission error or concluding a tool is broken.
+description: Read this when you are an AI coding agent running inside an Agent Sandbox container. Explains the network proxy, allowlist policy, filesystem/git constraints, how to discover your own limits from the read-only .agent-sandbox directory, how to use GitHub (issues, pull requests, CI) through `gh api`, and what to do when a request fails with "Blocked by proxy policy" (HTTP 403) or a direct connection is refused. Use it before fighting a network/permission error or concluding a tool is broken.
 ---
 
 # Operating Inside an Agent Sandbox
@@ -82,8 +82,9 @@ domains:           # explicit hosts; wildcards like "*.example.com" are allowed
 ## Quick checks you can run
 
 ```bash
-# Should succeed only if api.github.com is on the allowlist:
-curl -sS -o /dev/null -w '%{http_code}\n' https://api.github.com
+# Should succeed only if the GitHub API is allowed for this repository (the
+# allowlist is scoped to repository paths, so the API root itself returns 403):
+curl -sS -o /dev/null -w '%{http_code}\n' https://api.github.com/repos/OWNER/REPO
 
 # A 403 body of "Blocked by proxy policy: <host>" means the host is not allowed.
 # A direct (non-proxy) attempt is refused by the firewall, not the proxy:
@@ -129,9 +130,18 @@ curl --noproxy '*' --connect-timeout 3 https://example.com   # expected to fail
 - `/workspace` is your project and is writable. `.agent-sandbox/` is read-only.
 - Git remotes are rewritten from SSH to HTTPS, and outbound git goes through the proxy.
   Push/pull works only for repos the policy allows.
-- Credentials are injected at the proxy via credential shims; you generally will not see
-  raw tokens as env vars, and you do not need them — authenticated requests to allowed
-  services are handled for you.
+- Credentials are injected at the proxy via credential shims; you will not see raw tokens
+  as env vars, and you do not need them — authenticated requests to allowed services are
+  handled for you. Env vars such as `GH_TOKEN=agentbox-proxy-managed` are placeholders the
+  proxy replaces in flight. Leave them alone.
+
+## GitHub issues, pull requests, and CI
+
+If `api.github.com` appears in `/run/agentbox/policy.yaml`, you can read and write issues
+and pull requests for the allowed repository with `gh api repos/{owner}/{repo}/...`. The
+high-level `gh pr` and `gh issue` commands use GraphQL and are blocked; do not retry them.
+Read `github-api.md` next to this file for the validated commands, paging, and what stays
+blocked.
 
 ## Bottom line
 
