@@ -9,6 +9,9 @@ This project is security-sensitive. Process matters because design, roadmap alig
 - Read the [README](./README.md), [roadmap](./docs/roadmap.md), and [project plan](./docs/plan/project.md).
 - Run `make setup` to build `Dockerfile.dev` for the active agent from
   `.agent-sandbox/active-target.env`.
+- Run `make bump` to update the agent CLI inside that dev image. Plain
+  `make setup` will not pick up a new agent release on its own. See
+  [Image Versioning](./docs/images.md#local-dev-image).
 - Search existing issues and pull requests before opening a new one.
 - Keep changes agent-agnostic when possible.
 - Do not start substantive feature implementation before maintainer review.
