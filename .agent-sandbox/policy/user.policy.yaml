@@ -15,6 +15,12 @@ services:
         secret: github.agent-sandbox.push-token
         client_shim:
           kind: git-askpass
+    api:
+      access: readwrite
+      auth:
+        secret: github.agent-sandbox.push-token
+        client_shim:
+          kind: env
 domains:
   - raw.githubusercontent.com
   - mcp.linear.app
