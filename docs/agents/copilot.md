@@ -36,3 +36,17 @@ Afterward, for CLI mode, stop the container:
 ```bash
 agentbox compose down
 ```
+
+## Network policy and the GitHub API
+
+The `copilot` proxy service allows `github.com` and `api.github.com` host-wide, because Copilot CLI talks to both
+directly and authenticates with its own login (the `/login` flow above), not with a proxy-injected token.
+
+That has two consequences for the repo-scoped GitHub `api` surface described in [docs/github.md](../github.md):
+
+- It adds no reach in a Copilot sandbox. The baseline already permits every path and method on `api.github.com`, so
+  the fixed `readwrite` allowlist does not constrain Copilot's own GitHub traffic.
+- Proxy-side token injection for `gh api` does not work alongside it. The proxy applies the first rule that matches,
+  and the baseline's host-wide catch-all is merged before user policy, so a request never reaches the repo-scoped
+  rule that carries `api.auth`. Running `gh api` inside a Copilot sandbox therefore needs its own token in the
+  container, which is the discouraged shape. Use a different agent's sandbox for proxy-injected `gh api`.

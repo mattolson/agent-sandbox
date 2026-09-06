@@ -96,6 +96,10 @@ header only when the client sends none, and fails closed if it sends one.
 
 The full example lives at [policy/examples/github-api.yaml](policy/examples/github-api.yaml).
 
+One exception: in a Copilot sandbox the agent baseline already allows `api.github.com` host-wide and its catch-all
+rule matches first, so a repo-scoped `api.auth` entry neither narrows anything nor injects. See
+[docs/agents/copilot.md](agents/copilot.md#network-policy-and-the-github-api).
+
 ## Inside the container
 
 `gh --version` prints the pinned version. `GH_TOKEN` is a placeholder; do not replace it or run `gh auth login`.

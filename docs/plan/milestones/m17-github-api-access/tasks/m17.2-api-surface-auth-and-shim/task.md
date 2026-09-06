@@ -69,7 +69,7 @@ Three commits, each leaving the suite green:
 - [x] Env fragment rendering, init sourcing, and stale-clearing
 - [x] Integration test through the real enforcer, including allowlist negatives
 - [x] Schema docs
-- [ ] Rebuild the proxy image and re-run the command matrix (`m17.3`)
+- [x] Rebuild the proxy image and re-run the command matrix: done in `m17.3` on host-rebuilt images
 
 ### Open Questions
 
