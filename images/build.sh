@@ -10,6 +10,9 @@ set -euo pipefail
 #   GIT_VERSION             - Upstream Git version for the base image (default: 2.50.1)
 #   GIT_TARBALL_SHA256      - SHA-256 for the pinned upstream Git source tarball
 #   YQ_VERSION              - Mike Farah yq version for the base image (default: 4.52.4)
+#   GH_VERSION              - GitHub CLI version for the base image (default: 2.100.0)
+#   GH_SHA256_AMD64         - SHA-256 for the pinned gh linux/amd64 release tarball
+#   GH_SHA256_ARM64         - SHA-256 for the pinned gh linux/arm64 release tarball
 #   CLAUDE_CODE_VERSION     - Claude Code version (default: latest)
 #   COPILOT_VERSION         - GitHub Copilot CLI version (default: latest)
 #   CODEX_VERSION           - OpenAI Codex CLI version (default: latest)
@@ -31,10 +34,11 @@ set -euo pipefail
 # Examples:
 #   GIT_VERSION=2.50.1 GIT_TARBALL_SHA256=4932f262b88b7f4f8402e331a7ee8d0a98ba350aa2269ce3a00eeda18cb4fe43 ./build.sh base
 #   YQ_VERSION=4.52.4 ./build.sh base
+#   GH_VERSION=2.100.0 GH_SHA256_AMD64=<sha> GH_SHA256_ARM64=<sha> ./build.sh base
 #   CODEX_VERSION=0.104.0 ./build.sh codex
 #   GEMINI_VERSION=0.1.0 ./build.sh gemini
 #   CLAUDE_CODE_VERSION=1.0.0 ./build.sh claude
-#   EXTRA_PACKAGES="jq gh" ./build.sh base
+#   EXTRA_PACKAGES="htop tree" ./build.sh base
 #   STACKS="python,go:1.23" ./build.sh base
 #   TAG=python-go STACKS="python,go" ./build.sh all
 #   ./build.sh --no-cache              # builds all with --no-cache
@@ -60,6 +64,9 @@ DOCKER_BUILD_ARGS=("$@")
 : "${GIT_VERSION:=2.50.1}"
 : "${GIT_TARBALL_SHA256:=4932f262b88b7f4f8402e331a7ee8d0a98ba350aa2269ce3a00eeda18cb4fe43}"
 : "${YQ_VERSION:=4.52.4}"
+: "${GH_VERSION:=2.100.0}"
+: "${GH_SHA256_AMD64:=e4d4bb4498e8d007abe545b6568926793ace1b6447da598294a610018cb164be}"
+: "${GH_SHA256_ARM64:=ea4e7a581a32ccad6cc7923cb1576ac5859ba4b9a16ab22eb8f8a96e78e2e961}"
 : "${CLAUDE_CODE_VERSION:=latest}"
 : "${COPILOT_VERSION:=latest}"
 : "${CODEX_VERSION:=latest}"
@@ -90,6 +97,7 @@ build_base() {
   echo "  GIT_VERSION=$GIT_VERSION"
   echo "  GIT_TARBALL_SHA256=$GIT_TARBALL_SHA256"
   echo "  YQ_VERSION=$YQ_VERSION"
+  echo "  GH_VERSION=$GH_VERSION"
   [ -n "$EXTRA_PACKAGES" ] && echo "  EXTRA_PACKAGES=$EXTRA_PACKAGES"
   [ -n "$STACKS" ] && echo "  STACKS=$STACKS"
   [ "$TAG" != "local" ] && echo "  TAG=$TAG"
@@ -98,6 +106,9 @@ build_base() {
     --build-arg GIT_VERSION="$GIT_VERSION" \
     --build-arg GIT_TARBALL_SHA256="$GIT_TARBALL_SHA256" \
     --build-arg YQ_VERSION="$YQ_VERSION" \
+    --build-arg GH_VERSION="$GH_VERSION" \
+    --build-arg GH_SHA256_AMD64="$GH_SHA256_AMD64" \
+    --build-arg GH_SHA256_ARM64="$GH_SHA256_ARM64" \
     --build-arg EXTRA_PACKAGES="$EXTRA_PACKAGES" \
     --build-arg STACKS="$STACKS" \
     ${DOCKER_BUILD_ARGS[@]+"${DOCKER_BUILD_ARGS[@]}"} \

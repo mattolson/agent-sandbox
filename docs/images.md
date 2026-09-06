@@ -20,6 +20,26 @@ agentbox edit compose
 #   proxy service: agent-sandbox-proxy:local
 ```
 
+## Pinned tools in the base image
+
+The base image pins three tools that Debian bookworm either lacks or ships too old:
+
+- Git, built from a checksum-verified source tarball (`GIT_VERSION`, `GIT_TARBALL_SHA256`)
+- yq, copied from the `mikefarah/yq` image (`YQ_VERSION`)
+- GitHub CLI, from a checksum-verified release tarball per architecture (`GH_VERSION`, `GH_SHA256_AMD64`,
+  `GH_SHA256_ARM64`)
+
+Dependabot cannot see tarball downloads, so Git and gh are refreshed by hand. To bump gh:
+
+```bash
+V=2.101.0
+curl -fsSLO "https://github.com/cli/cli/releases/download/v${V}/gh_${V}_checksums.txt"
+grep -E "linux_(amd64|arm64)\.tar\.gz$" "gh_${V}_checksums.txt"
+```
+
+Copy the two hashes into the `GH_SHA256_AMD64` and `GH_SHA256_ARM64` defaults in `images/base/Dockerfile` and
+`images/build.sh`, set `GH_VERSION` in both, and rebuild. The Dockerfile fails the build if a hash does not match.
+
 ## Local Dev Image
 
 This applies to developing agent-sandbox itself, not to using it.

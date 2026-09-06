@@ -60,6 +60,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=yq-builder /usr/bin/yq /usr/local/bin/yq
 RUN yq --version | grep -F "v${YQ_VERSION}"
 
+# GitHub CLI, pinned and checksum-verified per architecture. Agents use
+# `gh api` against the proxy's repo-scoped REST surface; see docs/github.md.
+# TARGETARCH is set by BuildKit; fall back to dpkg for the legacy builder.
+ARG GH_VERSION=2.100.0
+ARG GH_SHA256_AMD64=e4d4bb4498e8d007abe545b6568926793ace1b6447da598294a610018cb164be
+ARG GH_SHA256_ARM64=ea4e7a581a32ccad6cc7923cb1576ac5859ba4b9a16ab22eb8f8a96e78e2e961
+ARG TARGETARCH
+RUN TARGETARCH="${TARGETARCH:-$(dpkg --print-architecture)}" && \
+  case "${TARGETARCH}" in \
+    amd64) GH_SHA256="${GH_SHA256_AMD64}" ;; \
+    arm64) GH_SHA256="${GH_SHA256_ARM64}" ;; \
+    *) echo "ERROR: unsupported TARGETARCH for gh: ${TARGETARCH}" >&2; exit 1 ;; \
+  esac && \
+  curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${TARGETARCH}.tar.gz" -o /tmp/gh.tar.gz && \
+  echo "${GH_SHA256}  /tmp/gh.tar.gz" | sha256sum -c - && \
+  tar -xzf /tmp/gh.tar.gz -C /tmp && \
+  install -m 0755 "/tmp/gh_${GH_VERSION}_linux_${TARGETARCH}/bin/gh" /usr/local/bin/gh && \
+  rm -rf /tmp/gh.tar.gz "/tmp/gh_${GH_VERSION}_linux_${TARGETARCH}" && \
+  gh --version | grep -F "gh version ${GH_VERSION}"
+
+# Never let gh call the cli/cli release endpoint for update checks (blocked by
+# repo-scoped policy) or wait on an interactive prompt inside an agent session.
+ENV GH_NO_UPDATE_NOTIFIER=1
+ENV GH_PROMPT_DISABLED=1
+
 # Optional extra packages (separate layer for cacheability)
 ARG EXTRA_PACKAGES=""
 RUN if [ -n "$EXTRA_PACKAGES" ]; then \
