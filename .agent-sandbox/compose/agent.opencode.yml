@@ -8,7 +8,7 @@ services:
     environment:
       - AGENTBOX_ACTIVE_AGENT=opencode
   agent:
-    image: ghcr.io/mattolson/agent-sandbox-opencode@sha256:5e5b1c778799b9e015cb47f08183087e8320f54a5ae8e1e2997cb0e9272242bd
+    image: ghcr.io/mattolson/agent-sandbox-opencode@sha256:6c6c6471745c1aae94c1afbc10c577f92ddcd1d0c11ca49577b65ec12ac89b04
     volumes:
       - opencode-config:/home/dev/.config
       - opencode-local-share:/home/dev/.local/share
