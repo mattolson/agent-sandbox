@@ -7,6 +7,7 @@ METADATA_FILE="${METADATA_FILE:-$REPO_ROOT/.agent-sandbox/active-target.env}"
 DOCKERFILE_PATH="${DOCKERFILE_PATH:-$REPO_ROOT/Dockerfile.dev}"
 BUILD_CONTEXT="${BUILD_CONTEXT:-$REPO_ROOT}"
 IMAGE_BUILDER="${IMAGE_BUILDER:-$REPO_ROOT/images/build.sh}"
+VERSIONS_FILE="${VERSIONS_FILE:-$SCRIPT_DIR/dev-image-versions.env}"
 
 is_supported_agent() {
 	case "$1" in
@@ -34,6 +35,7 @@ Optional environment variables:
   METADATA_FILE    Agent metadata file (default: ./.agent-sandbox/active-target.env)
   DOCKERFILE_PATH  Dockerfile to build (default: ./Dockerfile.dev)
   BUILD_CONTEXT    Docker build context (default: repo root)
+  VERSIONS_FILE    Pinned agent CLI versions (default: ./scripts/dev-image-versions.env)
 EOF
 }
 
@@ -77,6 +79,22 @@ fi
 
 IMAGE_TAG="${IMAGE_TAG:-agent-sandbox-dev:$AGENT}"
 OVERRIDE_FILE="$REPO_ROOT/.agent-sandbox/compose/user.agent.$AGENT.override.yml"
+
+# Apply pinned agent CLI versions as defaults. images/build.sh defaults these to
+# "latest", which is a cache-stable build arg, so Docker reuses the cached
+# install layer and never reinstalls the agent. A concrete version busts it.
+# Explicitly set environment variables always win over the file.
+if [ -f "$VERSIONS_FILE" ]; then
+	while IFS='=' read -r key value; do
+		case "$key" in
+			'' | \#*) continue ;;
+		esac
+		if [ -z "${!key:-}" ]; then
+			export "$key=$value"
+			printf 'Pinned %s=%s from %s\n' "$key" "$value" "$VERSIONS_FILE"
+		fi
+	done < "$VERSIONS_FILE"
+fi
 
 printf 'Building prerequisite local images for %s\n' "$AGENT"
 "$IMAGE_BUILDER" base "$@"
