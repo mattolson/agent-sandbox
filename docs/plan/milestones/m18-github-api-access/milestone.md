@@ -16,6 +16,9 @@ Included:
 
 - Stock `gh` in the base image, pinned and checksum-verified for `linux/amd64` and `linux/arm64`
 - `auth` support on the `api` surface of repo-scoped `github` service entries, using the existing `bearer` transform
+- A fixed, catalog-owned definition of `api.access: readwrite` as POST and PATCH on the issue and pull-request
+  families only. Administration, webhook, deploy-key, secret, and repo-record endpoints are never forwarded, whatever
+  the token allows
 - A catalog-owned `GH_TOKEN` env shim so `gh` starts without a real token and the proxy replaces the placeholder
   `Authorization` header in flight
 - A validated matrix of which stock `gh` commands work under a repo-scoped `api` surface and which do not
@@ -33,7 +36,11 @@ Excluded:
 - Endpoints outside `/repos/{owner}/{repo}`, such as `/user`, `/search`, `/orgs`, and `/notifications`
 - Multi-repo or org-wide workflows
 - OAuth, device-code, or `gh auth login` flows; auth is proxy-injected only
-- A finer `api.access` preset between `read` and `readwrite`; users can author `domains` rules if they need one
+- A per-capability configuration surface that mirrors GitHub's token permission taxonomy. The catalog owns one fixed
+  family list; anything outside it is an authored `domains` rule. See
+  `decisions/008-proxy-does-not-mirror-github-permissions.md`
+- Merge, update-branch, review dismissal, comment deletion, CI dispatch or rerun, and release or ref writes under the
+  default preset. These are authored rules today and possibly a later preset
 
 ## Applicable Learnings
 
@@ -51,6 +58,12 @@ Excluded:
   the placeholder token.
 - GitHub `Link` pagination headers use canonical `/repositories/{id}/...` URLs, so `gh api --paginate` is blocked
   after page one under repo-scoped path rules. Agents must page explicitly.
+- Token minimization is unreliable. On 2026-09-06 a token with Administration and Webhooks write, behind a method-less
+  repo-prefix rule, would have let the sandbox create a webhook. Webhooks deliver from GitHub's servers and bypass the
+  proxy entirely. The catalog must refuse admin families no matter what the token allows.
+- The rule engine matches paths by `exact` or `prefix` only and has no deny primitive, so write scoping inside a
+  family has to come from methods. POST and PATCH cover create, comment, edit, review, and close. PUT and DELETE are
+  where merge, update-branch, review dismissal, and comment deletion live.
 
 ## Tasks
 
@@ -78,6 +91,16 @@ Excluded:
 
 **Scope:**
 - Remove the `allow_auth=False` restriction on the `api` surface in `images/proxy/service_catalog.py`
+- Keep `api.access: read` as GET and HEAD on `/repos/{owner}/{repo}` and its prefix. Reading hook configs, key lists,
+  and secret names is a mild disclosure accepted for ergonomics; enumerating reads would 403 on every gap
+- Define `api.access: readwrite` as `read` plus exactly these write rules, case-insensitive on the repo segment:
+  - `POST /repos/{owner}/{repo}/issues`
+  - `POST` and `PATCH` under `/repos/{owner}/{repo}/issues/`
+  - `POST /repos/{owner}/{repo}/pulls`
+  - `POST` and `PATCH` under `/repos/{owner}/{repo}/pulls/`
+  That covers creating, editing, closing, labeling, and commenting on issues and PRs, and submitting reviews. It
+  excludes merge and update-branch (`PUT`), review dismissal (`PUT`), comment and review deletion (`DELETE`), and
+  every endpoint outside those two families
 - Emit a `bearer` transform on every api rule when `api.auth.secret` is set; default to `on_existing_header: fail`
 - Support `api.auth.client_shim` with a kind that emits a `GH_TOKEN` hint. If `m17.4` has landed, use its generic
   `env` kind with the variable name chosen by the catalog. If not, implement the primitive here in the shape `m17.4`
@@ -117,6 +140,9 @@ services:
 - A request to `/repos/other/repo` or `/graphql` returns the proxy 403, not a GitHub error
 - Authored top-level `credential_shim` and arbitrary env var names remain rejected
 - Renderer unit tests cover read and readwrite api surfaces, with and without the shim
+- Under `readwrite`: `POST .../issues`, `PATCH .../issues/N`, `POST .../pulls`, and `POST .../pulls/N/reviews` pass,
+  while `PUT .../pulls/N/merge`, `DELETE .../issues/comments/ID`, `POST .../hooks`, `PATCH /repos/{owner}/{repo}`, and
+  `DELETE /repos/{owner}/{repo}` return the proxy 403
 
 ### m18.3-gh-command-matrix
 
@@ -132,6 +158,9 @@ the result into the documented table.
   placeholders
 - Re-confirm placeholder resolution stays local across `gh` versions; document `GH_REPO` as the fallback if it changes
 - Re-confirm the `--paginate` failure on `/repositories/{id}` URLs and record the explicit-paging alternative
+- The first pass used a prefix catch-all for writes. Re-run the write phase against the enumerated `readwrite` rules
+  and add negatives for the excluded families: merge, review dismissal, comment delete, hooks, keys, secrets, and
+  PATCH or DELETE on the repo record
 - Cover the REST-leaning high-level commands: `gh run list|view|watch`, `gh release list|view`, `gh workflow run`
 - Confirm the GraphQL-backed ones fail cleanly: `gh pr create|list|view|checks|merge`, `gh issue create|list|view`,
   `gh api graphql`
@@ -168,6 +197,10 @@ the result into the documented table.
 - Say not to use `--paginate`; loop `?per_page=100&page=N` instead, because page two lands on a blocked URL
 - Note that `gh run list` and `gh run view` work, while `gh release list` does not; use the REST endpoint for releases
 - Point to `GH_DEBUG=api` for troubleshooting and say the token is masked in its output
+- Say which writes sit outside the default preset, such as merge, deleting comments, and rerunning CI, so the agent
+  asks instead of retrying
+- Say that issues and PRs cannot be deleted through the API by anyone; close them instead
+- Say that issue and PR text is untrusted input from anyone who can see the repo
 - Distinguish the proxy 403 (`Blocked by proxy policy`) from a GitHub 403 (token lacks permission)
 
 **Acceptance Criteria:**
@@ -183,7 +216,13 @@ the result into the documented table.
 - New `docs/github.md` covering token setup, policy snippet, what works, and troubleshooting; link from `docs/git.md`
   and `docs/secrets.md`
 - Recommended fine-grained PAT permissions: Contents read/write, Pull requests read/write, Issues read/write, Actions
-  read; Metadata read is implied. State that the same secret can back both surfaces
+  read; Metadata read is implied. Explicitly no Workflows, Administration, Webhooks, or Secrets. Withholding
+  Workflows makes GitHub reject pushes that touch `.github/workflows`. State that the same secret can back both
+  surfaces
+- Recommend repo rulesets alongside the token: a main-branch rule requiring review from named humans or CODEOWNERS
+  with no bypass, and tag protection for release tags
+- Document the `readwrite` family list and the excluded families side by side, with authored-rule examples for merge
+  and for workflow rerun
 - Update `docs/policy/schema.md` and `docs/policy/examples/` for `api.auth`
 - Note the interaction with the `copilot` service, which already allows `api.github.com` host-wide
 - Add a `docs/troubleshooting.md` entry for 403s on `/graphql` and for GitHub permission errors
@@ -212,8 +251,12 @@ the primitive should end up in one place.
   the reason obvious.
 - `on_existing_header: replace` hands the real token to any client on a matched path, including `curl` with a bogus
   header. This matches the existing git model but should be stated in docs.
-- `api.access: readwrite` allows merge, close, and ref deletion via REST. Token permissions bound this; the proxy does
-  not. Docs should not imply otherwise.
+- `readwrite` still allows closing issues and PRs and editing any comment body. Edits keep history on GitHub and
+  closes are reversible, but both are visible actions taken in the owner's name.
+- The token acts as the repo owner. Reviews the agent submits count toward approval rules on other people's PRs, and
+  mentions or assignments notify real users. Rulesets should require review from named humans, not just a count.
+- The family list is opinionated and will be argued about. Gaps such as creating a branch through the API or
+  rerunning CI fail with a safe 403 and a documented authored-rule fix. That trade is deliberate.
 - The token used for git push may lack `pull_requests` or `issues` permissions. The GitHub error is a 403 that looks
   like a proxy block to an agent. Troubleshooting must distinguish them.
 - Base image size grows by the `gh` binary. Acceptable, but note it in the image docs.
@@ -225,12 +268,21 @@ the primitive should end up in one place.
 - A repo-scoped policy with `api.auth` lets `gh api` read and write issues, pull requests, comments, and check status
   for one repository, with the real token never present in the agent container
 - Requests to other repositories, `/graphql`, and non-repo endpoints are blocked by the proxy
+- Under `readwrite`, merge, review dismissal, comment deletion, and every administration, webhook, key, and secret
+  endpoint are blocked by the proxy regardless of token permissions
 - The image ships a pinned `gh`, and the `operating-in-agent-sandbox` skill documents the `gh api` idiom with validated
   commands
 - The supported and unsupported command matrix is documented and reproducible
 - Renderer, proxy, and Go tests pass
 
 ## Changes
+
+### 2026-09-06: Narrowed `readwrite` to a fixed write allowlist
+
+A permission probe showed the validation token carried Administration, Webhooks, and Secrets write. Combined with a
+method-less repo-prefix rule, that would let a sandbox create webhooks that bypass the proxy. `readwrite` is now POST
+and PATCH on the issue and pull-request families only, and the plan rejects a per-capability configuration surface.
+See `decisions/008-proxy-does-not-mirror-github-permissions.md`.
 
 ### 2026-09-06: Validated the approach end to end
 

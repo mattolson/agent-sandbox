@@ -314,6 +314,8 @@ the proxy and agent instructions for the common workflows. Replaces the earlier 
 **Goals:**
 - Ship a pinned stock `gh` in the base image
 - Support `auth` on the `api` surface of repo-scoped `github` entries, reusing `m15` injection and a `GH_TOKEN` shim
+- Define `readwrite` as a fixed allowlist of issue and pull-request writes; administration, webhook, key, and secret
+  endpoints stay blocked regardless of token permissions
 - Keep repo identity in URL paths so single-repo allowlists work under `m14`; GraphQL stays blocked
 - Validate and document which stock `gh` commands work under repo-scoped rules
 - Teach agents the `gh api repos/{owner}/{repo}/...` idiom through the `operating-in-agent-sandbox` skill
@@ -322,6 +324,7 @@ the proxy and agent instructions for the common workflows. Replaces the earlier 
 - A custom GitHub CLI or wrapper binary
 - GraphQL-backed `gh` commands and request-body inspection
 - Endpoints outside `/repos/{owner}/{repo}` and multi-repo workflows
+- A per-capability policy surface mirroring GitHub's token permissions
 
 **Dependencies:** m14 (repo/path-aware policy matching), m15 (header injection and renderer-owned shim). Shares the
 env shim primitive with m17.4; whichever lands first builds it.
