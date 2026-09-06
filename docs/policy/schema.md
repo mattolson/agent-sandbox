@@ -160,8 +160,8 @@ rules; all other path matching remains case-sensitive per RFC 3986.
 Surface mapping keys:
 
 - `access`: required. One of `read` or `readwrite`.
-- `auth`: optional. Supported on `git` only; rejected on `api` in this
-  milestone.
+- `auth`: optional on both surfaces. Configures proxy-side credential
+  injection for that surface's rules; see below.
 
 On the `api` surface, `access: read` emits `GET` and `HEAD` on
 `/repos/{owner}/{repo}` and everything under it. `access: readwrite` keeps
@@ -201,6 +201,12 @@ git:
     client_shim:
       kind: git-askpass
 ```
+
+`api.auth` takes the same `secret` key and attaches
+`Authorization: Bearer <secret>` to every emitted api rule. Without `auth`,
+api rules carry no transform and any token the client sends passes through
+untouched. That shape is valid but discouraged; it puts a real token inside
+the agent container.
 
 `git.auth` keys:
 

@@ -43,6 +43,20 @@ def expected_github_auth_transform(secret="github-token", on_existing_header="fa
     }
 
 
+def expected_github_api_auth_transform(secret="github-token", on_existing_header="fail"):
+    return {
+        "request": {
+            "headers": {
+                "Authorization": {
+                    "secret": secret,
+                    "transform": {"type": "bearer"},
+                },
+            },
+            "on_existing_header": on_existing_header,
+        },
+    }
+
+
 def expected_github_git_askpass_hint(secret="github-token"):
     return {
         "service": "github",
@@ -202,18 +216,53 @@ class ServiceCatalogNormalizeTests(unittest.TestCase):
             )
         self.assertIn("auth is not supported", str(caught.exception))
 
-    def test_api_auth_is_rejected_until_rest_auth_exists(self):
+    def test_api_auth_normalizes_to_a_bearer_transform(self):
+        normalized = self.catalog.normalize_service_entry(
+            {
+                "name": "github",
+                "repos": ["owner/repo"],
+                "api": {"access": "read", "auth": {"secret": "github-token"}},
+            },
+            "ctx",
+            _fail,
+        )
+        api = normalized["options"]["surface_configs"]["api"]
+        self.assertEqual(api["auth"], {"secret": "github-token"})
+        self.assertEqual(api["transform"], expected_github_api_auth_transform())
+        self.assertNotIn("credential_shim_hints", api)
+
+    def test_api_auth_is_optional_for_readwrite(self):
+        # Unlike git push, an unauthenticated readwrite api surface is a valid
+        # (if discouraged) shape: the client may carry its own token.
+        normalized = self.catalog.normalize_service_entry(
+            {
+                "name": "github",
+                "repos": ["owner/repo"],
+                "api": {"access": "readwrite"},
+            },
+            "ctx",
+            _fail,
+        )
+        self.assertNotIn("transform", normalized["options"]["surface_configs"]["api"])
+
+    def test_api_client_shim_is_rejected_until_an_api_shim_kind_exists(self):
         with self.assertRaises(_CatalogFailure) as caught:
             self.catalog.normalize_service_entry(
                 {
                     "name": "github",
                     "repos": ["owner/repo"],
-                    "api": {"access": "read", "auth": {"secret": "github-token"}},
+                    "api": {
+                        "access": "read",
+                        "auth": {
+                            "secret": "github-token",
+                            "client_shim": {"kind": "git-askpass"},
+                        },
+                    },
                 },
                 "ctx",
                 _fail,
             )
-        self.assertIn("api.auth is not supported yet", str(caught.exception))
+        self.assertIn("client_shim is not supported on the api surface", str(caught.exception))
 
     def test_git_auth_requires_access(self):
         with self.assertRaises(_CatalogFailure) as caught:
@@ -615,6 +664,25 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
                 "/repos/owner/repo/pulls/",
             ],
         )
+
+    def test_github_api_auth_applies_bearer_transform_to_every_api_rule(self):
+        expansion = self.expand(
+            {
+                "name": "github",
+                "repos": ["owner/repo"],
+                "api": {"access": "readwrite", "auth": {"secret": "github-token"}},
+                "git": {"access": "read"},
+            }
+        )
+        records_by_host = {record["host"]: record for record in expansion["records"]}
+        api_rules = records_by_host["api.github.com"]["rules"]
+        self.assertEqual(len(api_rules), 6)
+        expected = expected_github_api_auth_transform()
+        self.assertTrue(all(rule["transform"] == expected for rule in api_rules))
+        # git had no auth, so its rules carry no transform.
+        for rule in records_by_host["github.com"]["rules"]:
+            self.assertNotIn("transform", rule)
+        self.assertEqual(expansion["credential_shim"], [])
 
     def test_github_api_read_has_no_write_rules(self):
         expansion = self.expand(

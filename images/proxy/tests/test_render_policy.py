@@ -754,6 +754,37 @@ services:
         )
         self.assertNotIn("credential_shim", rendered)
 
+    def test_github_api_auth_renders_bearer_transform_without_shim(self):
+        rendered = self.render_single(
+            """
+services:
+  - name: github
+    repos:
+      - owner/repo
+    api:
+      access: readwrite
+      auth:
+        secret: github-token
+"""
+        )
+
+        expected_transform = {
+            "request": {
+                "headers": {
+                    "Authorization": {
+                        "secret": "github-token",
+                        "transform": {"type": "bearer"},
+                    },
+                },
+                "on_existing_header": "fail",
+            },
+        }
+        records = {record["host"]: record for record in rendered["domains"]}
+        api_rules = records["api.github.com"]["rules"]
+        self.assertEqual(len(api_rules), 6)
+        self.assertTrue(all(rule["transform"] == expected_transform for rule in api_rules))
+        self.assertNotIn("credential_shim", rendered)
+
     def test_github_git_client_shim_renders_replace_transform_and_credential_hint(self):
         rendered = self.render_single(
             """

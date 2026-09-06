@@ -53,7 +53,7 @@ def _normalize_string(value, context, fail):
     return normalized
 
 
-def normalize_credential_shim_config(value, context, fail=_default_fail):
+def normalize_credential_shim_config(value, context, fail=_default_fail, allowed_kinds=None):
     if not isinstance(value, dict):
         _fail(
             fail,
@@ -67,11 +67,13 @@ def normalize_credential_shim_config(value, context, fail=_default_fail):
     if "kind" not in value:
         _fail(fail, f"{context} must contain 'kind'")
 
+    if allowed_kinds is None:
+        allowed_kinds = SUPPORTED_KINDS
     kind = _normalize_string(value["kind"], f"{context}.kind", fail).lower()
-    if kind not in SUPPORTED_KINDS:
+    if kind not in allowed_kinds:
         _fail(
             fail,
-            f"{context}.kind must be one of {list(SUPPORTED_KINDS)}, "
+            f"{context}.kind must be one of {list(allowed_kinds)}, "
             f"got {value['kind']!r}",
         )
     return {"kind": kind}
