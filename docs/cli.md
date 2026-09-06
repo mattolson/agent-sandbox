@@ -47,7 +47,8 @@ Options:
 - `--agent` - Agent type: `claude`, `codex`, `copilot`, `gemini`, `factory`, `pi`, `opencode`
 - `--mode` - Setup mode: `cli`, `devcontainer`
 - `--ide` - IDE for devcontainer mode: `vscode`, `jetbrains`, `none`
-- `--name` - Base project name for Docker Compose
+- `--name` - Base project name for Docker Compose; in devcontainer mode it is also appended to the devcontainer
+  display name (for example `Claude Code Sandbox: myproject`) so IDE windows for different projects are distinguishable
 - `--path` - Project directory (default: current directory)
 - `--batch` - Disable prompts. Requires `--agent` and `--mode`, plus `--ide` for `devcontainer`
 

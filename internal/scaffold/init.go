@@ -88,7 +88,7 @@ func InitializeDevcontainer(ctx context.Context, params InitParams) error {
 	if err := scaffoldDevcontainerUserJSONIfMissing(params.RepoRoot); err != nil {
 		return err
 	}
-	if err := renderDevcontainerJSON(params.RepoRoot, params.Agent, runtime.DevcontainerJSONFile(params.RepoRoot)); err != nil {
+	if err := renderDevcontainerJSON(params.RepoRoot, params.Agent, params.ProjectName, runtime.DevcontainerJSONFile(params.RepoRoot)); err != nil {
 		return err
 	}
 	if err := writeDevcontainerModeComposeFile(params.RepoRoot, params.IDE, params.ProjectName); err != nil {

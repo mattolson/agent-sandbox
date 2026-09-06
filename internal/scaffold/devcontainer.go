@@ -2,19 +2,56 @@ package scaffold
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/mattolson/agent-sandbox/internal/runtime"
 )
 
+// devcontainerNamePattern matches the first "name" string value in a
+// devcontainer template. Every agent template opens with a top-level "name",
+// so the first match is the display name shown by VS Code and JetBrains.
+var devcontainerNamePattern = regexp.MustCompile(`("name"\s*:\s*")([^"]*)(")`)
+
+// applyDevcontainerName appends the project name to the template's display
+// name so IDE window titles distinguish projects, e.g. "Claude Code Sandbox:
+// myproject". It edits the template text in place rather than round-tripping
+// through a JSON map so the template's key order and indentation survive.
+func applyDevcontainerName(templateData []byte, projectName string) ([]byte, error) {
+	if projectName == "" {
+		return templateData, nil
+	}
+	loc := devcontainerNamePattern.FindSubmatchIndex(templateData)
+	if loc == nil {
+		return nil, fmt.Errorf("devcontainer template has no \"name\" field to extend")
+	}
+	escaped, err := json.Marshal(projectName)
+	if err != nil {
+		return nil, err
+	}
+	suffix := string(escaped[1 : len(escaped)-1]) // drop the surrounding quotes
+	valueEnd := loc[5]                            // end of the existing name value
+	out := make([]byte, 0, len(templateData)+len(suffix)+2)
+	out = append(out, templateData[:valueEnd]...)
+	out = append(out, ": "...)
+	out = append(out, suffix...)
+	out = append(out, templateData[valueEnd:]...)
+	return out, nil
+}
+
 func scaffoldDevcontainerUserJSONIfMissing(repoRoot string) error {
 	return writeTemplateIfMissing(filepath.Join(repoRoot, ".devcontainer", "devcontainer.user.json"), "devcontainer/devcontainer.user.json")
 }
 
-func renderDevcontainerJSON(repoRoot string, agent string, outputFile string) error {
+func renderDevcontainerJSON(repoRoot string, agent string, projectName string, outputFile string) error {
 	templateData, err := ReadTemplate(filepath.ToSlash(filepath.Join(agent, "devcontainer", "devcontainer.json")))
+	if err != nil {
+		return err
+	}
+	templateData, err = applyDevcontainerName(templateData, projectName)
 	if err != nil {
 		return err
 	}
