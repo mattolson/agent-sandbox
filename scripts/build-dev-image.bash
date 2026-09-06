@@ -84,10 +84,21 @@ OVERRIDE_FILE="$REPO_ROOT/.agent-sandbox/compose/user.agent.$AGENT.override.yml"
 # "latest", which is a cache-stable build arg, so Docker reuses the cached
 # install layer and never reinstalls the agent. A concrete version busts it.
 # Explicitly set environment variables always win over the file.
+#
+# HERMES_SEMVER only describes the HERMES_VERSION it was recorded with. When the
+# caller overrides HERMES_VERSION, skip the pinned semver so images/build.sh
+# labels the image from the tag instead of a different release's semver.
+HERMES_VERSION_FROM_ENV="${HERMES_VERSION:-}"
 if [ -f "$VERSIONS_FILE" ]; then
 	while IFS='=' read -r key value; do
 		case "$key" in
 			'' | \#*) continue ;;
+			HERMES_SEMVER)
+				if [ -n "$HERMES_VERSION_FROM_ENV" ]; then
+					[ -n "${HERMES_SEMVER:-}" ] || printf 'Ignoring pinned HERMES_SEMVER because HERMES_VERSION was set explicitly\n'
+					continue
+				fi
+				;;
 		esac
 		if [ -z "${!key:-}" ]; then
 			export "$key=$value"

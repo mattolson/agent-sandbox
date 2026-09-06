@@ -16,6 +16,8 @@ set -euo pipefail
 #   GEMINI_VERSION          - Gemini CLI version (default: latest)
 #   OPENCODE_VERSION        - OpenCode version (default: latest)
 #   HERMES_VERSION          - Hermes calver git tag (e.g. v2026.6.5) or "latest" (default: latest)
+#   HERMES_SEMVER           - Semver for the hermes-version label when HERMES_VERSION is an explicit tag
+#                             (default: the tag; ignored for "latest", which resolves it from the release)
 #   HERMES_EXTRAS           - Hermes pip extras, comma-separated (default: mcp,acp)
 #   EXTRA_PACKAGES          - Additional apt packages for the base image
 #   CLAUDE_EXTRA_PACKAGES   - Additional apt packages for the claude image
@@ -66,6 +68,7 @@ DOCKER_BUILD_ARGS=("$@")
 : "${PI_VERSION:=latest}"
 : "${OPENCODE_VERSION:=latest}"
 : "${HERMES_VERSION:=latest}"
+: "${HERMES_SEMVER:=}"
 : "${HERMES_EXTRAS:=mcp,acp}"
 
 : "${EXTRA_PACKAGES:=}"
@@ -215,9 +218,12 @@ build_hermes() {
   echo "Building agent-sandbox-hermes..."
   # HERMES_VERSION is a calver git tag (e.g. v2026.6.5) or "latest". The image
   # is built from a git checkout of that tag; "latest" resolves to the newest
-  # GitHub release. HERMES_SEMVER (label only) is derived from the release name.
+  # GitHub release. HERMES_SEMVER (label only) is derived from the release name
+  # there. For an explicit tag it can be supplied in the environment, which is
+  # how scripts/build-dev-image.bash keeps the local image labelled the same
+  # way as the published one; otherwise the tag stands in for it.
   HERMES_REF="$HERMES_VERSION"
-  HERMES_SEMVER="$HERMES_VERSION"
+  HERMES_SEMVER="${HERMES_SEMVER:-$HERMES_VERSION}"
   if [ "$HERMES_VERSION" = "latest" ]; then
     echo "  Resolving latest Hermes release from GitHub..."
     if ! release_json=$(curl -fsSL https://api.github.com/repos/NousResearch/hermes-agent/releases/latest); then
@@ -306,6 +312,7 @@ case "$TARGET" in
     echo "  OPENCODE_VERSION        OpenCode version (default: latest)"
     echo "  PI_VERSION              Pi coding agent version (default: latest)"
     echo "  HERMES_VERSION          Hermes calver git tag (e.g. v2026.6.5) or latest (default: latest)"
+    echo "  HERMES_SEMVER           Semver for the hermes-version label with an explicit HERMES_VERSION (default: the tag)"
     echo "  HERMES_EXTRAS           Hermes pip extras, comma-separated (default: mcp,acp)"
     echo "  EXTRA_PACKAGES          Additional apt packages for base image"
     echo "  CLAUDE_EXTRA_PACKAGES   Additional apt packages for claude image"

@@ -48,6 +48,11 @@ actually reruns. Then recreate the container with `agentbox up -d`.
 Run `make bump` from the host. It needs Docker, which sandboxed agents cannot
 reach.
 
+`make bump` fails, without touching the pins, when it cannot read a concrete
+version for the agent it is about to build. That happens when the pull failed,
+the image was built from `latest`, or the version label is missing. Otherwise
+`make setup` would rebuild the dev image at a stale pin while reporting success.
+
 To build one agent at a specific version without touching the pins:
 
 ```bash
@@ -55,3 +60,8 @@ CLAUDE_CODE_VERSION=2.1.261 make setup
 ```
 
 An explicit environment variable always wins over `scripts/dev-image-versions.env`.
+
+Hermes is pinned by its calver git tag in `HERMES_VERSION`. `make bump` also
+records the release's semver as `HERMES_SEMVER` so the local image carries the
+same `hermes-version` label as the published one. An explicit `HERMES_VERSION`
+ignores the pinned semver, and the image is labelled with the tag instead.
