@@ -138,14 +138,15 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Support Codex, Claude API-key mode, Gemini API-key mode, and provider-backed Pi/OpenCode flows where practical
 - Explicitly exclude OAuth, browser login, device-code, subscription-login, and helper-protocol flows
 
-## m18: GitHub REST wrapper (planned)
+## m18: GitHub API access via `gh api` (planned)
 
-- Repo-scoped GitHub wrapper using REST-only endpoints
-- Keep repo identity visible in request URLs so m14 policies can constrain access to one repo
-- Support a curated set of high-value GitHub workflows that fit REST plus URL-based policy matching
-- Prefer a standalone binary if practical; Go plus `google/go-github` is the leading candidate
-- Define and document the supported subset and explicitly exclude GraphQL-dependent `gh` flows
-- Use `m15` proxy-side credential injection where practical instead of storing GitHub tokens in the agent container
+- Ship stock `gh` in the base image and use `gh api` for repo-scoped REST calls; no custom wrapper
+- Add `auth` on the `api` surface of repo-scoped `github` policy entries, with a `GH_TOKEN` shim so the token never
+  enters the agent container
+- Keep repo identity in request URLs so `m14` policies constrain access to one repo; GraphQL-backed `gh` commands stay
+  blocked
+- Validate and document which stock `gh` commands work under repo-scoped rules
+- Add agent instructions for the most common workflows to the `operating-in-agent-sandbox` skill
 
 ## m19: CLI monitoring and policy management (planned)
 
