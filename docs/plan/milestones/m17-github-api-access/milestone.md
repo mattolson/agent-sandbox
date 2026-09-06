@@ -277,6 +277,14 @@ second one.
 
 ## Changes
 
+### 2026-09-06: Validated on host-rebuilt images
+
+`m17.3` re-ran the matrix against GitHub with the real renderer, the image-installed `gh`, and the shim-exported
+placeholder: all reads pass, the ten excluded writes and plaintext `http` are refused by the proxy, issue #186 and
+PR #187 were created and closed, and merge on the real PR was blocked. A review fix landed first: rules carrying a
+credential transform are https-only in both the catalog and the renderer. Second-run section in
+`validation-2026-09-06.md`.
+
 ### 2026-09-06: Implementation started on `m17-github-api-access`
 
 Landed in one branch as logical commits: pinned `gh` in the base image (`m17.1`); the `readwrite` allowlist, bearer

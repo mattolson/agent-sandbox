@@ -107,3 +107,35 @@ The approach holds. `gh api` plus proxy injection covers every repo-scoped read 
 list except merge, which was not exercised and now sits outside the default preset, with the token never entering the
 container. The plan needs two adjustments: instruct agents to page explicitly
 instead of using `--paginate`, and list `gh release list` with the GraphQL-backed commands.
+
+## Second run: real renderer, image-installed gh, shim-exported placeholder
+
+Same date, later. Host rebuilt `base` and `proxy` from the branch at `9793563`, applied the two-surface policy from
+`docs/github.md` to this repo, and reloaded. Inside the container: `gh 2.100.0` from `/usr/local/bin`,
+`GH_TOKEN=agentbox-proxy-managed` from the rendered env fragment, six api rules and four git rules rendered, all
+https-only.
+
+| Check | Result |
+|---|---|
+| Injection with the placeholder header | `X-RateLimit-Limit: 5000` (authenticated) |
+| Reads: repo, issues, pulls, files, reviews, check runs, workflow runs, releases | all OK |
+| Explicit paging `page=2` | OK |
+| `gh run list` | OK |
+| `--paginate` | page 2 blocked at `/repositories/{id}/...`, as before |
+| `gh pr list`, `gh issue list`, `gh release list`, `gh api graphql`, `/user`, other repo | proxy 403 |
+| Ten excluded writes sent at GitHub (merge, comment delete, hooks, keys, secrets, rerun, releases, refs, repo PATCH and DELETE) | proxy 403, none reached GitHub |
+| Plaintext `http://` to api.github.com and github.com, sent explicitly through the proxy | proxy 403 |
+| Create issue #186, comment, label, close | OK |
+| Create PR #187 from an empty-commit branch, review comment, close | OK |
+| `PUT .../pulls/187/merge` on the real PR | proxy 403 |
+| Token-shaped values under `~/.config/gh` | none |
+
+Two observations:
+
+- `curl` ignores uppercase `HTTP_PROXY` for `http://` URLs, so a naive plaintext probe goes direct and is dropped by
+  the firewall (`No route to host`) before the proxy sees it. Use `-x http://proxy:8080` to test the proxy's own
+  handling. Clients that honor the uppercase variable get the proxy 403.
+- `~/.config/gh/hosts.yml` (username only, no token) appears at container start, before any `gh` call. It comes from
+  the user's linked dotfiles, not from `gh` persisting anything. The earlier "written once" note was this.
+
+Artifacts left on the repo: issue #186 and PR #187, both closed, titled "m17.3 validation (safe to delete)".
