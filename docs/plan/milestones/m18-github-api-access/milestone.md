@@ -46,6 +46,11 @@ Excluded:
   `gh` is a Go binary and inherits that env in CLI mode, but this needs verifying in devcontainer mode too.
 - Keep the token narrow as well. A fine-grained PAT scoped to one repo makes GitHub a second enforcement layer. The
   proxy scopes by URL; the token scopes by repo and permission. Docs should say both.
+- Validated 2026-09-06 with `gh 2.100.0` and a temporary authored policy (see `validation-2026-09-06.md`): `gh api`
+  makes no hidden requests, `{owner}/{repo}` placeholders resolve locally, and `on_existing_header: replace` handles
+  the placeholder token.
+- GitHub `Link` pagination headers use canonical `/repositories/{id}/...` URLs, so `gh api --paginate` is blocked
+  after page one under repo-scoped path rules. Agents must page explicitly.
 
 ## Tasks
 
@@ -81,6 +86,9 @@ Excluded:
 - Extend the shell-init consumer so the rendered hint exports `GH_TOKEN` with the placeholder value
 - Keep the sanitized `/run/agentbox/policy.yaml` free of transforms and secret IDs, as today
 - Update `docs/policy/schema.md`, which currently says `auth` is rejected on `api`
+- Decide how to treat `/repositories/{id}/...` pagination URLs. Start by leaving policy alone and documenting explicit
+  `page=N` loops. Add an optional numeric `id` per repo in `repos` only if `--paginate` proves necessary; the
+  renderer cannot look the id up itself
 
 Example authored policy:
 
@@ -114,12 +122,16 @@ services:
 
 **Summary:** Measure which stock `gh` commands work under a repo-scoped api surface instead of guessing.
 
+A first pass already exists in `validation-2026-09-06.md`, run with `gh 2.100.0` against a temporary authored policy.
+This task re-runs it against the pinned `gh` from `m18.1` and the real `api.auth` expansion from `m18.2`, then turns
+the result into the documented table.
+
 **Scope:**
 - Run each candidate command through the proxy and record the endpoints it hits and the outcome
 - Cover `gh api` variants: `GET`, `POST`, `PATCH`, `PUT`, `--paginate`, `--jq`, `--input`, and `{owner}/{repo}`
   placeholders
-- Confirm placeholder resolution works from the git remote without a network call when the checkout has a single
-  remote; if it does not, document `GH_REPO` as the workaround
+- Re-confirm placeholder resolution stays local across `gh` versions; document `GH_REPO` as the fallback if it changes
+- Re-confirm the `--paginate` failure on `/repositories/{id}` URLs and record the explicit-paging alternative
 - Cover the REST-leaning high-level commands: `gh run list|view|watch`, `gh release list|view`, `gh workflow run`
 - Confirm the GraphQL-backed ones fail cleanly: `gh pr create|list|view|checks|merge`, `gh issue create|list|view`,
   `gh api graphql`
@@ -153,6 +165,9 @@ services:
   - merge a pull request
   - view releases
 - Show `--jq` for trimming output and `-f`/`-F` for fields
+- Say not to use `--paginate`; loop `?per_page=100&page=N` instead, because page two lands on a blocked URL
+- Note that `gh run list` and `gh run view` work, while `gh release list` does not; use the REST endpoint for releases
+- Point to `GH_DEBUG=api` for troubleshooting and say the token is masked in its output
 - Distinguish the proxy 403 (`Blocked by proxy policy`) from a GitHub 403 (token lacks permission)
 
 **Acceptance Criteria:**
@@ -202,6 +217,8 @@ the primitive should end up in one place.
 - The token used for git push may lack `pull_requests` or `issues` permissions. The GitHub error is a 403 that looks
   like a proxy block to an agent. Troubleshooting must distinguish them.
 - Base image size grows by the `gh` binary. Acceptable, but note it in the image docs.
+- `gh` can write `~/.config/gh/hosts.yml` into the persistent agent volume. Observed once with only a username and no
+  token, and not reproducible in isolation. Harmless today, but the shim must not depend on that file being absent.
 
 ## Definition of Done
 
@@ -214,6 +231,12 @@ the primitive should end up in one place.
 - Renderer, proxy, and Go tests pass
 
 ## Changes
+
+### 2026-09-06: Validated the approach end to end
+
+Simulated the planned `api.auth` expansion with an authored `domains` transform and ran stock `gh 2.100.0` against it.
+Reads, writes, negatives, and injection all behaved as planned. Two adjustments came out of it: explicit paging instead
+of `--paginate`, and `gh release list` joins the GraphQL-backed list. Details in `validation-2026-09-06.md`.
 
 ### 2026-09-05: Replaced the REST wrapper with stock `gh api`
 

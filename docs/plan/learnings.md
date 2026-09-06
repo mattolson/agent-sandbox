@@ -100,6 +100,7 @@ Lessons learned during project execution. Review at the start of each planning s
   targets. Both must be updated when adding a new agent — the pre-target case decides whether `$1` is recognized
   vs. falling through to the `all` default. Missing the pre-target case makes `./build.sh <newagent>` silently
   build everything instead of just the new agent.
+- GitHub REST `Link` pagination headers point at canonical `/repositories/{numeric-id}/...` URLs, not `/repos/{owner}/{repo}/...`, so repo-scoped path rules block page two of any paginated call and `gh api --paginate` fails after the first page. Agents must loop `?per_page=100&page=N` explicitly unless the policy also allows the numeric-id path (m18 validation, 2026-09-06)
 
 ## Architecture
 
