@@ -275,7 +275,7 @@ def _normalize_access(value, context, fail):
 # sense for REST calls, and an env-token shim makes no sense for git.
 GITHUB_SURFACE_SHIM_KINDS = {
     SURFACE_GIT: (credential_shim.KIND_GIT_ASKPASS,),
-    SURFACE_API: (),
+    SURFACE_API: (credential_shim.KIND_ENV,),
 }
 
 
@@ -300,14 +300,11 @@ def _normalize_github_surface_auth(value, context, fail, *, surface):
         )
     }
     if "client_shim" in value:
-        allowed_kinds = GITHUB_SURFACE_SHIM_KINDS[surface]
-        if not allowed_kinds:
-            fail(f"{context}.client_shim is not supported on the {surface} surface yet")
         normalized["client_shim"] = credential_shim.normalize_credential_shim_config(
             value["client_shim"],
             f"{context}.client_shim",
             fail,
-            allowed_kinds=allowed_kinds,
+            allowed_kinds=GITHUB_SURFACE_SHIM_KINDS[surface],
         )
     return normalized
 
@@ -428,12 +425,22 @@ def _normalize_github_mapping_entry(entry, context, fail):
                 surface=SURFACE_API,
             )
             if "auth" in api:
+                on_existing_header = "fail"
+                if "client_shim" in api["auth"]:
+                    on_existing_header = "replace"
+                    api["credential_shim_hints"] = [
+                        credential_shim.make_github_api_env_hint(
+                            api["auth"]["secret"],
+                            f"{context}.api.auth.client_shim",
+                            fail,
+                        )
+                    ]
                 api["transform"] = _github_auth_transform(
                     api["auth"]["secret"],
                     f"{context}.api.auth.transform",
                     fail,
                     surface=SURFACE_API,
-                    on_existing_header="fail",
+                    on_existing_header=on_existing_header,
                 )
             options["surface_configs"][SURFACE_API] = api
         return {"name": "github", "merge_mode": merge_mode, "options": options}
@@ -599,8 +606,10 @@ def _expand_github_service(options):
 
 def _github_credential_shim_hints(options):
     surface_configs = options.get("surface_configs", {})
-    git_options = surface_configs.get(SURFACE_GIT, {})
-    return list(git_options.get("credential_shim_hints", []))
+    hints = []
+    for surface in (SURFACE_GIT, SURFACE_API):
+        hints.extend(surface_configs.get(surface, {}).get("credential_shim_hints", []))
+    return hints
 
 
 def expand_service_entry(entry, context, fail):

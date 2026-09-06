@@ -204,7 +204,7 @@ RUN if [ -n "$STACKS" ]; then \
 # Then create shell.d subdirectory owned by root (prevents agent from injecting malicious scripts)
 RUN mkdir -p /home/${USERNAME}/.config && \
   chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.config && \
-  mkdir -p /run/agentbox/credential-shims/git-askpass && \
+  mkdir -p /run/agentbox/credential-shims/git-askpass /run/agentbox/credential-shims/env && \
   chown -R ${USERNAME}:${USERNAME} /run/agentbox && \
   mkdir -p /home/${USERNAME}/.config/agent-sandbox/shell.d && \
   chown root:root /home/${USERNAME}/.config/agent-sandbox && \

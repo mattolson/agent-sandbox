@@ -837,6 +837,49 @@ services:
             },
         )
 
+    def test_github_api_client_shim_renders_replace_transform_and_env_hint(self):
+        rendered = self.render_single(
+            """
+services:
+  - name: github
+    repos:
+      - owner/repo
+    api:
+      access: readwrite
+      auth:
+        secret: github-token
+        client_shim:
+          kind: env
+"""
+        )
+
+        records = {record["host"]: record for record in rendered["domains"]}
+        api_rules = records["api.github.com"]["rules"]
+        self.assertEqual(len(api_rules), 6)
+        for rule in api_rules:
+            self.assertEqual(rule["transform"]["request"]["on_existing_header"], "replace")
+            self.assertEqual(
+                rule["transform"]["request"]["headers"]["Authorization"]["transform"],
+                {"type": "bearer"},
+            )
+        self.assertEqual(
+            rendered["credential_shim"],
+            {
+                "version": 1,
+                "hints": [
+                    {
+                        "service": "github",
+                        "surface": "api",
+                        "kind": "env",
+                        "host": "api.github.com",
+                        "env_var": "GH_TOKEN",
+                        "fake_value": "agentbox-proxy-managed",
+                        "secrets": ["github-token"],
+                    }
+                ],
+            },
+        )
+
     def test_top_level_credential_shim_is_rejected(self):
         with self.assertRaises(self.render_policy.RenderPolicyError) as context:
             self.render_single(
@@ -911,6 +954,38 @@ services:
         self.assertNotIn("github-token", init_body)
         self.assertNotIn("github-token", git_env_body)
 
+    def test_write_credential_shim_init_writes_env_fragment_for_api_shim(self):
+        rendered = self.render_single(
+            """
+services:
+  - name: github
+    repos:
+      - owner/repo
+    api:
+      access: readwrite
+      auth:
+        secret: github-token
+        client_shim:
+          kind: env
+"""
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            init_path = Path(tempdir) / "init.zsh"
+            env_path = Path(tempdir) / "env" / "exports.zsh"
+            git_env_path = Path(tempdir) / "git-askpass" / "env.zsh"
+            self.render_policy.write_credential_shim_init(rendered, str(init_path))
+            init_body = init_path.read_text(encoding="utf-8")
+            env_body = env_path.read_text(encoding="utf-8")
+            git_env_body = git_env_path.read_text(encoding="utf-8")
+
+        self.assertIn(str(env_path), init_body)
+        self.assertNotIn(str(git_env_path), init_body)
+        self.assertIn("export GH_TOKEN=agentbox-proxy-managed", env_body)
+        self.assertIn("No git-askpass credential shim is active", git_env_body)
+        for body in (init_body, env_body, git_env_body):
+            self.assertNotIn("github-token", body)
+
     def test_write_credential_shim_init_clears_stale_fragments_without_hints(self):
         rendered = self.render_single(
             """
@@ -922,17 +997,22 @@ domains:
         with tempfile.TemporaryDirectory() as tempdir:
             init_path = Path(tempdir) / "init.zsh"
             git_env_path = Path(tempdir) / "git-askpass" / "env.zsh"
+            env_path = Path(tempdir) / "env" / "exports.zsh"
             git_env_path.parent.mkdir(parents=True)
+            env_path.parent.mkdir(parents=True)
             init_path.write_text("source /stale\n", encoding="utf-8")
             git_env_path.write_text("export GIT_ASKPASS=/stale\n", encoding="utf-8")
+            env_path.write_text("export GH_TOKEN=/stale\n", encoding="utf-8")
             self.render_policy.write_credential_shim_init(rendered, str(init_path))
             init_body = init_path.read_text(encoding="utf-8")
             git_env_body = git_env_path.read_text(encoding="utf-8")
+            env_body = env_path.read_text(encoding="utf-8")
 
         self.assertIn("No credential shims are active", init_body)
         self.assertIn("No git-askpass credential shim is active", git_env_body)
-        self.assertNotIn("/stale", init_body)
-        self.assertNotIn("/stale", git_env_body)
+        self.assertIn("No env credential shim is active", env_body)
+        for body in (init_body, git_env_body, env_body):
+            self.assertNotIn("/stale", body)
 
     def test_rendered_output_never_contains_resolved_secret_value(self):
         """Even with a provisioned secret source, the renderer must not surface
