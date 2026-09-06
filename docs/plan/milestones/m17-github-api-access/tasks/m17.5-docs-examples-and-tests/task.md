@@ -53,8 +53,9 @@ family-wide PUT rule also permits update-branch and review dismissal, since path
 - [x] `docs/policy/examples/github-api.yaml` and render check
 - [x] Troubleshooting entries: proxy 403 on GraphQL and paging, GitHub 403 on permissions, 401 on missing `api.auth`
 - [x] Cross-links from `git.md`, `secrets.md`, README, and CLAUDE.md
-- [ ] Copilot interaction note: deferred; the `copilot` service allows `api.github.com` host-wide, and that
-      predates this milestone. Worth a sentence in `docs/agents/copilot.md`, not here.
+- [x] Copilot interaction note in `docs/agents/copilot.md`, linked from `docs/github.md`. Reading the matcher
+      showed it is more than "adds nothing": the baseline catch-all matches first, so `api.auth` injection never
+      fires in a Copilot sandbox
 
 ### Open Questions
 
@@ -77,4 +78,4 @@ family-wide PUT rule also permits update-branch and review dismissal, since path
 
 ### Follow-up Items
 
-- One line in `docs/agents/copilot.md` noting that the Copilot baseline already allows `api.github.com` host-wide.
+- None. The Copilot note landed with the release-cut PR.
