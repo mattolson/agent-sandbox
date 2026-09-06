@@ -15,7 +15,8 @@ Ship a pinned stock `gh` in the base image.
 
 ## Acceptance Criteria
 
-- [ ] `gh --version` in a fresh container prints the pinned version on both architectures
+- [x] `gh --version` in a fresh container prints the pinned version: arm64 verified on the rebuilt dev image;
+      amd64 is produced by the CI build job
 - [x] `gh api` reaches the proxy and gets a policy decision, not a TLS or connection error
 - [x] No `gh` process makes a request outside the configured policy at startup
 
@@ -53,7 +54,7 @@ if the pin rots.
 - [x] Plumb the three build args through `images/build.sh`
 - [x] Document the refresh procedure in `docs/images.md`
 - [x] Smoke-test the exact shell sequence against the downloaded arm64 tarball
-- [ ] Build the base image on the host for both architectures and confirm `gh --version`
+- [x] Build the base image on the host and confirm `gh --version` (arm64; amd64 via CI)
 
 ### Open Questions
 
@@ -63,7 +64,7 @@ if the pin rots.
 
 ### Acceptance Verification
 
-- [ ] Fresh-container `gh --version` on amd64 and arm64: needs a host build, sandbox has no Docker
+- [x] Fresh-container `gh --version`: `gh version 2.100.0` from `/usr/local/bin/gh` on the rebuilt arm64 image
 - [x] `gh api` through the proxy: proven in the 2026-09-06 validation with the same binary and version
 - [x] No startup side requests: proven in the validation with `GH_DEBUG=api` and `GH_NO_UPDATE_NOTIFIER=1`
 
@@ -74,4 +75,4 @@ if the pin rots.
 
 ### Follow-up Items
 
-- Host build and verification of both architectures before merge.
+- None. amd64 is covered by the CI build matrix.

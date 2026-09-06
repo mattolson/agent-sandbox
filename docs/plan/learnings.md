@@ -106,6 +106,8 @@ Lessons learned during project execution. Review at the start of each planning s
 - A skill's quick check must target a path the policy actually allows. Curling a host root under a path-scoped allowlist returns 403 even when access is on, which teaches the agent the opposite of the truth (m17.4)
 - Render every policy example through the integration harness's `render_authored_policy` before committing it. It is a two-line check that catches a broken example before a user does (m17.5)
 - Attach security invariants to the construct they protect, not to conventions around it. Credential transforms are https-only because `apply_rule_transform` enforces it in both the catalog and the renderer, not because every rule author remembered to write `schemes: [https]` (m17.2 review)
+- `curl` ignores uppercase `HTTP_PROXY` for `http://` URLs, so a plaintext probe from the sandbox goes direct and is dropped by the firewall. To test the proxy's own handling of plaintext, pass `-x http://proxy:8080` explicitly (m17.3)
+- A rebuilt local image can lag the branch head by minutes. When a rendered artifact disagrees with the code, compare the artifact's content against the newest commit that should have changed it before assuming the code is wrong; and prefer diagnosing from sanitized output over sending a request that would be harmful on the old code (m17.3)
 
 ## Architecture
 
