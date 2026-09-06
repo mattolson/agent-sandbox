@@ -35,7 +35,12 @@ Use a fine-grained personal access token scoped to the one repository. The same 
 - Issues: read and write
 - Pull requests: read and write
 - Actions: read (workflow runs and logs)
+- Checks: read (check runs, which is how GitHub Actions, CodeQL, and most apps report CI)
 - Metadata: read (implied)
+
+Commit statuses: read is optional. It covers the legacy Statuses API, which only matters if a third-party
+integration posts statuses rather than check runs. On a public repository all of these reads work without any
+permission, so a missing read permission only shows up on a private one.
 
 Leave everything else at no access, and explicitly withhold Workflows, Administration, Webhooks, and Secrets. Without
 Workflows, GitHub rejects any push that touches `.github/workflows`, which closes the CI secret-theft path. The proxy
