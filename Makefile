@@ -18,10 +18,14 @@ HOST_BINARY_LINK := ../$(patsubst ./%,%,$(HOST_BINARY))
 
 .DEFAULT_GOAL := build
 
-.PHONY: setup build test test-go test-proxy run fmt tidy clean install
+.PHONY: setup bump build test test-go test-proxy run fmt tidy clean install
 
 setup:
 	./scripts/build-dev-image.bash $(SETUP_ARGS)
+
+bump:
+	./scripts/bump-dev-image.bash
+	$(MAKE) setup SETUP_ARGS="$(SETUP_ARGS)"
 
 build:
 	mkdir -p "$(DIST_DIR)" "$(BIN_DIR)"
