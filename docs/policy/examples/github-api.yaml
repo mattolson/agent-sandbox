@@ -1,0 +1,51 @@
+# Repo-scoped GitHub: readwrite Git plus readwrite REST API for stock `gh`
+#
+# Extends github-repos.yaml with an authenticated `api` surface. Inside the
+# container, agents call `gh api repos/{owner}/{repo}/...`; the proxy injects
+# the token, and `gh` itself only ever holds a placeholder.
+#
+# `api.access: readwrite` is a fixed allowlist, not any-method access:
+#   - GET/HEAD on /repos/owner/repo and everything under it
+#   - POST      /repos/owner/repo/issues and /repos/owner/repo/pulls
+#   - POST/PATCH under /repos/owner/repo/issues/ and /repos/owner/repo/pulls/
+# Merge, update-branch, review dismissal (PUT), comment and review deletion
+# (DELETE), and every family outside issues and pulls (hooks, keys, secrets,
+# collaborators, the repo record) stay blocked whatever the token allows.
+# See docs/github.md for widening one endpoint with an authored domains rule.
+#
+# `api.auth.client_shim.kind: env` switches the api rules to
+# `on_existing_header: replace` and makes the agent container export
+#   GH_TOKEN=agentbox-proxy-managed
+# so `gh` starts without a real token. The proxy rewrites its
+# `Authorization: token <placeholder>` header to `Bearer <secret>` in flight.
+# Omit client_shim if only curl will call the API; the proxy then injects the
+# header when the client sends none and fails closed when it sends one.
+#
+# Prerequisites:
+#   - A secret file at $AGENTBOX_SECRET_DIR/github.owner.repo.token holding a
+#     fine-grained PAT scoped to owner/repo with Contents, Issues, and Pull
+#     requests read/write and Actions read. Withhold Workflows, Administration,
+#     Webhooks, and Secrets. One secret can back both surfaces.
+#   - A fresh shell after `agentbox proxy reload`, since shim exports load at
+#     shell startup.
+#
+# See docs/github.md for the workflow, docs/policy/schema.md for the authored
+# shape, and docs/secrets.md for secret storage.
+
+services:
+  - name: github
+    merge_mode: replace
+    repos:
+      - owner/repo
+    git:
+      access: readwrite
+      auth:
+        secret: github.owner.repo.token
+        client_shim:
+          kind: git-askpass
+    api:
+      access: readwrite
+      auth:
+        secret: github.owner.repo.token
+        client_shim:
+          kind: env

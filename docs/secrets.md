@@ -78,6 +78,11 @@ chmod 600 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}/github.
 A single trailing `\n` or `\r\n` is stripped on read; embedded NUL, CR, or LF
 bytes are rejected. The file must contain valid UTF-8.
 
+One secret ID can be referenced from more than one rule or surface. A
+fine-grained GitHub token scoped to a repository typically backs both the
+`git` and `api` surfaces of the same `services` entry; see
+[docs/github.md](github.md).
+
 There is no `agentbox secrets` CLI in this milestone. Manual provisioning is
 the only supported path.
 
@@ -92,11 +97,13 @@ file changes:
 `agentbox proxy reload` is for **policy** changes, not secret changes. A
 secret rotation in place needs no `SIGHUP`.
 
-The `client_shim` env exports are a separate concern. Those values come from
-the rendered policy, not from the secret file, and they are loaded on shell
-startup (`/etc/agent-sandbox/shell-init.sh`). Already-running agent processes
-do not see updates to those exports until they are restarted. Open a new
-shell or restart the container after a policy reload that changes a shim.
+The `client_shim` env exports (`GIT_ASKPASS` and its fake credential values
+for `git-askpass`, `GH_TOKEN` for the api `env` shim) are a separate concern.
+Those values come from the rendered policy, not from the secret file, and they
+are loaded on shell startup (`/etc/agent-sandbox/shell-init.sh`).
+Already-running agent processes do not see updates to those exports until they
+are restarted. Open a new shell or restart the container after a policy reload
+that changes a shim.
 
 ## Scope
 
