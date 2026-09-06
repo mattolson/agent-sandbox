@@ -128,7 +128,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Provider-agnostic posture: Hermes supports Nous Portal, OpenRouter, OpenAI, and custom endpoints; users add the relevant provider service to their policy
 - Scope limited to CLI mode; non-CLI integrations (Telegram, Discord, Slack, etc.) are out of scope
 
-## m17: GitHub API access via `gh api` (planned)
+## m17: GitHub API access via `gh api` (done)
 
 - Ship stock `gh` in the base image and use `gh api` for repo-scoped REST calls; no custom wrapper
 - Add `auth` on the `api` surface of repo-scoped `github` policy entries, with a `GH_TOKEN` shim so the token never

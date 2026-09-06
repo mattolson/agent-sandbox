@@ -280,7 +280,7 @@ in Agent Sandbox. Users can initialize, run, and switch to Hermes via the standa
 
 **Dependencies:** m13 (Go CLI defines the registration surface), m8 (agent switching), m3 (proxy)
 
-### m17-github-api-access
+### m17-github-api-access (done)
 
 Give agents repo-scoped GitHub REST API access from inside the sandbox using stock `gh api`, with the token injected by
 the proxy and agent instructions for the common workflows. Replaces the earlier REST-wrapper plan; see

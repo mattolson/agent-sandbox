@@ -277,6 +277,13 @@ second one.
 
 ## Changes
 
+### 2026-09-06: Complete
+
+Merged to main as PR #185 (eleven commits, rebase-merged) plus a follow-up permission-list fix. Every task is closed
+out under `tasks/`. Ships in the next release with an upgrade note at `docs/upgrades/m17-github-api-access.md`
+covering the two behavior changes: `api.access: readwrite` is now a fixed write allowlist, and any rule carrying a
+credential transform is https-only.
+
 ### 2026-09-06: Validated on host-rebuilt images
 
 `m17.3` re-ran the matrix against GitHub with the real renderer, the image-installed `gh`, and the shim-exported
