@@ -104,5 +104,6 @@ Every blocked request returned the proxy body `Blocked by proxy policy: api.gith
 ## Conclusion
 
 The approach holds. `gh api` plus proxy injection covers every repo-scoped read and write workflow in the candidate
-list with the token never entering the container. The plan needs two adjustments: instruct agents to page explicitly
+list except merge, which was not exercised and now sits outside the default preset, with the token never entering the
+container. The plan needs two adjustments: instruct agents to page explicitly
 instead of using `--paginate`, and list `gh release list` with the GraphQL-backed commands.
