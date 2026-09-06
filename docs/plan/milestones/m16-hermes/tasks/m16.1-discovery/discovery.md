@@ -190,7 +190,7 @@ Network calls that happen at or near startup, in order of attention:
 
 5. **Skills hub** — `api.github.com/repos/NousResearch/hermes-agent/...` for fork/PR operations. Triggered only by
    explicit user command, not at startup. The existing user policy already covers GitHub git access but **not**
-   `api.github.com`; users who want skill PR sharing need to add `api.github.com` to their policy or use the m18
+   `api.github.com`; users who want skill PR sharing need to add `api.github.com` to their policy or use the m17
    GitHub REST wrapper once it lands.
 
 6. **Telemetry (Langfuse)** — opt-in. No baked-in keys; safe by default.

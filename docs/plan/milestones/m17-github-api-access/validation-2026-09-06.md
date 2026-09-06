@@ -1,4 +1,4 @@
-# m18 Validation: Stock `gh api` Under Repo-Scoped Rules
+# m17 Validation: Stock `gh api` Under Repo-Scoped Rules
 
 Date: 2026-09-06. Repo: `mattolson/agent-sandbox`. Client: `gh 2.100.0` (`linux/arm64`), downloaded and
 checksum-verified inside the sandbox. Token: a fine-grained PAT scoped to this one repo, read/write on everything
@@ -98,7 +98,7 @@ Every blocked request returned the proxy body `Blocked by proxy policy: api.gith
 
 ## Artifacts left on the repo
 
-- Issue #182, closed, titled "m18 validation (safe to delete)", with two comments
+- Issue #182, closed, titled "m17 validation (safe to delete)", with two comments
 - PR #183, closed, from a deleted empty-commit branch, same title
 
 ## Conclusion
