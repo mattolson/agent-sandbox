@@ -271,7 +271,15 @@ def _normalize_access(value, context, fail):
     return access
 
 
-def _normalize_github_git_auth(value, context, fail):
+# Client shim kinds each GitHub surface accepts. A git-askpass shim makes no
+# sense for REST calls, and an env-token shim makes no sense for git.
+GITHUB_SURFACE_SHIM_KINDS = {
+    SURFACE_GIT: (credential_shim.KIND_GIT_ASKPASS,),
+    SURFACE_API: (),
+}
+
+
+def _normalize_github_surface_auth(value, context, fail, *, surface):
     if not isinstance(value, dict):
         fail(
             f"{context} must be a YAML mapping, got "
@@ -292,15 +300,19 @@ def _normalize_github_git_auth(value, context, fail):
         )
     }
     if "client_shim" in value:
+        allowed_kinds = GITHUB_SURFACE_SHIM_KINDS[surface]
+        if not allowed_kinds:
+            fail(f"{context}.client_shim is not supported on the {surface} surface yet")
         normalized["client_shim"] = credential_shim.normalize_credential_shim_config(
             value["client_shim"],
             f"{context}.client_shim",
             fail,
+            allowed_kinds=allowed_kinds,
         )
     return normalized
 
 
-def _normalize_github_surface(value, context, fail, *, allow_auth):
+def _normalize_github_surface(value, context, fail, *, surface):
     if not isinstance(value, dict):
         fail(
             f"{context} must be a YAML mapping, got "
@@ -319,28 +331,33 @@ def _normalize_github_surface(value, context, fail, *, allow_auth):
     }
 
     if "auth" in value:
-        if not allow_auth:
-            fail(f"{context}.auth is not supported yet")
-        normalized["auth"] = _normalize_github_git_auth(
+        normalized["auth"] = _normalize_github_surface_auth(
             value["auth"],
             f"{context}.auth",
             fail,
+            surface=surface,
         )
 
     return normalized
 
 
-def _github_auth_transform(secret_id, context, fail, *, on_existing_header="fail"):
+# How each surface renders the resolved secret into the Authorization header.
+# Git smart HTTP wants Basic with the x-access-token username; the REST API
+# wants a bare bearer token.
+GITHUB_SURFACE_HEADER_TRANSFORMS = {
+    SURFACE_GIT: {"type": "basic", "username": GITHUB_TOKEN_USERNAME},
+    SURFACE_API: {"type": "bearer"},
+}
+
+
+def _github_auth_transform(secret_id, context, fail, *, surface, on_existing_header="fail"):
     return policy_injection.normalize_rule_transform(
         {
             "request": {
                 "headers": {
                     "Authorization": {
                         "secret": secret_id,
-                        "transform": {
-                            "type": "basic",
-                            "username": GITHUB_TOKEN_USERNAME,
-                        },
+                        "transform": dict(GITHUB_SURFACE_HEADER_TRANSFORMS[surface]),
                     },
                 },
                 "on_existing_header": on_existing_header,
@@ -380,7 +397,7 @@ def _normalize_github_mapping_entry(entry, context, fail):
                 entry[SURFACE_GIT],
                 f"{context}.git",
                 fail,
-                allow_auth=True,
+                surface=SURFACE_GIT,
             )
             if git["access"] == ACCESS_READWRITE and "auth" not in git:
                 fail(f"{context}.git.auth is required when git.access is 'readwrite'")
@@ -399,16 +416,26 @@ def _normalize_github_mapping_entry(entry, context, fail):
                     git["auth"]["secret"],
                     f"{context}.git.auth.transform",
                     fail,
+                    surface=SURFACE_GIT,
                     on_existing_header=on_existing_header,
                 )
             options["surface_configs"][SURFACE_GIT] = git
         if api_present:
-            options["surface_configs"][SURFACE_API] = _normalize_github_surface(
+            api = _normalize_github_surface(
                 entry[SURFACE_API],
                 f"{context}.api",
                 fail,
-                allow_auth=False,
+                surface=SURFACE_API,
             )
+            if "auth" in api:
+                api["transform"] = _github_auth_transform(
+                    api["auth"]["secret"],
+                    f"{context}.api.auth.transform",
+                    fail,
+                    surface=SURFACE_API,
+                    on_existing_header="fail",
+                )
+            options["surface_configs"][SURFACE_API] = api
         return {"name": "github", "merge_mode": merge_mode, "options": options}
 
     if git_present or api_present:
@@ -543,10 +570,13 @@ def _expand_github_service(options):
     records = []
 
     if SURFACE_API in surface_configs:
-        access = surface_configs[SURFACE_API]["access"]
+        api_options = surface_configs[SURFACE_API]
         api_rules = []
         for owner, name in repos:
-            api_rules.extend(_github_api_rules_for_repo(owner, name, access))
+            api_rules.extend(
+                _github_api_rules_for_repo(owner, name, api_options["access"])
+            )
+        api_rules = _apply_rule_transform(api_rules, api_options.get("transform"))
         records.append(_host_record(GITHUB_API_HOST, api_rules))
 
     if SURFACE_GIT in surface_configs:
