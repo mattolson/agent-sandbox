@@ -249,7 +249,7 @@ agentbox proxy logs
 
 If you want to make customizations that apply to a single agent, you can edit the file `.agent-sandbox/policy/user.agent.<agent>.policy.yaml`. For example, to add a host or request rule only when using Claude Code, add it to the file `user.agent.claude.policy.yaml`.
 
-See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format reference and [docs/upgrades/m14-request-aware-rules.md](./docs/upgrades/m14-request-aware-rules.md) for a tour of request-aware rules.
+See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format reference, [docs/upgrades/m14-request-aware-rules.md](./docs/upgrades/m14-request-aware-rules.md) for a tour of request-aware rules, and [docs/upgrades/m17-github-api-access.md](./docs/upgrades/m17-github-api-access.md) for the GitHub API surface and the two policy behavior changes it brought.
 
 ### GitHub Git from inside the container
 
