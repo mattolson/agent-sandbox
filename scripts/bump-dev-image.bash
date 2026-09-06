@@ -14,26 +14,41 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 COMPOSE_DIR="${COMPOSE_DIR:-$REPO_ROOT/.agent-sandbox/compose}"
+METADATA_FILE="${METADATA_FILE:-$REPO_ROOT/.agent-sandbox/active-target.env}"
 VERSIONS_FILE="${VERSIONS_FILE:-$SCRIPT_DIR/dev-image-versions.env}"
 
 SUPPORTED_AGENTS="claude copilot codex gemini factory opencode pi hermes"
 
+# Hermes is pinned by its calver git tag (HERMES_VERSION, recorded in the
+# hermes-ref label), but published images also carry the release's semver in
+# hermes-version. images/build.sh accepts that as HERMES_SEMVER so the local
+# image ends up labelled the same way. The pair only makes sense together, so
+# HERMES_SEMVER is written and carried forward with HERMES_VERSION rather than
+# treated as an independent pin.
+HERMES_SEMVER_LABEL='com.mattolson.agentsandbox.hermes-version'
+
 usage() {
-	cat <<'EOF'
+	cat <<'USAGE'
 Usage: ./scripts/bump-dev-image.bash
 
 Runs `agentbox bump` to refresh managed image digests, then reads the agent CLI
 version label off each newly pinned image and records it in the versions file
 consumed by ./scripts/build-dev-image.bash.
 
+Fails, leaving the versions file untouched, if no concrete version could be
+read for the agent that `make setup` builds next. Otherwise `make bump` would
+rebuild the dev image at a stale pin while reporting success.
+
 Does not rebuild anything. Use `make bump` to bump and then run `make setup`.
 
 Optional environment variables:
+  AGENT          Agent that must resolve (default: ACTIVE_AGENT from .agent-sandbox)
   AGENTBOX       agentbox command to run (default: agentbox on PATH,
                  then ./bin/agentbox, then `go run ./cmd/agentbox`)
   COMPOSE_DIR    Managed compose directory (default: ./.agent-sandbox/compose)
+  METADATA_FILE  Agent metadata file (default: ./.agent-sandbox/active-target.env)
   VERSIONS_FILE  Output file (default: ./scripts/dev-image-versions.env)
-EOF
+USAGE
 }
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
@@ -58,7 +73,7 @@ version_var_for() {
 
 # Image label holding the value that the above variable expects. Hermes is the
 # odd one: HERMES_VERSION is a git tag, which is recorded as hermes-ref, while
-# hermes-version holds the derived semver.
+# hermes-version holds the derived semver (see HERMES_SEMVER_LABEL).
 version_label_for() {
 	case "$1" in
 		claude) printf 'com.mattolson.agentsandbox.claude-code-version' ;;
@@ -101,10 +116,55 @@ read_agent_image() {
 	' "$1"
 }
 
+# Prints the trimmed value of a version label on a local image. Explains on
+# stderr and returns 1 when the label is missing, "latest", or unsafe to write
+# into a KEY=value file or pass to build.sh.
+read_version_label() {
+	# $1 = agent, $2 = image, $3 = label
+	local value
+	value="$(docker image inspect --format "{{ index .Config.Labels \"$3\" }}" "$2" 2>/dev/null || printf '')"
+	value="$(printf '%s' "$value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+
+	case "$value" in
+		# `index` on a missing key renders as "<no value>".
+		'' | '<no value>')
+			printf '  %s: no %s label on %s\n' "$1" "$3" "$2" >&2
+			return 1
+			;;
+		latest)
+			printf '  %s: %s is "latest", so the image carries no concrete version\n' "$1" "$3" >&2
+			return 1
+			;;
+		# Anything else that would be unsafe in a KEY=value file or build arg.
+		*[!A-Za-z0-9._+-]*)
+			printf '  %s: unexpected %s label value "%s"\n' "$1" "$3" "$value" >&2
+			return 1
+			;;
+	esac
+
+	printf '%s' "$value"
+}
+
 read_pinned_version() {
 	# $1 = variable name
 	[ -f "$VERSIONS_FILE" ] || return 0
 	sed -n "s/^$1=//p" "$VERSIONS_FILE" | tail -1
+}
+
+read_resolved_version() {
+	# $1 = variable name
+	awk -v k="$1" '$1 == k { print $2; exit }' "$RESOLVED_FILE"
+}
+
+report_change() {
+	# $1 = variable name, $2 = previous value, $3 = new value
+	if [ -n "$2" ] && [ -n "$3" ]; then
+		printf '  %s: %s -> %s\n' "$1" "$2" "$3"
+	elif [ -n "$3" ]; then
+		printf '  %s: pinned to %s\n' "$1" "$3"
+	else
+		printf '  %s: dropped (was %s)\n' "$1" "$2"
+	fi
 }
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -114,6 +174,20 @@ fi
 
 if [ ! -d "$COMPOSE_DIR" ]; then
 	printf 'Managed compose directory not found: %s\nRun `agentbox init` first.\n' "$COMPOSE_DIR" >&2
+	exit 1
+fi
+
+# The agent `make setup` builds next, resolved the same way build-dev-image.bash
+# does. Its version must resolve for the bump to count as a success.
+ACTIVE_AGENT=""
+if [ -f "$METADATA_FILE" ]; then
+	# shellcheck disable=SC1090
+	. "$METADATA_FILE"
+	ACTIVE_AGENT="${ACTIVE_AGENT:-}"
+fi
+TARGET_AGENT="${AGENT:-$ACTIVE_AGENT}"
+if [ -n "$TARGET_AGENT" ] && ! version_var_for "$TARGET_AGENT" >/dev/null; then
+	printf 'Unsupported agent for local dev image: %s\n' "$TARGET_AGENT" >&2
 	exit 1
 fi
 
@@ -140,6 +214,7 @@ printf 'Running %s bump\n' "${AGENTBOX_CMD[*]}"
 
 printf '\nReading agent CLI versions from bumped images\n'
 
+# Lines of "VARIABLE value" for everything read off the images this run.
 RESOLVED_FILE="$(mktemp)"
 trap 'rm -f "$RESOLVED_FILE"' EXIT
 
@@ -158,40 +233,47 @@ for agent in $SUPPORTED_AGENTS; do
 		continue
 	fi
 
-	label="$(version_label_for "$agent")"
-	version="$(docker image inspect --format "{{ index .Config.Labels \"$label\" }}" "$image" 2>/dev/null || printf '')"
-	version="$(printf '%s' "$version" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+	# `agentbox bump` keeps the old digest when its pull fails, and that image
+	# may never have been pulled here at all.
+	if ! docker image inspect "$image" >/dev/null 2>&1; then
+		printf '  %s: %s is not present locally (pull failed?), skipping\n' "$agent" "$image" >&2
+		continue
+	fi
 
-	case "$version" in
-		'')
-			printf '  %s: no %s label on %s, skipping\n' "$agent" "$label" "$image" >&2
-			continue
-			;;
-		latest)
-			printf '  %s: image was built from "latest" and carries no concrete version, skipping\n' "$agent" >&2
-			continue
-			;;
-		# Catches Go template misses like "<no value>" and any other junk that
-		# would be unsafe to write into a KEY=value file or pass to build.sh.
-		*[!A-Za-z0-9._+-]*)
-			printf '  %s: unexpected %s label value "%s", skipping\n' "$agent" "$label" "$version" >&2
-			continue
-			;;
-	esac
-
+	version="$(read_version_label "$agent" "$image" "$(version_label_for "$agent")")" || continue
 	printf '  %s: %s\n' "$agent" "$version"
-	printf '%s %s\n' "$agent" "$version" >> "$RESOLVED_FILE"
+	printf '%s %s\n' "$(version_var_for "$agent")" "$version" >> "$RESOLVED_FILE"
+
+	# Optional companion pin. Without it build.sh labels the local image with
+	# the tag, which is what a bare HERMES_VERSION=<tag> build does anyway.
+	if [ "$agent" = hermes ]; then
+		if semver="$(read_version_label "$agent" "$image" "$HERMES_SEMVER_LABEL")"; then
+			printf '  %s: semver %s\n' "$agent" "$semver"
+			printf 'HERMES_SEMVER %s\n' "$semver" >> "$RESOLVED_FILE"
+		fi
+	fi
 done
 
 if [ ! -s "$RESOLVED_FILE" ]; then
 	printf '\nNo agent versions resolved. Leaving %s unchanged.\n' "$VERSIONS_FILE" >&2
-	exit 0
+	exit 1
+fi
+
+if [ -n "$TARGET_AGENT" ]; then
+	target_var="$(version_var_for "$TARGET_AGENT")"
+	if [ -z "$(read_resolved_version "$target_var")" ]; then
+		current="$(read_pinned_version "$target_var")"
+		printf '\nNo version resolved for %s, which `make setup` builds next.\n' "$TARGET_AGENT" >&2
+		printf 'Leaving %s unchanged rather than rebuilding it at %s.\n' "$VERSIONS_FILE" "${current:-latest}" >&2
+		printf 'To build a specific version instead: %s=<version> make setup\n' "$target_var" >&2
+		exit 1
+	fi
 fi
 
 TMP_VERSIONS="$(mktemp)"
 trap 'rm -f "$RESOLVED_FILE" "$TMP_VERSIONS"' EXIT
 
-cat <<'EOF' > "$TMP_VERSIONS"
+cat <<'HEADER' > "$TMP_VERSIONS"
 # Agent CLI versions pinned for the local dev image.
 #
 # Generated by ./scripts/bump-dev-image.bash (via `make bump`) and read by
@@ -203,28 +285,48 @@ cat <<'EOF' > "$TMP_VERSIONS"
 # Pinning matters because images/build.sh defaults these to "latest", which is a
 # cache-stable build arg. Docker reuses the cached install layer and the agent
 # CLI never gets reinstalled. A concrete version busts the cache.
-EOF
+#
+# HERMES_VERSION is the calver git tag that is built. HERMES_SEMVER is the same
+# release's semver, read off the published image so the local image carries the
+# matching hermes-version label. It only applies alongside the HERMES_VERSION it
+# was recorded with; an explicit HERMES_VERSION ignores it.
+HEADER
 
 changed=0
 for agent in $SUPPORTED_AGENTS; do
 	var="$(version_var_for "$agent")"
 	previous="$(read_pinned_version "$var")"
-	version="$(awk -v a="$agent" '$1 == a { print $2; exit }' "$RESOLVED_FILE")"
+	version="$(read_resolved_version "$var")"
+	resolved=1
 
 	# Carry forward pins for agents that were not resolved this run.
 	if [ -z "$version" ]; then
 		version="$previous"
+		resolved=0
 	elif [ "$version" != "$previous" ]; then
 		changed=1
-		if [ -n "$previous" ]; then
-			printf '  %s: %s -> %s\n' "$var" "$previous" "$version"
-		else
-			printf '  %s: pinned to %s\n' "$var" "$version"
-		fi
+		report_change "$var" "$previous" "$version"
 	fi
 
 	[ -n "$version" ] || continue
 	printf '%s=%s\n' "$var" "$version" >> "$TMP_VERSIONS"
+
+	# HERMES_SEMVER travels with HERMES_VERSION: carried forward with it, or
+	# replaced by (or dropped with) whatever this run read off the image.
+	if [ "$agent" = hermes ]; then
+		previous_semver="$(read_pinned_version HERMES_SEMVER)"
+		if [ "$resolved" -eq 1 ]; then
+			semver="$(read_resolved_version HERMES_SEMVER)"
+		else
+			semver="$previous_semver"
+		fi
+		if [ "$semver" != "$previous_semver" ]; then
+			changed=1
+			report_change HERMES_SEMVER "$previous_semver" "$semver"
+		fi
+		[ -n "$semver" ] || continue
+		printf 'HERMES_SEMVER=%s\n' "$semver" >> "$TMP_VERSIONS"
+	fi
 done
 
 mv "$TMP_VERSIONS" "$VERSIONS_FILE"
