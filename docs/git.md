@@ -17,7 +17,8 @@ The base image avoids that by:
 
 Practical guidance:
 
-- Create shared worktrees under the repo root, for example `.worktrees/feature`
+- Create shared worktrees under the repo root, for example `.worktrees/feature`. Claude Code creates its own under
+  `.claude/worktrees/`, which follows the same rule; both directories are gitignored
 - Use Git 2.48 or newer on the host as well when working with repos that use relative worktree metadata
 - On macOS, prefer Homebrew Git over the older Apple-provided Git when using this workflow
 
