@@ -245,6 +245,7 @@ A complete new-agent change usually touches all of these:
 Relevant docs:
 
 - `docs/git.md` - git credentials, SSH-to-HTTPS rewriting, and worktree caveats
+- `docs/github.md` - repo-scoped GitHub API access through `gh api`, token permissions, and the write allowlist
 - `docs/dotfiles.md` - dotfiles and shell customization
 - `docs/stacks/` - optional language stacks
 - `docs/images.md` - image pinning and bump workflow
