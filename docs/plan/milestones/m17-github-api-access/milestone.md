@@ -1,4 +1,4 @@
-# Milestone: m18 - GitHub API Access
+# Milestone: m17 - GitHub API Access
 
 ## Goal
 
@@ -67,7 +67,7 @@ Excluded:
 
 ## Tasks
 
-### m18.1-gh-in-base-image
+### m17.1-gh-in-base-image
 
 **Summary:** Ship a pinned stock `gh` in the base image.
 
@@ -85,7 +85,7 @@ Excluded:
 - `gh api` reaches the proxy and gets a policy decision, not a TLS or connection error
 - No `gh` process makes a request outside the configured policy at startup
 
-### m18.2-api-surface-auth-and-shim
+### m17.2-api-surface-auth-and-shim
 
 **Summary:** Let a repo-scoped `github` entry inject auth on the `api` surface and export a `GH_TOKEN` placeholder.
 
@@ -102,9 +102,8 @@ Excluded:
   excludes merge and update-branch (`PUT`), review dismissal (`PUT`), comment and review deletion (`DELETE`), and
   every endpoint outside those two families
 - Emit a `bearer` transform on every api rule when `api.auth.secret` is set; default to `on_existing_header: fail`
-- Support `api.auth.client_shim` with a kind that emits a `GH_TOKEN` hint. If `m17.4` has landed, use its generic
-  `env` kind with the variable name chosen by the catalog. If not, implement the primitive here in the shape `m17.4`
-  describes so `m17` can reuse it
+- Support `api.auth.client_shim` with a generic `env` kind whose variable name is chosen by the catalog, here
+  `GH_TOKEN`. This is the primitive `m18.4` later extends to provider API keys, so keep the hint shape generic
 - Switch api rules to `on_existing_header: replace` only when the shim is present
 - Extend the shell-init consumer so the rendered hint exports `GH_TOKEN` with the placeholder value
 - Keep the sanitized `/run/agentbox/policy.yaml` free of transforms and secret IDs, as today
@@ -144,12 +143,12 @@ services:
   while `PUT .../pulls/N/merge`, `DELETE .../issues/comments/ID`, `POST .../hooks`, `PATCH /repos/{owner}/{repo}`, and
   `DELETE /repos/{owner}/{repo}` return the proxy 403
 
-### m18.3-gh-command-matrix
+### m17.3-gh-command-matrix
 
 **Summary:** Measure which stock `gh` commands work under a repo-scoped api surface instead of guessing.
 
 A first pass already exists in `validation-2026-09-06.md`, run with `gh 2.100.0` against a temporary authored policy.
-This task re-runs it against the pinned `gh` from `m18.1` and the real `api.auth` expansion from `m18.2`, then turns
+This task re-runs it against the pinned `gh` from `m17.1` and the real `api.auth` expansion from `m17.2`, then turns
 the result into the documented table.
 
 **Scope:**
@@ -170,9 +169,9 @@ the result into the documented table.
 **Acceptance Criteria:**
 - A supported/unsupported table exists with the endpoint family each command uses
 - Every unsupported command has a documented `gh api` equivalent or an explicit "not possible under repo scoping" note
-- Findings feed directly into `m18.4` and `m18.5`
+- Findings feed directly into `m17.4` and `m17.5`
 
-### m18.4-agent-instructions
+### m17.4-agent-instructions
 
 **Summary:** Teach agents the `gh api` idiom so they do not burn turns on blocked GraphQL commands.
 
@@ -182,7 +181,7 @@ the result into the documented table.
 - Show how to tell whether the api surface is enabled: look for `api.github.com` in `/run/agentbox/policy.yaml`
 - State the rule plainly: use `gh api repos/{owner}/{repo}/...`; high-level `gh pr` and `gh issue` commands are
   blocked; do not retry them
-- List the common workflows as exact commands, validated by `m18.3`. Candidate set:
+- List the common workflows as exact commands, validated by `m17.3`. Candidate set:
   - list and view issues
   - comment on an issue or pull request
   - create an issue
@@ -208,7 +207,7 @@ the result into the documented table.
 - The section is short enough that it does not materially increase per-session context cost
 - Instructions match the validated matrix, not assumptions
 
-### m18.5-docs-examples-and-tests
+### m17.5-docs-examples-and-tests
 
 **Summary:** User-facing docs, policy examples, and regression coverage.
 
@@ -236,12 +235,12 @@ the result into the documented table.
 
 ## Execution Order
 
-1. `m18.1` and `m18.2` are independent and can run in parallel. `m18.2` can be validated with `curl` before `gh` exists.
-2. `m18.3` needs both. Do not write instructions before the matrix exists.
-3. `m18.4` and `m18.5` follow from `m18.3` and can run in parallel.
+1. `m17.1` and `m17.2` are independent and can run in parallel. `m17.2` can be validated with `curl` before `gh` exists.
+2. `m17.3` needs both. Do not write instructions before the matrix exists.
+3. `m17.4` and `m17.5` follow from `m17.3` and can run in parallel.
 
-If `m17` has not started, `m18.2` builds the env shim primitive. If `m17.4` has landed, `m18.2` reuses it. Either way
-the primitive should end up in one place.
+`m17.2` builds the env shim primitive in the generic shape `m18.4` describes. `m18` reuses it rather than building a
+second one.
 
 ## Risks
 
@@ -277,6 +276,11 @@ the primitive should end up in one place.
 
 ## Changes
 
+### 2026-09-06: Renumbered from m18 to m17
+
+GitHub API access ships before provider API-key injection, so the milestone numbers now match the intended order.
+This milestone builds the generic env shim primitive; the provider milestone, now `m18`, reuses it.
+
 ### 2026-09-06: Narrowed `readwrite` to a fixed write allowlist
 
 A permission probe showed the validation token carried Administration, Webhooks, and Secrets write. Combined with a
@@ -294,4 +298,4 @@ of `--paginate`, and `gh release list` joins the GraphQL-backed list. Details in
 
 The original plan proposed a Go CLI on `google/go-github`. Replaced with stock `gh`, api-surface auth injection, and
 agent instructions. See `decisions/007-stock-gh-api-over-rest-wrapper.md`. Milestone directory renamed from
-`m18-github-rest-wrapper` to `m18-github-api-access`.
+`m18-github-rest-wrapper` to `m18-github-api-access` (renumbered to `m17-github-api-access` the next day).

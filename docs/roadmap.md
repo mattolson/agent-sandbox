@@ -128,27 +128,27 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Provider-agnostic posture: Hermes supports Nous Portal, OpenRouter, OpenAI, and custom endpoints; users add the relevant provider service to their policy
 - Scope limited to CLI mode; non-CLI integrations (Telegram, Discord, Slack, etc.) are out of scope
 
-## m17: Provider API-key injection (planned)
-
-- Extend proxy-side secret injection from GitHub Git auth to model-provider API-key traffic
-- Add raw-header injection for provider headers whose value is the secret itself
-- Add service-catalog auth expansion for OpenAI, Anthropic, and Gemini API patterns
-- Add a generic renderer-owned fake env shim primitive, first used for clients that require `OPENAI_API_KEY`,
-  `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`
-- Support Codex, Claude API-key mode, Gemini API-key mode, and provider-backed Pi/OpenCode flows where practical
-- Explicitly exclude OAuth, browser login, device-code, subscription-login, and helper-protocol flows
-
-## m18: GitHub API access via `gh api` (planned)
+## m17: GitHub API access via `gh api` (planned)
 
 - Ship stock `gh` in the base image and use `gh api` for repo-scoped REST calls; no custom wrapper
 - Add `auth` on the `api` surface of repo-scoped `github` policy entries, with a `GH_TOKEN` shim so the token never
-  enters the agent container
+  enters the agent container; this introduces the generic env shim primitive that `m18` reuses
 - Keep repo identity in request URLs so `m14` policies constrain access to one repo; GraphQL-backed `gh` commands stay
   blocked
 - Define `readwrite` as a fixed allowlist of issue and pull-request writes; administration, webhook, and secret
   endpoints stay blocked regardless of token permissions
 - Validate and document which stock `gh` commands work under repo-scoped rules
 - Add agent instructions for the most common workflows to the `operating-in-agent-sandbox` skill
+
+## m18: Provider API-key injection (planned)
+
+- Extend proxy-side secret injection from GitHub Git auth to model-provider API-key traffic
+- Add raw-header injection for provider headers whose value is the secret itself
+- Add service-catalog auth expansion for OpenAI, Anthropic, and Gemini API patterns
+- Reuse the renderer-owned env shim primitive from `m17` for clients that require `OPENAI_API_KEY`,
+  `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`
+- Support Codex, Claude API-key mode, Gemini API-key mode, and provider-backed Pi/OpenCode flows where practical
+- Explicitly exclude OAuth, browser login, device-code, subscription-login, and helper-protocol flows
 
 ## m19: CLI monitoring and policy management (planned)
 

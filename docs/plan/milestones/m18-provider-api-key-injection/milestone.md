@@ -1,4 +1,4 @@
-# Milestone: m17 - Provider API-Key Injection
+# Milestone: m18 - Provider API-Key Injection
 
 ## Goal
 
@@ -52,7 +52,7 @@ Excluded:
 
 ## Tasks
 
-### m17.1-provider-auth-discovery-and-schema
+### m18.1-provider-auth-discovery-and-schema
 
 **Summary:** Confirm provider request shapes and define the authored service schema for API-key injection.
 
@@ -75,7 +75,7 @@ Excluded:
 **Risks:** Agent CLIs may validate API-key formats before making network requests, which could make a simple fake env var
 insufficient for some clients.
 
-### m17.2-raw-header-transform
+### m18.2-raw-header-transform
 
 **Summary:** Add a generic transform that injects the resolved secret as the complete header value.
 
@@ -96,7 +96,7 @@ insufficient for some clients.
 **Risks:** A too-specific transform name could leak provider assumptions into the generic injection layer. Keep this
 strictly header-value-oriented.
 
-### m17.3-provider-service-catalog-auth
+### m18.3-provider-service-catalog-auth
 
 **Summary:** Teach the service catalog to emit provider-specific request rules and header transforms.
 
@@ -113,18 +113,19 @@ strictly header-value-oriented.
 - Unauthenticated service entries preserve current behavior
 - Renderer tests reject unsupported auth keys and malformed secret IDs
 
-**Dependencies:** `m17.1`, `m17.2`
+**Dependencies:** `m18.1`, `m18.2`
 
 **Risks:** Existing simple service names have broad host expansion. Adding auth must not accidentally inject credentials
 into unrelated login, telemetry, documentation, or update hosts.
 
-### m17.4-generic-env-credential-shim
+### m18.4-generic-env-credential-shim
 
-**Summary:** Build a generic renderer-owned env-var shim primitive and wire provider API-key uses through the catalog.
+**Summary:** Extend the generic env shim primitive from `m17.2` to provider API keys and wire them through the catalog.
 
 **Scope:**
-- Extend rendered shim metadata beyond Git askpass while keeping it renderer-owned and kinded
-- Support a generic `env` shim kind that can emit deterministic fake env values for catalog-selected variable names
+- Reuse the renderer-owned `env` shim kind introduced in `m17.2`; keep it kinded and renderer-owned
+- Add the provider variable names (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`) to the catalog's env shim
+  emissions with deterministic fake values
 - Pair each env shim emission with `on_existing_header: replace` on the matching provider rules
 - Keep authored policy service-specific, for example `auth.client_shim.kind: env`, rather than letting users provide
   arbitrary env var names
@@ -140,13 +141,13 @@ into unrelated login, telemetry, documentation, or update hosts.
   shell-init consumer contract
 - Authored top-level shim metadata remains rejected
 
-**Dependencies:** `m17.3`
+**Dependencies:** `m18.3`, and the env shim primitive from `m17.2`
 
 **Risks:** Some clients may inspect key prefixes, copy the fake value into a query string or request body, or use the env
 value to sign requests before making a replaceable HTTP request. Those clients may need a provider-specific shim or may
 remain out of scope.
 
-### m17.5-agent-flow-integration
+### m18.5-agent-flow-integration
 
 **Summary:** Wire and document the supported first-rollout agent flows.
 
@@ -162,12 +163,12 @@ remain out of scope.
 - Each unsupported flow has a clear explanation instead of a silent omission
 - Agent docs no longer recommend putting real supported provider API keys inside the container as the primary path
 
-**Dependencies:** `m17.4`
+**Dependencies:** `m18.4`
 
 **Risks:** Live-provider validation can be hard to run in CI. Prefer mocked proxy integration tests plus documented manual
 smoke checks.
 
-### m17.6-docs-examples-and-tests
+### m18.6-docs-examples-and-tests
 
 **Summary:** Add end-user docs, policy examples, and regression coverage for the full provider API-key injection path.
 
@@ -182,21 +183,22 @@ smoke checks.
 - Tests exercise the examples or share fixtures with them
 - Proxy logs remain useful without leaking secret material
 
-**Dependencies:** `m17.2`, `m17.3`, `m17.4`
+**Dependencies:** `m18.2`, `m18.3`, `m18.4`
 
 **Risks:** Duplicating grammar details across docs can drift. Keep `docs/policy/schema.md` canonical and link to it from
 agent-specific pages.
 
 ## Execution Order
 
-1. Start with `m17.1` to lock the provider surface and avoid implementing a schema around guessed client behavior.
-2. Implement `m17.2` early because Anthropic and Gemini need raw API-key headers.
-3. Add catalog auth in `m17.3`.
-4. Add the generic env shim primitive in `m17.4` only after the catalog owns the provider auth rules it pairs with.
-5. Validate and document agent flows in `m17.5`.
-6. Finish with the docs, examples, and regression sweep in `m17.6`.
+1. Start with `m18.1` to lock the provider surface and avoid implementing a schema around guessed client behavior.
+2. Implement `m18.2` early because Anthropic and Gemini need raw API-key headers.
+3. Add catalog auth in `m18.3`.
+4. Wire providers through the `m17.2` env shim primitive in `m18.4` only after the catalog owns the provider auth rules
+   it pairs with.
+5. Validate and document agent flows in `m18.5`.
+6. Finish with the docs, examples, and regression sweep in `m18.6`.
 
-`m17.2` can proceed in parallel with part of `m17.1` once the raw-header need is confirmed. `m17.5` should not start until
+`m18.2` can proceed in parallel with part of `m18.1` once the raw-header need is confirmed. `m18.5` should not start until
 the shim behavior exists.
 
 ## Risks
@@ -222,6 +224,11 @@ the shim behavior exists.
 - The roadmap treats GitHub REST wrapper, CLI monitoring, and host credential service as later milestones.
 
 ## Changes
+
+### 2026-09-06: Renumbered from m17 to m18
+
+GitHub API access (`m17`) ships first and builds the generic env shim primitive this milestone reuses. Numbers now
+match the intended order.
 
 ### 2026-05-23: Created After m15
 

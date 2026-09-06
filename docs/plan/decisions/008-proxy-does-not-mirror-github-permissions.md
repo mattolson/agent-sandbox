@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-`m18` gives agents repo-scoped GitHub REST access through the proxy. The first draft defined `api.access: readwrite`
+`m17` gives agents repo-scoped GitHub REST access through the proxy. The first draft defined `api.access: readwrite`
 as any method under `/repos/{owner}/{repo}/`. A security review on 2026-09-06 showed why that is too broad: the
 validation token carried Administration, Webhooks, and Secrets write, and a permission probe confirmed every admin
 family under the repo prefix was reachable. A method-less prefix rule would have let the sandbox create a webhook,

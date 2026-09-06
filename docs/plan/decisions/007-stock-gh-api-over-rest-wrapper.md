@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-`m18` originally planned a Go CLI on `google/go-github` that would expose a curated set of repo-scoped GitHub
+`m17` originally planned a Go CLI on `google/go-github` that would expose a curated set of repo-scoped GitHub
 workflows over REST only. The motivation is sound: stock `gh` runs most high-level commands over GraphQL, where the
 repo lives in the request body, and `decisions/005` says the proxy trusts a matched URL and does not inspect bodies.
 Repo-scoped `m14` rules therefore cannot constrain GraphQL to one repository.
@@ -15,7 +15,7 @@ While reviewing sandbox GitHub access on 2026-09-05, two things changed the calc
 
 - `gh api` already is a REST-only client with repo identity in the URL path. It supports `{owner}/{repo}`
   placeholders, `--jq`, `--paginate`, and typed fields, and agents know it well.
-- The `m15` injection layer already supports `bearer` transforms and the renderer-owned shim model, and the `m17` plan
+- The `m15` injection layer already supports `bearer` transforms and the renderer-owned shim model, and the `m18` plan
   already describes a generic env shim primitive. A `GH_TOKEN` shim is the same primitive with a different variable
   name.
 
@@ -24,14 +24,15 @@ to use.
 
 ## Decision
 
-Drop the custom wrapper. `m18` becomes:
+Drop the custom wrapper. `m17` becomes:
 
 - Stock `gh` in the base image, pinned
 - `api.auth` on repo-scoped `github` service entries, with a catalog-owned `GH_TOKEN` shim
 - A validated matrix of which stock `gh` commands work under repo-scoped rules
 - Agent instructions in the `operating-in-agent-sandbox` skill that lead with `gh api repos/{owner}/{repo}/...`
 
-The milestone directory is renamed from `m18-github-rest-wrapper` to `m18-github-api-access`.
+The milestone directory is renamed from `m18-github-rest-wrapper` to `m18-github-api-access` (renumbered to
+`m17-github-api-access` the next day, when the milestone order was flipped).
 
 ## Rationale
 
@@ -58,7 +59,7 @@ Alternatives considered:
 **Positive:**
 
 - No new binary, release pipeline, or command surface to maintain
-- Reuses `m14` rules, `m15` injection, and the `m17` shim shape
+- Reuses `m14` rules, `m15` injection, and the `m18` shim shape
 - Repo scoping is enforced at the proxy and can be tightened further with authored rules
 
 **Negative:**
