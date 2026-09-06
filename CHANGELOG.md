@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Devcontainer display name includes the project name.** `agentbox init --name myproject` (or the directory-derived default) now renders `.devcontainer/devcontainer.json` with `"name": "Claude Code Sandbox: myproject"` instead of the generic per-agent name, so VS Code and JetBrains window titles distinguish projects. `agentbox switch` applies the same name. A `name` set in `.devcontainer/devcontainer.user.json` still wins. (#178)
+
 ## [0.17.0] - 2026-09-06
 
 GitHub API access from `m17`, and Hermes installed from a git checkout.

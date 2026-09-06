@@ -155,7 +155,7 @@ func EnsureDevcontainerRuntimeFiles(ctx context.Context, params SyncParams) (run
 	if err := scaffoldDevcontainerUserJSONIfMissing(params.RepoRoot); err != nil {
 		return runtime.ActiveTarget{}, err
 	}
-	if err := renderDevcontainerJSON(params.RepoRoot, params.Agent, runtime.DevcontainerJSONFile(params.RepoRoot)); err != nil {
+	if err := renderDevcontainerJSON(params.RepoRoot, params.Agent, target.ProjectName, runtime.DevcontainerJSONFile(params.RepoRoot)); err != nil {
 		return runtime.ActiveTarget{}, err
 	}
 	if err := writeDevcontainerModeComposeFile(params.RepoRoot, target.DevcontainerIDE, target.ProjectName); err != nil {

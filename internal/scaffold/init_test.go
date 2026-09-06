@@ -158,7 +158,7 @@ func TestRenderDevcontainerJSONAppendsUserArrays(t *testing.T) {
 	}
 
 	outputFile := filepath.Join(repoRoot, ".devcontainer", "devcontainer.json")
-	if err := renderDevcontainerJSON(repoRoot, "claude", outputFile); err != nil {
+	if err := renderDevcontainerJSON(repoRoot, "claude", "myproject", outputFile); err != nil {
 		t.Fatalf("renderDevcontainerJSON failed: %v", err)
 	}
 
@@ -166,6 +166,80 @@ func TestRenderDevcontainerJSONAppendsUserArrays(t *testing.T) {
 	extensions := data["customizations"].(map[string]any)["vscode"].(map[string]any)["extensions"].([]any)
 	if len(extensions) != 2 || extensions[0].(string) != "anthropic.claude-code" || extensions[1].(string) != "ms-python.python" {
 		t.Fatalf("unexpected extensions: %v", extensions)
+	}
+	if got := data["name"]; got != "Claude Code Sandbox: myproject" {
+		t.Fatalf("expected composed name to survive the user overlay, got %v", got)
+	}
+}
+
+func TestRenderDevcontainerJSONAppendsProjectNameAndKeepsTemplateFormatting(t *testing.T) {
+	repoRoot := t.TempDir()
+	outputFile := filepath.Join(repoRoot, ".devcontainer", "devcontainer.json")
+	if err := renderDevcontainerJSON(repoRoot, "claude", "myproject", outputFile); err != nil {
+		t.Fatalf("renderDevcontainerJSON failed: %v", err)
+	}
+
+	got, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+	template, err := ReadTemplate("claude/devcontainer/devcontainer.json")
+	if err != nil {
+		t.Fatalf("ReadTemplate failed: %v", err)
+	}
+	want := strings.Replace(string(template), `"name": "Claude Code Sandbox"`, `"name": "Claude Code Sandbox: myproject"`, 1)
+	if string(got) != want {
+		t.Fatalf("output should equal the template with only the name extended.\ngot:\n%s\nwant:\n%s", got, want)
+	}
+	if readJSONMap(t, outputFile)["name"] != "Claude Code Sandbox: myproject" {
+		t.Fatalf("composed name did not parse back as expected")
+	}
+}
+
+func TestRenderDevcontainerJSONUserNameOverridesComposedName(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".devcontainer"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoRoot, ".devcontainer", "devcontainer.user.json"), []byte(`{"name": "Custom"}`), 0o644); err != nil {
+		t.Fatalf("write user json: %v", err)
+	}
+
+	outputFile := filepath.Join(repoRoot, ".devcontainer", "devcontainer.json")
+	if err := renderDevcontainerJSON(repoRoot, "claude", "myproject", outputFile); err != nil {
+		t.Fatalf("renderDevcontainerJSON failed: %v", err)
+	}
+	if got := readJSONMap(t, outputFile)["name"]; got != "Custom" {
+		t.Fatalf("user-supplied name should win, got %v", got)
+	}
+}
+
+func TestApplyDevcontainerNameEscapesAndCoversEveryAgent(t *testing.T) {
+	for _, agent := range runtime.SupportedAgents() {
+		template, err := ReadTemplate(agent + "/devcontainer/devcontainer.json")
+		if err != nil {
+			t.Fatalf("%s: ReadTemplate failed: %v", agent, err)
+		}
+		out, err := applyDevcontainerName(template, `my "quoted" project`)
+		if err != nil {
+			t.Fatalf("%s: applyDevcontainerName failed: %v", agent, err)
+		}
+		var doc map[string]any
+		if err := json.Unmarshal(out, &doc); err != nil {
+			t.Fatalf("%s: output is not valid JSON: %v", agent, err)
+		}
+		name, _ := doc["name"].(string)
+		if !strings.HasSuffix(name, `: my "quoted" project`) {
+			t.Fatalf("%s: top-level name not extended, got %q", agent, name)
+		}
+	}
+
+	unchanged, err := applyDevcontainerName([]byte(`{"name": "X"}`), "")
+	if err != nil || string(unchanged) != `{"name": "X"}` {
+		t.Fatalf("empty project name should leave the template untouched, got %q err=%v", unchanged, err)
+	}
+	if _, err := applyDevcontainerName([]byte(`{"build": {}}`), "p"); err == nil {
+		t.Fatalf("template without a name field should be rejected")
 	}
 }
 
