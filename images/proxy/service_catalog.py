@@ -28,6 +28,15 @@ DEFAULT_RULE_SCHEMES = ("http", "https")
 READONLY_METHODS = ("GET", "HEAD")
 WRITE_METHODS = ("POST",)
 
+# Write methods the repo-scoped GitHub `api` surface forwards under
+# `access: readwrite`, and the endpoint families they apply to. POST and PATCH
+# cover creating, editing, closing, labeling, and commenting on issues and pull
+# requests, and submitting reviews. PUT (merge, update-branch, review
+# dismissal) and DELETE (comment and review deletion) are deliberately absent,
+# as is every family outside issues and pulls. See decisions/008.
+GITHUB_API_WRITE_METHODS = ("POST", "PATCH")
+GITHUB_API_WRITE_FAMILIES = ("issues", "pulls")
+
 SURFACE_API = "api"
 SURFACE_GIT = "git"
 
@@ -463,11 +472,35 @@ def _github_api_rules_for_repo(owner, name, access):
     # paths (built from the lowercased owner/name) are matched case-insensitively
     # to avoid blocking requests that use the repo's canonical mixed case.
     base = f"/repos/{owner}/{name}"
-    methods = list(READONLY_METHODS) if access == ACCESS_READ else None
-    return [
-        _build_rule(methods=methods, path={"exact": base}, path_case_insensitive=True),
-        _build_rule(methods=methods, path={"prefix": base + "/"}, path_case_insensitive=True),
+    rules = [
+        _build_rule(
+            methods=list(READONLY_METHODS),
+            path={"exact": base},
+            path_case_insensitive=True,
+        ),
+        _build_rule(
+            methods=list(READONLY_METHODS),
+            path={"prefix": base + "/"},
+            path_case_insensitive=True,
+        ),
     ]
+    if access == ACCESS_READWRITE:
+        for family in GITHUB_API_WRITE_FAMILIES:
+            rules.append(
+                _build_rule(
+                    methods=["POST"],
+                    path={"exact": f"{base}/{family}"},
+                    path_case_insensitive=True,
+                )
+            )
+            rules.append(
+                _build_rule(
+                    methods=list(GITHUB_API_WRITE_METHODS),
+                    path={"prefix": f"{base}/{family}/"},
+                    path_case_insensitive=True,
+                )
+            )
+    return rules
 
 
 def _github_smart_http_pair(base, git_service):

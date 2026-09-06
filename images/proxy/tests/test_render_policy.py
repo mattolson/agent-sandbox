@@ -1004,12 +1004,12 @@ services:
     repos:
       - owner/a
     api:
-      access: readwrite
+      access: read
   - name: github
     repos:
       - owner/b
     api:
-      access: readwrite
+      access: read
 """
         )
 

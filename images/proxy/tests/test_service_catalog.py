@@ -55,6 +55,33 @@ def expected_github_git_askpass_hint(secret="github-token"):
     }
 
 
+def _api_rule(methods, path):
+    return {
+        "schemes": ["http", "https"],
+        "methods": methods,
+        "path": path,
+        "path_case_insensitive": True,
+    }
+
+
+def expected_api_read_rules(owner, repo):
+    base = f"/repos/{owner}/{repo}"
+    return [
+        _api_rule(["GET", "HEAD"], {"exact": base}),
+        _api_rule(["GET", "HEAD"], {"prefix": base + "/"}),
+    ]
+
+
+def expected_api_readwrite_rules(owner, repo):
+    base = f"/repos/{owner}/{repo}"
+    return expected_api_read_rules(owner, repo) + [
+        _api_rule(["POST"], {"exact": base + "/issues"}),
+        _api_rule(["POST", "PATCH"], {"prefix": base + "/issues/"}),
+        _api_rule(["POST"], {"exact": base + "/pulls"}),
+        _api_rule(["POST", "PATCH"], {"prefix": base + "/pulls/"}),
+    ]
+
+
 class ServiceCatalogNormalizeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -422,21 +449,7 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
         self.assertEqual(set(records_by_host), {"api.github.com", "github.com"})
 
         api_rules = records_by_host["api.github.com"]["rules"]
-        self.assertEqual(
-            api_rules,
-            [
-                {
-                    "schemes": ["http", "https"],
-                    "path": {"exact": "/repos/owner/repo"},
-                    "path_case_insensitive": True,
-                },
-                {
-                    "schemes": ["http", "https"],
-                    "path": {"prefix": "/repos/owner/repo/"},
-                    "path_case_insensitive": True,
-                },
-            ],
-        )
+        self.assertEqual(api_rules, expected_api_readwrite_rules("owner", "repo"))
 
         expected_transform = expected_github_auth_transform()
         git_rules = records_by_host["github.com"]["rules"]
@@ -569,12 +582,59 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
         hosts = [record["host"] for record in expansion["records"]]
         self.assertEqual(hosts, ["github.com"])
 
+    def test_github_api_readwrite_is_an_enumerated_write_allowlist(self):
+        expansion = self.expand(
+            {
+                "name": "github",
+                "repos": ["owner/repo"],
+                "api": {"access": "readwrite"},
+            }
+        )
+        api_rules = expansion["records"][0]["rules"]
+        self.assertEqual(api_rules, expected_api_readwrite_rules("owner", "repo"))
+
+        # Every write rule names its methods; nothing under readwrite is a
+        # method-less catch-all, and PUT/DELETE never appear.
+        for rule in api_rules:
+            self.assertIn("methods", rule)
+            self.assertNotIn("PUT", rule["methods"])
+            self.assertNotIn("DELETE", rule["methods"])
+
+        # Write rules exist only for the issues and pulls families.
+        write_paths = sorted(
+            (rule["path"].get("exact") or rule["path"].get("prefix"))
+            for rule in api_rules
+            if set(rule["methods"]) & {"POST", "PATCH"}
+        )
+        self.assertEqual(
+            write_paths,
+            [
+                "/repos/owner/repo/issues",
+                "/repos/owner/repo/issues/",
+                "/repos/owner/repo/pulls",
+                "/repos/owner/repo/pulls/",
+            ],
+        )
+
+    def test_github_api_read_has_no_write_rules(self):
+        expansion = self.expand(
+            {
+                "name": "github",
+                "repos": ["owner/repo"],
+                "api": {"access": "read"},
+            }
+        )
+        api_rules = expansion["records"][0]["rules"]
+        self.assertEqual(len(api_rules), 2)
+        for rule in api_rules:
+            self.assertEqual(rule["methods"], ["GET", "HEAD"])
+
     def test_multi_repo_expansion_is_deterministic_and_includes_each_repo(self):
         expansion = self.expand(
             {
                 "name": "github",
                 "repos": ["owner/a", "owner/b"],
-                "api": {"access": "readwrite"},
+                "api": {"access": "read"},
             }
         )
         api_rules = expansion["records"][0]["rules"]
@@ -593,7 +653,7 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
             {
                 "name": "github",
                 "repos": ["Owner/A", "owner/a"],
-                "api": {"access": "readwrite"},
+                "api": {"access": "read"},
             }
         )
         api_rules = expansion["records"][0]["rules"]
@@ -602,11 +662,13 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
             [
                 {
                     "schemes": ["http", "https"],
+                    "methods": ["GET", "HEAD"],
                     "path": {"exact": "/repos/owner/a"},
                     "path_case_insensitive": True,
                 },
                 {
                     "schemes": ["http", "https"],
+                    "methods": ["GET", "HEAD"],
                     "path": {"prefix": "/repos/owner/a/"},
                     "path_case_insensitive": True,
                 },

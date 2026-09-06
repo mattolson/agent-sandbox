@@ -163,9 +163,25 @@ Surface mapping keys:
 - `auth`: optional. Supported on `git` only; rejected on `api` in this
   milestone.
 
-On the `api` surface, `access: read` narrows methods to `GET` and `HEAD`. On
-the `git` surface, `access` is semantic enough to keep clone and fetch working
-even though they use `POST`:
+On the `api` surface, `access: read` emits `GET` and `HEAD` on
+`/repos/{owner}/{repo}` and everything under it. `access: readwrite` keeps
+those read rules and adds a fixed write allowlist:
+
+- `POST /repos/{owner}/{repo}/issues` and `POST /repos/{owner}/{repo}/pulls`
+- `POST` and `PATCH` under `/repos/{owner}/{repo}/issues/` and
+  `/repos/{owner}/{repo}/pulls/`
+
+That covers creating, editing, closing, labeling, and commenting on issues and
+pull requests, and submitting reviews. It deliberately excludes merge and
+update-branch (`PUT`), review dismissal (`PUT`), comment and review deletion
+(`DELETE`), and every family outside issues and pulls, including webhooks,
+deploy keys, secrets, collaborators, and the repository record itself. Those
+writes stay blocked whatever the token allows; author a `domains` rule if you
+need one. Reads remain broad: hook configurations, key lists, and secret names
+are readable under `read`.
+
+On the `git` surface, `access` is semantic enough to keep clone and fetch
+working even though they use `POST`:
 
 - `access: read` emits repo-scoped rules for
   `info/refs?service=git-upload-pack` (GET, HEAD) and POST to
