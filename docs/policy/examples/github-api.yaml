@@ -24,8 +24,8 @@
 # Prerequisites:
 #   - A secret file at $AGENTBOX_SECRET_DIR/github.owner.repo.token holding a
 #     fine-grained PAT scoped to owner/repo with Contents, Issues, and Pull
-#     requests read/write and Actions read. Withhold Workflows, Administration,
-#     Webhooks, and Secrets. One secret can back both surfaces.
+#     requests read/write and Actions and Checks read. Withhold Workflows,
+#     Administration, Webhooks, and Secrets. One secret can back both surfaces.
 #   - A fresh shell after `agentbox proxy reload`, since shim exports load at
 #     shell startup.
 #
