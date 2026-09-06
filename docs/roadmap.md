@@ -135,8 +135,8 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
   enters the agent container; this introduces the generic env shim primitive that `m18` reuses
 - Keep repo identity in request URLs so `m14` policies constrain access to one repo; GraphQL-backed `gh` commands stay
   blocked
-- Define `readwrite` as a fixed allowlist of issue and pull-request writes; administration, webhook, and secret
-  endpoints stay blocked regardless of token permissions
+- Define `readwrite` as a fixed allowlist of issue and pull-request writes; no write reaches administration, webhook,
+  or secret endpoints regardless of token permissions, though `read` still allows GET across the repo
 - Validate and document which stock `gh` commands work under repo-scoped rules
 - Add agent instructions for the most common workflows to the `operating-in-agent-sandbox` skill
 

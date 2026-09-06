@@ -24,9 +24,12 @@ No. The `github` catalog keeps two access levels and owns one fixed family list.
 - `readwrite`: `read` plus POST on `/repos/{owner}/{repo}/issues` and `/repos/{owner}/{repo}/pulls`, and POST and
   PATCH under `/repos/{owner}/{repo}/issues/` and `/repos/{owner}/{repo}/pulls/`.
 
-Everything else under the repo prefix is never forwarded by the catalog, regardless of token permissions. That
-includes merge, update-branch, review dismissal, comment and review deletion, CI dispatch and rerun, release and ref
-writes, and all administration, webhook, key, secret, variable, environment, pages, and repo-record endpoints.
+No other write method under the repo prefix is forwarded by the catalog, regardless of token permissions. That
+excludes merge, update-branch, review dismissal, comment and review deletion, CI dispatch and rerun, release and ref
+writes, and every write to administration, webhook, key, secret, variable, environment, pages, and repo-record
+endpoints. Reads are broader: `read` forwards GET and HEAD across the whole repo prefix, so hook configurations,
+deploy-key lists, and secret names stay readable. That disclosure is accepted for ergonomics and is documented in the
+`m17` plan.
 
 Users who need an excluded write author a `domains` rule for it. The catalog does not grow a per-capability surface,
 and policy does not use GitHub's permission vocabulary such as `issues: write`.
@@ -61,8 +64,8 @@ Alternatives considered:
 
 **Positive:**
 
-- The default preset is safe against an over-privileged token. Admin families are unreachable from the sandbox even
-  when the token allows them.
+- The default preset cannot reconfigure the repository even with an over-privileged token. Admin families accept no
+  writes from the sandbox; they remain readable under `read`.
 - The list is small enough to test exhaustively and to document side by side with its exclusions.
 - The `domains` escape hatch already exists, so no new authoring surface is needed for exceptions.
 

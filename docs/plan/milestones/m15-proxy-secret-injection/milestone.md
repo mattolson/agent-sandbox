@@ -40,7 +40,7 @@ to hold the real secret.
 - A complete secret-management CLI with project, target, and session scoped storage
 - A new live-update control plane beyond the existing policy reload path
 - Provider API-key injection; that moves to `m18`
-- GitHub REST wrapper work; that moves to `m17`
+- GitHub API access work; that moves to `m17`
 
 ## Design
 

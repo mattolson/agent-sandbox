@@ -147,7 +147,7 @@ services:
 ```
 
 Reject `api.auth` for now with a clear reserved/unsupported error. Provider API-key injection belongs to `m18`, GitHub
-REST wrapper behavior belongs to `m17`, and M15.5 should not imply API credential injection.
+API access behavior belongs to `m17`, and M15.5 should not imply API credential injection.
 
 For authenticated Git rules, emit the same canonical rule-scoped transform shape as explicit `domains[].transform`
 authoring:

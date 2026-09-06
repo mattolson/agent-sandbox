@@ -17,8 +17,8 @@ Included:
 - Stock `gh` in the base image, pinned and checksum-verified for `linux/amd64` and `linux/arm64`
 - `auth` support on the `api` surface of repo-scoped `github` service entries, using the existing `bearer` transform
 - A fixed, catalog-owned definition of `api.access: readwrite` as POST and PATCH on the issue and pull-request
-  families only. Administration, webhook, deploy-key, secret, and repo-record endpoints are never forwarded, whatever
-  the token allows
+  families only. No write reaches administration, webhook, deploy-key, secret, or repo-record endpoints, whatever
+  the token allows. Reads of those endpoints stay open under `read`
 - A catalog-owned `GH_TOKEN` env shim so `gh` starts without a real token and the proxy replaces the placeholder
   `Authorization` header in flight
 - A validated matrix of which stock `gh` commands work under a repo-scoped `api` surface and which do not
@@ -190,7 +190,6 @@ the result into the documented table.
   - read review comments and reviews on a pull request
   - check status and check runs for a commit
   - list workflow runs and read a failed run's log
-  - merge a pull request
   - view releases
 - Show `--jq` for trimming output and `-f`/`-F` for fields
 - Say not to use `--paginate`; loop `?per_page=100&page=N` instead, because page two lands on a blocked URL
@@ -203,7 +202,8 @@ the result into the documented table.
 - Distinguish the proxy 403 (`Blocked by proxy policy`) from a GitHub 403 (token lacks permission)
 
 **Acceptance Criteria:**
-- An agent with the skill loaded can complete the listed workflows without a blocked request
+- An agent with the skill loaded can complete the listed workflows, all of which sit inside the default preset,
+  without a blocked request
 - The section is short enough that it does not materially increase per-session context cost
 - Instructions match the validated matrix, not assumptions
 
@@ -267,8 +267,9 @@ second one.
 - A repo-scoped policy with `api.auth` lets `gh api` read and write issues, pull requests, comments, and check status
   for one repository, with the real token never present in the agent container
 - Requests to other repositories, `/graphql`, and non-repo endpoints are blocked by the proxy
-- Under `readwrite`, merge, review dismissal, comment deletion, and every administration, webhook, key, and secret
-  endpoint are blocked by the proxy regardless of token permissions
+- Under `readwrite`, merge, review dismissal, comment deletion, and every write to administration, webhook, key, and
+  secret endpoints are blocked by the proxy regardless of token permissions. GET on those endpoints remains allowed
+  under `read`, and the docs say so
 - The image ships a pinned `gh`, and the `operating-in-agent-sandbox` skill documents the `gh api` idiom with validated
   commands
 - The supported and unsupported command matrix is documented and reproducible
