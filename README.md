@@ -171,6 +171,8 @@ directory is mounted into the proxy only; the agent container sees neither the r
 
 So an agent doesn't waste turns fighting these guardrails, the image ships an `operating-in-agent-sandbox` skill that explains the proxy/firewall model, where to read the effective allowlist (`/run/agentbox/policy.yaml`), and what to do when a request is blocked. It is baked into the image at `/usr/local/share/agent-sandbox/skills/` and symlinked at startup into the agent's skill-discovery directories (`~/.agents/skills/` for the cross-agent convention and `~/.claude/skills/` for Claude), so every sandbox has it with no per-project setup.
 
+The base image also ships the GitHub CLI. With a repo-scoped `api` surface in the policy, agents use `gh api repos/{owner}/{repo}/...` to read and write issues and pull requests while the token stays on the host; the skill carries the validated commands. See [docs/github.md](./docs/github.md).
+
 The proxy also writes the live allowlist to `/run/agentbox/policy.yaml` for the agent to read. This is a convenience, not a security hole: it is a **read-only** copy (the agent cannot edit it, and editing it would change nothing — enforcement happens in the proxy, not from this file), and it is **sanitized** to host/scheme/method/path/query rules only, with credential-shim material and request-rewriting transforms stripped. It exposes nothing the agent couldn't already learn by probing which hosts answer; it just saves it the round trips. Network policy can still only be changed on the host (`agentbox edit policy`), never from inside the container.
 
 ### Customizing the policy
@@ -267,12 +269,14 @@ After changing policy, run `agentbox proxy reload`. If the policy uses `client_s
 so Git sees the generated askpass environment.
 
 - [docs/git.md](./docs/git.md) - end-to-end setup for read-only and readwrite Git flows
+- [docs/github.md](./docs/github.md) - repo-scoped GitHub API access for `gh api`: token, policy, and limits
 - [docs/secrets.md](./docs/secrets.md) - host secret directory layout, permissions, freshness, and non-goals
 - Example policies: [github-private-git.yaml](./docs/policy/examples/github-private-git.yaml), [github-git-push.yaml](./docs/policy/examples/github-git-push.yaml)
 
 ## Customization
 
 - **[Git inside the container](docs/git.md)** - Credential setup and SSH-to-HTTPS rewriting
+- **[GitHub API access](docs/github.md)** - Issues, pull requests, and CI through `gh api` with a proxy-injected token
 - **[Secrets](docs/secrets.md)** - Host secret directory layout, permissions, and freshness for proxy-side credential injection
 - **[Dotfiles and shell customization](docs/dotfiles.md)** - Mount dotfiles and shell.d scripts
 - **[Language stacks](docs/stacks/)** - Extend the base image with Python, Node, Go, Rust and stack-specific guides

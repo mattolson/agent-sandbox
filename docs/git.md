@@ -82,6 +82,10 @@ Focused policy examples under `docs/policy/examples/`:
 
 - [github-private-git.yaml](policy/examples/github-private-git.yaml) — read-only clone/fetch.
 - [github-git-push.yaml](policy/examples/github-git-push.yaml) — readwrite with the askpass shim.
+- [github-api.yaml](policy/examples/github-api.yaml) — the above plus an authenticated REST `api` surface.
+
+To let the agent read and write issues and pull requests as well, add the `api` surface to the same entry. The same
+secret can back both. See [docs/github.md](github.md).
 
 See [docs/policy/schema.md](policy/schema.md) for the full authored shape, including non-GitHub services via `domains[].transform.request`.
 

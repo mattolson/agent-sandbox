@@ -92,9 +92,9 @@ If the path is a symlink, remove the symlink and place the real file at the reso
 
 ## Credential-shim env vars not visible inside the container
 
-Policies that use `services[].git.auth.client_shim` rely on shell env exports (`GIT_ASKPASS`, `AGENTBOX_GIT_FAKE_USERNAME`, `AGENTBOX_GIT_FAKE_PASSWORD`, `GIT_TERMINAL_PROMPT`) that are loaded at shell startup by `/etc/agent-sandbox/shell-init.sh`. Already-running processes — including the agent process you started before applying the policy — do not see updated exports.
+Policies that use `services[].git.auth.client_shim` or `services[].api.auth.client_shim` rely on shell env exports (`GIT_ASKPASS`, `AGENTBOX_GIT_FAKE_USERNAME`, `AGENTBOX_GIT_FAKE_PASSWORD`, `GIT_TERMINAL_PROMPT` for the git shim; `GH_TOKEN` for the api shim) that are loaded at shell startup by `/etc/agent-sandbox/shell-init.sh`. Already-running processes — including the agent process you started before applying the policy — do not see updated exports.
 
-If `git push` prompts for credentials or fails with no Authorization injection, open a new shell or restart the container:
+If `git push` prompts for credentials, `gh` says it is not logged in, or a request fails with no Authorization injection, open a new shell or restart the container:
 
 ```bash
 agentbox proxy reload   # apply policy change (no container restart needed)
@@ -102,6 +102,27 @@ agentbox exec           # open a fresh shell to pick up shim env exports
 ```
 
 The proxy's own header injection takes effect immediately on the next matching request; only the agent-side askpass exports need a fresh shell.
+
+## gh returns 403 "Blocked by proxy policy" on api.github.com
+
+The high-level `gh pr`, `gh issue`, and `gh release list` commands run on GraphQL, which posts to `/graphql` with the
+repository named in the body. Repo-scoped policy matches URL paths only, so those requests are blocked by design. Use
+`gh api repos/{owner}/{repo}/...` instead; the image's `operating-in-agent-sandbox` skill lists the validated
+commands. `gh api --paginate` fails on page two for the same reason: GitHub's next-page links use
+`/repositories/{id}/...` URLs. Loop `?per_page=100&page=N`.
+
+A `gh api` call that is blocked is outside the fixed `readwrite` allowlist (merge, comment deletion, hooks, and so
+on). See [docs/github.md](github.md) for what the allowlist covers and how to widen one endpoint.
+
+## GitHub returns 403 "Resource not accessible by personal access token"
+
+The proxy allowed the request and injected the token; GitHub refused it. The fine-grained token lacks a permission the
+endpoint needs, for example Issues or Pull requests write. Adjust the token on GitHub. No proxy change is involved.
+
+## gh returns 401 "Bad credentials"
+
+The placeholder in `GH_TOKEN` reached GitHub, so the proxy did not inject the real token. Check that the policy sets
+`api.auth` (not only `api.access`) and that `agentbox proxy reload` ran after the edit.
 
 ## Policy reload rejected
 

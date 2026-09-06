@@ -18,7 +18,8 @@
 #
 # See docs/policy/schema.md and docs/secrets.md for the full authored shape
 # and secret storage layout. For a focused private-read flow without push,
-# see github-private-git.yaml.
+# see github-private-git.yaml. For an authenticated readwrite API surface
+# that lets `gh api` create issues and pull requests, see github-api.yaml.
 
 services:
   - name: github
