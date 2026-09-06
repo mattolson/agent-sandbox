@@ -305,25 +305,26 @@ can call supported provider APIs without the real API key being readable inside 
 
 **Dependencies:** m15 (proxy-side secret injection), m14 (request-phase matching and transforms)
 
-### m18-github-rest-wrapper
+### m18-github-api-access
 
-Provide an officially supported GitHub wrapper that uses REST-only endpoints so repo identity stays visible in request
-URLs and can be constrained by `m14` policies.
+Give agents repo-scoped GitHub REST API access from inside the sandbox using stock `gh api`, with the token injected by
+the proxy and agent instructions for the common workflows. Replaces the earlier REST-wrapper plan; see
+`decisions/007-stock-gh-api-over-rest-wrapper.md`.
 
 **Goals:**
-- Support a curated set of common, repo-scoped GitHub workflows using REST-only endpoints
-- Keep repo identity explicit in URL paths so single-repo allowlists are practical under `m14`
-- Prefer a thin wrapper over full parity with stock `gh`
-- Prefer a standalone binary if practical; Go plus `google/go-github` is the leading candidate
-- Define and document the supported subset plus unsupported GraphQL- or body-dependent flows
-- Use `m15` proxy-side credential injection where practical instead of storing GitHub tokens in the agent container
+- Ship a pinned stock `gh` in the base image
+- Support `auth` on the `api` surface of repo-scoped `github` entries, reusing `m15` injection and a `GH_TOKEN` shim
+- Keep repo identity in URL paths so single-repo allowlists work under `m14`; GraphQL stays blocked
+- Validate and document which stock `gh` commands work under repo-scoped rules
+- Teach agents the `gh api repos/{owner}/{repo}/...` idiom through the `operating-in-agent-sandbox` skill
 
 **Out of scope:**
-- Full parity with stock `gh`
-- GraphQL-backed GitHub operations
-- Re-implementing every GitHub workflow behind one generic wrapper surface
+- A custom GitHub CLI or wrapper binary
+- GraphQL-backed `gh` commands and request-body inspection
+- Endpoints outside `/repos/{owner}/{repo}` and multi-repo workflows
 
-**Dependencies:** m14 (fine-grained proxy and repo/path-aware policy matching), m15 (primary HTTP credential path)
+**Dependencies:** m14 (repo/path-aware policy matching), m15 (header injection and renderer-owned shim). Shares the
+env shim primitive with m17.4; whichever lands first builds it.
 
 ### m19-cli-monitoring
 
