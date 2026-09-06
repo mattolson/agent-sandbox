@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-09-06
+
+GitHub API access from `m17`, and Hermes installed from a git checkout.
+
 ### Added
 
 - **GitHub API access through `gh api` (`m17`).** The base image now ships a pinned, checksum-verified GitHub CLI, and repo-scoped `github` policy entries accept `api.auth` so the proxy injects `Authorization: Bearer <secret>` on REST calls to `api.github.com`. A new `env` client shim (`api.auth.client_shim: {kind: env}`) exports `GH_TOKEN=agentbox-proxy-managed` into the agent shell, so stock `gh` starts without a real token and the proxy overwrites the placeholder header in flight. Agents use `gh api repos/{owner}/{repo}/...` for issues, comments, pull requests, reviews, check runs, workflow runs, and releases; the GraphQL-backed `gh pr`, `gh issue`, and `gh release list` commands stay blocked by design. The `operating-in-agent-sandbox` skill gains a `github-api.md` cheat sheet with the validated commands, explicit paging (`--paginate` breaks on GitHub's `/repositories/{id}` next-page links), and what stays blocked. See `docs/github.md`, `docs/policy/examples/github-api.yaml`, and `docs/upgrades/m17-github-api-access.md`.
