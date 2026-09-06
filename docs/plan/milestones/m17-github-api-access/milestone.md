@@ -277,6 +277,17 @@ second one.
 
 ## Changes
 
+### 2026-09-06: Implementation started on `m17-github-api-access`
+
+Landed in one branch as logical commits: pinned `gh` in the base image (`m17.1`); the `readwrite` allowlist, bearer
+auth on the api surface, and the `env` shim kind with `GH_TOKEN` (`m17.2`, three commits, 192 proxy tests passing
+including an enforcer integration test); the agent cheat sheet and skill updates (`m17.4`); and `docs/github.md`
+with the policy example and troubleshooting entries (`m17.5`). Task docs live under `tasks/`.
+
+Still needs the host: building both images and verifying `gh --version` on each architecture (`m17.1`), and the
+command-matrix re-run against GitHub with the real renderer (`m17.3`). One follow-up was deferred: a note in
+`docs/agents/copilot.md` that the Copilot baseline already allows `api.github.com` host-wide.
+
 ### 2026-09-06: Renumbered from m18 to m17
 
 GitHub API access ships before provider API-key injection, so the milestone numbers now match the intended order.

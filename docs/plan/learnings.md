@@ -101,6 +101,10 @@ Lessons learned during project execution. Review at the start of each planning s
   vs. falling through to the `all` default. Missing the pre-target case makes `./build.sh <newagent>` silently
   build everything instead of just the new agent.
 - GitHub REST `Link` pagination headers point at canonical `/repositories/{numeric-id}/...` URLs, not `/repos/{owner}/{repo}/...`, so repo-scoped path rules block page two of any paginated call and `gh api --paginate` fails after the first page. Agents must loop `?per_page=100&page=N` explicitly unless the policy also allows the numeric-id path (m17 validation, 2026-09-06)
+- When a catalog surface needs per-surface behavior (header transform, accepted shim kinds), a small table keyed by surface beats boolean flags like `allow_auth`. The next surface becomes a two-line addition and the normalization code stays one path (m17.2)
+- Renderer-owned shim fragments must be rewritten on every render, including the "not active" form, so a shim that was removed from policy leaves an inert file rather than stale exports that keep working by accident (m17.2)
+- A skill's quick check must target a path the policy actually allows. Curling a host root under a path-scoped allowlist returns 403 even when access is on, which teaches the agent the opposite of the truth (m17.4)
+- Render every policy example through the integration harness's `render_authored_policy` before committing it. It is a two-line check that catches a broken example before a user does (m17.5)
 
 ## Architecture
 
