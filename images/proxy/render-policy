@@ -129,14 +129,24 @@ def make_catch_all_rule():
     return {"schemes": list(DEFAULT_RULE_SCHEMES)}
 
 
-def apply_rule_transform(rules, transform):
+def apply_rule_transform(rules, transform, context="domains"):
     if transform is None:
         return rules
 
     transformed_rules = []
-    for rule in rules:
+    for index, rule in enumerate(rules):
         transformed_rule = dict(rule)
         transformed_rule["transform"] = transform
+        # Credentials are only ever injected over TLS. Drop `http` from a
+        # transform-carrying rule, and refuse a rule that permitted nothing else.
+        https_only = [scheme for scheme in transformed_rule["schemes"] if scheme == "https"]
+        if not https_only:
+            fail(
+                f"{context}.rules[{index}] carries a request transform but permits only "
+                f"{transformed_rule['schemes']}; credentials are never injected over plaintext "
+                "http, so the rule must permit https"
+            )
+        transformed_rule["schemes"] = https_only
         transformed_rules.append(transformed_rule)
     return transformed_rules
 
@@ -415,7 +425,7 @@ def normalize_domain_entry(entry, context):
             fail,
         )
     rules = normalize_rules(entry["rules"], context)
-    rules = apply_rule_transform(rules, transform)
+    rules = apply_rule_transform(rules, transform, context)
     return make_host_record(host, rules), merge_mode
 
 

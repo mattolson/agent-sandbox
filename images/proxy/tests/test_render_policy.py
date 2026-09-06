@@ -744,7 +744,7 @@ services:
         self.assertTrue(all(rule["transform"] == expected_transform for rule in git_rules))
         self.assertIn(
             {
-                "schemes": ["http", "https"],
+                "schemes": ["https"],
                 "methods": ["POST"],
                 "path": {"exact": "/owner/repo.git/git-receive-pack"},
                 "path_case_insensitive": True,
@@ -753,6 +753,50 @@ services:
             git_rules,
         )
         self.assertNotIn("credential_shim", rendered)
+
+    def test_authored_transform_drops_http_from_its_rules(self):
+        rendered = self.render_single(
+            """
+domains:
+  - host: api.example.com
+    transform:
+      request:
+        headers:
+          Authorization:
+            secret: example-token
+            transform:
+              type: bearer
+    rules:
+      - schemes: [http, https]
+        methods: [GET]
+        path:
+          prefix: /v1/
+"""
+        )
+        records = {record["host"]: record for record in rendered["domains"]}
+        rule = records["api.example.com"]["rules"][0]
+        self.assertIn("transform", rule)
+        self.assertEqual(rule["schemes"], ["https"])
+
+    def test_authored_transform_on_http_only_rule_is_rejected(self):
+        with self.assertRaises(self.render_policy.RenderPolicyError) as context:
+            self.render_single(
+                """
+domains:
+  - host: api.example.com
+    transform:
+      request:
+        headers:
+          Authorization:
+            secret: example-token
+            transform:
+              type: bearer
+    rules:
+      - schemes: [http]
+        methods: [GET]
+"""
+            )
+        self.assertIn("never injected over plaintext http", str(context.exception))
 
     def test_github_api_auth_renders_bearer_transform_without_shim(self):
         rendered = self.render_single(

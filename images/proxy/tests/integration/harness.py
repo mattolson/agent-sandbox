@@ -429,6 +429,11 @@ def remap_rendered_host(rendered_policy, host_map):
 
     `host_map` is a dict like `{"github.com": "127.0.0.1"}`. Returns a new
     policy dict; the input is left unmodified.
+
+    The fake upstream speaks plaintext HTTP, while the renderer restricts every
+    credential-carrying rule to https. Remapped hosts therefore get `http`
+    re-admitted on their rules. This is a test-only downgrade so the enforcer
+    can be exercised end to end; it does not reflect production policy.
     """
     if "domains" not in rendered_policy:
         return dict(rendered_policy)
@@ -440,6 +445,15 @@ def remap_rendered_host(rendered_policy, host_map):
         host = new_record.get("host")
         if host in host_map:
             new_record["host"] = host_map[host]
+            new_rules = []
+            for rule in new_record.get("rules", []):
+                new_rule = dict(rule)
+                schemes = list(new_rule.get("schemes", []))
+                if "http" not in schemes:
+                    schemes.insert(0, "http")
+                new_rule["schemes"] = schemes
+                new_rules.append(new_rule)
+            new_record["rules"] = new_rules
         new_domains.append(new_record)
     remapped["domains"] = new_domains
     return remapped

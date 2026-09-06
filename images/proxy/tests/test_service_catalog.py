@@ -561,7 +561,7 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
             git_rules,
             [
                 {
-                    "schemes": ["http", "https"],
+                    "schemes": ["https"],
                     "methods": ["GET", "HEAD"],
                     "path": {"exact": "/owner/repo.git/info/refs"},
                     "path_case_insensitive": True,
@@ -569,14 +569,14 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
                     "transform": expected_transform,
                 },
                 {
-                    "schemes": ["http", "https"],
+                    "schemes": ["https"],
                     "methods": ["POST"],
                     "path": {"exact": "/owner/repo.git/git-upload-pack"},
                     "path_case_insensitive": True,
                     "transform": expected_transform,
                 },
                 {
-                    "schemes": ["http", "https"],
+                    "schemes": ["https"],
                     "methods": ["GET", "HEAD"],
                     "path": {"exact": "/owner/repo.git/info/refs"},
                     "path_case_insensitive": True,
@@ -584,7 +584,7 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
                     "transform": expected_transform,
                 },
                 {
-                    "schemes": ["http", "https"],
+                    "schemes": ["https"],
                     "methods": ["POST"],
                     "path": {"exact": "/owner/repo.git/git-receive-pack"},
                     "path_case_insensitive": True,
@@ -762,6 +762,34 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
         expected = expected_github_api_auth_transform(on_existing_header="replace")
         for rule in records_by_host["api.github.com"]["rules"]:
             self.assertEqual(rule["transform"], expected)
+
+    def test_credential_carrying_rules_are_https_only_on_both_surfaces(self):
+        expansion = self.expand(
+            {
+                "name": "github",
+                "repos": ["owner/repo"],
+                "git": {"access": "readwrite", "auth": {"secret": "github-token"}},
+                "api": {"access": "readwrite", "auth": {"secret": "github-token"}},
+            }
+        )
+        for record in expansion["records"]:
+            for rule in record["rules"]:
+                self.assertIn("transform", rule)
+                self.assertEqual(rule["schemes"], ["https"], record["host"])
+
+        # Without auth there is nothing to protect, so both schemes stay.
+        expansion = self.expand(
+            {
+                "name": "github",
+                "repos": ["owner/repo"],
+                "git": {"access": "read"},
+                "api": {"access": "read"},
+            }
+        )
+        for record in expansion["records"]:
+            for rule in record["rules"]:
+                self.assertNotIn("transform", rule)
+                self.assertEqual(rule["schemes"], ["http", "https"])
 
     def test_github_api_read_has_no_write_rules(self):
         expansion = self.expand(

@@ -175,6 +175,13 @@ def _apply_rule_transform(rules, transform):
     for rule in rules:
         transformed_rule = dict(rule)
         transformed_rule["transform"] = deepcopy(transform)
+        # A rule that injects a credential must never match plaintext HTTP;
+        # the proxy would forward the real secret in the clear.
+        transformed_rule["schemes"] = [
+            scheme for scheme in transformed_rule["schemes"] if scheme == "https"
+        ]
+        if not transformed_rule["schemes"]:
+            raise ValueError("catalog rules carrying a transform must permit https")
         transformed.append(transformed_rule)
     return transformed
 

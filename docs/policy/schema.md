@@ -441,6 +441,12 @@ See [examples/request-transform.yaml](examples/request-transform.yaml) for
 a focused example of host-scoped `transform.request` outside the service
 catalog.
 
+Rules that carry a request transform are restricted to `https` at render
+time, because the proxy would otherwise forward the injected credential over
+plaintext. `http` is dropped from such a rule's `schemes`, and a rule that
+permits only `http` together with a transform fails rendering. Catalog-emitted
+GitHub `git` and `api` rules with `auth` are https-only for the same reason.
+
 Request-aware enforcement: when a rule carries a request transform, the proxy
 forces request inspection at CONNECT time for HTTPS and stages every header
 value before mutating the flow. A failed secret resolution or
