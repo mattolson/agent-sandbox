@@ -69,6 +69,18 @@ def expected_github_git_askpass_hint(secret="github-token"):
     }
 
 
+def expected_github_api_env_hint(secret="github-token"):
+    return {
+        "service": "github",
+        "surface": "api",
+        "kind": "env",
+        "host": "api.github.com",
+        "env_var": "GH_TOKEN",
+        "fake_value": "agentbox-proxy-managed",
+        "secrets": [secret],
+    }
+
+
 def _api_rule(methods, path):
     return {
         "schemes": ["http", "https"],
@@ -245,7 +257,31 @@ class ServiceCatalogNormalizeTests(unittest.TestCase):
         )
         self.assertNotIn("transform", normalized["options"]["surface_configs"]["api"])
 
-    def test_api_client_shim_is_rejected_until_an_api_shim_kind_exists(self):
+    def test_api_client_shim_env_switches_to_replace_and_emits_gh_token_hint(self):
+        normalized = self.catalog.normalize_service_entry(
+            {
+                "name": "github",
+                "repos": ["owner/repo"],
+                "api": {
+                    "access": "readwrite",
+                    "auth": {
+                        "secret": "github-token",
+                        "client_shim": {"kind": "env"},
+                    },
+                },
+            },
+            "ctx",
+            _fail,
+        )
+        api = normalized["options"]["surface_configs"]["api"]
+        self.assertEqual(api["auth"]["client_shim"], {"kind": "env"})
+        self.assertEqual(
+            api["transform"],
+            expected_github_api_auth_transform(on_existing_header="replace"),
+        )
+        self.assertEqual(api["credential_shim_hints"], [expected_github_api_env_hint()])
+
+    def test_api_client_shim_rejects_git_askpass_kind(self):
         with self.assertRaises(_CatalogFailure) as caught:
             self.catalog.normalize_service_entry(
                 {
@@ -262,7 +298,26 @@ class ServiceCatalogNormalizeTests(unittest.TestCase):
                 "ctx",
                 _fail,
             )
-        self.assertIn("client_shim is not supported on the api surface", str(caught.exception))
+        self.assertIn("api.auth.client_shim.kind must be one of ['env']", str(caught.exception))
+
+    def test_git_client_shim_rejects_env_kind(self):
+        with self.assertRaises(_CatalogFailure) as caught:
+            self.catalog.normalize_service_entry(
+                {
+                    "name": "github",
+                    "repos": ["owner/repo"],
+                    "git": {
+                        "access": "readwrite",
+                        "auth": {
+                            "secret": "github-token",
+                            "client_shim": {"kind": "env"},
+                        },
+                    },
+                },
+                "ctx",
+                _fail,
+            )
+        self.assertIn("git.auth.client_shim.kind must be one of ['git-askpass']", str(caught.exception))
 
     def test_git_auth_requires_access(self):
         with self.assertRaises(_CatalogFailure) as caught:
@@ -683,6 +738,30 @@ class ServiceCatalogExpansionTests(unittest.TestCase):
         for rule in records_by_host["github.com"]["rules"]:
             self.assertNotIn("transform", rule)
         self.assertEqual(expansion["credential_shim"], [])
+
+    def test_github_expansion_collects_shim_hints_from_both_surfaces(self):
+        expansion = self.expand(
+            {
+                "name": "github",
+                "repos": ["owner/repo"],
+                "git": {
+                    "access": "readwrite",
+                    "auth": {"secret": "github-token", "client_shim": {"kind": "git-askpass"}},
+                },
+                "api": {
+                    "access": "readwrite",
+                    "auth": {"secret": "github-token", "client_shim": {"kind": "env"}},
+                },
+            }
+        )
+        self.assertEqual(
+            expansion["credential_shim"],
+            [expected_github_git_askpass_hint(), expected_github_api_env_hint()],
+        )
+        records_by_host = {record["host"]: record for record in expansion["records"]}
+        expected = expected_github_api_auth_transform(on_existing_header="replace")
+        for rule in records_by_host["api.github.com"]["rules"]:
+            self.assertEqual(rule["transform"], expected)
 
     def test_github_api_read_has_no_write_rules(self):
         expansion = self.expand(

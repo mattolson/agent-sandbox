@@ -33,9 +33,9 @@ def _skip_reason():
     return "mitmdump not available on PATH; install mitmproxy to run integration tests"
 
 
-def _render_with_fake_upstream(source_text):
+def _render_with_fake_upstream(source_text, host="github.com"):
     rendered = render_authored_policy(source_text)
-    rebound = remap_rendered_host(rendered, {"github.com": "127.0.0.1"})
+    rebound = remap_rendered_host(rendered, {host: "127.0.0.1"})
     return yaml.safe_dump(rebound, sort_keys=False)
 
 
@@ -51,8 +51,8 @@ class CredentialShimReplaceTests(unittest.TestCase):
         self.upstream.start()
         self.addCleanup(self.upstream.stop)
 
-    def _spawn(self, source_text, *, secrets=None):
-        rendered_text = _render_with_fake_upstream(source_text)
+    def _spawn(self, source_text, *, secrets=None, host="github.com"):
+        rendered_text = _render_with_fake_upstream(source_text, host=host)
         env_overrides = {}
         if secrets:
             tempdir, secret_source = provision_secret_dir(secrets)
@@ -102,6 +102,59 @@ services:
         )
         self.assertNotEqual(upstream_auth, fake_auth)
         self.assertNotIn(secret_value, "\n".join(harness.snapshot_lines()))
+
+    def test_api_env_shim_replaces_fake_token_with_bearer_secret(self):
+        """An api env shim replaces `Authorization: token <placeholder>` from gh."""
+        secret_value = "api-real-secret-value"
+        harness = self._spawn(
+            """
+services:
+  - name: github
+    repos:
+      - owner/shim
+    api:
+      access: readwrite
+      auth:
+        secret: github.agent-sandbox.api-token
+        client_shim:
+          kind: env
+""",
+            secrets={"github.agent-sandbox.api-token": secret_value},
+            host="api.github.com",
+        )
+
+        # gh sends the GH_TOKEN placeholder in this exact header form.
+        fake_auth = "token agentbox-proxy-managed"
+        status, _ = harness.send_request(
+            "POST",
+            self._upstream_url("/repos/owner/shim/issues"),
+            body=b'{"title":"x"}',
+            headers={"Authorization": fake_auth},
+        )
+        self.assertEqual(status, 200)
+
+        requests = self.upstream.snapshot_requests()
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(requests[0]["headers"].get("Authorization"), f"Bearer {secret_value}")
+        self.assertNotIn(secret_value, "\n".join(harness.snapshot_lines()))
+
+        # The readwrite allowlist holds end to end: merge is PUT and the repo
+        # record is outside the issues/pulls families, so both are blocked
+        # before reaching the upstream even with a valid-looking header.
+        for method, path in (
+            ("PUT", "/repos/owner/shim/pulls/1/merge"),
+            ("DELETE", "/repos/owner/shim/issues/comments/9"),
+            ("POST", "/repos/owner/shim/hooks"),
+            ("PATCH", "/repos/owner/shim"),
+        ):
+            status, _ = harness.send_request(
+                method,
+                self._upstream_url(path),
+                body=b"{}",
+                headers={"Authorization": fake_auth},
+            )
+            self.assertEqual(status, 403, f"{method} {path} should be blocked")
+        self.assertEqual(len(self.upstream.snapshot_requests()), 1)
 
     def test_direct_injection_fails_closed_when_authorization_already_present(self):
         """Without a client_shim, a pre-set Authorization is fail-closed."""

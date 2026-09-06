@@ -32,7 +32,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/lib/agent-sandbox/proxy/ren
 # plus the sanitized effective allowlist). Pre-owning /run/agentbox makes Docker
 # initialize its named volume with mitmproxy ownership so the entrypoint can
 # write to it as a non-root user.
-RUN mkdir -p /home/mitmproxy/.mitmproxy /ca-export /etc/agent-sandbox/policy /run/agentbox/credential-shims/git-askpass \
+RUN mkdir -p /home/mitmproxy/.mitmproxy /ca-export /etc/agent-sandbox/policy /run/agentbox/credential-shims/git-askpass /run/agentbox/credential-shims/env \
   && chown -R mitmproxy:mitmproxy /home/mitmproxy /ca-export /run/agentbox
 
 USER mitmproxy

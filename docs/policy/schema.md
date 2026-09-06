@@ -214,14 +214,30 @@ the agent container.
   [Request transforms](#request-transforms) for grammar). The renderer
   attaches an `Authorization: Basic` header with username `x-access-token`
   and the resolved secret as the password to every Git rule in this entry.
-- `client_shim`: optional. When present, the only supported shape is
-  `kind: git-askpass`. The renderer switches the emitted Git rules from
+- `client_shim`: optional. On the `git` surface the only supported kind is
+  `git-askpass`. The renderer switches the emitted Git rules from
   `on_existing_header: fail` to `on_existing_header: replace` and adds a
   renderer-owned `credential_shim` block to the rendered policy. The agent
   container sources the rendered shim to export `GIT_ASKPASS`,
   `AGENTBOX_GIT_FAKE_USERNAME`, `AGENTBOX_GIT_FAKE_PASSWORD`, and
   `GIT_TERMINAL_PROMPT=0`, so `git push` non-interactively supplies a
   placeholder credential that the proxy replaces with the real secret.
+
+`api.auth.client_shim` accepts `kind: env` only. It switches the emitted api
+rules to `on_existing_header: replace` and emits an env hint; the agent
+container exports `GH_TOKEN=agentbox-proxy-managed`, so stock `gh` starts
+without a real token and every matched request has its placeholder
+`Authorization` header overwritten in flight. Each surface rejects the other
+surface's kind.
+
+```yaml
+api:
+  access: readwrite
+  auth:
+    secret: github.owner.repo.token
+    client_shim:
+      kind: env
+```
 
 `git.auth` is required when `git.access` is `readwrite`. Without `client_shim`,
 a `readwrite` flow still injects the real secret, but any pre-existing
@@ -441,8 +457,9 @@ Authored top-level `credential_shim` blocks fail rendering with
 `credential_shim is renderer-owned and cannot be authored in policy files`.
 
 The renderer emits the same key in its **output** when a service catalog
-entry (currently only `services[].git.auth.client_shim`) requests an
-agent-side shim. The rendered payload is intentionally narrow:
+entry (`services[].git.auth.client_shim` or
+`services[].api.auth.client_shim`) requests an agent-side shim. The rendered
+payload is intentionally narrow and kinded:
 
 ```yaml
 credential_shim:
@@ -456,16 +473,28 @@ credential_shim:
       fake_password: agentbox-proxy-managed
       secrets:
         - github.owner.repo.push-token
+    - service: github
+      surface: api
+      kind: env
+      host: api.github.com
+      env_var: GH_TOKEN
+      fake_value: agentbox-proxy-managed
+      secrets:
+        - github.owner.repo.push-token
 ```
 
 - `version`: schema version, always `1` today.
 - `hints[]`: one entry per shim. The agent container's
-  `/etc/agent-sandbox/shell-init.sh` reads the rendered init fragment and
-  exports the corresponding env vars (`GIT_ASKPASS`,
-  `AGENTBOX_GIT_FAKE_USERNAME`, `AGENTBOX_GIT_FAKE_PASSWORD`,
-  `GIT_TERMINAL_PROMPT=0` for `kind: git-askpass`).
-- `fake_password`: a placeholder value. The proxy replaces it with the
-  resolved real secret on every matched request before the upstream sees
+  `/etc/agent-sandbox/shell-init.sh` reads the rendered init fragment, which
+  sources one fragment per active kind.
+- `kind: git-askpass` carries `username` and `fake_password`, and exports
+  `GIT_ASKPASS`, `AGENTBOX_GIT_FAKE_USERNAME`, `AGENTBOX_GIT_FAKE_PASSWORD`,
+  and `GIT_TERMINAL_PROMPT=0`.
+- `kind: env` carries `env_var` and `fake_value`, and exports
+  `<env_var>=<fake_value>`. The variable name is chosen by the catalog, never
+  by the policy author.
+- The placeholder values are not credentials. The proxy replaces them with
+  the resolved real secret on every matched request before the upstream sees
   the header.
 
 The rendered `credential_shim` block contains no resolved secret values.
