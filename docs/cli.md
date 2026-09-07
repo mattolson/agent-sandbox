@@ -188,6 +188,12 @@ mode they are written into user-owned override scaffolds instead of managed file
 written into `.agent-sandbox/compose/user.override.yml` and
 `.agent-sandbox/compose/user.agent.<agent>.override.yml` when those files are first scaffolded.
 
+Optional mounts are written in long form with `bind.create_host_path: false`, so Docker never creates a missing host
+path. When a mount is first scaffolded, agentbox creates the directories it names (`~/.config/agent-sandbox/shell.d`,
+`~/.config/agent-sandbox/dotfiles`, `.idea/`, `.vscode/`) if they are missing. Paths you own (`.git/`,
+`~/.claude/CLAUDE.md`, `~/.claude/settings.json`) are never created. If one is missing, the mount is skipped with a
+warning instead of letting Docker replace it with an empty directory.
+
 - `AGENTBOX_SECRET_DIR` - host directory mounted read-only into the proxy as `/run/secrets/agentbox`; defaults to
   `${HOME}/.config/agent-sandbox/secrets`
 - `AGENTBOX_PROXY_IMAGE` - Docker image for proxy service

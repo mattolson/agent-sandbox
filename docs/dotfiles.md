@@ -6,7 +6,12 @@ You can optionally mount your dotfiles directory and have them auto-linked into 
 
 ```yaml
 volumes:
-  - ${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro
+  - type: bind
+    source: ${HOME}/.config/agent-sandbox/dotfiles
+    target: /home/dev/.dotfiles
+    read_only: true
+    bind:
+      create_host_path: false
 ```
 
 The entrypoint recursively walks `/home/dev/.dotfiles` and creates symlinks for each file at the corresponding `$HOME` path. Intermediate directories are created as needed.
@@ -49,6 +54,6 @@ alias gs='git status'
 EOF
 ```
 
-`agentbox init` includes volume mounts for dotfiles and shell customizations as commented-out entries in the generated compose file. Uncomment them to enable, or set `AGENTBOX_ENABLE_DOTFILES=true` and `AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS=true` before running init.
+`agentbox init` includes volume mounts for dotfiles and shell customizations as commented-out entries in the generated compose file. Uncomment them to enable, or set `AGENTBOX_ENABLE_DOTFILES=true` and `AGENTBOX_ENABLE_SHELL_CUSTOMIZATIONS=true` before running init. When set, init also creates the directories if they are missing.
 
 shell.d scripts are sourced from the system-level zshrc (`/etc/zsh/zshrc`), which runs before `~/.zshrc`. This means your dotfiles can include a custom `.zshrc` without breaking this integration.

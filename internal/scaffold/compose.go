@@ -3,6 +3,7 @@ package scaffold
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -320,9 +321,16 @@ func writeCLIAgentComposeFile(ctx context.Context, params InitParams, env EnvCon
 	return writeComposeDocument(runtime.CLIAgentComposeFile(params.RepoRoot, params.Agent), header, doc)
 }
 
-func writeUserOverrideIfMissing(repoRoot string, outputFile string, templateName string, extraVolumes []string) error {
+// writeUserOverrideIfMissing scaffolds a user-owned override file once. Opt-in
+// mounts are written in long form with create_host_path: false so Docker never
+// creates a missing host path. Agentbox-named directories are created first,
+// and user-named paths that do not exist are skipped with a warning.
+func writeUserOverrideIfMissing(repoRoot string, outputFile string, templateName string, mounts []optionalMount, warn io.Writer) error {
 	if _, err := os.Stat(outputFile); err == nil {
 		return nil
+	}
+	if warn == nil {
+		warn = io.Discard
 	}
 
 	doc, header, err := loadComposeTemplate(templateName)
@@ -330,8 +338,15 @@ func writeUserOverrideIfMissing(repoRoot string, outputFile string, templateName
 		return err
 	}
 	ensureAgentService(&doc)
-	for _, volume := range extraVolumes {
-		doc.Services.Agent.Volumes = ensureVolumeString(doc.Services.Agent.Volumes, volume)
+	for _, mount := range mounts {
+		ready, err := prepareOptionalMount(mount, warn)
+		if err != nil {
+			return err
+		}
+		if !ready {
+			continue
+		}
+		doc.Services.Agent.Volumes = ensureManagedBindMount(doc.Services.Agent.Volumes, mount.source, mount.target, true)
 	}
 
 	return writeComposeDocument(outputFile, header, doc)

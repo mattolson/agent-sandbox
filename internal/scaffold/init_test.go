@@ -1,6 +1,7 @@
 package scaffold
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -9,12 +10,18 @@ import (
 	"testing"
 
 	"github.com/mattolson/agent-sandbox/internal/runtime"
+	"github.com/mattolson/agent-sandbox/internal/testutil"
 	"gopkg.in/yaml.v3"
 )
 
 func TestInitializeCLIWritesRepresentativeClaudeScaffold(t *testing.T) {
 	repoRoot := t.TempDir()
+	home := t.TempDir()
+	testutil.WriteFile(t, repoRoot, ".git/HEAD", "ref: refs/heads/main\n")
+	testutil.WriteFile(t, home, ".claude/CLAUDE.md", "# notes\n")
+	testutil.WriteFile(t, home, ".claude/settings.json", "{}\n")
 	env := map[string]string{
+		"HOME":                                 home,
 		"AGENTBOX_PROXY_IMAGE":                 "agent-sandbox-proxy:local",
 		"AGENTBOX_AGENT_IMAGE":                 "agent-sandbox-claude:local",
 		"AGENTBOX_MOUNT_CLAUDE_CONFIG":         "true",
@@ -57,20 +64,20 @@ func TestInitializeCLIWritesRepresentativeClaudeScaffold(t *testing.T) {
 	assertContainsVolumeString(t, agent.Services.Agent.Volumes, "claude-history:/commandhistory")
 
 	sharedOverride := readCompose(t, runtime.CLIUserOverrideFile(repoRoot))
-	for _, volume := range []string{
-		`${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro`,
-		`${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro`,
-		`../../.git:/workspace/.git:ro`,
-		`../../.idea:/workspace/.idea:ro`,
-		`../../.vscode:/workspace/.vscode:ro`,
-	} {
-		assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, volume)
-	}
+	assertContainsManagedBind(t, sharedOverride.Services.Agent.Volumes, "${HOME}/.config/agent-sandbox/shell.d", "/home/dev/.config/agent-sandbox/shell.d", true)
+	assertContainsManagedBind(t, sharedOverride.Services.Agent.Volumes, "${HOME}/.config/agent-sandbox/dotfiles", "/home/dev/.dotfiles", true)
+	assertContainsManagedBind(t, sharedOverride.Services.Agent.Volumes, "../../.git", "/workspace/.git", true)
+	assertContainsManagedBind(t, sharedOverride.Services.Agent.Volumes, "../../.idea", "/workspace/.idea", true)
+	assertContainsManagedBind(t, sharedOverride.Services.Agent.Volumes, "../../.vscode", "/workspace/.vscode", true)
 	assertNoProxySecretRuntime(t, sharedOverride.Services.Agent)
+	assertDirExists(t, filepath.Join(home, ".config", "agent-sandbox", "shell.d"))
+	assertDirExists(t, filepath.Join(home, ".config", "agent-sandbox", "dotfiles"))
+	assertDirExists(t, filepath.Join(repoRoot, ".idea"))
+	assertDirExists(t, filepath.Join(repoRoot, ".vscode"))
 
 	agentOverride := readCompose(t, runtime.CLIUserAgentOverrideFile(repoRoot, "claude"))
-	assertContainsVolumeString(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro`)
-	assertContainsVolumeString(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro`)
+	assertContainsManagedBind(t, agentOverride.Services.Agent.Volumes, "${HOME}/.claude/CLAUDE.md", "/home/dev/.claude/CLAUDE.md", true)
+	assertContainsManagedBind(t, agentOverride.Services.Agent.Volumes, "${HOME}/.claude/settings.json", "/home/dev/.claude/settings.json", true)
 	assertNoProxySecretRuntime(t, agentOverride.Services.Agent)
 
 	assertAgentboxRunAgentReadOnly(t, base, agent, sharedOverride, agentOverride)
@@ -117,9 +124,9 @@ func TestInitializeDevcontainerWritesRepresentativeCodexScaffold(t *testing.T) {
 	assertNoProxySecretRuntime(t, modeFile.Services.Agent)
 
 	sharedOverride := readCompose(t, runtime.CLIUserOverrideFile(repoRoot))
-	assertNotContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, "../../.idea:/workspace/.idea:ro")
-	assertNotContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, "../../.vscode:/workspace/.vscode:ro")
-	assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro`)
+	assertNoVolumeTarget(t, sharedOverride.Services.Agent.Volumes, "/workspace/.idea")
+	assertNoVolumeTarget(t, sharedOverride.Services.Agent.Volumes, "/workspace/.vscode")
+	assertContainsManagedBind(t, sharedOverride.Services.Agent.Volumes, "${HOME}/.config/agent-sandbox/shell.d", "/home/dev/.config/agent-sandbox/shell.d", true)
 	assertNoProxySecretRuntime(t, sharedOverride.Services.Agent)
 	assertAgentboxRunAgentReadOnly(t, base, modeFile, sharedOverride)
 
@@ -528,4 +535,62 @@ func assertDirExists(t *testing.T, path string) {
 	if !info.IsDir() {
 		t.Fatalf("expected %s to be a directory", path)
 	}
+}
+
+func TestInitializeCLISkipsMissingUserNamedMounts(t *testing.T) {
+	repoRoot := t.TempDir()
+	home := t.TempDir()
+	stderr := new(bytes.Buffer)
+	if err := InitializeCLI(context.Background(), InitParams{
+		RepoRoot:    repoRoot,
+		Agent:       "claude",
+		ProjectName: "project-sandbox",
+		Stderr:      stderr,
+		LookupEnv: mapLookup(map[string]string{
+			"HOME":                         home,
+			"AGENTBOX_PROXY_IMAGE":         "agent-sandbox-proxy:local",
+			"AGENTBOX_AGENT_IMAGE":         "agent-sandbox-claude:local",
+			"AGENTBOX_MOUNT_GIT_READONLY":  "true",
+			"AGENTBOX_MOUNT_CLAUDE_CONFIG": "true",
+		}),
+	}); err != nil {
+		t.Fatalf("InitializeCLI failed: %v", err)
+	}
+
+	sharedOverride := readCompose(t, runtime.CLIUserOverrideFile(repoRoot))
+	assertNoVolumeTarget(t, sharedOverride.Services.Agent.Volumes, "/workspace/.git")
+	agentOverride := readCompose(t, runtime.CLIUserAgentOverrideFile(repoRoot, "claude"))
+	assertNoVolumeTarget(t, agentOverride.Services.Agent.Volumes, "/home/dev/.claude/CLAUDE.md")
+	assertNoVolumeTarget(t, agentOverride.Services.Agent.Volumes, "/home/dev/.claude/settings.json")
+
+	assertPathMissing(t, filepath.Join(repoRoot, ".git"))
+	assertPathMissing(t, filepath.Join(home, ".claude"))
+	for _, want := range []string{
+		"Skipping mount of /workspace/.git",
+		"Skipping mount of /home/dev/.claude/CLAUDE.md",
+		"Skipping mount of /home/dev/.claude/settings.json",
+	} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Fatalf("expected warning %q, got %q", want, stderr.String())
+		}
+	}
+}
+
+func TestInitializeCLIKeepsHomeMountsWhenHomeIsUnknown(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := InitializeCLI(context.Background(), InitParams{
+		RepoRoot:    repoRoot,
+		Agent:       "claude",
+		ProjectName: "project-sandbox",
+		LookupEnv: mapLookup(map[string]string{
+			"AGENTBOX_PROXY_IMAGE":     "agent-sandbox-proxy:local",
+			"AGENTBOX_AGENT_IMAGE":     "agent-sandbox-claude:local",
+			"AGENTBOX_ENABLE_DOTFILES": "true",
+		}),
+	}); err != nil {
+		t.Fatalf("InitializeCLI failed: %v", err)
+	}
+
+	sharedOverride := readCompose(t, runtime.CLIUserOverrideFile(repoRoot))
+	assertContainsManagedBind(t, sharedOverride.Services.Agent.Volumes, "${HOME}/.config/agent-sandbox/dotfiles", "/home/dev/.dotfiles", true)
 }

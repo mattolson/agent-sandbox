@@ -39,7 +39,7 @@ func EnsureCLIAgentRuntimeFiles(ctx context.Context, params SyncParams) (runtime
 	if err := ensureCLIBasePolicyRuntimeConfigIfExists(params.RepoRoot); err != nil {
 		return runtime.ActiveTarget{}, err
 	}
-	if err := writeUserOverrideIfMissing(params.RepoRoot, runtime.CLIUserOverrideFile(params.RepoRoot), "compose/user.override.yml", optionalSharedVolumes(env)); err != nil {
+	if err := writeUserOverrideIfMissing(params.RepoRoot, runtime.CLIUserOverrideFile(params.RepoRoot), "compose/user.override.yml", optionalSharedMounts(params.RepoRoot, env), params.Stderr); err != nil {
 		return runtime.ActiveTarget{}, err
 	}
 	if err := scaffoldUserPolicyFileIfMissing(runtime.SharedPolicyFile(params.RepoRoot), "user.policy.yaml"); err != nil {
@@ -63,7 +63,7 @@ func EnsureCLIAgentRuntimeFiles(ctx context.Context, params SyncParams) (runtime
 	if err := ensureCLIAgentPolicyRuntimeConfig(params.RepoRoot, params.Agent); err != nil {
 		return runtime.ActiveTarget{}, err
 	}
-	if err := writeUserOverrideIfMissing(params.RepoRoot, runtime.CLIUserAgentOverrideFile(params.RepoRoot, params.Agent), "compose/user.agent.override.yml", optionalAgentVolumes(params.Agent, env)); err != nil {
+	if err := writeUserOverrideIfMissing(params.RepoRoot, runtime.CLIUserAgentOverrideFile(params.RepoRoot, params.Agent), "compose/user.agent.override.yml", optionalAgentMounts(params.Agent, env), params.Stderr); err != nil {
 		return runtime.ActiveTarget{}, err
 	}
 
@@ -181,9 +181,9 @@ func EnsureDevcontainerRuntimeFiles(ctx context.Context, params SyncParams) (run
 	return target, nil
 }
 
-func EnsureSharedComposeOverride(repoRoot string, lookupEnv func(string) string) error {
+func EnsureSharedComposeOverride(repoRoot string, lookupEnv func(string) string, stderr io.Writer) error {
 	env := loadEnvConfig(InitParams{LookupEnv: lookupEnv}, runtime.ModeCLI)
-	return writeUserOverrideIfMissing(repoRoot, runtime.CLIUserOverrideFile(repoRoot), "compose/user.override.yml", optionalSharedVolumes(env))
+	return writeUserOverrideIfMissing(repoRoot, runtime.CLIUserOverrideFile(repoRoot), "compose/user.override.yml", optionalSharedMounts(repoRoot, env), stderr)
 }
 
 func EnsureSharedPolicyFile(repoRoot string) error {
