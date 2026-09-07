@@ -48,6 +48,9 @@ func InitializeCLI(ctx context.Context, params InitParams) error {
 	}
 
 	env := loadEnvConfig(params, runtime.ModeCLI)
+	if err := ensureDefaultSecretDir(params.LookupEnv); err != nil {
+		return err
+	}
 	if err := writeCLIBaseComposeFile(ctx, params, env); err != nil {
 		return err
 	}

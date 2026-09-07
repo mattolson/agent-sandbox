@@ -33,6 +33,9 @@ func EnsureCLIAgentRuntimeFiles(ctx context.Context, params SyncParams) (runtime
 	target.ActiveAgent = params.Agent
 
 	env := loadEnvConfig(InitParams{Agent: params.Agent, LookupEnv: params.LookupEnv}, runtime.ModeCLI)
+	if err := ensureDefaultSecretDir(params.LookupEnv); err != nil {
+		return runtime.ActiveTarget{}, err
+	}
 	if err := ensureCLIBasePolicyRuntimeConfigIfExists(params.RepoRoot); err != nil {
 		return runtime.ActiveTarget{}, err
 	}
