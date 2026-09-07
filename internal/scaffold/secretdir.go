@@ -35,24 +35,32 @@ func ensureDefaultSecretDir(lookup func(string) string) error {
 		return nil
 	}
 
-	dir := filepath.Join(home, defaultSecretDirRelative)
-	info, err := os.Stat(dir)
-	if err == nil {
-		if !info.IsDir() {
-			return fmt.Errorf("default secret directory %s exists but is not a directory", dir)
-		}
-		return nil
-	}
-	if !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
+	return createSecretDir(filepath.Join(home, defaultSecretDirRelative))
+}
+
+// createSecretDir creates dir with mode 0700. An existing directory keeps its
+// mode. Mkdir is the atomic step, so a concurrent first-run command that wins
+// the race surfaces here as EEXIST and is accepted after confirming the path
+// is a directory.
+func createSecretDir(dir string) error {
 	if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil {
 		return err
 	}
-	if err := os.Mkdir(dir, 0o700); err != nil {
+	err := os.Mkdir(dir, 0o700)
+	if err == nil {
+		// Mkdir applies the umask; make the recommended mode explicit.
+		return os.Chmod(dir, 0o700)
+	}
+	if !errors.Is(err, os.ErrExist) {
 		return err
 	}
 
-	// Mkdir applies the umask; make the recommended mode explicit.
-	return os.Chmod(dir, 0o700)
+	info, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("default secret directory %s exists but is not a directory", dir)
+	}
+	return nil
 }

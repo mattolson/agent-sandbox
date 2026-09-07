@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/mattolson/agent-sandbox/internal/testutil"
@@ -121,4 +122,31 @@ func assertSecretDir(t *testing.T, path string, mode os.FileMode) {
 	if got := info.Mode().Perm(); got != mode {
 		t.Fatalf("unexpected mode for %s: got %o want %o", path, got, mode)
 	}
+}
+
+func TestCreateSecretDirToleratesConcurrentCreation(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), ".config", "agent-sandbox", "secrets")
+
+	const workers = 8
+	errs := make(chan error, workers)
+	var start, done sync.WaitGroup
+	start.Add(1)
+	done.Add(workers)
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer done.Done()
+			start.Wait()
+			errs <- createSecretDir(dir)
+		}()
+	}
+	start.Done()
+	done.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent createSecretDir failed: %v", err)
+		}
+	}
+	assertSecretDir(t, dir, 0o700)
 }
