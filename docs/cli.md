@@ -43,6 +43,10 @@ If `~/.local/bin` is not already on your `PATH`, add it in your shell profile be
 Initializes a project sandbox. Prompts for any options not provided via flags, then writes the managed compose and
 policy layers under `.agent-sandbox/` plus `.devcontainer/devcontainer.json` for devcontainer mode.
 
+In devcontainer mode, `init` also creates the selected IDE's configuration directory (`.vscode/` for VS Code, `.idea/`
+for JetBrains) when it is missing. The managed compose layer bind-mounts that directory read-only into the container
+and does not let Docker create it, so a fresh project would otherwise fail to start.
+
 Options:
 - `--agent` - Agent type: `claude`, `codex`, `copilot`, `gemini`, `factory`, `pi`, `opencode`
 - `--mode` - Setup mode: `cli`, `devcontainer`
@@ -67,7 +71,8 @@ Updates the active agent for an initialized project. For layered CLI projects, s
 agent's managed compose layer, agent-specific user policy scaffold, and agent-specific override scaffold the first time
 that agent is selected. For devcontainer projects, switching also refreshes the centralized `.agent-sandbox` runtime
 files and regenerates `.devcontainer/devcontainer.json` for the selected agent while preserving
-`.devcontainer/devcontainer.user.json` and reusing the stored IDE selection.
+`.devcontainer/devcontainer.user.json` and reusing the stored IDE selection. It also recreates the stored IDE's
+configuration directory (`.vscode/` or `.idea/`) if it is missing.
 
 Options:
 - `--agent` - Agent type

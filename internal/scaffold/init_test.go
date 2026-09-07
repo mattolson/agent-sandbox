@@ -453,3 +453,79 @@ func mapLookup(values map[string]string) func(string) string {
 		return values[key]
 	}
 }
+
+func TestInitializeDevcontainerCreatesIDEConfigDir(t *testing.T) {
+	env := map[string]string{
+		"AGENTBOX_PROXY_IMAGE": "agent-sandbox-proxy:local",
+		"AGENTBOX_AGENT_IMAGE": "agent-sandbox-claude:local",
+	}
+	cases := []struct {
+		ide  string
+		want string
+	}{
+		{ide: "vscode", want: ".vscode"},
+		{ide: "jetbrains", want: ".idea"},
+		{ide: "none", want: ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.ide, func(t *testing.T) {
+			repoRoot := t.TempDir()
+			if err := InitializeDevcontainer(context.Background(), InitParams{
+				RepoRoot:    repoRoot,
+				Agent:       "claude",
+				ProjectName: "project-sandbox",
+				IDE:         tc.ide,
+				LookupEnv:   mapLookup(env),
+			}); err != nil {
+				t.Fatalf("InitializeDevcontainer failed: %v", err)
+			}
+
+			for _, dir := range []string{".vscode", ".idea"} {
+				path := filepath.Join(repoRoot, dir)
+				if dir == tc.want {
+					assertDirExists(t, path)
+				} else {
+					assertPathMissing(t, path)
+				}
+			}
+		})
+	}
+}
+
+func TestInitializeDevcontainerPreservesExistingIDEConfigDir(t *testing.T) {
+	repoRoot := t.TempDir()
+	settingsFile := filepath.Join(repoRoot, ".vscode", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settingsFile), 0o755); err != nil {
+		t.Fatalf("mkdir .vscode: %v", err)
+	}
+	if err := os.WriteFile(settingsFile, []byte("{}\n"), 0o644); err != nil {
+		t.Fatalf("write settings.json: %v", err)
+	}
+
+	if err := InitializeDevcontainer(context.Background(), InitParams{
+		RepoRoot:    repoRoot,
+		Agent:       "claude",
+		ProjectName: "project-sandbox",
+		IDE:         "vscode",
+		LookupEnv: mapLookup(map[string]string{
+			"AGENTBOX_PROXY_IMAGE": "agent-sandbox-proxy:local",
+			"AGENTBOX_AGENT_IMAGE": "agent-sandbox-claude:local",
+		}),
+	}); err != nil {
+		t.Fatalf("InitializeDevcontainer failed: %v", err)
+	}
+
+	assertFileContent(t, settingsFile, "{}\n")
+}
+
+func assertDirExists(t *testing.T, path string) {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("expected directory %s to exist: %v", path, err)
+	}
+	if !info.IsDir() {
+		t.Fatalf("expected %s to be a directory", path)
+	}
+}

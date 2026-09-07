@@ -41,6 +41,34 @@ func applyDevcontainerName(templateData []byte, projectName string) ([]byte, err
 	return out, nil
 }
 
+// ideConfigDir returns the workspace-relative IDE configuration directory that
+// devcontainer mode bind-mounts read-only into the agent container for the
+// given IDE. The second result is false when the IDE has no such directory.
+func ideConfigDir(ide string) (string, bool) {
+	switch ide {
+	case "vscode":
+		return ".vscode", true
+	case "jetbrains":
+		return ".idea", true
+	default:
+		return "", false
+	}
+}
+
+// ensureIDEConfigDir creates the IDE configuration directory on the host when
+// it is missing. The devcontainer compose layer mounts it read-only with
+// create_host_path disabled, so Docker refuses to start the container on a
+// fresh project unless the directory already exists. Creating it here keeps
+// the directory user-owned and the read-only mount in place.
+func ensureIDEConfigDir(repoRoot string, ide string) error {
+	dir, ok := ideConfigDir(ide)
+	if !ok {
+		return nil
+	}
+
+	return os.MkdirAll(filepath.Join(repoRoot, dir), 0o755)
+}
+
 func scaffoldDevcontainerUserJSONIfMissing(repoRoot string) error {
 	return writeTemplateIfMissing(filepath.Join(repoRoot, ".devcontainer", "devcontainer.user.json"), "devcontainer/devcontainer.user.json")
 }

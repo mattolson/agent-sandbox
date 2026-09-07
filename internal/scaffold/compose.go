@@ -347,13 +347,13 @@ func writeDevcontainerModeComposeFile(repoRoot string, ide string, projectName s
 	doc.Name = runtime.ApplyModeSuffix(projectName, runtime.ModeDevcontainer)
 	doc.Services.Proxy.Volumes = ensureManagedBindMount(doc.Services.Proxy.Volumes, "../policy/policy.devcontainer.yaml", "/etc/agent-sandbox/policy/devcontainer.policy.yaml", true)
 	doc.Services.Agent.Volumes = ensureManagedBindMount(doc.Services.Agent.Volumes, "../../.devcontainer", "/workspace/.devcontainer", true)
+	if dir, ok := ideConfigDir(ide); ok {
+		doc.Services.Agent.Volumes = ensureManagedBindMount(doc.Services.Agent.Volumes, "../../"+dir, "/workspace/"+dir, true)
+	}
 	if ide == "jetbrains" {
-		doc.Services.Agent.Volumes = ensureManagedBindMount(doc.Services.Agent.Volumes, "../../.idea", "/workspace/.idea", true)
 		for _, capability := range []string{"DAC_OVERRIDE", "CHOWN", "FOWNER"} {
 			doc.Services.Agent.CapAdd = ensureString(doc.Services.Agent.CapAdd, capability)
 		}
-	} else if ide == "vscode" {
-		doc.Services.Agent.Volumes = ensureManagedBindMount(doc.Services.Agent.Volumes, "../../.vscode", "/workspace/.vscode", true)
 	}
 
 	return writeComposeDocument(runtime.CLIDevcontainerModeComposeFile(repoRoot), header, doc)
