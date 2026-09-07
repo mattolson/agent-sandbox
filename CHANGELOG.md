@@ -4,8 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-09-06
+
+First-run fixes for devcontainer mode and the proxy secret directory, and opt-in mounts that never let Docker create host paths.
+
+### Changed
+
+- **Opt-in mounts no longer let Docker create host paths.** The `AGENTBOX_*` opt-in mounts seeded into the user-owned override scaffolds are now written in long form with `bind.create_host_path: false`. When an override file is first scaffolded, agentbox creates the directories it names (`~/.config/agent-sandbox/shell.d`, `~/.config/agent-sandbox/dotfiles`, and CLI-mode `.idea/` and `.vscode/`) if they are missing, and never creates paths you own (`.git/`, `~/.claude/CLAUDE.md`, `~/.claude/settings.json`); a user-owned path that is missing, or a file path that holds a directory, is skipped with a warning on stderr. Previously the short-form mounts let Docker create root-owned directories on Linux hosts, an empty `.git/` in a non-repository, and directories named `CLAUDE.md` and `settings.json` under `~/.claude` that broke Claude Code on the host. Existing override files are untouched; the template comments and `docs/dotfiles.md` show the long form. (#193)
+
 ### Fixed
 
+- **Devcontainer mode failed to start on a fresh project.** `agentbox init --mode devcontainer` bind-mounts the selected IDE's configuration directory (`.vscode/` for VS Code, `.idea/` for JetBrains) read-only into the agent container with `create_host_path: false`, but nothing created the directory, so any project without one failed at "Reopen in Container" with `bind source path does not exist`. `init`, `switch`, and the runtime commands now create the directory when it is missing. The read-only mount is unchanged. (#191)
+- **The proxy failed to start on a fresh install.** The base compose layer mounts `${AGENTBOX_SECRET_DIR:-~/.config/agent-sandbox/secrets}` read-only into the proxy in both modes with `create_host_path: false`, and neither the CLI nor the quick start created it, so a first `agentbox up` or devcontainer start failed unless the directory already existed. `init`, `switch`, and the runtime commands now create the default location with mode `0700` when it is missing, tolerating concurrent first-run commands. A custom `AGENTBOX_SECRET_DIR` is never created automatically, so a missing custom path still fails loudly. The README quick start documents the manual step for older releases. (#192)
 - **Devcontainer display name includes the project name.** `agentbox init --name myproject` (or the directory-derived default) now renders `.devcontainer/devcontainer.json` with `"name": "Claude Code Sandbox: myproject"` instead of the generic per-agent name, so VS Code and JetBrains window titles distinguish projects. `agentbox switch` applies the same name. A `name` set in `.devcontainer/devcontainer.user.json` still wins. (#178)
 
 ## [0.17.0] - 2026-09-06
