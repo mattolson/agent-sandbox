@@ -249,3 +249,28 @@ func (runner *syncStubRunner) Output(_ context.Context, _ string, args []string,
 	}
 	return nil, nil
 }
+
+func TestEnsureDevcontainerRuntimeFilesCreatesIDEConfigDir(t *testing.T) {
+	repoRoot := t.TempDir()
+	testutil.WriteFile(t, repoRoot, ".agent-sandbox/active-target.env", "ACTIVE_AGENT=codex\nDEVCONTAINER_IDE=vscode\nPROJECT_NAME=project-sandbox\n")
+	testutil.WriteFile(t, repoRoot, ".agent-sandbox/compose/base.yml", "services:\n  proxy:\n    image: agent-sandbox-proxy:local\n")
+	testutil.WriteFile(t, repoRoot, ".agent-sandbox/compose/agent.codex.yml", "services:\n  agent:\n    image: agent-sandbox-codex:local\n")
+
+	target, err := EnsureDevcontainerRuntimeFiles(context.Background(), SyncParams{
+		RepoRoot: repoRoot,
+		Agent:    "codex",
+		Stderr:   new(bytes.Buffer),
+	})
+	if err != nil {
+		t.Fatalf("EnsureDevcontainerRuntimeFiles failed: %v", err)
+	}
+	if target.DevcontainerIDE != "vscode" {
+		t.Fatalf("unexpected IDE: %q", target.DevcontainerIDE)
+	}
+
+	assertDirExists(t, filepath.Join(repoRoot, ".vscode"))
+	assertPathMissing(t, filepath.Join(repoRoot, ".idea"))
+
+	modeFile := readCompose(t, runtime.CLIDevcontainerModeComposeFile(repoRoot))
+	assertContainsManagedBind(t, modeFile.Services.Agent.Volumes, "../../.vscode", "/workspace/.vscode", true)
+}

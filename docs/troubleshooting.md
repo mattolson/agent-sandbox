@@ -57,6 +57,27 @@ mkdir -p "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
 chmod 700 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
 ```
 
+## Devcontainer fails because `.vscode/` or `.idea/` is missing
+
+Devcontainer mode bind-mounts the selected IDE's configuration directory (`.vscode/` for VS Code, `.idea/` for
+JetBrains) read-only into the agent container so the agent cannot use IDE settings as an escape route. The managed
+compose layer sets `bind.create_host_path: false`, so Docker fails instead of creating the directory itself.
+
+The error mentions that the bind source path does not exist:
+
+```text
+invalid mount config for type "bind": bind source path does not exist: /path/to/project/.vscode
+```
+
+`agentbox init` creates the directory for new projects. Projects initialized with an older release may still lack it.
+Create it and reopen the project in the IDE:
+
+```bash
+mkdir -p .vscode   # or .idea for JetBrains
+```
+
+Running `agentbox switch --agent <agent>` also recreates it.
+
 ## Proxy fails to inject a header (missing or unreadable secret file)
 
 A rule with `transform.request.headers` (or a GitHub `git.auth.secret`) requires the proxy to resolve the named secret at request time. If the file is missing or unreadable, the request is blocked before reaching the upstream and the proxy emits a structured rejection event:

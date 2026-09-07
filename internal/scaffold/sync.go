@@ -158,6 +158,9 @@ func EnsureDevcontainerRuntimeFiles(ctx context.Context, params SyncParams) (run
 	if err := renderDevcontainerJSON(params.RepoRoot, params.Agent, target.ProjectName, runtime.DevcontainerJSONFile(params.RepoRoot)); err != nil {
 		return runtime.ActiveTarget{}, err
 	}
+	if err := ensureIDEConfigDir(params.RepoRoot, target.DevcontainerIDE); err != nil {
+		return runtime.ActiveTarget{}, err
+	}
 	if err := writeDevcontainerModeComposeFile(params.RepoRoot, target.DevcontainerIDE, target.ProjectName); err != nil {
 		return runtime.ActiveTarget{}, err
 	}
