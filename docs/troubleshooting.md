@@ -48,6 +48,12 @@ Agentbox mounts `${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}` 
 compose files set `bind.create_host_path: false`, so Docker Compose fails instead of silently creating a missing
 directory.
 
+`agentbox init`, `agentbox switch`, and the runtime commands create the default location with mode `0700`, so this
+failure usually means one of:
+
+- `AGENTBOX_SECRET_DIR` points at a directory that does not exist. Agentbox never creates a custom location.
+- The project was set up with 0.17.0 or earlier, which did not create the default directory.
+
 The error usually mentions that the bind source path does not exist or that the bind mount is invalid.
 
 Create the directory on the host, keep it outside the project workspace, and retry:

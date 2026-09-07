@@ -21,9 +21,10 @@ Agentbox mounts a single host directory into the proxy container, read-only:
 One file per secret. The file name is the secret ID referenced from policy.
 The file contents are the raw secret value with at most one trailing newline.
 
-The directory is mounted with `bind.create_host_path: false`, so Docker
-Compose fails fast instead of silently creating it. Create it yourself before
-`agentbox up`:
+`agentbox init` creates the default location with mode `0700`. The directory
+is mounted with `bind.create_host_path: false`, so Docker Compose fails fast
+instead of silently creating it. If you point `AGENTBOX_SECRET_DIR` somewhere
+else, create that directory yourself before `agentbox up`:
 
 ```bash
 mkdir -p "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"

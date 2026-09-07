@@ -173,8 +173,10 @@ Managed compose stacks mount the host secret directory read-only into the `proxy
 `/run/secrets/agentbox`. The `agent` service does not receive this mount. Override the host source with
 `AGENTBOX_SECRET_DIR`; it defaults to `${HOME}/.config/agent-sandbox/secrets`.
 
-Agentbox-managed bind mounts set `bind.create_host_path: false`, so a missing directory fails startup
-instead of creating an empty host path silently.
+`agentbox init`, `agentbox switch`, and the runtime commands create the default directory with mode `0700` when it
+is missing. A custom `AGENTBOX_SECRET_DIR` is never created automatically. Agentbox-managed bind mounts set
+`bind.create_host_path: false`, so a missing custom directory fails startup instead of creating an empty host path
+silently.
 
 See [docs/secrets.md](secrets.md) for the host directory layout, permission expectations, secret ID
 grammar, manual provisioning, and freshness contract.

@@ -96,6 +96,15 @@ agentbox init
 
 This prompts interactively for the project name, agent, mode, and IDE when needed, then generates the docker compose and network policy files for the sandbox.
 
+It also creates the host secret directory `~/.config/agent-sandbox/secrets` (mode `0700`) when it is missing. The
+proxy mounts that directory read-only even if you have no secrets yet. On 0.17.0 and earlier, create it yourself
+before starting the sandbox:
+
+```bash
+mkdir -p "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
+chmod 700 "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
+```
+
 See the [CLI reference](docs/cli.md) for the full list of commands, flags, and environment variables.
 
 To inspect the configuration after init, use `agentbox policy config` to output the effective network policy and
@@ -255,7 +264,8 @@ See [docs/policy/schema.md](./docs/policy/schema.md) for the full policy format 
 
 The recommended way to clone, fetch, or push private GitHub repos from inside the container is to let the proxy inject the credential. The token lives in a host-side secret directory, never in the container's filesystem or Docker volumes.
 
-Create the secret directory on the host before starting the sandbox:
+`agentbox init` creates the default secret directory. If you point `AGENTBOX_SECRET_DIR` elsewhere, create that
+directory yourself. Then add the token file:
 
 ```bash
 mkdir -p "${AGENTBOX_SECRET_DIR:-${HOME}/.config/agent-sandbox/secrets}"
