@@ -136,6 +136,17 @@ ENV LANG=C.utf8
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
+# Node.js bundles its own root store and ignores the system bundle. Point it
+# at the mitmproxy CA mounted from the proxy at container start. This must be
+# image environment rather than a shell export: the IDE launches the VS Code
+# Server and its extension host through `docker exec` without a login shell,
+# so they inherit only what is baked into the container config. The raw CA
+# file is used instead of the system bundle because the bundle is regenerated
+# by entrypoint.sh, and the IDE can start its server before that completes.
+# The file does not exist at image build time, so Node prints a harmless
+# "Ignoring extra certs" warning during npm installs in derived images.
+ENV NODE_EXTRA_CA_CERTS=/etc/mitmproxy/ca.crt
+
 # Create minimal .zshrc - users can mount their own dotfiles for customization
 COPY --chown=${USERNAME}:${USERNAME} zshrc /home/${USERNAME}/.zshrc
 COPY --chown=${USERNAME}:${USERNAME} tmux.conf /home/${USERNAME}/.tmux.conf
