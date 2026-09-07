@@ -34,8 +34,7 @@ func applyDevcontainerName(templateData []byte, projectName string) ([]byte, err
 	}
 	suffix := string(escaped[1 : len(escaped)-1]) // drop the surrounding quotes
 	valueEnd := loc[5]                            // end of the existing name value
-	out := make([]byte, 0, len(templateData)+len(suffix)+2)
-	out = append(out, templateData[:valueEnd]...)
+	out := append([]byte{}, templateData[:valueEnd]...)
 	out = append(out, ": "...)
 	out = append(out, suffix...)
 	out = append(out, templateData[valueEnd:]...)
