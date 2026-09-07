@@ -1,6 +1,6 @@
-# GitHub Copilot CLI Sandbox Template
+# GitHub Copilot Sandbox Template
 
-Run GitHub Copilot CLI in a network-locked container. All outbound traffic is routed through an enforcing proxy that applies the project's network policy.
+Run GitHub Copilot CLI, or the Copilot VS Code extension in devcontainer mode, in a network-locked container. All outbound traffic is routed through an enforcing proxy that applies the project's network policy.
 
 See the [main README](../../README.md) for installation, architecture overview, and configuration options.
 
@@ -36,6 +36,18 @@ Afterward, for CLI mode, stop the container:
 ```bash
 agentbox compose down
 ```
+
+### Use Copilot in VS Code
+
+In devcontainer mode the Copilot Chat extension runs in the container's extension host, and VS Code starts the
+Agent Host that powers Copilot sessions inside the container as well. Both the chat view and "New Copilot CLI
+Session" therefore execute in the sandbox: tool calls, terminal commands, and model traffic go through the proxy
+exactly as the CLI does.
+
+The Agents window is not supported. VS Code cannot target a Dev Container from it
+([microsoft/vscode#317380](https://github.com/microsoft/vscode/issues/317380)), and its remote path requires SSH or a
+dev tunnel, both of which the sandbox blocks by design. Use the chat view or a CLI session from the Dev Container
+window instead.
 
 ## Network policy and the GitHub API
 
