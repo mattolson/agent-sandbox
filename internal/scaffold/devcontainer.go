@@ -98,7 +98,7 @@ func mergeJSON(base any, overlay any) any {
 			}
 			return overlay
 		}
-		merged := make(map[string]any, len(baseTyped)+len(overlayTyped))
+		merged := make(map[string]any, len(baseTyped))
 		for key, value := range baseTyped {
 			merged[key] = value
 		}
