@@ -84,6 +84,29 @@ mkdir -p .vscode   # or .idea for JetBrains
 
 Running `agentbox switch --agent <agent>` also recreates it.
 
+## VS Code Server logs "unable to verify the first certificate"
+
+In devcontainer mode the Dev Containers log shows lines like:
+
+```text
+https://main.vscode-cdn.net/extensions/marketplace.json - error GET unable to verify the first certificate
+```
+
+The VS Code Server runs on Node.js, which ignores the system trust store. The IDE starts the server through
+`docker exec` without a login shell, so a shell-level `NODE_EXTRA_CA_CERTS` export never reaches it. Marketplace
+metadata and telemetry fail, and installing an extension inside the container fails unless it is already cached.
+
+Base images built after this fix set `NODE_EXTRA_CA_CERTS=/etc/mitmproxy/ca.crt` in the image environment; run
+`agentbox bump` to pin them. For older images, set it on the agent service in
+`.agent-sandbox/compose/user.override.yml` and rebuild the container:
+
+```yaml
+services:
+  agent:
+    environment:
+      NODE_EXTRA_CA_CERTS: /etc/mitmproxy/ca.crt
+```
+
 ## Proxy fails to inject a header (missing or unreadable secret file)
 
 A rule with `transform.request.headers` (or a GitHub `git.auth.secret`) requires the proxy to resolve the named secret at request time. If the file is missing or unreadable, the request is blocked before reaching the upstream and the proxy emits a structured rejection event:

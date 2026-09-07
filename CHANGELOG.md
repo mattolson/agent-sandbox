@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **VS Code Server trusts the proxy CA.** The base image now sets `NODE_EXTRA_CA_CERTS=/etc/mitmproxy/ca.crt` in the image environment instead of exporting it from the sandbox shell. The IDE starts the VS Code Server and its extension host through `docker exec` without a login shell, so they never saw the shell export and logged `unable to verify the first certificate` for marketplace metadata, telemetry, and extension downloads through the proxy. Requires rebuilt images (`agentbox bump`); for older images, set the variable on the agent service in `user.override.yml`.
+
 ## [0.17.1] - 2026-09-06
 
 First-run fixes for devcontainer mode and the proxy secret directory, and opt-in mounts that never let Docker create host paths.
