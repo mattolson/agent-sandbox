@@ -191,8 +191,8 @@ written into `.agent-sandbox/compose/user.override.yml` and
 Optional mounts are written in long form with `bind.create_host_path: false`, so Docker never creates a missing host
 path. When a mount is first scaffolded, agentbox creates the directories it names (`~/.config/agent-sandbox/shell.d`,
 `~/.config/agent-sandbox/dotfiles`, `.idea/`, `.vscode/`) if they are missing. Paths you own (`.git/`,
-`~/.claude/CLAUDE.md`, `~/.claude/settings.json`) are never created. If one is missing, the mount is skipped with a
-warning instead of letting Docker replace it with an empty directory.
+`~/.claude/CLAUDE.md`, `~/.claude/settings.json`) are never created. If one is missing, or a file path holds a
+directory instead, the mount is skipped with a warning instead of letting Docker mount the wrong thing.
 
 - `AGENTBOX_SECRET_DIR` - host directory mounted read-only into the proxy as `/run/secrets/agentbox`; defaults to
   `${HOME}/.config/agent-sandbox/secrets`

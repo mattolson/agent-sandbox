@@ -594,3 +594,37 @@ func TestInitializeCLIKeepsHomeMountsWhenHomeIsUnknown(t *testing.T) {
 	sharedOverride := readCompose(t, runtime.CLIUserOverrideFile(repoRoot))
 	assertContainsManagedBind(t, sharedOverride.Services.Agent.Volumes, "${HOME}/.config/agent-sandbox/dotfiles", "/home/dev/.dotfiles", true)
 }
+
+func TestInitializeCLISkipsClaudeConfigPathsThatAreNotFiles(t *testing.T) {
+	repoRoot := t.TempDir()
+	home := t.TempDir()
+	// A directory where CLAUDE.md should be, as Docker left behind before
+	// agentbox stopped letting it create host paths.
+	if err := os.MkdirAll(filepath.Join(home, ".claude", "CLAUDE.md"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	testutil.WriteFile(t, home, ".claude/settings.json", "{}\n")
+	stderr := new(bytes.Buffer)
+
+	if err := InitializeCLI(context.Background(), InitParams{
+		RepoRoot:    repoRoot,
+		Agent:       "claude",
+		ProjectName: "project-sandbox",
+		Stderr:      stderr,
+		LookupEnv: mapLookup(map[string]string{
+			"HOME":                         home,
+			"AGENTBOX_PROXY_IMAGE":         "agent-sandbox-proxy:local",
+			"AGENTBOX_AGENT_IMAGE":         "agent-sandbox-claude:local",
+			"AGENTBOX_MOUNT_CLAUDE_CONFIG": "true",
+		}),
+	}); err != nil {
+		t.Fatalf("InitializeCLI failed: %v", err)
+	}
+
+	agentOverride := readCompose(t, runtime.CLIUserAgentOverrideFile(repoRoot, "claude"))
+	assertNoVolumeTarget(t, agentOverride.Services.Agent.Volumes, "/home/dev/.claude/CLAUDE.md")
+	assertContainsManagedBind(t, agentOverride.Services.Agent.Volumes, "${HOME}/.claude/settings.json", "/home/dev/.claude/settings.json", true)
+	if !strings.Contains(stderr.String(), "Skipping mount of /home/dev/.claude/CLAUDE.md") || !strings.Contains(stderr.String(), "is not a regular file") {
+		t.Fatalf("expected not-a-regular-file warning, got %q", stderr.String())
+	}
+}

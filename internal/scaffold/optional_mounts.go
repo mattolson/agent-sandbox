@@ -24,6 +24,11 @@ type optionalMount struct {
 	// missing. User-named paths are never created; a missing one skips the
 	// mount instead of letting Docker replace it with an empty directory.
 	create bool
+	// wantFile is true when the host path must be a regular file. A
+	// directory at that path, such as one Docker created before agentbox
+	// disabled host path creation, would be mounted over a file target and
+	// break the tool that reads it.
+	wantFile bool
 }
 
 func homeMount(flag string, home string, relative string, target string, create bool) optionalMount {
@@ -31,6 +36,12 @@ func homeMount(flag string, home string, relative string, target string, create 
 	if home != "" {
 		mount.hostPath = filepath.Join(home, filepath.FromSlash(relative))
 	}
+	return mount
+}
+
+func homeFileMount(flag string, home string, relative string, target string) optionalMount {
+	mount := homeMount(flag, home, relative, target, false)
+	mount.wantFile = true
 	return mount
 }
 
@@ -73,29 +84,41 @@ func optionalAgentMounts(agent string, config EnvConfig) []optionalMount {
 	}
 
 	return []optionalMount{
-		homeMount("AGENTBOX_MOUNT_CLAUDE_CONFIG", config.Home, ".claude/CLAUDE.md", "/home/dev/.claude/CLAUDE.md", false),
-		homeMount("AGENTBOX_MOUNT_CLAUDE_CONFIG", config.Home, ".claude/settings.json", "/home/dev/.claude/settings.json", false),
+		homeFileMount("AGENTBOX_MOUNT_CLAUDE_CONFIG", config.Home, ".claude/CLAUDE.md", "/home/dev/.claude/CLAUDE.md"),
+		homeFileMount("AGENTBOX_MOUNT_CLAUDE_CONFIG", config.Home, ".claude/settings.json", "/home/dev/.claude/settings.json"),
 	}
 }
 
 // prepareOptionalMount creates an agentbox-named directory when it is missing
-// and checks that a user-named path exists. It returns false when the mount
-// should be skipped. An unresolved host path is left to docker compose.
+// and checks that a user-named path exists with the expected type. It returns
+// false when the mount should be skipped. An unresolved host path is left to
+// docker compose.
 func prepareOptionalMount(mount optionalMount, warn io.Writer) (bool, error) {
 	if mount.hostPath == "" {
 		return true, nil
 	}
 	if mount.create {
-		return true, os.MkdirAll(mount.hostPath, 0o755)
-	}
-
-	_, err := os.Stat(mount.hostPath)
-	if err == nil {
+		if err := os.MkdirAll(mount.hostPath, 0o755); err != nil {
+			return false, fmt.Errorf("create %s for %s: %w", mount.hostPath, mount.flag, err)
+		}
 		return true, nil
 	}
-	if !errors.Is(err, os.ErrNotExist) {
+
+	info, err := os.Stat(mount.hostPath)
+	if errors.Is(err, os.ErrNotExist) {
+		skipOptionalMount(warn, mount, "does not exist")
+		return false, nil
+	}
+	if err != nil {
 		return false, err
 	}
-	fmt.Fprintf(warn, "Skipping mount of %s: %s does not exist (%s=true). Create it and rerun, or add the mount to the override file by hand.\n", mount.target, mount.hostPath, mount.flag)
-	return false, nil
+	if mount.wantFile && !info.Mode().IsRegular() {
+		skipOptionalMount(warn, mount, "is not a regular file")
+		return false, nil
+	}
+	return true, nil
+}
+
+func skipOptionalMount(warn io.Writer, mount optionalMount, reason string) {
+	fmt.Fprintf(warn, "Skipping mount of %s: %s %s (%s=true). Fix the path and rerun, or add the mount to the override file by hand.\n", mount.target, mount.hostPath, reason, mount.flag)
 }
