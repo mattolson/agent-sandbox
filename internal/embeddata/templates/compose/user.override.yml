@@ -1,11 +1,18 @@
 # User-owned compose overrides applied to all CLI agents.
 # Safe to edit. agentbox will not overwrite this file.
 # Paths are resolved relative to .agent-sandbox/compose/.
-# Add mounts under services.agent.volumes. For example, to add dotfiles:
+# Add mounts under services.agent.volumes. Prefer the long form with
+# create_host_path: false so Docker never creates a missing host path.
+# For example, to add dotfiles:
 # services:
 #   agent:
 #     volumes:
-#       - ${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro
+#       - type: bind
+#         source: ${HOME}/.config/agent-sandbox/dotfiles
+#         target: /home/dev/.dotfiles
+#         read_only: true
+#         bind:
+#           create_host_path: false
 services:
   agent:
     volumes: []

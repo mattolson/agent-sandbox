@@ -102,13 +102,13 @@ func TestEnsureCLIAgentRuntimeFilesCreatesMissingFilesAndPersistsState(t *testin
 	assertNoProxySecretRuntime(t, agent.Services.Agent)
 
 	sharedOverride := readCompose(t, runtime.CLIUserOverrideFile(repoRoot))
-	assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro`)
-	assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro`)
+	assertContainsManagedBind(t, sharedOverride.Services.Agent.Volumes, "${HOME}/.config/agent-sandbox/shell.d", "/home/dev/.config/agent-sandbox/shell.d", true)
+	assertContainsManagedBind(t, sharedOverride.Services.Agent.Volumes, "${HOME}/.config/agent-sandbox/dotfiles", "/home/dev/.dotfiles", true)
 	assertNoProxySecretRuntime(t, sharedOverride.Services.Agent)
 
 	agentOverride := readCompose(t, runtime.CLIUserAgentOverrideFile(repoRoot, "claude"))
-	assertContainsVolumeString(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro`)
-	assertContainsVolumeString(t, agentOverride.Services.Agent.Volumes, `${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro`)
+	assertContainsManagedBind(t, agentOverride.Services.Agent.Volumes, "${HOME}/.claude/CLAUDE.md", "/home/dev/.claude/CLAUDE.md", true)
+	assertContainsManagedBind(t, agentOverride.Services.Agent.Volumes, "${HOME}/.claude/settings.json", "/home/dev/.claude/settings.json", true)
 	assertNoProxySecretRuntime(t, agentOverride.Services.Agent)
 
 	assertAgentboxRunAgentReadOnly(t, base, agent, sharedOverride, agentOverride)
@@ -120,7 +120,7 @@ func TestEnsureCLIAgentRuntimeFilesCreatesMissingFilesAndPersistsState(t *testin
 func TestEnsureSharedRuntimeConfigHelpersCreateExpectedFiles(t *testing.T) {
 	repoRoot := t.TempDir()
 
-	if err := EnsureSharedComposeOverride(repoRoot, mapLookup(map[string]string{"AGENTBOX_ENABLE_DOTFILES": "true"})); err != nil {
+	if err := EnsureSharedComposeOverride(repoRoot, mapLookup(map[string]string{"AGENTBOX_ENABLE_DOTFILES": "true"}), nil); err != nil {
 		t.Fatalf("EnsureSharedComposeOverride failed: %v", err)
 	}
 	if err := EnsureSharedPolicyFile(repoRoot); err != nil {
@@ -134,7 +134,7 @@ func TestEnsureSharedRuntimeConfigHelpersCreateExpectedFiles(t *testing.T) {
 	}
 
 	sharedOverride := readCompose(t, runtime.CLIUserOverrideFile(repoRoot))
-	assertContainsVolumeString(t, sharedOverride.Services.Agent.Volumes, `${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro`)
+	assertContainsManagedBind(t, sharedOverride.Services.Agent.Volumes, "${HOME}/.config/agent-sandbox/dotfiles", "/home/dev/.dotfiles", true)
 	assertFileExists(t, runtime.SharedPolicyFile(repoRoot))
 	assertFileExists(t, runtime.UserAgentPolicyFile(repoRoot, "claude"))
 }

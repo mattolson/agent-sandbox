@@ -65,7 +65,7 @@ func newEditComposeCommand(opts Options, deps commandDeps) *cobra.Command {
 			if _, ok := runtime.PreferredManagedLayout(repoRoot); !ok {
 				return fmt.Errorf("No layered compose layout found at %s. Run 'agentbox init' first.", repoRoot)
 			}
-			if err := scaffold.EnsureSharedComposeOverride(repoRoot, opts.LookupEnv); err != nil {
+			if err := scaffold.EnsureSharedComposeOverride(repoRoot, opts.LookupEnv, cmd.ErrOrStderr()); err != nil {
 				return err
 			}
 

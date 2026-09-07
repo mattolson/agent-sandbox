@@ -34,6 +34,9 @@ type EnvConfig struct {
 	MountGitReadonly          bool
 	MountIdeaReadonly         bool
 	MountVSCodeReadonly       bool
+	// Home is the host home directory used to resolve ${HOME} mounts, or ""
+	// when unknown.
+	Home string
 }
 
 func InitializeCLI(ctx context.Context, params InitParams) error {
@@ -54,7 +57,7 @@ func InitializeCLI(ctx context.Context, params InitParams) error {
 	if err := writeCLIBaseComposeFile(ctx, params, env); err != nil {
 		return err
 	}
-	if err := writeUserOverrideIfMissing(params.RepoRoot, runtime.CLIUserOverrideFile(params.RepoRoot), "compose/user.override.yml", optionalSharedVolumes(env)); err != nil {
+	if err := writeUserOverrideIfMissing(params.RepoRoot, runtime.CLIUserOverrideFile(params.RepoRoot), "compose/user.override.yml", optionalSharedMounts(params.RepoRoot, env), params.Stderr); err != nil {
 		return err
 	}
 	if err := scaffoldUserPolicyFileIfMissing(runtime.SharedPolicyFile(params.RepoRoot), "user.policy.yaml"); err != nil {
@@ -66,7 +69,7 @@ func InitializeCLI(ctx context.Context, params InitParams) error {
 	if err := writeCLIAgentComposeFile(ctx, params, env); err != nil {
 		return err
 	}
-	if err := writeUserOverrideIfMissing(params.RepoRoot, runtime.CLIUserAgentOverrideFile(params.RepoRoot, params.Agent), "compose/user.agent.override.yml", optionalAgentVolumes(params.Agent, env)); err != nil {
+	if err := writeUserOverrideIfMissing(params.RepoRoot, runtime.CLIUserAgentOverrideFile(params.RepoRoot, params.Agent), "compose/user.agent.override.yml", optionalAgentMounts(params.Agent, env), params.Stderr); err != nil {
 		return err
 	}
 
@@ -123,6 +126,7 @@ func loadEnvConfig(params InitParams, mode string) EnvConfig {
 		MountGitReadonly:          parseBoolEnv(lookup("AGENTBOX_MOUNT_GIT_READONLY")),
 		MountIdeaReadonly:         parseBoolEnv(lookup("AGENTBOX_MOUNT_IDEA_READONLY")),
 		MountVSCodeReadonly:       parseBoolEnv(lookup("AGENTBOX_MOUNT_VSCODE_READONLY")),
+		Home:                      lookup("HOME"),
 	}
 
 	if mode == runtime.ModeDevcontainer {
@@ -143,38 +147,6 @@ func envOrDefault(value string, fallback string) string {
 	}
 
 	return value
-}
-
-func optionalSharedVolumes(config EnvConfig) []string {
-	volumes := make([]string, 0, 5)
-	if config.EnableShellCustomizations {
-		volumes = append(volumes, `${HOME}/.config/agent-sandbox/shell.d:/home/dev/.config/agent-sandbox/shell.d:ro`)
-	}
-	if config.EnableDotfiles {
-		volumes = append(volumes, `${HOME}/.config/agent-sandbox/dotfiles:/home/dev/.dotfiles:ro`)
-	}
-	if config.MountGitReadonly {
-		volumes = append(volumes, `../../.git:/workspace/.git:ro`)
-	}
-	if config.MountIdeaReadonly {
-		volumes = append(volumes, `../../.idea:/workspace/.idea:ro`)
-	}
-	if config.MountVSCodeReadonly {
-		volumes = append(volumes, `../../.vscode:/workspace/.vscode:ro`)
-	}
-
-	return volumes
-}
-
-func optionalAgentVolumes(agent string, config EnvConfig) []string {
-	if agent != "claude" || !config.MountClaudeConfig {
-		return nil
-	}
-
-	return []string{
-		`${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro`,
-		`${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro`,
-	}
 }
 
 func writeTemplateIfMissing(path string, templateName string) error {
