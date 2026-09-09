@@ -43,7 +43,7 @@ gh api 'repos/{owner}/{repo}/pulls/45' --jq '{title, state, mergeable, head: .he
 gh api 'repos/{owner}/{repo}/pulls/45/files' --jq '.[] | "\(.status) \(.filename) +\(.additions) -\(.deletions)"'
 gh api 'repos/{owner}/{repo}/pulls/45/reviews' --jq '.[] | "\(.user.login): \(.state)"'
 gh api 'repos/{owner}/{repo}/pulls/45/comments' --jq '.[] | "\(.path):\(.line) \(.body)"'
-gh api -X POST 'repos/{owner}/{repo}/pulls' -f title='Title' -f head=my-branch -f base=main -f body='Body'
+gh api -X POST 'repos/{owner}/{repo}/pulls' -F draft=true -f title='Title' -f head=my-branch -f base=main -f body='Body'
 
 # CI status for a commit
 gh api "repos/{owner}/{repo}/commits/$(git rev-parse HEAD)/check-runs" \

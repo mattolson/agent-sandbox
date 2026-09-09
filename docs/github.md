@@ -106,7 +106,7 @@ rule matches first, so a repo-scoped `api.auth` entry neither narrows anything n
 
 ```bash
 gh api 'repos/{owner}/{repo}/issues?state=open' --jq '.[] | "#\(.number) \(.title)"'
-gh api -X POST 'repos/{owner}/{repo}/pulls' -f title='Title' -f head=my-branch -f base=main -f body='Body'
+gh api -X POST 'repos/{owner}/{repo}/pulls' -F draft=true -f title='Title' -f head=my-branch -f base=main -f body='Body'
 gh api "repos/{owner}/{repo}/commits/$(git rev-parse HEAD)/check-runs" --jq '.check_runs[] | "\(.name): \(.conclusion)"'
 ```
 
