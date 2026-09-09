@@ -19,6 +19,7 @@ This keeps the document useful even as the source list grows.
 - 2026-03-07: initial landscape and research workbook
 - 2026-03 through 2026-05: worksheets for sandcat, Matchlock, and Leash; commercial product pass; exe.dev notes
 - 2026-09-06: landscape refresh covering alternatives that emerged or changed since spring 2026
+- 2026-09-06: merged alternatives-relevant findings from the companion architecture doc listed under `Related documents` below
 
 What the 2026-09-06 refresh added:
 
@@ -35,6 +36,10 @@ Evidence constraints for the 2026-09-06 pass:
 - Vendor pages outside GitHub and the Anthropic docs hosts could not be fetched from inside this sandbox. Claims taken from search-engine extracts of a vendor's own page are tagged `search extract` and should be re-read from the primary page before they drive a decision
 - GitHub metadata such as stars, last push, and release dates was unreachable, so activity is stated only where an in-repo changelog or version file gives it
 - Items that could not be verified at all are marked `unknown` rather than filled in from memory; Cursor, Factory Droid, Amp, JetBrains Junie, Kiro, Windsurf, OrbStack internals, and Freestyle fall into that group
+
+Related documents:
+
+- [secure-agent-sandbox-research-and-architecture.md](./secure-agent-sandbox-research-and-architecture.md): a companion architecture recommendation dated 2026-09-05. It argues for a per-task microVM with the proxy, credential broker, and workspace broker outside the guest, a no-NIC strict network mode over vsock, capability-scoped egress with limits, per-capability TLS inspection, and explicit workspace import and export. This document stays the evidence and alternatives workbook; the companion doc records the proposed target design. Facts from it that could be verified from primary sources were merged here on 2026-09-06 and are tagged normally. Claims that could not be re-verified from inside the sandbox are tagged `companion doc`.
 
 ## Decisions to make
 
@@ -77,6 +82,7 @@ For each item under review:
 - Codex network proxy and `execpolicy`
 - Coder Boundary
 - NVIDIA OpenShell
+- CubeSandbox, for its eBPF plus transparent L7 egress data plane
 - nono
 - stacklok/brood-box
 - gVisor
@@ -133,6 +139,7 @@ For each item under review:
 - Varnish
 - Unikraft
 - Edera, Hyperlight, WebAssembly sandboxes
+- Confidential Containers, only for a future tier where the cloud operator is untrusted
 - microsandbox, BoxLite, arrakis, inoio/agents-sandbox, wirenboard/agent-vm, code-on-incus
 - cupcake, ToolHive, node9-proxy, aicontainer
 - container-use, rivet sandbox-agent, Sculptor
@@ -224,6 +231,21 @@ Practical implication:
 - They should not be the primary portability layer if the goal is one normalized backend for many agents
 - Nesting a vendor sandbox inside this repo's container is now a configuration decision, not a hypothetical; Claude Code documents a weaker nested mode for unprivileged containers, and both Claude Code and Codex can chain their proxies to an upstream proxy such as this repo's sidecar
 - The vendors' own docs list the same gaps this repo's design targets: hostname-only allowlists without method or path rules by default, unfenced DNS, and domain fronting
+
+### Global TLS inspection is a tradeoff, not a free upgrade
+
+This repo's sidecar terminates TLS for every allowed host so that method and path rules and secret injection work everywhere. The companion architecture doc argues for two explicit paths instead:
+
+- opaque pass-through per host: enforce destination, resolved IP class, port, SNI and Host alignment, DNS binding, byte and rate limits, and certificate expectations without decrypting; no credential injection or method and path guarantees
+- inspected capability per service: terminate TLS in the host broker only for a narrowly scoped service, apply L7 policy and injection, then open a separately verified upstream connection
+
+The reasons given are real: inspection expands the trusted parser surface and breaks certificate pinning, compressed bodies, streaming protocols, HTTP/2, Git smart HTTP, and custom trust stores. The same tension shows up in the vendor sandboxes, which default to hostname-only allowlisting and make TLS termination opt-in, and in the Codex proxy, which forces MITM only for its read-only mode.
+
+Practical implication:
+
+- Method and path policy still requires inspection; the open question is scope, not whether
+- The policy model should be able to express per-host inspection on or off, with the documented loss of L7 guarantees when off
+- Required defenses when inspecting, from the companion doc: verify SNI and Host alignment, re-resolve and re-authorize every redirect, pin connections to an authorized DNS answer and reject private and metadata ranges, normalize paths once, strip hop-by-hop headers, reject ambiguous requests, and never disable upstream certificate validation
 
 ### Kubernetes is an orchestration choice, not isolation by itself
 
@@ -396,6 +418,12 @@ Likely policy layers:
   - placeholder mapping
   - inject hosts and surfaces such as header, query, path, and body
   - re-signing for signature schemes such as SigV4
+- `limits`
+  - redirect handling and re-authorization
+  - request and response byte caps
+  - connection, request, and token rate
+  - capability lifetime and idle expiration
+  - whether request or response bodies may pass
 - `execution`
   - allow or deny capabilities by backend
 
@@ -437,6 +465,7 @@ Every candidate backend should be scored against the same criteria:
 - Runtime syscall and privilege control
 - Auditability and logging quality
 - Bypass resistance
+- VMM and helper confinement on the host, for VM-backed backends
 - Cross-agent compatibility
 - macOS local support
 - Linux local support
@@ -541,6 +570,7 @@ Notes:
 - It should remain the control case in every benchmark and security comparison
 - Sysbox and Enhanced Container Isolation harden this family with user namespaces, procfs virtualization, and syscall trapping without leaving the shared kernel
 - airut, aicontainer, node9-proxy, and NVIDIA OpenShell are 2026 examples of this family with mitmproxy, iptables, or L7-proxy egress control
+- The companion architecture doc's main critique of this baseline: on macOS the agent container and the trusted proxy sidecar share Colima's guest kernel, so a container escape reaches the enforcement point and the secret mount; the outer VM still protects the physical host but not the controls
 
 ### 3. Sandboxed containers with stronger runtime isolation
 
@@ -600,6 +630,8 @@ Notes:
 - `documented`: Apple `container` gives one Virtualization.framework VM per container on Apple Silicon with OCI images, but no compose layer and no egress primitive
 - `documented`: libkrun is the substrate under microsandbox, BoxLite, brood-box, and the default Podman machine provider on macOS; its docs say the VMM and guest share a security context, so the VMM process itself must be confined
 - `documented`: Firecracker 1.17 and Cloud Hypervisor v53 continue as Linux-only substrates; Cloud Hypervisor is also the Linux backend of Apple's `containerization` package
+- `documented`: Firecracker's jailer confines the VMM with a chroot through `pivot_root`, cgroups, uid and gid drop, mount, PID, and network namespaces, and rlimits; the companion doc adds per-thread seccomp filters in the default build (`companion doc`, seccomp doc not read here)
+- `documented`: CubeSandbox runs each sandbox in a KVM microVM behind an eBPF virtual switch and a transparent L7 egress proxy; see the open-source comparables
 
 ### 5. Full VM backend
 
@@ -657,6 +689,7 @@ Notes:
 - This should be a later-stage exploration unless cluster deployment is a near-term product requirement
 - `documented`: `ClusterNetworkPolicy` v1alpha2 with experimental `domainNames` is the emerging Kubernetes shape for name-based egress; it standardizes DNS-snooping-derived IP allowlists and excludes L7 matching
 - `documented`: Inspect's Kubernetes sandbox is a working reference stack: gVisor runtime class, Cilium FQDN policy limited to ports 80 and 443 with SNI enforcement, and a per-pod CoreDNS sidecar
+- Confidential Containers layers attestation and key release on Kata for the case where the cloud operator is untrusted; it does not address egress and is a separate future tier at most
 
 ## Landscape reference: supporting layers and tools
 
@@ -853,6 +886,7 @@ What it is:
 - `documented`: the default kernel is a Kata `vmlinux` from the `kata-static` tarball and can be overridden per container; nested virtualization needs M3 or later and macOS 15 or later
 - `documented`: the `containerization` Swift package now includes a Cloud Hypervisor plus KVM backend for Linux hosts with the same `vminitd` contract, but the CLI itself is macOS-only
 - `documented`: pre-1.0, with breaking changes allowed between minor versions; memory freed in the guest is not returned to the host
+- `companion doc`: the `containerization` repo carries public security advisories covering image extraction, copy operations, identifiers, and registry handling, which places image handling inside the trusted base; the advisories were not readable from inside this sandbox
 
 Networking and mounts:
 
@@ -1435,6 +1469,29 @@ Anthropic's GitHub proxy enforces push only to the current branch, repository sc
 
 Claude Code and Codex now bring their own sandbox and proxy. Three options exist for each agent image: disable the inner sandbox, run it in its documented weaker nested mode, or run it fully and chain its proxy to the sidecar. The choice affects CA distribution, Unix-socket access, and which layer reports a denial. It should be a per-agent documented setting.
 
+### No-NIC transport with a host broker
+
+The companion architecture doc proposes a strict mode in which the guest has no general-purpose network interface at all. A guest-side shim sends proxy requests over vsock to a host broker, name resolution happens outside the guest, and only broker-supported protocols exist. Direct TCP, UDP, ICMP, QUIC, DNS, link-local, and private-network access are then structurally absent rather than filtered. Matchlock already uses vsock for exec and its VFS but keeps a NIC; Docker Sandboxes keeps a NIC and filters. This is the strongest egress posture in the landscape and the hardest on tool compatibility; SSH Git and arbitrary network tools would need rewriting to HTTPS or a declared TCP capability.
+
+### Authority-scoped capabilities
+
+Keeping a secret outside the guest is not the same as limiting what the guest can do with it. The companion doc frames each egress rule as a capability that bundles destination, request shape, credential placement, and limits such as redirect handling, request and response byte caps, rate, lifetime, and whether bodies may pass. Anthropic's GitHub proxy and wirenboard/agent-vm are partial implementations of the same idea for one service. This extends `Semantic service rules` above and argues for a `limits` layer in the policy model.
+
+### Workspace modes
+
+The companion doc names four modes, which sharpen `High-assurance writeback mode` above:
+
+- import a content-addressed snapshot into a private writable overlay and export a validated patch plus manifest, as the default
+- `read-only-source`: an immutable source tree plus a private working clone, which is Docker Sandboxes' `--clone`
+- `live-workspace`: direct read and write sharing, labeled lower assurance, which is this repo's current default and Docker Sandboxes' default
+- `artifact-only`: no source export, with named build artifacts retrieved through the broker
+
+brood-box's reviewed, hash-verified flush is a working implementation of the default mode's export step.
+
+### Shared kernel between agent and enforcement point
+
+The companion doc's central critique of the current design is that the agent container and the trusted proxy sidecar share Colima's guest kernel, so a container escape lands on the machine that enforces egress and holds credentials. `Split trusted controller from untrusted worker` above already argues for moving the controller out; the critique adds that on macOS the controller must leave the Colima VM, not just the container, for the boundary to change.
+
 ## Research backlog: open-source comparables
 
 These should be treated as adjacent or comparable systems when building the backend matrix and feature inventory.
@@ -1492,6 +1549,13 @@ For each project, review:
   - Review focus: per-credential endpoint policy as a policy IR fragment, placeholder redemption, the per-tool broker, and whether seccomp is used
   - Verdict: `likely core reference` for policy and credential design, `os-native` boundary only
 
+- [TencentCloud/CubeSandbox](https://github.com/TencentCloud/CubeSandbox)
+  - `documented`: Apache-2.0 sandbox service at 0.7.0 (August 2026) running each sandbox in its own KVM microVM with a dedicated kernel on x86_64 and ARM64 Linux; components are a hypervisor manager, a containerd shim, an eBPF virtual switch for L3 and L4 policy, and CubeEgress, a per-host transparent L7 egress proxy reached through eBPF packet marking and iptables TPROXY on ports 8080 and 8443
+  - `documented`: CubeEgress terminates TLS with an embedded CA, matches `scheme`, `port`, `sni` with wildcards, `host`, a `method` list, and exact or prefix `path`, injects headers from operator-side secrets through `${SECRET}` placeholders, and writes JSONL audit records for requests, security events, and TLS handshake failures with secrets redacted; documented limits are that internal cluster traffic bypasses the proxy, unmatched TCP and UDP falls to L3 and L4 policy, and images built without the CA fail HTTPS
+  - `documented`: a control plane with a REST gateway, orchestrator, and reverse proxy; cross-node pause and resume; Kubernetes deployment in preview
+  - Review focus: the rule grammar against this repo's policy schema, eBPF steering with TPROXY as a transparent alternative to iptables REDIRECT, the audit record schema, and how much of the control plane a local tool would need
+  - Verdict: `likely core reference` for a cloud L7 data plane; Linux-only and cluster-oriented
+
 - [stacklok/brood-box](https://github.com/stacklok/brood-box)
   - `documented`: Apache-2.0 experimental Go CLI running agents in libkrun microVMs on Linux KVM or Apple Silicon; copy-on-write workspace snapshots via reflink, virtio-fs mount, an interactive per-file diff review before a hash-verified flush back with setuid stripping and non-negotiable exclusions for `.env`, key files, `.ssh`, and `.aws`; DNS-aware egress firewall with `permissive`, `standard`, and `locked` profiles and `--allow-host host:port`; per-workspace config cannot widen egress; env forwarding by name or glob plus git token and SSH agent forwarding; images for Claude Code, Codex, OpenCode, Hermes, and Gemini CLI; MCP proxying from ToolHive
   - Review focus: the review-before-writeback workspace model against this doc's high-assurance writeback idea, egress profiles, and the libkrun VMM confinement
@@ -1519,6 +1583,8 @@ For each project, review:
 
 - [superradcompany/microsandbox](https://github.com/superradcompany/microsandbox)
   - `documented`: Apache-2.0 libkrun-based microVMs from OCI images with an `msb` CLI, SDKs, an MCP server, and agent skills; `network: none` or `allowed_hosts` plus `allowed_ports` for default-deny egress enforced host-side; the guest receives placeholders and the host proxy substitutes real values only for the allowed TLS hostname; macOS Apple Silicon, Linux KVM, Windows WHP; beta at 0.6.17
+  - `documented`: the filesystem is a layered root of read-only cached image layers plus a private per-sandbox writable layer; host directories are exposed live over virtio-fs through a trusted broker that enforces containment with `openat2` and `RESOLVE_BENEATH` on Linux 5.6+, read-only mounts are enforced host-side so even a privileged guest cannot write through them, host uid and gid are hidden by default, and snapshots capture the writable layer plus a manifest pinning the base image with optional integrity hashes off by default; digest checks do not verify signatures or provenance
+  - `companion doc`: DNS-rebinding protection is reported in the network policy implementation; not read here
   - Review focus: host-side netstack enforcement, placeholder secrets, and snapshot semantics
   - Verdict: `useful supporting reference`
 
@@ -1621,6 +1687,10 @@ For each project, review:
 
 - [thevibeworks/claude-code-yolo](https://github.com/thevibeworks/claude-code-yolo), [nikvdp/cco](https://github.com/nikvdp/cco), [RchGrav/claudebox](https://github.com/RchGrav/claudebox), [cleatdev/cleat](https://github.com/cleatdev/cleat), [ashishb/amazing-sandbox](https://github.com/ashishb/amazing-sandbox), [katspaugh/machine](https://github.com/katspaugh/machine)
   - Docker, Seatbelt, bubblewrap, or Lima wrappers with permissions off and at most a boolean or per-project host allowlist for network; low relevance beyond their multi-agent config-home layouts
+
+- [confidential-containers/confidential-containers](https://github.com/confidential-containers/confidential-containers)
+  - `documented`: a project using trusted execution environments to protect containers and data from the cloud provider, deployed with Helm charts; the companion doc adds that it builds on Kata plus AMD SEV-SNP and Intel TDX with a Trustee key broker and attestation services (`companion doc`, not read here)
+  - Review focus: relevant only for a future hosted tier where the cloud operator is outside the trust boundary; it does not address egress, and an attested malicious workload can still leak over an allowed channel
 
 - [UKGovernmentBEIS/aisi-sandboxing](https://github.com/UKGovernmentBEIS/aisi-sandboxing)
   - Inspect-oriented sandboxing toolkit with Docker Compose, Kubernetes, and Proxmox plugins plus a sandboxing protocol document; low relevance as a developer CLI, but its tooling, host, and network isolation taxonomy is a good framing
@@ -2313,6 +2383,69 @@ When reviewing an item, capture whether it implements any of these primitives:
   - Could its workspace model be paired with this repo's proxy?
 - Verdict: `likely core reference`
 
+### TencentCloud/CubeSandbox
+
+- Item name: `TencentCloud/CubeSandbox`
+- Category:
+  - runtime substrate
+  - control plane
+  - proxy or policy layer
+- Research priority: `P0`
+- Claimed runtime boundary:
+  - `documented`: a dedicated OS kernel in its own KVM microVM per sandbox
+- Verified runtime boundary:
+  - `documented`: KVM microVMs managed by a hypervisor component with a containerd shim; Linux x86_64 and ARM64 only
+  - `unknown`: which VMM is used and how the VMM process is confined
+- Workspace model:
+  - `unknown`
+- Persistence model:
+  - `documented`: cross-node pause and resume in 0.7.0
+  - `unknown`: snapshot and volume semantics
+- Network control model:
+  - `documented`: an eBPF virtual switch enforces L3 and L4 policy; CubeEgress is a per-host transparent proxy reached through eBPF marking and iptables TPROXY, terminating TLS with an embedded CA
+  - `documented`: rules match `scheme`, `port`, `sni` with wildcards, `host`, `method`, and exact or prefix `path`; present fields are ANDed and absent fields wildcard
+  - `documented`: internal cluster traffic bypasses the proxy; unmatched custom-port TCP and UDP falls back to L3 and L4 policy
+- Runtime control model:
+  - `unknown`: in-guest hardening
+- Secrets model:
+  - `documented`: `Inject` objects add a header built from a `format` string with a `${SECRET}` placeholder and an operator-side `secret`; secrets never reach the sandbox
+- Observability model:
+  - `documented`: a JSONL access log with request records at a `metadata` level including TLS details, latency, and status, plus `security_event` records for denials and injections and `tls_handshake` records for handshake failures, with secrets redacted
+- Local platform support:
+  - `documented`: Linux with KVM only; cloud VMs, bare metal, or Kubernetes in preview
+- Multi-agent compatibility:
+  - `unknown`: no agent-specific packaging documented in the sources read
+- Primitive checklist:
+  - Shared workspace mount: unknown
+  - Copy-on-write workspace: unknown
+  - Patch-only or branch-only writeback: no
+  - Read-only parent or host mounts: unknown
+  - Home-directory shadowing: unknown
+  - Scratch or temp volume isolation: yes, VM-local
+  - Domain allowlist proxy: yes
+  - Path and method policy: yes
+  - Transparent versus explicit proxying: transparent
+  - DNS allowlist or DNS interception: unknown
+  - Non-HTTP TCP policy: yes, L3 and L4 through eBPF
+  - SSH handling: unknown
+  - Secret brokering: yes
+  - Proxy-side secret substitution: yes, header injection
+  - Output validation and quarantine: no
+  - Audit logs: yes
+  - Command hooks or deny rules: no
+  - Multi-agent abstraction: no
+  - Remote execution or gateway fleet support: yes
+- Key strengths:
+  - The closest open-source match to this repo's L7 rule model, with SNI and Host matching, method lists, and path prefixes, plus a documented audit schema
+  - eBPF steering with TPROXY is a transparent design that does not depend on proxy environment variables
+- Key limits:
+  - Linux and cluster oriented; no local macOS story
+  - No workspace model or in-guest hardening documented in the sources read
+- Open questions:
+  - Is the rule grammar close enough to this repo's schema to share test corpora?
+  - Does the audit schema cover redirect chains and per-request policy decisions?
+- Verdict: `likely core reference`
+
 ### Implications of the 2026 open-source comparables
 
 - Worth bringing into the vision:
@@ -2321,6 +2454,7 @@ When reviewing an item, capture whether it implements any of these primitives:
   - a reviewed, hash-verified writeback mode, from brood-box
   - per-binary network scoping, from OpenShell
   - policy loaded from the repository default branch so the agent cannot edit it, from airut
+  - eBPF steering with TPROXY and a JSONL audit schema with security-event records, from CubeSandbox
 - Probably not worth bringing in as-is:
   - OS-native-only boundaries as the default backend
   - permissive default egress profiles
@@ -2391,6 +2525,7 @@ Evidence note for the September 2026 pass: vendor pages outside GitHub and the A
   - `search extract`: network policies are account-scoped allow and deny egress rules attached to a Devbox at launch
   - `unknown`: third-party coverage describes a credential gateway with opaque token injection; not found in primary docs during this pass
   - `search extract`: VPC deployment on AWS, GCP, and Azure, and Runloop is one of the sandbox providers in the OpenAI Agents SDK
+  - `companion doc`: agent gateways and MCP brokering are reported as product features; not verified here
 - Fit: VM-backed sandbox platform with additional containerization or image layering inside the VM
 
 ### exe.dev
@@ -2429,6 +2564,7 @@ Evidence note for the September 2026 pass: vendor pages outside GitHub and the A
 - Update, September 2026:
   - `search extract`: a domain allowlist for TLS traffic is in beta, runtime policy updates are allowed but can only tighten, static egress IPs are available through `modal.Proxy`, and tunnels can carry an inbound CIDR allowlist
   - `search extract`: memory snapshots are retained for seven days and filesystem snapshots for thirty, with a 24 hour maximum sandbox lifetime
+  - `companion doc`: experimental sidecar-based traffic inspection is reported; not verified here
 - Fit: gVisor-backed secure container service with strong snapshot support; network policy is moving from CIDR-only toward domain rules
 
 ### Daytona Sandboxes
@@ -2441,6 +2577,7 @@ Evidence note for the September 2026 pass: vendor pages outside GitHub and the A
   - `inferred`: the default runtime is Docker containers, with Sysbox referenced in security materials and Kata described as optional by third parties; this was not confirmed from a Daytona primary page
   - `search extract`: network controls are `networkBlockAll` plus an IPv4 CIDR allowlist, with hostnames, domains, and IPv6 documented as unsupported, an `outboundProxyUrl` to chain to your own proxy, and runtime updates on a running sandbox
   - `unknown`: a "Domain Firewall" marketing page contradicts the CIDR-only docs; unresolved
+  - `companion doc`: the companion architecture doc reports enforced domain and CIDR rules, container and VM sandbox classes, upstream proxy support, and host-scoped secret substitution; the domain-rule claim conflicts with the search extract above, and neither page could be read directly here
 - Fit: previously an open-source candidate for self-hosting; now a closed platform whose main relevance is its proxy-chaining option and its Docker-plus-Sysbox default boundary
 
 ### E2B
@@ -2452,6 +2589,7 @@ Evidence note for the September 2026 pass: vendor pages outside GitHub and the A
   - `search extract`: network policy is `allowOut` and `denyOut` with domain and CIDR rules where allow wins, runtime updates through `updateNetwork`, create-time `allowPublicTraffic` and `maskRequestHost`, workload-identity token injection through a context callback, and per-host request transforms in public beta
   - `documented`: `e2b-dev/infra` is Apache-2.0, built on Terraform, Nomad, Consul, and Firecracker, with GCP fully supported and AWS in beta
   - `search extract`: enterprise BYOC into a customer AWS VPC; desktop SDKs moved into the monorepo
+  - `companion doc`: internet access is enabled by default in the SDK, so `allowOut` and `denyOut` are opt-in restrictions
 - Fit: Firecracker microVM platform with template building and optional BYOC or self-hosted modes; its request-transform and token-injection features are now close to this repo's proxy model
 
 ### Blaxel
@@ -2676,6 +2814,12 @@ These projects standardize how a harness talks to a sandbox. They matter for `m2
 
 ## Execution plan
 
+### Sequencing alternatives
+
+The companion architecture doc proposes a different order from the phases below: freeze the security contract first, then build two macOS microVM spikes on Apple Containerization and microsandbox, then extract the broker with a vsock-only transport, then replace live mounts with import and export, and only then add a Linux Cloud Hypervisor backend. It recommends Cloud Hypervisor over Firecracker on Linux for interactive fit and alignment with Apple's Linux backend, and it places gVisor as an optional density tier rather than the first spike.
+
+The two sequences disagree on what to learn first. The phases here test whether plain containers are the bottleneck before paying for a VM boundary; the companion doc treats the VM boundary as settled and tests which macOS substrate to build on. That disagreement is a decision for `m21-capability-model`, not something to resolve in a research note.
+
 ### Phase 1. Threat model and normalized capability model
 
 Define:
@@ -2851,6 +2995,10 @@ Added in the 2026-09 refresh:
 - Is Docker Sandboxes an external backend to integrate, a benchmark, or both?
 - Which of the vendor policy dialects, if any, should the policy IR compile to?
 - Does brood-box's reviewed writeback model fit interactive sessions, or only headless runs?
+
+- Should the first spike test a stronger boundary on macOS, as the companion doc proposes, or test whether plain containers are the bottleneck, as the phases here propose?
+- Should TLS inspection be global or per capability, and what does the policy model lose per host when it is off?
+- Is a no-NIC vsock-only transport viable for the agents this repo supports, given SSH Git, package managers, and language toolchains?
 
 ## Source index
 
@@ -3090,3 +3238,19 @@ Added in the 2026-09 refresh:
 - [buildkite/cleanroom](https://github.com/buildkite/cleanroom): policy-as-code microVM sandboxes with digest-pinned images
 - [cased/sandboxes](https://github.com/cased/sandboxes): multi-provider sandbox client
 - [kernel/kernel-images](https://github.com/kernel/kernel-images): Chromium on Unikraft browser sandboxes
+- [Secure agent sandbox research and architecture](./secure-agent-sandbox-research-and-architecture.md): companion architecture recommendation dated 2026-09-05
+- [TencentCloud/CubeSandbox](https://github.com/TencentCloud/CubeSandbox): KVM microVM sandbox service with an eBPF virtual switch and CubeEgress
+- [CubeSandbox security proxy doc](https://github.com/TencentCloud/CubeSandbox/blob/master/docs/guide/security-proxy.md): CubeEgress steering, rule fields, injection, and audit schema
+- [CubeSandbox network policy docs](https://docs.cubesandbox.com/guide/network-policy): L3 and L4 policy (cited by the companion doc; not read here)
+- [microsandbox filesystem security doc](https://github.com/superradcompany/microsandbox/blob/main/docs/security/filesystem.mdx): layered root, virtio-fs broker with `openat2` containment, host-side read-only enforcement, snapshots
+- [Firecracker jailer docs](https://github.com/firecracker-microvm/firecracker/blob/main/docs/jailer.md): chroot, cgroups, identity drop, namespaces, rlimits
+- [Firecracker seccomp docs](https://github.com/firecracker-microvm/firecracker/blob/main/docs/seccomp.md): per-thread seccomp filters (cited by the companion doc; not read here)
+- [libkrun security model](https://github.com/containers/libkrun#security-model): guest and VMM share a security context
+- [gVisor security model](https://gvisor.dev/docs/architecture_guide/security/): Sentry design and operator responsibilities (cited by the companion doc; not read here)
+- [Apple containerization security advisories](https://github.com/apple/containerization/security/advisories): image extraction, copy, and registry handling advisories (cited by the companion doc; not read here)
+- [Confidential Containers](https://github.com/confidential-containers/confidential-containers): TEE-based container protection project
+- [Confidential Containers attestation architecture](https://confidentialcontainers.org/docs/attestation/architecture/): Trustee, key broker, attestation (cited by the companion doc; not read here)
+- [Kata virtualization guide](https://github.com/kata-containers/kata-containers/blob/main/docs/design/virtualization.md): VMM options
+- [Daytona secrets docs](https://www.daytona.io/docs/en/secrets/): host-scoped secret substitution (cited by the companion doc; not read here)
+- [Cloudflare sandbox outbound traffic guide](https://developers.cloudflare.com/sandbox/guides/outbound-traffic/): programmable outbound handlers (cited by the companion doc; not read here)
+- [AWS AgentCore code interpreter resource management](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/code-interpreter-resource-management.html): Sandbox, Public, and VPC network modes (cited by the companion doc; not read here)
