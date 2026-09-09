@@ -222,6 +222,29 @@ Per-agent version check workflows exist for:
 - `opencode`
 - `pi`
 
+### Cutting a release
+
+1. Open a PR that moves the `[Unreleased]` entries in `CHANGELOG.md` under `## [X.Y.Z] - YYYY-MM-DD` with a one-line
+   summary, keeps an empty `[Unreleased]` section on top, and bumps the `--version vX.Y.Z` examples in `README.md` and
+   `scripts/install-agentbox.sh`.
+2. After it merges, push a lightweight tag `vX.Y.Z` on the merge commit. `release-go-binaries.yml` builds the archives
+   and opens a draft GitHub release with generated notes.
+3. The maintainer publishes the draft and edits the notes. Publishing is outside the sandbox proxy's write allowlist, so
+   an agent stops after reporting the draft release URL.
+
+`build-images.yml` runs on pushes to `main` that touch `images/` and on release events. A fix merged after a release's
+image build reaches users through the next push-triggered build and `agentbox bump`.
+
+## Pull Requests
+
+- Open agent-authored PRs as drafts with `gh api -X POST repos/{owner}/{repo}/pulls`. The `gh pr` commands are blocked
+  in the sandbox; see `docs/github.md`.
+- PRs are rebase-merged. A PR stacked on another branch needs `git rebase origin/main` after its base lands, which
+  requires a force-push of the PR branch. Ask the maintainer before any force-push and use `--force-with-lease`.
+- Never amend a pushed commit. Address review feedback in new commits.
+- Every PR gets an automated Greptile review. Evaluate each comment, fix the valid ones in a new commit, and reply on
+  the thread with the commit and the test that covers it.
+
 ## Adding A New Agent
 
 Use the `add-agent` skill or follow an existing agent end to end.
