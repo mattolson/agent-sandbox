@@ -243,7 +243,8 @@ image build reaches users through the next push-triggered build and `agentbox bu
   requires a force-push of the PR branch. Ask the maintainer before any force-push and use `--force-with-lease`.
 - Never amend a pushed commit. Address review feedback in new commits.
 - Every PR gets an automated Greptile review. Evaluate each comment, fix the valid ones in a new commit, and reply on
-  the thread with the commit and the test that covers it.
+  the thread with the commit and the test that covers it. Then post a PR comment containing `@greptile review` so the
+  new commit gets a fresh review.
 
 ## Adding A New Agent
 
