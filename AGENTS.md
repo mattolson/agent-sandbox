@@ -237,8 +237,8 @@ image build reaches users through the next push-triggered build and `agentbox bu
 
 ## Pull Requests
 
-- Open agent-authored PRs as drafts with `gh api -X POST repos/{owner}/{repo}/pulls`. The `gh pr` commands are blocked
-  in the sandbox; see `docs/github.md`.
+- Open agent-authored PRs as drafts with `gh api -X POST repos/{owner}/{repo}/pulls -F draft=true`. The `gh pr`
+  commands are blocked in the sandbox; see `docs/github.md`.
 - PRs are rebase-merged. A PR stacked on another branch needs `git rebase origin/main` after its base lands, which
   requires a force-push of the PR branch. Ask the maintainer before any force-push and use `--force-with-lease`.
 - Never amend a pushed commit. Address review feedback in new commits.
