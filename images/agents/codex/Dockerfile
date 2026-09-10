@@ -34,8 +34,14 @@ ENV PATH="/home/dev/.local/bin:$PATH"
 # Tell Codex where its config/state lives
 ENV CODEX_HOME="/home/dev/.codex"
 
-# Install Codex CLI binary from GitHub releases
+# Install Codex CLI binaries from GitHub releases
 # CODEX_VERSION: "latest" or a specific version like "0.104.0"
+#
+# Codex ships as separate per-binary archives. The main `codex` binary is
+# required. `codex-code-mode-host` is the Code Mode helper that Codex looks for
+# next to its own executable; without it every session warns that Code Mode is
+# unavailable. Releases before it existed simply do not publish the asset, so a
+# 404 for the host is tolerated with a warning while any other failure aborts.
 ARG CODEX_VERSION=latest
 ARG TARGETARCH
 RUN set -e && \
@@ -44,18 +50,30 @@ RUN set -e && \
       arm64) TRIPLE="aarch64-unknown-linux-musl" ;; \
       *) echo "Unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
     esac && \
-    ASSET="codex-${TRIPLE}.tar.gz" && \
     if [ "$CODEX_VERSION" = "latest" ]; then \
-      URL="https://github.com/openai/codex/releases/latest/download/${ASSET}"; \
+      BASE_URL="https://github.com/openai/codex/releases/latest/download"; \
     else \
-      URL="https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/${ASSET}"; \
+      BASE_URL="https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}"; \
     fi && \
-    echo "Downloading Codex from ${URL}..." && \
-    curl -fsSL "$URL" -o /tmp/codex.tar.gz && \
-    tar -xzf /tmp/codex.tar.gz -C /tmp && \
-    mv "/tmp/codex-${TRIPLE}" /home/dev/.local/bin/codex && \
-    chmod +x /home/dev/.local/bin/codex && \
-    rm /tmp/codex.tar.gz && \
+    for BIN in codex codex-code-mode-host; do \
+      ASSET="${BIN}-${TRIPLE}.tar.gz" && \
+      URL="${BASE_URL}/${ASSET}" && \
+      echo "Downloading ${BIN} from ${URL}..." && \
+      STATUS=$(curl -sSL -w '%{http_code}' -o "/tmp/${ASSET}" "$URL") && \
+      if [ "$STATUS" != "200" ]; then \
+        rm -f "/tmp/${ASSET}"; \
+        if [ "$BIN" != "codex" ] && [ "$STATUS" = "404" ]; then \
+          echo "WARNING: ${ASSET} not published for this release (HTTP 404); skipping ${BIN}" >&2; \
+          continue; \
+        fi; \
+        echo "ERROR: failed to download ${URL} (HTTP ${STATUS})" >&2; \
+        exit 1; \
+      fi && \
+      tar -xzf "/tmp/${ASSET}" -C /tmp && \
+      mv "/tmp/${BIN}-${TRIPLE}" "/home/dev/.local/bin/${BIN}" && \
+      chmod +x "/home/dev/.local/bin/${BIN}" && \
+      rm "/tmp/${ASSET}"; \
+    done && \
     codex --version
 
 LABEL org.opencontainers.image.description="Agent Sandbox with OpenAI Codex CLI"

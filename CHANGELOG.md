@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Codex no longer warns that Code Mode is unavailable.** The codex image installed only the `codex` binary from the GitHub release, but Codex looks for the separate `codex-code-mode-host` helper next to its own executable and logged `Code Mode is unavailable because failed to spawn code-mode host ... host executable was not found` on every session. The image now installs both binaries from the same release into `~/.local/bin`. A release that does not publish the host asset builds with a warning instead of failing. Requires rebuilt images (`agentbox bump`).
 - **VS Code Server trusts the proxy CA.** The base image now sets `NODE_EXTRA_CA_CERTS=/etc/mitmproxy/ca.crt` in the image environment instead of exporting it from the sandbox shell. The IDE starts the VS Code Server and its extension host through `docker exec` without a login shell, so they never saw the shell export and logged `unable to verify the first certificate` for marketplace metadata, telemetry, and extension downloads through the proxy. Requires rebuilt images (`agentbox bump`); for older images, set the variable on the agent service in `user.override.yml`.
 
 ## [0.17.1] - 2026-09-06
