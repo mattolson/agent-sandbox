@@ -30,7 +30,7 @@ codex
 codex --full-auto
 ```
 
-The image includes system `bubblewrap` so Codex's Linux startup check finds `/usr/bin/bwrap` and does not warn at launch. It also installs the `codex-code-mode-host` helper next to the `codex` binary in `~/.local/bin` so Code Mode is available. Codex still defaults to `danger-full-access` via the baked-in config, with isolation handled by the surrounding container, proxy, and firewall.
+The image includes system `bubblewrap` so Codex's Linux startup check finds `/usr/bin/bwrap` and does not warn at launch. When the selected Codex release publishes the `codex-code-mode-host` helper, the image installs it next to the `codex` binary in `~/.local/bin` so Code Mode is available. Older releases without the helper asset still build, but Code Mode remains unavailable. Codex still defaults to `danger-full-access` via the baked-in config, with isolation handled by the surrounding container, proxy, and firewall.
 
 Afterward, for CLI mode, stop the container:
 
