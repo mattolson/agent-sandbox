@@ -354,6 +354,25 @@ Add a narrower, secondary credential path for tools and auth flows that cannot b
 
 **Dependencies:** m13 (Go CLI manages service lifecycle), m15 (primary proxy-based credential path defined first)
 
+### m21-dns-egress-controls
+
+Close the last undeclared outbound channel. All TCP egress already goes through the proxy, but name resolution is
+unrestricted, so query names sent to an attacker-controlled nameserver carry data out without opening a socket the
+firewall would block.
+
+**Goals:**
+- A sinkhole resolver that answers compose service names and returns `NXDOMAIN` for everything else
+- Port 53 from the agent container restricted to that resolver, over IPv4 and IPv6
+- Proxy-side refusal of allowed hosts that resolve to loopback, private, link-local, or metadata addresses
+- Parity between CLI and devcontainer modes, with the assertions enforced by the firewall self-test
+
+**Out of scope:**
+- A `dns:` policy surface; resolvable names stay derived from the compose stack
+- DNS-over-HTTPS to an already-allowed host, which is a case of the broader allowed-host channel
+- Narrowing the host-network rule that makes the proxy sidecar reachable
+
+**Dependencies:** m3 (proxy is the enforcement point), m14 (request-aware matching for the address guard)
+
 ## Decisions
 
 1. **Policy format**: YAML with domain-only granularity for m1-m4. Path/method filtering deferred to future work.
