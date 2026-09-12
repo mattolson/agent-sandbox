@@ -20,6 +20,7 @@ This keeps the document useful even as the source list grows.
 - 2026-03 through 2026-05: worksheets for sandcat, Matchlock, and Leash; commercial product pass; exe.dev notes
 - 2026-09-06: landscape refresh covering alternatives that emerged or changed since spring 2026
 - 2026-09-06: merged alternatives-relevant findings from the companion architecture doc listed under `Related documents` below
+- 2026-09-12: corrected the Zed entry after reading its docs directly; it ships a real agent sandbox rather than a permission model only
 
 What the 2026-09-06 refresh added:
 
@@ -1231,7 +1232,7 @@ Practical use here:
 
 Each major agent CLI now ships its own local sandbox or at least a permission model. These are OS-native sandbox wrappers in the taxonomy above, and they matter here for two reasons: they set the baseline users expect, and this project has to decide whether to nest them inside its container or disable them.
 
-Evidence note for the September 2026 pass: Claude Code docs, the `sandbox-runtime` repo, and the Codex and Gemini CLI repos were read directly. Cursor, Factory Droid, Amp, JetBrains Junie, Kiro, and Windsurf have no reachable primary source from inside this sandbox and are marked `unknown` rather than filled in from memory.
+Evidence note for the September 2026 pass: Claude Code docs, the `sandbox-runtime` repo, the Codex and Gemini CLI repos, and the Zed docs were read directly. Cursor, Factory Droid, Amp, JetBrains Junie, Kiro, and Windsurf have no reachable primary source from inside this sandbox and are marked `unknown` rather than filled in from memory.
 
 ### Claude Code sandboxed Bash and `sandbox-runtime`
 
@@ -1347,13 +1348,60 @@ Practical use here:
 - Gemini composes naturally with an external image and proxy because its default sandbox is already a container
 - The admin-locked policy tier is the pattern to copy if this repo ever ships organization-managed policy
 
+### Zed agent sandboxing and external agents
+
+Best fit:
+
+- OS-native sandbox wrapper around one editor's own agent
+- Reference for how an editor separates its built-in agent from the external agents it launches
+
+What it is:
+
+- `documented`: Zed ships a dedicated agent sandbox. macOS uses Seatbelt through `sandbox-exec`; Linux uses bubblewrap over unprivileged user namespaces and explicitly refuses a setuid-root `bwrap`; Windows gets it only inside WSL, where the Linux path applies
+- `documented`: the sandbox covers the Zed Agent's `terminal` and `fetch` tools only. Language servers, including procedural-macro expansion, the built-in Git client, ordinary terminal tabs, External Agents, and Terminal Threads are all outside it
+
+Filesystem model:
+
+- `documented`: reads are allowed from most locations; writes are confined to open project directories and the temp directories named by `$TMPDIR`, `$TMP`, and `$TEMP`
+- `documented`: writes to `.git` directories and linked worktree metadata are refused and cannot be granted, even when broader write access is approved
+- `documented`: Unix-domain socket access is denied by default
+
+Network model:
+
+- `documented`: network access is blocked entirely by default. When specific hosts are approved on macOS or Linux, traffic is routed through an HTTP and HTTPS proxy that enforces a host allowlist, and the docs note that tools ignoring proxy variables, such as SSH, FTP, and raw sockets, will fail
+- `documented`: on Windows and WSL there is no host-specific enforcement, so an agent must ask for unrestricted network access instead
+- `documented`: settings live under `agent.sandbox_permissions` with `network_hosts` accepting hostnames and `*.` wildcards, plus `allow_all_hosts`, `write_paths`, `allow_fs_write_all`, and `allow_unsandboxed`
+
+Documented limitations:
+
+- `documented`: on Linux and WSL, filesystem restrictions are fixed when the sandbox is created, so an agent granted a directory can later create `.git` inside it
+- `documented`: when write access covers NTFS-resident paths under WSL, symlink or inode-substitution attacks may escape confinement; Zed reports no successful exploit in its own testing
+
+External agents:
+
+- `documented`: Claude Code, Codex, OpenCode, Copilot, Cursor, Gemini CLI, Pi, and Poolside are integrated over the Agent Client Protocol and launched as separate local processes configured by `agent_servers` entries carrying `command`, `args`, and `env`
+- `documented`: the docs describe that boundary as one between Zed configuration and agent-native configuration, not a security boundary, and each agent owns its own runtime, authentication, and tools
+- `documented`: ACP standardizes sessions, tool calls, permissions, and terminals and has no sandboxing or isolation concept
+- `documented`: `agent.tool_permissions` is a separate in-process layer of regex allow, deny, and confirm rules over commands, paths, and URLs, with a fixed set of built-in rules that cannot be overridden; it is a prompting and blocking mechanism, not a boundary
+
+Dev containers:
+
+- `documented`: Zed opens projects from `.devcontainer/devcontainer.json` through Docker or Podman and then operates inside the container for tasks, terminals, and language servers, with a `zed` key under `customizations`
+- `documented`: the feature is described as still in development, and edits to `devcontainer.json` do not trigger a rebuild or reload
+- `documented` by absence: the dev container docs say nothing about network restriction or isolation
+
+Practical use here:
+
+- Zed is a frontend, not a competitor. The integration path is the same as the VS Code one: point Zed at a dev container built from this repo's image and any agent it launches inherits the firewall and proxy
+- The nesting question applies here as it does for Claude Code and Codex. If Zed's own agent runs inside this repo's container, its bubblewrap sandbox and host allowlist sit inside ours, and `allow_unsandboxed` or a proxy chained to the sidecar is preferable to two allowlists disagreeing
+- The carve-out list is the most useful finding: an editor sandbox that excludes language servers, the Git client, and external agents leaves most of the code execution in a session unconfined. That is an argument for a boundary around the whole environment rather than around one tool
+
 ### Permission-only agents
 
 - `documented`: GitHub Copilot CLI's README describes approval before every action and no sandbox or network restriction
 - `documented`: OpenCode exposes a per-tool `permission` object with `allow`, `ask`, or `deny`, wildcard patterns, last match wins, and per-agent overrides, but no sandbox or network restriction
 - `documented`: Hermes Agent has no native sandbox and instead offers terminal backends for local, Docker, SSH, Singularity, Modal, Daytona, and Vercel Sandbox execution plus command approval patterns
 - `documented`: Pi states it has no built-in permission system for filesystem, process, network, or credential access and points users to an external micro-VM extension, Docker, or OpenShell
-- `documented`: Zed's agent settings do not mention sandboxing; its tool permissions live in a separate doc that was not read
 - `unknown`: Cursor, Factory Droid, Amp, JetBrains Junie, Kiro, and Windsurf
 
 Practical use here:
@@ -1363,10 +1411,11 @@ Practical use here:
 
 ### Cross-cutting observations
 
-- Claude Code and Codex have converged on the same Linux design: bubblewrap, a network namespace, Unix-socket bridging to a host-side HTTP and SOCKS5 proxy, and seccomp to stop new sockets, with hostname-only allowlisting by default and optional TLS termination
+- Claude Code, Codex, and Zed have independently converged on the same design: bubblewrap on Linux and Seatbelt on macOS for the filesystem, plus a host-side proxy enforcing a hostname allowlist for egress. Claude Code and Codex add a network namespace, Unix-socket bridging, and seccomp to stop new sockets. All three default to hostname-only matching, and none offers method or path rules on general egress
 - Both vendors document the same holes: unfenced DNS, domain fronting, Unix-socket escalation through `docker.sock`, and weakened modes inside unprivileged containers
 - This repo's always-MITM sidecar sits at the strict end of that spectrum, which is the right differentiation as long as the CA distribution and Go-CLI TLS caveats are documented
-- Nesting a vendor sandbox inside this repo's container is now a real configuration question for Claude Code and Codex rather than a hypothetical
+- Nesting a vendor sandbox inside this repo's container is now a real configuration question for Claude Code, Codex, and Zed rather than a hypothetical
+- Every vendor sandbox scopes itself to the agent's own tool calls. Zed states the exclusions outright: language servers, the Git client, plain terminal tabs, and external agents are all outside its sandbox. A whole-environment boundary is the only thing that covers them
 
 ## Potential architecture directions
 
@@ -3142,6 +3191,10 @@ Added in the 2026-09 refresh:
 - [openai/codex execpolicy README](https://github.com/openai/codex/tree/main/codex-rs/execpolicy): Starlark `prefix_rule` and `network_rule`
 - [OpenAI Codex cloud internet access docs](https://developers.openai.com/codex/cloud/internet-access): domain allowlist presets and HTTP method allowlist (search extract)
 - [OpenAI Agents SDK sandboxes guide](https://developers.openai.com/api/docs/guides/agents/sandboxes): `Sandbox` abstraction and hosted providers (search extract)
+- [Zed agent sandboxing docs](https://github.com/zed-industries/zed/blob/main/docs/src/ai/sandboxing.md): Seatbelt and bubblewrap, default-deny network with a host-allowlist proxy, `agent.sandbox_permissions`, and the excluded surfaces
+- [Zed external agents docs](https://github.com/zed-industries/zed/blob/main/docs/src/ai/external-agents.md): ACP-launched local subprocesses configured by `agent_servers`
+- [Zed tool permissions docs](https://github.com/zed-industries/zed/blob/main/docs/src/ai/tool-permissions.md): regex allow, deny, and confirm rules over commands, paths, and URLs
+- [Zed dev containers docs](https://github.com/zed-industries/zed/blob/main/docs/src/dev-containers.md): Docker or Podman dev containers, still in development
 - [google-gemini/gemini-cli sandbox docs](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/sandbox.md): sandbox modes including `runsc` and Seatbelt profiles
 - [google-gemini/gemini-cli policy engine docs](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/policy-engine.md): TOML tool-call policy tiers
 - [github/copilot-cli](https://github.com/github/copilot-cli): approval-only model
