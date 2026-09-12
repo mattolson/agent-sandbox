@@ -1,4 +1,4 @@
-# Milestone: m18 - Provider API-Key Injection
+# Milestone: m19 - Provider API-Key Injection
 
 ## Goal
 
@@ -26,7 +26,7 @@ Excluded:
 - Copilot and Factory primary auth, unless a concrete API-key flow is identified during discovery
 - OAuth, browser login, device-code, refresh-token, and subscription-login flows
 - Request-body mutation, response mutation, or scanning for leaked secret values
-- Local delivery of real credentials into the agent container; residual cases stay with `m20-host-credential-service`
+- Local delivery of real credentials into the agent container; residual cases stay with `m21-host-credential-service`
 - Arbitrary user-authored env exports that are not paired with catalog-owned proxy replacement rules
 - Clients that copy env credentials into query strings, request bodies, signatures, or local auth stores in a way the
   proxy cannot safely replace
@@ -52,7 +52,7 @@ Excluded:
 
 ## Tasks
 
-### m18.1-provider-auth-discovery-and-schema
+### m19.1-provider-auth-discovery-and-schema
 
 **Summary:** Confirm provider request shapes and define the authored service schema for API-key injection.
 
@@ -75,7 +75,7 @@ Excluded:
 **Risks:** Agent CLIs may validate API-key formats before making network requests, which could make a simple fake env var
 insufficient for some clients.
 
-### m18.2-raw-header-transform
+### m19.2-raw-header-transform
 
 **Summary:** Add a generic transform that injects the resolved secret as the complete header value.
 
@@ -96,7 +96,7 @@ insufficient for some clients.
 **Risks:** A too-specific transform name could leak provider assumptions into the generic injection layer. Keep this
 strictly header-value-oriented.
 
-### m18.3-provider-service-catalog-auth
+### m19.3-provider-service-catalog-auth
 
 **Summary:** Teach the service catalog to emit provider-specific request rules and header transforms.
 
@@ -113,12 +113,12 @@ strictly header-value-oriented.
 - Unauthenticated service entries preserve current behavior
 - Renderer tests reject unsupported auth keys and malformed secret IDs
 
-**Dependencies:** `m18.1`, `m18.2`
+**Dependencies:** `m19.1`, `m19.2`
 
 **Risks:** Existing simple service names have broad host expansion. Adding auth must not accidentally inject credentials
 into unrelated login, telemetry, documentation, or update hosts.
 
-### m18.4-generic-env-credential-shim
+### m19.4-generic-env-credential-shim
 
 **Summary:** Extend the generic env shim primitive from `m17.2` to provider API keys and wire them through the catalog.
 
@@ -141,13 +141,13 @@ into unrelated login, telemetry, documentation, or update hosts.
   shell-init consumer contract
 - Authored top-level shim metadata remains rejected
 
-**Dependencies:** `m18.3`, and the env shim primitive from `m17.2`
+**Dependencies:** `m19.3`, and the env shim primitive from `m17.2`
 
 **Risks:** Some clients may inspect key prefixes, copy the fake value into a query string or request body, or use the env
 value to sign requests before making a replaceable HTTP request. Those clients may need a provider-specific shim or may
 remain out of scope.
 
-### m18.5-agent-flow-integration
+### m19.5-agent-flow-integration
 
 **Summary:** Wire and document the supported first-rollout agent flows.
 
@@ -163,12 +163,12 @@ remain out of scope.
 - Each unsupported flow has a clear explanation instead of a silent omission
 - Agent docs no longer recommend putting real supported provider API keys inside the container as the primary path
 
-**Dependencies:** `m18.4`
+**Dependencies:** `m19.4`
 
 **Risks:** Live-provider validation can be hard to run in CI. Prefer mocked proxy integration tests plus documented manual
 smoke checks.
 
-### m18.6-docs-examples-and-tests
+### m19.6-docs-examples-and-tests
 
 **Summary:** Add end-user docs, policy examples, and regression coverage for the full provider API-key injection path.
 
@@ -183,22 +183,22 @@ smoke checks.
 - Tests exercise the examples or share fixtures with them
 - Proxy logs remain useful without leaking secret material
 
-**Dependencies:** `m18.2`, `m18.3`, `m18.4`
+**Dependencies:** `m19.2`, `m19.3`, `m19.4`
 
 **Risks:** Duplicating grammar details across docs can drift. Keep `docs/policy/schema.md` canonical and link to it from
 agent-specific pages.
 
 ## Execution Order
 
-1. Start with `m18.1` to lock the provider surface and avoid implementing a schema around guessed client behavior.
-2. Implement `m18.2` early because Anthropic and Gemini need raw API-key headers.
-3. Add catalog auth in `m18.3`.
-4. Wire providers through the `m17.2` env shim primitive in `m18.4` only after the catalog owns the provider auth rules
+1. Start with `m19.1` to lock the provider surface and avoid implementing a schema around guessed client behavior.
+2. Implement `m19.2` early because Anthropic and Gemini need raw API-key headers.
+3. Add catalog auth in `m19.3`.
+4. Wire providers through the `m17.2` env shim primitive in `m19.4` only after the catalog owns the provider auth rules
    it pairs with.
-5. Validate and document agent flows in `m18.5`.
-6. Finish with the docs, examples, and regression sweep in `m18.6`.
+5. Validate and document agent flows in `m19.5`.
+6. Finish with the docs, examples, and regression sweep in `m19.6`.
 
-`m18.2` can proceed in parallel with part of `m18.1` once the raw-header need is confirmed. `m18.5` should not start until
+`m19.2` can proceed in parallel with part of `m19.1` once the raw-header need is confirmed. `m19.5` should not start until
 the shim behavior exists.
 
 ## Risks
@@ -224,6 +224,12 @@ the shim behavior exists.
 - The roadmap treats GitHub REST wrapper, CLI monitoring, and host credential service as later milestones.
 
 ## Changes
+
+### 2026-09-12: Renumbered from m18 to m19
+
+DNS egress controls took `m18` so the security work ships before the credential work. Nothing in this
+milestone has been implemented, so the move is a rename only. The historical entry below records the earlier
+swap with `m17` and is left as written.
 
 ### 2026-09-06: Renumbered from m17 to m18
 

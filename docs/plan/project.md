@@ -302,9 +302,28 @@ the proxy and agent instructions for the common workflows. Replaces the earlier 
 - A per-capability policy surface mirroring GitHub's token permissions
 
 **Dependencies:** m14 (repo/path-aware policy matching), m15 (header injection and renderer-owned shim). Builds the
-generic env shim primitive that m18 reuses.
+generic env shim primitive that m19 reuses.
 
-### m18-provider-api-key-injection
+### m18-dns-egress-controls
+
+Close the last undeclared outbound channel. All TCP egress already goes through the proxy, but name resolution is
+unrestricted, so query names sent to an attacker-controlled nameserver carry data out without opening a socket the
+firewall would block.
+
+**Goals:**
+- A sinkhole resolver that answers compose service names and returns `NXDOMAIN` for everything else
+- Port 53 from the agent container restricted to that resolver, over IPv4 and IPv6
+- Proxy-side refusal of allowed hosts that resolve to loopback, private, link-local, or metadata addresses
+- Parity between CLI and devcontainer modes, with the assertions enforced by the firewall self-test
+
+**Out of scope:**
+- A `dns:` policy surface; resolvable names stay derived from the compose stack
+- DNS-over-HTTPS to an already-allowed host, which is a case of the broader allowed-host channel
+- Narrowing the host-network rule that makes the proxy sidecar reachable
+
+**Dependencies:** m3 (proxy is the enforcement point), m14 (request-aware matching for the address guard)
+
+### m19-provider-api-key-injection
 
 Extend the `m15` proxy-side credential model from GitHub Git auth to model-provider API-key traffic, so current agents
 can call supported provider APIs without the real API key being readable inside the agent container.
@@ -330,7 +349,7 @@ can call supported provider APIs without the real API key being readable inside 
 **Dependencies:** m15 (proxy-side secret injection), m14 (request-phase matching and transforms), m17 (generic env
 shim primitive)
 
-### m19-cli-monitoring
+### m20-cli-monitoring
 
 CLI tools for monitoring proxy activity and managing policy interactively.
 
@@ -342,7 +361,7 @@ CLI tools for monitoring proxy activity and managing policy interactively.
 
 **Dependencies:** m13 (Go CLI), m14 (fine-grained proxy and hot reload)
 
-### m20-host-credential-service
+### m21-host-credential-service
 
 Add a narrower, secondary credential path for tools and auth flows that cannot be handled cleanly by proxy-side injection.
 
@@ -353,25 +372,6 @@ Add a narrower, secondary credential path for tools and auth flows that cannot b
 - Integrate the helper lifecycle with the Go CLI
 
 **Dependencies:** m13 (Go CLI manages service lifecycle), m15 (primary proxy-based credential path defined first)
-
-### m21-dns-egress-controls
-
-Close the last undeclared outbound channel. All TCP egress already goes through the proxy, but name resolution is
-unrestricted, so query names sent to an attacker-controlled nameserver carry data out without opening a socket the
-firewall would block.
-
-**Goals:**
-- A sinkhole resolver that answers compose service names and returns `NXDOMAIN` for everything else
-- Port 53 from the agent container restricted to that resolver, over IPv4 and IPv6
-- Proxy-side refusal of allowed hosts that resolve to loopback, private, link-local, or metadata addresses
-- Parity between CLI and devcontainer modes, with the assertions enforced by the firewall self-test
-
-**Out of scope:**
-- A `dns:` policy surface; resolvable names stay derived from the compose stack
-- DNS-over-HTTPS to an already-allowed host, which is a case of the broader allowed-host channel
-- Narrowing the host-network rule that makes the proxy sidecar reachable
-
-**Dependencies:** m3 (proxy is the enforcement point), m14 (request-aware matching for the address guard)
 
 ## Decisions
 
