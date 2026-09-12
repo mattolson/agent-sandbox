@@ -320,19 +320,20 @@ emit H5 "iptables -S / ip6tables -S" info "ipv4 rules=${v4:-0} ipv6 rules=${v6:-
 if [ -n "$PEER_IP" ]; then docker logs "$PEER_NAME" > "$RUN_DIR/peer.log" 2>&1 || true; fi
 
 # --- Compare --------------------------------------------------------------
+# Array is named want, not exp: BSD awk on macOS reserves exp as a function name.
 awk -F'\t' -v OFS='\t' -v skipped="$SKIPPED," '
-  NR == FNR { if ($0 ~ /^#/ || NF < 2) next; exp[$1] = $2; order[++n] = $1; next }
+  NR == FNR { if ($0 ~ /^#/ || NF < 2) next; want[$1] = $2; order[++n] = $1; next }
   { res[$1] = $3; det[$1] = $4 }
   END {
     for (k = 1; k <= n; k++) {
       id = order[k]
-      if (exp[id] == "*") st = (id in res) ? "INFO" : "SKIPPED"
+      if (want[id] == "*") st = (id in res) ? "INFO" : "SKIPPED"
       else if (!(id in res)) st = (index(skipped, "," id ",") > 0) ? "SKIPPED" : "MISSING"
       else {
-        st = "MISMATCH"; m = split(exp[id], alts, "|")
+        st = "MISMATCH"; m = split(want[id], alts, "|")
         for (i = 1; i <= m; i++) if (alts[i] == res[id]) st = "OK"
       }
-      print id, st, exp[id], (id in res ? res[id] : "-"), (id in det ? det[id] : "")
+      print id, st, want[id], (id in res ? res[id] : "-"), (id in det ? det[id] : "")
     }
   }' "$EXPECTED" "$RUN_DIR/results.tsv" > "$RUN_DIR/compare.tsv"
 
