@@ -164,3 +164,12 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Container shim implements a helper protocol for clients that must receive credentials locally
 - Keep credentials off disk inside the container even when direct injection is not viable
 - Integrated into agentbox CLI lifecycle
+
+## m21: DNS egress controls (planned)
+
+- Replace Docker's embedded resolver with a sinkhole that answers compose service names and returns `NXDOMAIN` for
+  everything else, closing query-name exfiltration
+- Restrict port 53 from the agent container to that resolver, over IPv4 and IPv6, in both CLI and devcontainer mode
+- Refuse allowed hosts that resolve to loopback, private, link-local, or cloud-metadata addresses at the proxy
+- Keep DNS out of the authored policy surface; the proxy resolves on the agent's behalf
+- Document the residual cases, including DNS-over-HTTPS to an already-allowed host
