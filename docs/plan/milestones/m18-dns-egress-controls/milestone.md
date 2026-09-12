@@ -1,4 +1,4 @@
-# Milestone: m21 - DNS Egress Controls
+# Milestone: m18 - DNS Egress Controls
 
 ## Goal
 
@@ -55,13 +55,13 @@ Excluded:
 - Integration coverage catches wiring that unit tests miss. A resolver that unit-tests correctly can still leave the
   stack broken if `depends_on` ordering lets the agent start before it is listening
 - The proxy container runs as a non-root user with `cap_drop: ALL`, so binding port 53 needs either
-  `CAP_NET_BIND_SERVICE` or an unprivileged-port sysctl. This shapes the sidecar-versus-in-proxy decision in `m21.2`
+  `CAP_NET_BIND_SERVICE` or an unprivileged-port sysctl. This shapes the sidecar-versus-in-proxy decision in `m18.2`
 - Keep security invariants attached to the construct that enforces them. The address guard belongs where the proxy
   opens the upstream connection, not in documentation telling users to avoid rebinding
 
 ## Tasks
 
-### m21.1-egress-channel-audit
+### m18.1-egress-channel-audit
 
 **Summary:** Prove which outbound channels exist today and turn the result into a reusable bypass matrix.
 
@@ -85,7 +85,7 @@ Excluded:
 - Every later task in this milestone has at least one probe that must flip from escape to blocked
 - No probe depends on a nameserver or domain that outlives the audit
 
-### m21.2-dns-sinkhole
+### m18.2-dns-sinkhole
 
 **Summary:** Give the agent container a resolver that answers compose service names and nothing else, and point the
 firewall at it.
@@ -118,7 +118,7 @@ firewall at it.
 - Both CLI mode and devcontainer mode pass the same assertions
 - `go test ./...` and the proxy suite pass, and generated compose output is covered by the existing template tests
 
-### m21.3-ipv6-egress-parity
+### m18.3-ipv6-egress-parity
 
 **Summary:** Apply the same default-deny posture to IPv6 so the sinkhole cannot be stepped around over a second
 address family.
@@ -130,16 +130,16 @@ address family.
   than silently leaving IPv6 unfiltered
 - Decide whether to disable IPv6 on the compose network instead, and record why the chosen option was picked. If
   IPv6 is disabled rather than filtered, the firewall should assert that it is actually off rather than assume it
-- Add the IPv6 probes from `m21.1` to the firewall self-test
+- Add the IPv6 probes from `m18.1` to the firewall self-test
 
 **Acceptance Criteria:**
 - With IPv6 available on the network, every IPv6 probe from the audit is blocked
 - With IPv6 unavailable, container start still succeeds and the self-test says so explicitly
 - No IPv4 behavior changes
 
-**Dependencies:** `m21.2`, which defines the resolver address the exception points at.
+**Dependencies:** `m18.2`, which defines the resolver address the exception points at.
 
-### m21.4-proxy-address-guard
+### m18.4-proxy-address-guard
 
 **Summary:** Refuse allowed hosts that resolve to addresses the sandbox should never reach.
 
@@ -164,9 +164,9 @@ address family.
 - No change in behavior for hosts that resolve to ordinary public addresses
 - Proxy unit and integration tests cover each refused address class
 
-**Dependencies:** None on the other tasks; can run in parallel with `m21.2` and `m21.3`.
+**Dependencies:** None on the other tasks; can run in parallel with `m18.2` and `m18.3`.
 
-### m21.5-docs-tests-and-agent-guidance
+### m18.5-docs-tests-and-agent-guidance
 
 **Summary:** Document the new boundary, wire the probes into the test suites, and tell agents what changed.
 
@@ -179,7 +179,7 @@ address family.
   and the residual cases that remain open
 - Add a note to the image-baked `operating-in-agent-sandbox` skill so an agent that hits `NXDOMAIN` understands the
   cause instead of retrying or concluding the network is broken
-- Fold the `m21.1` probes into whatever automated coverage they fit: proxy tests for the address guard, the firewall
+- Fold the `m18.1` probes into whatever automated coverage they fit: proxy tests for the address guard, the firewall
   self-test for the in-container assertions, and a documented manual matrix for anything needing a real nameserver
 - Record a decision document for the sinkhole approach, following the numbering in `docs/plan/decisions/`
 
@@ -190,24 +190,24 @@ address family.
   explicit
 - No doc still describes container DNS as unrestricted
 
-**Dependencies:** `m21.2`, `m21.3`, `m21.4`.
+**Dependencies:** `m18.2`, `m18.3`, `m18.4`.
 
 ## Execution Order
 
-1. `m21.1` first. It is cheap, it establishes the baseline, and every later acceptance criterion refers to its matrix.
-2. `m21.2` is the core change and the one most likely to surface surprises in compose wiring and devcontainer mode.
-3. `m21.3` follows `m21.2` because it needs the resolver's address. `m21.4` is independent and can run in parallel
+1. `m18.1` first. It is cheap, it establishes the baseline, and every later acceptance criterion refers to its matrix.
+2. `m18.2` is the core change and the one most likely to surface surprises in compose wiring and devcontainer mode.
+3. `m18.3` follows `m18.2` because it needs the resolver's address. `m18.4` is independent and can run in parallel
    with either.
-4. `m21.5` last, once the behavior is settled.
+4. `m18.5` last, once the behavior is settled.
 
-Decision point after `m21.1`: if the audit shows the bridge gateway exposes a resolver the agent can reach directly,
-the firewall change in `m21.2` grows to narrow rule 5 rather than just redirect port 53, and that is a larger change
+Decision point after `m18.1`: if the audit shows the bridge gateway exposes a resolver the agent can reach directly,
+the firewall change in `m18.2` grows to narrow rule 5 rather than just redirect port 53, and that is a larger change
 worth re-scoping before starting.
 
 ## Risks
 
 - Breaking name resolution breaks everything. Any tool that resolves a hostname directly rather than handing it to the
-  proxy stops working. The audit in `m21.1` should list which bundled tools do that before `m21.2` lands, and the
+  proxy stops working. The audit in `m18.1` should list which bundled tools do that before `m18.2` lands, and the
   rollout should be verified against each supported agent image, not just one
 - The devcontainer path has historically diverged from the compose path. A change that lands only in the entrypoint
   leaves IDE users unprotected and, worse, looks fixed
@@ -234,11 +234,16 @@ worth re-scoping before starting.
   either does not hold
 - An allowed host that resolves to a private, loopback, link-local, or metadata address is refused by the proxy with a
   distinct log event
-- The bypass matrix from `m21.1` re-runs clean, and each entry is covered by an automated test or a documented manual
+- The bypass matrix from `m18.1` re-runs clean, and each entry is covered by an automated test or a documented manual
   procedure
 - Docs, troubleshooting, the agent skill, and a decision record are updated, including the residual gaps
 
 ## Changes
+
+### 2026-09-12: Renumbered from m21 to m18
+
+Inserted ahead of the planned credential and monitoring milestones, none of which have shipped. Provider API-key
+injection moved to `m19`, CLI monitoring to `m20`, and the host credential service to `m21`.
 
 ### 2026-09-12: Created
 
@@ -247,7 +252,3 @@ that Coder Boundary, httpjail, airut, iron-proxy, Docker Sandboxes, and OpenSand
 and that AWS shipped a sandbox network mode with this same hole and had to clarify it after researchers used it. The
 current `init-firewall.sh` deliberately restores Docker's DNS NAT rules, so the channel is open here by design rather
 than by oversight.
-
-Numbered `m21` because `m18` through `m20` are already assigned. Note that
-`docs/plan/research/alternatives.md` proposes a speculative `m21` through `m26` for backend-abstraction work; those
-are proposals in a research document, not created milestones, and should shift by one if they are ever opened.

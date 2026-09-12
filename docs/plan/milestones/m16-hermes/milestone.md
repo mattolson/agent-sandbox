@@ -23,7 +23,7 @@ in Agent Sandbox. Users can initialize, run, and switch to Hermes via the standa
   add the relevant provider service (`claude`, `codex`, `openai`, `gemini`, `openrouter`) to their policy themselves.
 - Hermes's self-improving "skills" persistence semantics beyond mounting the appropriate state volume so learned skills
   survive container restarts.
-- Proxy-side credential injection for any provider Hermes calls. That work belongs to m18 (provider API-key injection)
+- Proxy-side credential injection for any provider Hermes calls. That work belongs to m19 (provider API-key injection)
   and is not gated on this milestone.
 
 ## Applicable Learnings

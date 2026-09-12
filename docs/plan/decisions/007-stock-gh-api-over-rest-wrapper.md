@@ -15,7 +15,7 @@ While reviewing sandbox GitHub access on 2026-09-05, two things changed the calc
 
 - `gh api` already is a REST-only client with repo identity in the URL path. It supports `{owner}/{repo}`
   placeholders, `--jq`, `--paginate`, and typed fields, and agents know it well.
-- The `m15` injection layer already supports `bearer` transforms and the renderer-owned shim model, and the `m18` plan
+- The `m15` injection layer already supports `bearer` transforms and the renderer-owned shim model, and the `m19` plan
   already describes a generic env shim primitive. A `GH_TOKEN` shim is the same primitive with a different variable
   name.
 
@@ -59,7 +59,7 @@ Alternatives considered:
 **Positive:**
 
 - No new binary, release pipeline, or command surface to maintain
-- Reuses `m14` rules, `m15` injection, and the `m18` shim shape
+- Reuses `m14` rules, `m15` injection, and the `m19` shim shape
 - Repo scoping is enforced at the proxy and can be tightened further with authored rules
 
 **Negative:**

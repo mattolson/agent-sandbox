@@ -11,7 +11,7 @@ Let a repo-scoped `github` entry inject auth on the `api` surface and export a `
 - Define `api.access: readwrite` as `read` plus POST on the issues and pulls collections and POST and PATCH under each
 - Emit a `bearer` transform on every api rule when `api.auth.secret` is set; default to `on_existing_header: fail`
 - Support `api.auth.client_shim` with a generic `env` kind whose variable name is chosen by the catalog, here
-  `GH_TOKEN`; keep the hint shape generic so `m18.4` can extend it to provider keys
+  `GH_TOKEN`; keep the hint shape generic so `m19.4` can extend it to provider keys
 - Switch api rules to `on_existing_header: replace` only when the shim is present
 - Extend the shell-init consumer so the rendered hint exports `GH_TOKEN` with the placeholder value
 - Keep the sanitized `/run/agentbox/policy.yaml` free of transforms and secret IDs
@@ -98,4 +98,4 @@ Three commits, each leaving the suite green:
 ### Follow-up Items
 
 - `m17.3` re-runs the command matrix against a rebuilt proxy on the host.
-- `m18.4` extends `make_env_hint` to provider variables; no shape change expected.
+- `m19.4` extends `make_env_hint` to provider variables; no shape change expected.

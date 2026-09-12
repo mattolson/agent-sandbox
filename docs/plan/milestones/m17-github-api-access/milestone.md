@@ -103,7 +103,7 @@ Excluded:
   every endpoint outside those two families
 - Emit a `bearer` transform on every api rule when `api.auth.secret` is set; default to `on_existing_header: fail`
 - Support `api.auth.client_shim` with a generic `env` kind whose variable name is chosen by the catalog, here
-  `GH_TOKEN`. This is the primitive `m18.4` later extends to provider API keys, so keep the hint shape generic
+  `GH_TOKEN`. This is the primitive `m19.4` later extends to provider API keys, so keep the hint shape generic
 - Switch api rules to `on_existing_header: replace` only when the shim is present
 - Extend the shell-init consumer so the rendered hint exports `GH_TOKEN` with the placeholder value
 - Keep the sanitized `/run/agentbox/policy.yaml` free of transforms and secret IDs, as today
@@ -239,7 +239,7 @@ the result into the documented table.
 2. `m17.3` needs both. Do not write instructions before the matrix exists.
 3. `m17.4` and `m17.5` follow from `m17.3` and can run in parallel.
 
-`m17.2` builds the env shim primitive in the generic shape `m18.4` describes. `m18` reuses it rather than building a
+`m17.2` builds the env shim primitive in the generic shape `m19.4` describes. `m19` reuses it rather than building a
 second one.
 
 ## Risks

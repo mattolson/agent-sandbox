@@ -132,7 +132,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 
 - Ship stock `gh` in the base image and use `gh api` for repo-scoped REST calls; no custom wrapper
 - Add `auth` on the `api` surface of repo-scoped `github` policy entries, with a `GH_TOKEN` shim so the token never
-  enters the agent container; this introduces the generic env shim primitive that `m18` reuses
+  enters the agent container; this introduces the generic env shim primitive that `m19` reuses
 - Keep repo identity in request URLs so `m14` policies constrain access to one repo; GraphQL-backed `gh` commands stay
   blocked
 - Define `readwrite` as a fixed allowlist of issue and pull-request writes; no write reaches administration, webhook,
@@ -140,7 +140,16 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Validate and document which stock `gh` commands work under repo-scoped rules
 - Add agent instructions for the most common workflows to the `operating-in-agent-sandbox` skill
 
-## m18: Provider API-key injection (planned)
+## m18: DNS egress controls (planned)
+
+- Replace Docker's embedded resolver with a sinkhole that answers compose service names and returns `NXDOMAIN` for
+  everything else, closing query-name exfiltration
+- Restrict port 53 from the agent container to that resolver, over IPv4 and IPv6, in both CLI and devcontainer mode
+- Refuse allowed hosts that resolve to loopback, private, link-local, or cloud-metadata addresses at the proxy
+- Keep DNS out of the authored policy surface; the proxy resolves on the agent's behalf
+- Document the residual cases, including DNS-over-HTTPS to an already-allowed host
+
+## m19: Provider API-key injection (planned)
 
 - Extend proxy-side secret injection from GitHub Git auth to model-provider API-key traffic
 - Add raw-header injection for provider headers whose value is the secret itself
@@ -150,26 +159,17 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Support Codex, Claude API-key mode, Gemini API-key mode, and provider-backed Pi/OpenCode flows where practical
 - Explicitly exclude OAuth, browser login, device-code, subscription-login, and helper-protocol flows
 
-## m19: CLI monitoring and policy management (planned)
+## m20: CLI monitoring and policy management (planned)
 
 - Filtered log view for blocked requests
 - Interactive unblock workflow
 - Integration with hot reload for immediate policy updates
 - UI approach TBD (filtered stream, TUI, or hybrid)
 
-## m20: Host credential service (planned)
+## m21: Host credential service (planned)
 
 - Secondary credential path for flows that cannot be handled by proxy injection
 - Host-side service bridging container to native credential store or helper backend
 - Container shim implements a helper protocol for clients that must receive credentials locally
 - Keep credentials off disk inside the container even when direct injection is not viable
 - Integrated into agentbox CLI lifecycle
-
-## m21: DNS egress controls (planned)
-
-- Replace Docker's embedded resolver with a sinkhole that answers compose service names and returns `NXDOMAIN` for
-  everything else, closing query-name exfiltration
-- Restrict port 53 from the agent container to that resolver, over IPv4 and IPv6, in both CLI and devcontainer mode
-- Refuse allowed hosts that resolve to loopback, private, link-local, or cloud-metadata addresses at the proxy
-- Keep DNS out of the authored policy surface; the proxy resolves on the agent's behalf
-- Document the residual cases, including DNS-over-HTTPS to an already-allowed host
