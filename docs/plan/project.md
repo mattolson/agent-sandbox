@@ -15,7 +15,7 @@ Two runtime modes are supported:
 
 **Devcontainer mode** (`.devcontainer/`):
 - For VS Code users
-- Firewall initialized via `postStartCommand`
+- Firewall initialized by the image entrypoint; `overrideCommand: false` keeps VS Code from replacing the command
 - Volumes and env vars in devcontainer.json
 
 **Compose mode** (`docker-compose.yml`):
@@ -34,10 +34,10 @@ Image hierarchy established in `images/` (base + claude).
 ## Architecture Decisions
 
 **Runtime modes:**
-- **Devcontainer mode**: For VS Code users. Firewall initialized via `postStartCommand` (VS Code bypasses Docker entrypoints).
+- **Devcontainer mode**: For VS Code users. Firewall initialized by the same entrypoint script; `overrideCommand: false` stops VS Code from replacing the container command.
 - **Compose mode**: For CLI/standalone users. Firewall initialized via entrypoint script with idempotent check.
 
-Both modes use the same images; they differ only in how firewall initialization is triggered.
+Both modes use the same images and run the same entrypoint; they differ only in which compose layers each mode loads.
 
 **Network enforcement approach:**
 - Phase 1: iptables-based (simpler, already working)

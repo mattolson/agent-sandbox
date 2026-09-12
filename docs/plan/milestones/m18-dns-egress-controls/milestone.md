@@ -21,8 +21,8 @@ Included:
 - IPv6 egress parity, so the sinkhole cannot be stepped around over a second address family
 - A proxy-side address guard that re-checks the resolved address of an allowed host and refuses private, loopback,
   link-local, and cloud-metadata ranges
-- The same treatment in devcontainer mode, which initializes the firewall through `postStartCommand` rather than the
-  entrypoint
+- The same treatment in devcontainer mode. Its templates set `overrideCommand: false`, so the image entrypoint and
+  `init-firewall.sh` run there too, and the acceptance tests must prove that stays true
 - A documented and reproducible bypass matrix, plus regression tests at the level each control can actually be tested
 - User-facing docs and a note in the image-baked `operating-in-agent-sandbox` skill
 
@@ -48,8 +48,9 @@ Excluded:
 - Environment-variable proxy configuration is advisory; network-level enforcement is what counts. The same reasoning
   applies here. A resolver the agent is merely pointed at is not a control unless the firewall also stops it from
   reaching any other resolver
-- VS Code devcontainers bypass Docker `ENTRYPOINT`, so anything added to firewall init needs the `postStartCommand`
-  path checked too
+- VS Code devcontainers replace the container command by default. The devcontainer templates set
+  `overrideCommand: false` so the image entrypoint runs in both modes; a firewall change that lives only in the
+  entrypoint depends on that setting staying in place
 - Defense in depth works when layers serve different purposes. The firewall restricts where port 53 may go; the
   resolver decides which names exist; the proxy decides which addresses are acceptable. Three layers, three jobs
 - Integration coverage catches wiring that unit tests miss. A resolver that unit-tests correctly can still leave the
@@ -99,8 +100,8 @@ firewall at it.
   static hosts file keyed on container IPs, which change between runs
 - Return `NXDOMAIN` promptly rather than dropping, so a blocked lookup fails fast instead of hanging on a resolver
   timeout the way a silent drop would
-- Point the agent container at the resolver with compose `dns:`, in the managed base layer and in the devcontainer
-  mode layer
+- Point the agent container at the resolver with compose `dns:` in the managed base layer, which both CLI mode and
+  the devcontainer templates consume
 - Add the resolver to the agent's `depends_on` with a health condition, so the agent cannot start before name
   resolution exists
 - Change `init-firewall.sh`: stop extracting and restoring the `127.0.0.11` NAT rules, and allow UDP and TCP port 53
@@ -209,8 +210,9 @@ worth re-scoping before starting.
 - Breaking name resolution breaks everything. Any tool that resolves a hostname directly rather than handing it to the
   proxy stops working. The audit in `m18.1` should list which bundled tools do that before `m18.2` lands, and the
   rollout should be verified against each supported agent image, not just one
-- The devcontainer path has historically diverged from the compose path. A change that lands only in the entrypoint
-  leaves IDE users unprotected and, worse, looks fixed
+- The devcontainer path has historically diverged from the compose path. Today both modes consume the same managed
+  base layer and run the same entrypoint, but only the acceptance tests running in both modes prove that. A control
+  that quietly applies to one mode leaves IDE users unprotected and, worse, looks fixed
 - Adding a service to the compose stack touches `depends_on`, healthchecks, generated templates, the checked-in
   runtime tree, and every `agentbox` command that reasons about services. The blast radius is wider than the size of
   the change suggests
