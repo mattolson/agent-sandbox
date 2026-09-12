@@ -1,0 +1,30 @@
+R1	/etc/resolv.conf	info	nameserver 127.0.0.11 options ndots:0 # ExtServers: [host(192.168.5.1)] # Overrides: []
+R2	ip route	info	gateway=172.22.0.1 upstream=192.168.5.1 default via 172.22.0.1 dev eth0 ;172.22.0.0/16 dev eth0 proto kernel scope link src 172.22.0.3 ;
+A1	127.0.0.11	answered	104.20.23.154
+A2	127.0.0.11	not-found	getent rc=2
+A3	127.0.0.11:53/udp	answered	answers=2 bytes=61
+A4	127.0.0.11:53/udp	answered	answers=2 bytes=98
+A5	127.0.0.11:53/udp	noerror-empty	bytes=29
+A6	127.0.0.11:53/udp	nxdomain	bytes=271
+A7	127.0.0.11:53/tcp	answered	answers=2 bytes=61
+A8	127.0.0.11:53/udp	answered	answers=1 bytes=44
+B1	172.22.0.1:53/udp	timeout	
+B2	172.22.0.1:53/tcp	conn-refused	Connection refused
+B3	172.22.0.4:53/udp	reached	answers=1 bytes=54
+B4	172.22.0.4:53/tcp	reached	answers=1 bytes=54
+C1	192.168.5.1:53/udp	rejected	Operation not permitted
+C2	192.168.5.1:53/tcp	rejected	No route to host
+C3	8.8.8.8:53/udp	rejected	Operation not permitted
+C4	8.8.8.8:53/tcp	rejected	No route to host
+C5	1.1.1.1:853/tcp	rejected	No route to host
+D1	dns.google via proxy	proxy-403	
+E1	ip -6	absent	no global IPv6 address on eth0; route=none
+E2	[2001:4860:4860::8888]:53/udp	unreachable	Network is unreachable
+E3	[2001:4860:4860::8888]:53/tcp	unreachable	Network is unreachable
+E4	[2606:4700:4700::1111]:853/tcp	unreachable	Network is unreachable
+E5	[::1]:53/udp	timeout	
+H1	vm capture	seen	6 packets; first: 12:18:46.520480 lo    In  IP 192.168.5.1.60996 > 192.168.5.1.53: 37369+ A? c013f630.example.com. (38)
+H2	vm :53 listeners	info	8 sockets; UNCONN 0      0                             127.0.0.1:53 0.0.0.0:* users:(("dnsmasq",pid=1197,fd=6)) ;UNCONN 0      0                           192.168.5.1:53 0.0.0.0:* users:(("dnsmasq",pi
+H3	docker run --dns 172.22.0.4	upstream-only	nameserver=127.0.0.11 example.com->203.0.113.1 # ExtServers: [172.22.0.4] proxy -> 172.22.0.2 
+H4	docker network inspect agent-sandbox_default	info	EnableIPv6=false subnets=172.22.0.0/16 
+H5	iptables -S / ip6tables -S	info	ipv4 rules=13 ipv6 rules=0 ipv6 policy: -P INPUT ACCEPT -P FORWARD ACCEPT -P OUTPUT ACCEPT  

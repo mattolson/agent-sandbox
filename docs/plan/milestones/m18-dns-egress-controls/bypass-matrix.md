@@ -1,8 +1,9 @@
 # m18 bypass matrix
 
-Status: baseline in progress. The in-container rows were measured on 2026-09-12 from this repo's dev sandbox on
-Colima. The host-side rows (B3, B4, D2 through D4, H1 through H5) come from the first run of
-`scripts/dns-egress-audit/run-audit.bash` and are marked pending until then.
+Status: baseline measured on 2026-09-12 in CLI mode, from this repo's dev sandbox on Colima. The in-container rows
+were run from the sandbox and the host-side rows by `run-audit.bash` on the Mac; the raw run is checked in under
+`scripts/dns-egress-audit/results/baseline-20260912-121839/`. Still pending: D2 through D4, which need the
+temporary policy entries, and the devcontainer run.
 
 Re-run with `scripts/dns-egress-audit/run-audit.bash --stage <stage>` on the Mac, or run `probe.bash` alone from a
 sandbox shell for the in-container rows. `scripts/dns-egress-audit/README.md` has the procedure.
@@ -25,8 +26,8 @@ Result words are defined in the header of `probe.bash`. `*` means recorded but n
 | A8 | service name `proxy` | answered | answered | answered | answered | control |
 | B1 | UDP/53 to bridge gateway | timeout | rejected | rejected | rejected | m18.2 |
 | B2 | TCP/53 to bridge gateway | conn-refused (reachable) | rejected | rejected | rejected | m18.2 |
-| B3 | UDP/53 to a peer container | pending, expect reached | rejected | rejected | rejected | m18.2 |
-| B4 | TCP/53 to a peer container | pending, expect reached | rejected | rejected | rejected | m18.2 |
+| B3 | UDP/53 to a peer container | reached, peer logged the query | rejected | rejected | rejected | m18.2 |
+| B4 | TCP/53 to a peer container | reached, peer logged the query | rejected | rejected | rejected | m18.2 |
 | C1 | UDP/53 to `192.168.5.1` | rejected | rejected | rejected | rejected | control |
 | C2 | TCP/53 to `192.168.5.1` | rejected | rejected | rejected | rejected | control |
 | C3 | UDP/53 to `8.8.8.8` | rejected | rejected | rejected | rejected | control |
@@ -41,11 +42,11 @@ Result words are defined in the header of `probe.bash`. `*` means recorded but n
 | E3 | TCP/53 to `2001:4860:4860::8888` | unreachable | unreachable | rejected when present | same | m18.3 |
 | E4 | TCP/853 to `2606:4700:4700::1111` | unreachable | unreachable | rejected when present | same | m18.3 |
 | E5 | UDP/53 to `::1` | timeout | timeout | timeout | timeout | control |
-| H1 | random label seen in the VM capture | pending, expect seen | not-seen | not-seen | not-seen | m18.2 |
-| H2 | port 53 listeners inside the VM | pending | * | * | * | rule 5 decision |
-| H3 | compose `dns:` semantics | pending | * | * | * | m18.2 design |
-| H4 | `EnableIPv6` on the compose network | pending | * | * | * | m18.3 |
-| H5 | `iptables -S`, `ip6tables -S` as root | pending | * | * | * | reference |
+| H1 | random label seen in the VM capture | seen, 6 packets, left on `eth0` | not-seen | not-seen | not-seen | m18.2 |
+| H2 | port 53 listeners inside the VM | `dnsmasq` on `192.168.5.1` and loopback only | * | * | * | rule 5 decision |
+| H3 | compose `dns:` semantics | upstream-only, dialed from the container | * | * | * | m18.2 design |
+| H4 | `EnableIPv6` on the compose network | false, `172.22.0.0/16` only | * | * | * | m18.3 |
+| H5 | `iptables -S`, `ip6tables -S` as root | 13 v4 rules; v6 ACCEPT policies, no rules | * | * | * | reference |
 
 The same rows must hold in devcontainer mode. The runner takes `--container` for that; it is part of the `m18.2`
 acceptance run rather than a separate row.
@@ -106,6 +107,25 @@ label so the Mac capture can be started by hand.
    embedded resolver and, through rule 5, port 53 to anything on the host network (B1 through B4).
 7. DoH to an unlisted host is refused by policy. DoH to an allowed host is open and stays open; that is the
    documented residual.
+8. The full path of a query, from the VM capture (H1): the agent's stub sends to `127.0.0.11`; the embedded
+   resolver, dialing from the VM's namespace, sends it over `lo` to `dnsmasq` on `192.168.5.1:53`; `dnsmasq`
+   forwards it out `eth0` to `192.168.5.2:53`, Lima's host-side resolver, and from there the Mac's resolver takes
+   it to the internet. The 253-byte name from A6 travelled the same path unmodified.
+9. Compose `dns:` on a user-defined network is an upstream setting, not a replacement (H3). With `--dns` set to
+   the peer, `resolv.conf` still says `nameserver 127.0.0.11`, the comment reads `ExtServers: [172.22.0.4]` with
+   no `host(...)` marker and `Overrides: [nameservers]`, `proxy` still resolves from IPAM, and `example.com`
+   came back as the peer's `203.0.113.1`. The peer's log shows the forwarded query arriving from the throwaway
+   container's own address, so that forward crosses the container's firewall, unlike today's `host(...)` forward.
+   Two consequences for `m18.2`: if it uses `dns:`, the `127.0.0.11` NAT rules must stay restored, and the
+   sinkhole needs a fixed address because `dns:` takes IP addresses. The alternative is a DNAT at firewall init
+   to the sinkhole's current address, with the sinkhole forwarding service names to its own embedded resolver.
+10. The only resolver in the VM is `dnsmasq`, bound to `192.168.5.1`, `127.0.0.1`, `::1`, and the link-local
+    IPv6 address on `eth0`, over UDP and TCP (H2). Nothing listens on the bridge gateway `172.22.0.1`, which is
+    why B2 is refused and B1 times out. Rule 5 does not need narrowing for DNS; restricting port 53 within the
+    host network to the resolver's address covers B1 through B4.
+11. `ip6tables` works in the image and holds ACCEPT policies with no rules (H5), and the compose network has
+    `EnableIPv6=false` (H4). IPv6 is unfiltered but unreachable. The `after-m18.3` run must enable IPv6 on the
+    network, for example with `enable_ipv6: true` in a user override, or the E rows cannot flip.
 
 ## Residual cases
 
@@ -135,7 +155,6 @@ real sinkhole; entries marked "verify" are from documentation, not measurement.
 
 ## Pending
 
-- Host-side rows B3, B4, H1 through H5 from the first `run-audit.bash` run.
-- D2 through D4 from a run with `--policy-probes`.
-- The devcontainer run with `--container`.
-- The rule 5 decision point in `milestone.md`, once H2 is in.
+- D2 through D4 from a run with `--policy-probes`, which fixes the baseline value the `m18.4` flip is
+  measured against.
+- The devcontainer run with `--container`, which belongs to the `m18.2` acceptance run.

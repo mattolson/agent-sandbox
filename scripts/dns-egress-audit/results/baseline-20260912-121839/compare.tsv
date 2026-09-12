@@ -1,0 +1,33 @@
+R1	INFO	*	info	nameserver 127.0.0.11 options ndots:0 # ExtServers: [host(192.168.5.1)] # Overrides: []
+R2	INFO	*	info	gateway=172.22.0.1 upstream=192.168.5.1 default via 172.22.0.1 dev eth0 ;172.22.0.0/16 dev eth0 proto kernel scope link src 172.22.0.3 ;
+A1	OK	answered	answered	104.20.23.154
+A2	OK	not-found	not-found	getent rc=2
+A3	OK	answered	answered	answers=2 bytes=61
+A4	OK	answered	answered	answers=2 bytes=98
+A5	OK	noerror-empty	noerror-empty	bytes=29
+A6	OK	nxdomain	nxdomain	bytes=271
+A7	OK	answered	answered	answers=2 bytes=61
+A8	OK	answered	answered	answers=1 bytes=44
+B1	OK	timeout|conn-refused	timeout	
+B2	OK	conn-refused	conn-refused	Connection refused
+B3	OK	reached	reached	answers=1 bytes=54
+B4	OK	reached	reached	answers=1 bytes=54
+C1	OK	rejected	rejected	Operation not permitted
+C2	OK	rejected	rejected	No route to host
+C3	OK	rejected	rejected	Operation not permitted
+C4	OK	rejected	rejected	No route to host
+C5	OK	rejected	rejected	No route to host
+D1	OK	proxy-403	proxy-403	
+D2	SKIPPED	http-200	-	
+D3	SKIPPED	http-502	-	
+D4	SKIPPED	http-502	-	
+E1	OK	absent	absent	no global IPv6 address on eth0; route=none
+E2	OK	unreachable	unreachable	Network is unreachable
+E3	OK	unreachable	unreachable	Network is unreachable
+E4	OK	unreachable	unreachable	Network is unreachable
+E5	OK	timeout|conn-refused	timeout	
+H1	OK	seen	seen	6 packets; first: 12:18:46.520480 lo    In  IP 192.168.5.1.60996 > 192.168.5.1.53: 37369+ A? c013f630.example.com. (38)
+H2	INFO	*	info	8 sockets; UNCONN 0      0                             127.0.0.1:53 0.0.0.0:* users:(("dnsmasq",pid=1197,fd=6)) ;UNCONN 0      0                           192.168.5.1:53 0.0.0.0:* users:(("dnsmasq",pi
+H3	INFO	*	upstream-only	nameserver=127.0.0.11 example.com->203.0.113.1 # ExtServers: [172.22.0.4] proxy -> 172.22.0.2 
+H4	INFO	*	info	EnableIPv6=false subnets=172.22.0.0/16 
+H5	INFO	*	info	ipv4 rules=13 ipv6 rules=0 ipv6 policy: -P INPUT ACCEPT -P FORWARD ACCEPT -P OUTPUT ACCEPT  

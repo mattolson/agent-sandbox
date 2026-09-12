@@ -1,0 +1,10 @@
+# udp
+UNCONN 0      0                             127.0.0.1:53 0.0.0.0:* users:(("dnsmasq",pid=1197,fd=6)) 
+UNCONN 0      0                           192.168.5.1:53 0.0.0.0:* users:(("dnsmasq",pid=1197,fd=4)) 
+UNCONN 0      0                                 [::1]:53    [::]:* users:(("dnsmasq",pid=1197,fd=10))
+UNCONN 0      0      [fe80::5055:55ff:fe27:7f27]%eth0:53    [::]:* users:(("dnsmasq",pid=1197,fd=8)) 
+# tcp
+LISTEN 0      32                          192.168.5.1:53 0.0.0.0:* users:(("dnsmasq",pid=1197,fd=5))
+LISTEN 0      32                            127.0.0.1:53 0.0.0.0:* users:(("dnsmasq",pid=1197,fd=7))
+LISTEN 0      32     [fe80::5055:55ff:fe27:7f27]%eth0:53    [::]:* users:(("dnsmasq",pid=1197,fd=9))
+LISTEN 0      32                                [::1]:53    [::]:* users:(("dnsmasq",pid=1197,fd=11))

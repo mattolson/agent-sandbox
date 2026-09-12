@@ -149,11 +149,12 @@ file on E2 through E4 when IPv6 is present; the `m18.4` file on D3 and D4.
 - [x] Write `run-audit.bash`: peer responder lifecycle, `docker exec` streaming, H1 through H5 collection,
       results file, expected-file diff, `--stage` and `--container` flags
 - [x] Run the in-container probes from this sandbox and record the baseline for A, C, D1, and E
-- [ ] Maintainer runs `run-audit.bash` on the Mac: B3, B4, H1 through H5, then `--policy-probes` for D2 through
-      D4, then `--container` for devcontainer mode; commit the baseline results directory
-- [x] Write `bypass-matrix.md` with observed values, the demonstration procedure, and findings; host rows pending
+- [x] Maintainer runs `run-audit.bash` on the Mac: B3, B4, H1 through H5 measured; results directory committed
+- [ ] Maintainer runs `--policy-probes` for D2 through D4 after the temporary policy edit
+- [x] Fix the runner for macOS awk, which reserves `exp` as a function name
+- [x] Write `bypass-matrix.md` with observed values, the demonstration procedure, and findings
 - [x] Write the four `expected/*.tsv` files
-- [ ] Update `milestone.md`: resolve the rule 5 decision point from H2, record the `dns:` finding for `m18.2`, and
+- [x] Update `milestone.md`: resolve the rule 5 decision point from H2, record the `dns:` finding for `m18.2`, and
       the IPv6 default for `m18.3`
 - [x] Record the static tool inventory in the matrix doc
 
@@ -170,24 +171,44 @@ Resolved on 2026-09-12:
   dot-less hosts
 - The dynamic tool check is deferred to `m18.2`; the matrix carries a static inventory
 
-Still open:
+Resolved by the host run:
 
-- B1 reads `timeout` rather than `conn-refused`, so either nothing listens on the gateway's UDP/53 and the ICMP
-  error is suppressed, or something listens and never answers. H2 settles it
+- B1's `timeout` is a missing listener with the ICMP error suppressed. H2 shows nothing bound to the gateway
+  address on port 53; the VM's `dnsmasq` binds `192.168.5.1` and loopback only
 
 ## Outcome
 
 ### Acceptance Verification
 
-- [ ] A checked-in matrix lists every probe, the observed result before any change, and the expected result after
-- [ ] The demonstration of the query-name channel is reproducible by a second person from the write-up
-- [ ] Every later task in this milestone has at least one probe that must flip from escape to blocked
-- [ ] No probe depends on a nameserver or domain that outlives the audit
+- [x] A checked-in matrix lists every probe, the observed result before any change, and the expected result after.
+      `bypass-matrix.md` plus `expected/*.tsv`; D2 through D4 observed values still pending the policy-probe run
+- [x] The demonstration of the query-name channel is reproducible by a second person from the write-up. The
+      three-terminal procedure is in the matrix doc; the checked-in VM capture shows the label at each hop
+- [x] Every later task in this milestone has at least one probe that must flip from escape to blocked. `m18.2`:
+      A1, A3 through A5, A7, B1 through B4, H1. `m18.3`: E2 through E4, with IPv6 enabled for the run. `m18.4`:
+      D3 and D4
+- [x] No probe depends on a nameserver or domain that outlives the audit. `example.com` is used read-only as a
+      public zone; the peer responder is a throwaway container; the captures are local
 
 ### Learnings
 
-To be filled at completion.
+- On a user-defined Docker network the stub is always `127.0.0.11`; compose `dns:` sets the embedded resolver's
+  upstream list. Upstreams marked `host(...)` are dialed from the host namespace and bypass the container's
+  firewall; container-address upstreams are dialed from the container and do not
+- Bash can send and receive raw UDP and TCP through `/dev/udp` and `/dev/tcp`. Read replies with one
+  `dd bs=4096 count=1`, capture open errors with `{ exec 3<>...; } 2>file`, and classify the firewall's `REJECT`
+  by errno: `EPERM` on a UDP send, `EHOSTUNREACH` on a TCP connect
+- A proxy 403 to a `CONNECT` request has no body and surfaces as curl exit 56; `%{http_connect}` shows it
+- Host-side scripts run on macOS tools. BSD awk reserves built-in function names such as `exp` as identifiers,
+  and the first host run failed on exactly that. Test them on the Mac or avoid those names
+- The partial run still produced every row because the results file is written before the comparison. Keep
+  collection and evaluation separate so a bug in one does not cost the other
 
 ### Follow-up Items
 
-To be filled at completion.
+- `m18.2` must pick between the `dns:` upstream design (fixed sinkhole address, NAT restore stays) and the
+  DNAT-at-init design (dynamic address, sinkhole forwards service names to its own embedded resolver). The
+  milestone plan now carries both
+- `m18.3` must enable IPv6 on the compose network for its audit run
+- D2 through D4 still need the `--policy-probes` run to fix the `m18.4` baseline
+- The devcontainer run is part of the `m18.2` acceptance rather than this task

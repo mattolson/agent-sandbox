@@ -1,5 +1,34 @@
 # Execution Log: m18.1 - egress channel audit
 
+## 2026-09-12 - Host-side baseline run on the Mac
+
+The maintainer ran `run-audit.bash --stage baseline` from the Mac. Every row was collected; only the comparison
+step failed.
+
+**Issue:** BSD awk on macOS rejected the compare program because the array was named `exp`, a built-in function.
+**Solution:** Renamed the array to `want` with a comment saying why, and regenerated `compare.tsv` for the run from
+its `results.tsv`. All compared rows match the baseline expectations. The run is committed under
+`scripts/dns-egress-audit/results/baseline-20260912-121839/`.
+
+**Observation:** Host-side rows:
+
+- B3 and B4 `reached`; the peer logged both the UDP and the TCP query from the agent's address
+- H1 `seen`, 6 packets. The VM capture shows the label on `lo` from `192.168.5.1` to `192.168.5.1:53`, then on
+  `eth0` from `192.168.5.1` to `192.168.5.2:53`. The 253-byte name from A6 took the same path
+- H2: `dnsmasq` is the only port 53 listener in the VM, bound to `192.168.5.1`, `127.0.0.1`, `::1`, and the eth0
+  link-local address, UDP and TCP. Nothing on `172.22.0.1`
+- H3 `upstream-only`: `nameserver 127.0.0.11` stays, `ExtServers: [172.22.0.4]` without `host(...)`,
+  `Overrides: [nameservers]`, `proxy` resolves from IPAM, `example.com` answered by the peer. The peer saw the
+  forwarded query from the throwaway container's own address, so that forward crosses the container's firewall
+- H4: `EnableIPv6=false`, one subnet `172.22.0.0/16`
+- H5: 13 IPv4 rules across filter and nat; `ip6tables` present with ACCEPT policies and no rules
+
+**Decision:** The rule 5 decision point resolves to "no change". No resolver is reachable on the bridge gateway.
+`m18.2` restricts port 53 within the host network to the resolver's address.
+
+**Decision:** The `m18.2` scope as written combined `dns:` with dropping the NAT restore, which H3 shows cannot
+both hold. The milestone plan now carries the two coherent designs and leaves the choice to `m18.2`.
+
 ## 2026-09-12 - Probe script, runner, expectations, and matrix written; in-container baseline measured
 
 Planning was approved with two answers: no domain to delegate, so tcpdump is the demonstration, and the maintainer

@@ -14,6 +14,10 @@ Lessons learned during project execution. Review at the start of each planning s
 - devcontainer.json and docker-compose.yml need separate volume/mount configs; they serve different workflows and VS Code reads devcontainer.json directly
 - yq syntax `.foo // [] | .[]` safely iterates arrays that may be missing or null
 - Shell-sourced state files should write user-facing values with shell escaping (`%q`) or later reads can break on spaces and special characters
+- On a user-defined Docker network the container's stub resolver is always `127.0.0.11`; compose `dns:` only sets the embedded resolver's upstream list. Upstreams marked `host(...)` in the resolv.conf comment are dialed from the host namespace and bypass the container's iptables entirely; container-address upstreams are dialed from the container and are subject to them
+- Bash can send and receive raw UDP and TCP through `/dev/udp` and `/dev/tcp` when an image has no `dig` or `nc`: read a reply with one `dd bs=4096 count=1`, capture socket-open errors with `{ exec 3<>...; } 2>file`, and tell the firewall's REJECT apart by errno (`EPERM` on a UDP send, `EHOSTUNREACH` on a TCP connect)
+- A proxy 403 to a `CONNECT` request has no body and shows up as curl exit 56; `-w '%{http_connect}'` exposes the status
+- Scripts meant to run on the Mac run on BSD tools: macOS awk reserves built-in function names such as `exp` as identifiers, and the first host-side audit run failed on that. Write collection and evaluation as separate steps so a bug in one does not lose the other's output
 - Policy files that control security must live outside the workspace and be mounted read-only; otherwise the agent can modify them and re-run initialization to bypass restrictions
 - Baking default policies into images is safe (agent can't modify the image) and provides good UX (works out of the box)
 - Policy layering via Dockerfile COPY overwrites parent layer's policy cleanly

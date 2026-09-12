@@ -43,8 +43,8 @@ Excluded:
 ## Applicable Learnings
 
 - "iptables rules must preserve Docker's internal DNS resolution (127.0.0.11 NAT rules) or container DNS breaks" is
-  the first line of `learnings.md`, and it is exactly what this milestone reverses. The replacement has to resolve
-  compose service names itself, because the agent still needs `proxy` to resolve for `HTTPS_PROXY` to work
+  the first line of `learnings.md`. The `m18.1` audit showed why: on a user-defined network the `127.0.0.11` stub is
+  the only source of compose service names. Whatever `m18.2` picks must keep `proxy` resolving for `HTTPS_PROXY`
 - Environment-variable proxy configuration is advisory; network-level enforcement is what counts. The same reasoning
   applies here. A resolver the agent is merely pointed at is not a control unless the firewall also stops it from
   reaching any other resolver
@@ -95,18 +95,25 @@ firewall at it.
 - Decide between a dedicated resolver sidecar and adding a resolver to the existing proxy container, and record the
   decision. The proxy container currently runs as a non-root user with all capabilities dropped, so binding port 53
   there requires a capability or a sysctl; a sidecar keeps that boundary intact at the cost of one more service
-- Serve only the names the stack needs. Forward the compose service names to the container's own embedded resolver so
-  service discovery keeps working through Docker's IPAM, and answer `NXDOMAIN` for every other name. Do not use a
-  static hosts file keyed on container IPs, which change between runs
+- Choose how the agent reaches the resolver, using the `m18.1` audit (`bypass-matrix.md`, findings 9 and 10). On a
+  user-defined network Docker keeps the stub at `127.0.0.11` and treats compose `dns:` as the embedded resolver's
+  upstream list, dialed from the container's own namespace. Two coherent designs follow. With `dns:`, the embedded
+  resolver keeps answering service names from IPAM and forwards everything else to the sinkhole, which answers
+  `NXDOMAIN`; the `127.0.0.11` NAT rules stay restored, and the sinkhole needs a fixed address because `dns:` takes
+  IP addresses, which means a declared subnet. With a DNAT at firewall init, `init-firewall.sh` resolves the
+  sinkhole's current address through the embedded resolver and replaces Docker's `127.0.0.11` DNAT with one to the
+  sinkhole; the sinkhole answers service names by forwarding to its own embedded resolver on the same network and
+  `NXDOMAIN` for everything else. Either way, serve only the names the stack needs and never a static hosts file
+  keyed on container IPs, which change between runs. Record the choice for the decision record `m18.5` writes
 - Return `NXDOMAIN` promptly rather than dropping, so a blocked lookup fails fast instead of hanging on a resolver
   timeout the way a silent drop would
-- Point the agent container at the resolver with compose `dns:` in the managed base layer, which both CLI mode and
-  the devcontainer templates consume
+- Wire the chosen design into the managed base layer, which both CLI mode and the devcontainer templates consume
 - Add the resolver to the agent's `depends_on` with a health condition, so the agent cannot start before name
   resolution exists
-- Change `init-firewall.sh`: stop extracting and restoring the `127.0.0.11` NAT rules, and allow UDP and TCP port 53
-  only to the resolver's address. Keep the existing positive and negative self-tests and add a DNS pair to them, one
-  name that must resolve and one that must not
+- Change `init-firewall.sh`: allow UDP and TCP port 53 only to the resolver's address, ahead of the host-network
+  rule, so a peer container on the compose network and the bridge gateway stop being reachable on port 53 (audit
+  rows B1 through B4). Keep the existing positive and negative self-tests and add a DNS pair to them, one name that
+  must resolve and one that must not; audit finding 5 gives the errno signatures to assert on
 - Leave the proxy container's own resolution untouched
 - Regenerate this repo's checked-in `.agent-sandbox/` runtime so local development exercises the new stack
 
@@ -132,6 +139,8 @@ address family.
 - Decide whether to disable IPv6 on the compose network instead, and record why the chosen option was picked. If
   IPv6 is disabled rather than filtered, the firewall should assert that it is actually off rather than assume it
 - Add the IPv6 probes from `m18.1` to the firewall self-test
+- The audit found `ip6tables` present in the image with ACCEPT policies and no rules, and `EnableIPv6=false` on the
+  compose network. Enable IPv6 on the network for the `after-m18.3` audit run, or the E rows cannot flip
 
 **Acceptance Criteria:**
 - With IPv6 available on the network, every IPv6 probe from the audit is blocked
@@ -201,9 +210,10 @@ address family.
    with either.
 4. `m18.5` last, once the behavior is settled.
 
-Decision point after `m18.1`: if the audit shows the bridge gateway exposes a resolver the agent can reach directly,
-the firewall change in `m18.2` grows to narrow rule 5 rather than just redirect port 53, and that is a larger change
-worth re-scoping before starting.
+Decision point after `m18.1`, resolved 2026-09-12: the audit found no resolver on the bridge gateway. The VM's
+`dnsmasq` listens on `192.168.5.1` and loopback only, which the container already cannot reach, so rule 5 stays as
+it is and `m18.2` restricts port 53 within the host network to the resolver's address. See `bypass-matrix.md` rows
+B1, B2, and H2.
 
 ## Risks
 
@@ -241,6 +251,13 @@ worth re-scoping before starting.
 - Docs, troubleshooting, the agent skill, and a decision record are updated, including the residual gaps
 
 ## Changes
+
+### 2026-09-12: m18.1 findings folded in
+
+The audit resolved the rule 5 decision point and corrected the `m18.2` scope: compose `dns:` sets the embedded
+resolver's upstream rather than replacing the stub, so the NAT restore stays with that design and the sinkhole
+needs a fixed address; the DNAT-at-init alternative is recorded alongside it. `m18.3` gained the note that IPv6
+must be enabled on the network for its audit run.
 
 ### 2026-09-12: Renumbered from m21 to m18
 
