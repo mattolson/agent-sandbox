@@ -1,0 +1,36 @@
+# Expected after m18.3 (IPv6 parity). Same as after-m18.2 plus the E rows.
+# With IPv6 present on the network, E2 through E4 must read rejected. With IPv6 absent they stay unreachable and
+# the firewall self-test must say so; the flip is only observable when IPv6 is enabled for the run.
+R1	*
+R2	*
+A1	not-found
+A2	not-found
+A3	nxdomain
+A4	nxdomain
+A5	nxdomain
+A6	nxdomain
+A7	nxdomain
+A8	answered
+B1	rejected
+B2	rejected
+B3	rejected
+B4	rejected
+C1	rejected
+C2	rejected
+C3	rejected
+C4	rejected
+C5	rejected
+D1	proxy-403
+D2	http-200
+D3	http-502
+D4	http-502
+E1	absent|present
+E2	rejected|unreachable
+E3	rejected|unreachable
+E4	rejected|unreachable
+E5	timeout|conn-refused|rejected
+H1	not-seen
+H2	*
+H3	*
+H4	*
+H5	*

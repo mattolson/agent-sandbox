@@ -1,0 +1,35 @@
+# Expected probe results before any m18 change. Format: id<TAB>result[|alternative]. "*" is recorded, not compared.
+# Baseline values for A, C, D1, and E were observed from the dev sandbox on 2026-09-12; B3, B4, and H come from the host run.
+R1	*
+R2	*
+A1	answered
+A2	not-found
+A3	answered
+A4	answered
+A5	noerror-empty
+A6	nxdomain
+A7	answered
+A8	answered
+B1	timeout|conn-refused
+B2	conn-refused
+B3	reached
+B4	reached
+C1	rejected
+C2	rejected
+C3	rejected
+C4	rejected
+C5	rejected
+D1	proxy-403
+D2	http-200
+D3	http-502
+D4	http-502
+E1	absent
+E2	unreachable
+E3	unreachable
+E4	unreachable
+E5	timeout|conn-refused
+H1	seen
+H2	*
+H3	*
+H4	*
+H5	*
