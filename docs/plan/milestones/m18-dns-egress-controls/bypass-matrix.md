@@ -127,7 +127,7 @@ real sinkhole; entries marked "verify" are from documentation, not measurement.
 | `gh` | base | yes | Go `ProxyFromEnvironment` |
 | `apt` | base | yes | `configure-apt-proxy.sh` writes the Acquire proxy setting |
 | `npm`, `npx` | node stack and every node-based agent image | yes | reads the proxy environment variables |
-| Node `fetch`, `undici` | node-based agents | not by default | needs a dispatcher or `NODE_USE_ENV_PROXY`; per agent, verify |
+| Node `fetch`, `undici` | node agents | not by default | needs dispatcher or `NODE_USE_ENV_PROXY`; verify per agent |
 | `pip`, `uv` | python stack, hermes | yes | verify `uv` |
 | `go` | go stack | yes | module and checksum fetches honour the proxy variables |
 | `cargo`, `rustup` | rust stack | yes | verify |
