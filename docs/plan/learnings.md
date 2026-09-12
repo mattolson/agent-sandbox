@@ -9,7 +9,7 @@ Lessons learned during project execution. Review at the start of each planning s
 - VS Code devcontainers need `--cap-add=NET_ADMIN` and `--cap-add=NET_RAW` for iptables to work
 - Policy schema should nest by concern (`egress:`, future `ingress:`, `mounts:`) for extensibility
 - `yq` will be needed to parse YAML in the firewall script
-- VS Code devcontainers bypass Docker ENTRYPOINT; use `postStartCommand` for runtime initialization that must run every container start
+- VS Code devcontainers replace the container command by default; set `overrideCommand: false` so the image entrypoint runs instead of duplicating runtime initialization in `postStartCommand`
 - Entrypoint scripts should be idempotent (check for existing state before acting) to support both devcontainer and compose workflows
 - devcontainer.json and docker-compose.yml need separate volume/mount configs; they serve different workflows and VS Code reads devcontainer.json directly
 - yq syntax `.foo // [] | .[]` safely iterates arrays that may be missing or null
