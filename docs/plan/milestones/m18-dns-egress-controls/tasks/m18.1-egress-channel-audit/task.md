@@ -74,7 +74,7 @@ observed during planning from this sandbox; the rest are measured during executi
 | Id | Channel | Method | Baseline | Flipped by |
 |----|---------|--------|----------|------------|
 | A1 | libc stub, public name | `getent ahosts example.com` | answered (spike) | m18.2 |
-| A2 | libc stub, random name | `getent ahosts <rand>.example.com` | nxdomain, upstream reached (spike) | m18.2 via H1 |
+| A2 | libc stub, random name | `getent ahosts <rand>.example.com` | not-found, upstream hit (spike) | m18.2 via H1 |
 | A3 | raw UDP/53 to `127.0.0.11`, A | crafted packet | answered (spike) | m18.2 |
 | A4 | raw UDP/53, TXT | qtype 16 | answered, 98 bytes (spike) | m18.2 |
 | A5 | raw UDP/53, NULL | qtype 10 | | m18.2 |
@@ -83,8 +83,8 @@ observed during planning from this sandbox; the rest are measured during executi
 | A8 | service name `proxy` | A query | answered (spike) | control, must keep working |
 | B1 | UDP/53 to bridge gateway | `172.22.0.1` | timeout (spike) | m18.2 |
 | B2 | TCP/53 to bridge gateway | `172.22.0.1` | refused, reachable (spike) | m18.2 |
-| B3 | UDP/53 to a peer container | listener on compose network | | m18.2 |
-| B4 | TCP/53 to a peer container | listener on compose network | | m18.2 |
+| B3 | UDP/53 to a peer container | python responder on the compose network | | m18.2 |
+| B4 | TCP/53 to a peer container | python responder on the compose network | | m18.2 |
 | C1 | UDP/53 to Lima gateway | `192.168.5.1`, the resolver's upstream | rejected (spike) | control |
 | C2 | TCP/53 to Lima gateway | `192.168.5.1` | rejected (spike) | control |
 | C3 | UDP/53 to public resolver | `8.8.8.8` | rejected (spike) | control |
@@ -92,23 +92,26 @@ observed during planning from this sandbox; the rest are measured during executi
 | C5 | DoT to public resolver | `openssl s_client` to `1.1.1.1:853` | rejected (spike) | control |
 | D1 | DoH through proxy, unlisted host | `curl -x proxy https://dns.google/resolve` | proxy-403 | control |
 | D2 | DoH through proxy, host temporarily allowed | same, after a user policy edit | http-200 | none, residual |
-| D3 | allowed host resolving to a private address | temporary rule for a wildcard-DNS name | | m18.4 |
+| D3 | allowed name resolving into the bridge network | `proxy` allowed temporarily, `http://proxy:9/` | | m18.4 |
+| D4 | allowed name resolving to loopback | `localhost` allowed temporarily, `http://localhost:9/` | | m18.4 |
 | E1 | IPv6 presence | `ip -6 addr`, `ip -6 route` | none on `eth0` (spike) | m18.3 |
 | E2 | UDP/53 to public resolver over IPv6 | `[2001:4860:4860::8888]` | | m18.3 |
 | E3 | TCP/53 to public resolver over IPv6 | same | | m18.3 |
 | E4 | DoT over IPv6 | `[2606:4700:4700::1111]:853` | | m18.3 |
 | E5 | UDP/53 to `::1` | loopback only | | control |
-| H1 | random label seen leaving the host | tcpdump in the VM and on the Mac | | m18.2 |
+| H1 | random label seen leaving the host | tcpdump in the VM, Mac capture by hand | | m18.2 |
 | H2 | listeners on port 53 inside the VM | `colima ssh -- sudo ss -lunp` | | informs rule 5 decision |
 | H3 | compose `dns:` semantics on a user-defined network | override, then read `resolv.conf` | | informs m18.2 design |
 | H4 | `EnableIPv6` on the compose network | `docker network inspect` | | informs m18.3 |
 | H5 | agent `iptables` and `ip6tables` dump | `docker compose exec --user root` | | reference |
-| M1 | full probe set in devcontainer mode | same runner, devcontainer stack | | m18.2 acceptance |
 
-**Runner.** `run-audit.bash` runs on the Mac. It starts a throwaway `alpine` container named `dns-peer` on the
-sandbox's compose network with busybox `nc` listening on UDP and TCP 53, passes its address to `probe.bash`, runs the
-probes in the agent container, then collects H2 through H5 with `colima ssh` and `docker`. Output is a results TSV
-plus a diff against `expected/<stage>.tsv`. Exit status reflects the diff, so a later task can run it as a gate.
+**Runner.** `run-audit.bash` runs on the Mac. It starts a throwaway `python:3-alpine` container on the sandbox's
+compose network running a small DNS responder that answers every A query with `203.0.113.1` and logs each name,
+passes its address to `probe.bash`, runs the probes in the agent container, then collects H1 through H5 with
+`colima ssh` and `docker`. The responder replaced the original `nc` idea because a real reply makes B3 and B4
+conclusive and lets H3 show where a forwarded query went. Output is a results TSV plus a diff against
+`expected/<stage>.tsv`. Exit status reflects the diff, so a later task can run it as a gate. Devcontainer mode is
+the same run with `--container` pointed at the VS Code container.
 
 **End-to-end demonstration.** The in-container proof is A2 plus A4: a never-before-seen label returns `NXDOMAIN`,
 and a TXT lookup returns data, so both directions work. `NXDOMAIN` alone is not airtight, because a validating
@@ -136,35 +139,41 @@ dynamic check belongs in `m18.2`, where the real sinkhole exists to run it again
 
 **Matrix and expectations.** `bypass-matrix.md` holds the table above with observed values filled in, the
 demonstration procedure, and the findings. The `expected/*.tsv` files hold the same expectations in the form the
-runner diffs. The `m18.2` file must differ from baseline on A1, A3 through A7, B1 through B4, and H1; the `m18.3`
-file on E2 through E4; the `m18.4` file on D3.
+runner diffs. The `m18.2` file must differ from baseline on A1, A3 through A5, A7, B1 through B4, and H1; the `m18.3`
+file on E2 through E4 when IPv6 is present; the `m18.4` file on D3 and D4.
 
 ### Implementation Steps
 
-- [ ] Write `probe.bash`: packet builder, UDP and TCP senders with errno classification, DoH and DoT probes, IPv6
+- [x] Write `probe.bash`: packet builder, UDP and TCP senders with errno classification, DoH and DoT probes, IPv6
       probes, TSV output, and a `--peer <addr>` flag for B3 and B4
-- [ ] Write `run-audit.bash`: peer listener lifecycle, `docker compose exec` streaming, H2 through H5 collection,
-      results file, expected-file diff, `--stage` and `--mode cli|devcontainer` flags
-- [ ] Run the in-container probes from this sandbox and record the baseline for A, C, D1, and E
-- [ ] Hand the runner to the maintainer for the host-side run: B3, B4, D2, D3, H1 through H5, and M1
-- [ ] Write `bypass-matrix.md` with observed values, the demonstration procedure, and findings
-- [ ] Write the four `expected/*.tsv` files
+- [x] Write `run-audit.bash`: peer responder lifecycle, `docker exec` streaming, H1 through H5 collection,
+      results file, expected-file diff, `--stage` and `--container` flags
+- [x] Run the in-container probes from this sandbox and record the baseline for A, C, D1, and E
+- [ ] Maintainer runs `run-audit.bash` on the Mac: B3, B4, H1 through H5, then `--policy-probes` for D2 through
+      D4, then `--container` for devcontainer mode; commit the baseline results directory
+- [x] Write `bypass-matrix.md` with observed values, the demonstration procedure, and findings; host rows pending
+- [x] Write the four `expected/*.tsv` files
 - [ ] Update `milestone.md`: resolve the rule 5 decision point from H2, record the `dns:` finding for `m18.2`, and
       the IPv6 default for `m18.3`
-- [ ] Record the tool inventory in the matrix doc
+- [x] Record the static tool inventory in the matrix doc
 
 ### Open Questions
 
-- Host-side steps cannot run from inside the sandbox: `docker`, `colima`, and `tcpdump` are out of reach. The plan
-  splits execution so the in-container probes and the scripts are done here, and the maintainer runs
-  `run-audit.bash` once on the Mac and commits the results file. Confirm that split is acceptable
-- Is there a domain where a throwaway subdomain can be delegated to a temporary logging nameserver for the audit
-  window? Without one, H1 is the demonstration and the aggressive-NSEC caveat is recorded
-- D3 needs an allowed host whose answer is a private address. The cheapest option is a temporary rule for a public
-  wildcard-DNS name such as `169.254.169.254.nip.io`, which leans on a third-party service. The alternative is to
-  leave D3 to the proxy integration harness, which already rebinds hosts onto loopback, and drop it from the live
-  matrix. Recommendation: the harness, since `m18.4` tests live there anyway
-- The dynamic tool check is deferred to `m18.2`. Object if the static inventory is not enough for the rollout risk
+Resolved on 2026-09-12:
+
+- Host-side steps: the maintainer runs `run-audit.bash` on the Mac from the scripts and README in
+  `scripts/dns-egress-audit/`. In-container probes and all files are done from the sandbox
+- No domain is available to delegate, so H1 (a tcpdump capture inside the Colima VM, plus an optional capture on the
+  Mac) is the end-to-end demonstration. The aggressive-NSEC caveat is recorded in the matrix doc
+- The m18.4 probe stays in the live matrix without a third-party service: D3 and D4 temporarily allow the names
+  `proxy` and `localhost`, which resolve into the bridge network and to loopback respectively. The renderer accepts
+  dot-less hosts
+- The dynamic tool check is deferred to `m18.2`; the matrix carries a static inventory
+
+Still open:
+
+- B1 reads `timeout` rather than `conn-refused`, so either nothing listens on the gateway's UDP/53 and the ICMP
+  error is suppressed, or something listens and never answers. H2 settles it
 
 ## Outcome
 
