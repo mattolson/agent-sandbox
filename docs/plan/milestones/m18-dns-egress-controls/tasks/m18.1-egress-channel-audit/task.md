@@ -74,7 +74,7 @@ observed during planning from this sandbox; the rest are measured during executi
 | Id | Channel | Method | Baseline | Flipped by |
 |----|---------|--------|----------|------------|
 | A1 | libc stub, public name | `getent ahosts example.com` | answered (spike) | m18.2 |
-| A2 | libc stub, random label | `getent ahosts <rand>.example.com` | nxdomain, upstream reached (spike) | m18.2 via H1 |
+| A2 | libc stub, random name | `getent ahosts <rand>.example.com` | nxdomain, upstream reached (spike) | m18.2 via H1 |
 | A3 | raw UDP/53 to `127.0.0.11`, A | crafted packet | answered (spike) | m18.2 |
 | A4 | raw UDP/53, TXT | qtype 16 | answered, 98 bytes (spike) | m18.2 |
 | A5 | raw UDP/53, NULL | qtype 10 | | m18.2 |
