@@ -1,15 +1,18 @@
-# Expected after m18.2 (sinkhole resolver, port 53 restricted to it). Encodes the plan; m18.2 adjusts values, not flips.
-# Must differ from baseline: A1, A3, A4, A5, A7, B1, B2, B3, B4, H1.
+# Expected after m18.2 (sinkhole in the proxy, 127.0.0.11 rejected outright, port 53 only to the proxy).
+# Encodes the m18.2 plan; the task adjusts values, not flips.
+# Must differ from baseline: A1, A3, A4, A5, A6, A7, A9, A10, B1, B2, B3, B4, H1.
 R1	*
 R2	*
 A1	not-found
 A2	not-found
-A3	nxdomain
-A4	nxdomain
-A5	nxdomain
-A6	nxdomain
-A7	nxdomain
+A3	rejected
+A4	rejected
+A5	rejected
+A6	rejected
+A7	rejected
 A8	answered
+A9	rejected
+A10	rejected
 B1	rejected
 B2	rejected
 B3	rejected

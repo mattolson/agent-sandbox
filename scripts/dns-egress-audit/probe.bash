@@ -22,6 +22,7 @@
 #   http-<code>     any other HTTP status through the proxy
 #   curl-<exit>     curl failed before getting a status
 #   present/absent  for the IPv6 presence probe
+#   no-listener     the embedded resolver's port could not be discovered
 #   info            informational rows that are recorded, not compared
 set -u
 
@@ -63,6 +64,8 @@ PROBES=(
   "A6|127.0.0.11:53/udp|raw UDP query, A on a 253-byte name under ZONE"
   "A7|127.0.0.11:53/tcp|raw TCP query, A ZONE"
   "A8|127.0.0.11:53/udp|raw UDP query, A proxy (compose service name)"
+  "A9|127.0.0.11:<port>/udp|raw UDP query to the embedded resolver's real listening port, past the port-53 NAT"
+  "A10|127.0.0.11:<port>/tcp|raw TCP query to the embedded resolver's real listening port"
   "B1|gateway:53/udp|raw UDP query to the Docker bridge gateway"
   "B2|gateway:53/tcp|raw TCP query to the Docker bridge gateway"
   "B3|peer:53/udp|raw UDP query to a peer container on the compose network"
@@ -290,6 +293,20 @@ selected A5 && run A5 "127.0.0.11:53/udp" "$(dns_udp 127.0.0.11 53 "$ZONE" 10)"
 selected A6 && run A6 "127.0.0.11:53/udp" "$(dns_udp 127.0.0.11 53 "$LONG_NAME" 1)"
 selected A7 && run A7 "127.0.0.11:53/tcp" "$(dns_tcp 127.0.0.11 53 "$ZONE" 1)"
 selected A8 && run A8 "127.0.0.11:53/udp" "$(dns_udp 127.0.0.11 53 proxy 1)"
+
+# Docker's embedded resolver listens on a random port on 127.0.0.11; the port-53 NAT rule merely redirects to it.
+EMB_UDP=$(ss -lun 2>/dev/null | awk '$4 ~ /^127\.0\.0\.11:/ {split($4, a, ":"); print a[2]; exit}')
+EMB_TCP=$(ss -ltn 2>/dev/null | awk '$4 ~ /^127\.0\.0\.11:/ {split($4, a, ":"); print a[2]; exit}')
+if [ -n "$EMB_UDP" ]; then
+  selected A9 && run A9 "127.0.0.11:$EMB_UDP/udp" "$(dns_udp 127.0.0.11 "$EMB_UDP" "$ZONE" 1)"
+else
+  selected A9 && emit A9 "127.0.0.11:?/udp" no-listener "no 127.0.0.11 UDP listener visible to ss"
+fi
+if [ -n "$EMB_TCP" ]; then
+  selected A10 && run A10 "127.0.0.11:$EMB_TCP/tcp" "$(dns_tcp 127.0.0.11 "$EMB_TCP" "$ZONE" 1)"
+else
+  selected A10 && emit A10 "127.0.0.11:?/tcp" no-listener "no 127.0.0.11 TCP listener visible to ss"
+fi
 
 if [ -n "$GATEWAY" ]; then
   selected B1 && run B1 "$GATEWAY:53/udp" "$(dns_udp "$GATEWAY" 53 "$ZONE" 1)"

@@ -1,5 +1,17 @@
 # Execution Log: m18.1 - egress channel audit
 
+## 2026-09-12 - Amendment from m18.2 planning: the embedded resolver's real ports
+
+**Issue:** While designing the sinkhole, `ss -lun` showed Docker's embedded resolver bound to a random high port on
+`127.0.0.11`, with the port-53 NAT rule only redirecting to it. Raw queries to that port answer and forward upstream
+just like port 53. The audit had no row for it.
+**Solution:** Added A9 (UDP) and A10 (TCP) to `probe.bash`, which discover the port with `ss` at run time, and to
+the matrix and every expected file. Baseline `answered`; expected `rejected` from `m18.2` on. The after-m18.2 values
+for A3 through A7 changed from `nxdomain` to `rejected` for the same reason: the design now rejects `127.0.0.11`
+outright instead of relying on the NAT rules being absent.
+
+**Learning:** A NAT redirect is not the listener. Audit the sockets, not the rules that point at them.
+
 ## 2026-09-12 - Policy probes taken; baseline complete for CLI mode
 
 **Issue:** The maintainer's `--policy-probes` run reported D2 `proxy-403` and D3, D4 `curl-7`.

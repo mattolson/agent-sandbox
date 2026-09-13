@@ -10,6 +10,8 @@ A5	noerror-empty
 A6	nxdomain
 A7	answered
 A8	answered
+A9	answered
+A10	answered
 B1	timeout|conn-refused
 B2	conn-refused
 B3	reached

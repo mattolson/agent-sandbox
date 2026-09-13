@@ -19,12 +19,14 @@ Result words are defined in the header of `probe.bash`. `*` means recorded but n
 | R2 | default route | `172.22.0.1` on `eth0`, host network `172.22.0.0/16` | * | * | * | info |
 | A1 | libc stub, public name | answered | not-found | not-found | not-found | m18.2 |
 | A2 | libc stub, random label | not-found (upstream reached) | not-found | not-found | not-found | m18.2 via H1 |
-| A3 | raw UDP/53 to `127.0.0.11`, A | answered, 2 answers | nxdomain | nxdomain | nxdomain | m18.2 |
-| A4 | raw UDP/53, TXT | answered, 98 bytes | nxdomain | nxdomain | nxdomain | m18.2 |
-| A5 | raw UDP/53, NULL | noerror-empty (forwarded) | nxdomain | nxdomain | nxdomain | m18.2 |
-| A6 | raw UDP/53, 253-byte name | nxdomain, 271 bytes (forwarded) | nxdomain | nxdomain | nxdomain | m18.2 via H1 |
-| A7 | raw TCP/53 to `127.0.0.11` | answered | nxdomain | nxdomain | nxdomain | m18.2 |
+| A3 | raw UDP/53 to `127.0.0.11`, A | answered, 2 answers | rejected | rejected | rejected | m18.2 |
+| A4 | raw UDP/53, TXT | answered, 98 bytes | rejected | rejected | rejected | m18.2 |
+| A5 | raw UDP/53, NULL | noerror-empty (forwarded) | rejected | rejected | rejected | m18.2 |
+| A6 | raw UDP/53, 253-byte name | nxdomain, 271 bytes (forwarded) | rejected | rejected | rejected | m18.2 via H1 |
+| A7 | raw TCP/53 to `127.0.0.11` | answered | rejected | rejected | rejected | m18.2 |
 | A8 | service name `proxy` | answered | answered | answered | answered | control |
+| A9 | raw UDP to the embedded resolver's real port | answered | rejected | rejected | rejected | m18.2 |
+| A10 | raw TCP to the embedded resolver's real port | answered | rejected | rejected | rejected | m18.2 |
 | B1 | UDP/53 to bridge gateway | timeout | rejected | rejected | rejected | m18.2 |
 | B2 | TCP/53 to bridge gateway | conn-refused (reachable) | rejected | rejected | rejected | m18.2 |
 | B3 | UDP/53 to a peer container | reached, peer logged the query | rejected | rejected | rejected | m18.2 |
@@ -135,6 +137,11 @@ label so the Mac capture can be started by hand.
     and `localhost` to both loopbacks; the proxy connected, got the port refused, and returned a 502 with the
     errno in the body. Nothing checks the address class before the connect. `m18.4` turns both into a refusal
     before the connect, with a distinct event.
+15. Found while planning `m18.2`: the embedded resolver listens on a random high port on `127.0.0.11` (visible
+    with `ss -lun` and `ss -ltn`), and the port-53 NAT rule only redirects to it. Raw queries to that port are
+    answered and forwarded upstream exactly like port 53 (A9, A10). Dropping the NAT rules is therefore not
+    enough; `m18.2` rejects all traffic to `127.0.0.11` ahead of the loopback allow rule, which is why the raw
+    rows in the after-m18.2 column read `rejected` rather than `nxdomain`.
 14. An operational finding from taking D2: the proxy mounts `user.policy.yaml` as a single-file bind mount, so an
     editor that saves by writing a new file and renaming it leaves the container attached to the old inode.
     `agentbox proxy reload` then re-renders the stale content and reports `applied`. `agentbox compose restart
