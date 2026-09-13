@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **DNS egress is closed.** The agent container no longer resolves names through Docker's embedded resolver, which forwarded every query to the host and on to the internet, so query names carried data out regardless of policy. The proxy now serves a DNS sinkhole next to the HTTP proxy: compose service names resolve (`proxy`, plus any exact names listed in `AGENTBOX_DNS_ALLOW` on the proxy service), and every other name gets `NXDOMAIN` at once. The agent's firewall rejects Docker's resolver outright, rewrites port 53 to the sinkhole, and refuses DNS and DNS-over-TLS to anything else, including peers on the compose network. A tool that resolves names itself instead of using `HTTPS_PROXY` now fails with `NXDOMAIN`; route it through the proxy. Requires rebuilt images (`agentbox bump`): a new agent image against an old proxy image refuses to start and says why, and an old agent image against a new proxy image keeps the previous behaviour.
+
 ### Fixed
 
 - **Codex no longer warns that Code Mode is unavailable.** The codex image installed only the `codex` binary from the GitHub release, but Codex looks for the separate `codex-code-mode-host` helper next to its own executable and logged `Code Mode is unavailable because failed to spawn code-mode host ... host executable was not found` on every session. The image now installs both binaries from the same release into `~/.local/bin`. A release that does not publish the host asset builds with a warning instead of failing. Requires rebuilt images (`agentbox bump`).

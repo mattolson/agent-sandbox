@@ -116,6 +116,10 @@ firewall at it.
   must resolve and one that must not; audit finding 5 gives the errno signatures to assert on
 - Leave the proxy container's own resolution untouched
 - Regenerate this repo's checked-in `.agent-sandbox/` runtime so local development exercises the new stack
+- Decided 2026-09-12: the sinkhole is a mitmproxy DNS-mode addon inside the proxy container on port 5353, reached
+  through a port rewrite in the agent's firewall, with Docker's resolver rejected outright. No compose change, so
+  `agentbox bump` alone rolls it out and the runtime tree needs no regeneration. The comparison with the `dns:`
+  upstream, sidecar, and sysctl variants and the spike results are in `tasks/m18.2-dns-sinkhole/task.md`
 
 **Acceptance Criteria:**
 - From the agent container, a lookup of a random label under a domain we control returns `NXDOMAIN` and no query
@@ -251,6 +255,13 @@ B1, B2, and H2.
 - Docs, troubleshooting, the agent skill, and a decision record are updated, including the residual gaps
 
 ## Changes
+
+### 2026-09-12: m18.2 design chosen
+
+The sinkhole lives in the proxy container as a mitmproxy DNS-mode addon on an unprivileged port; the agent's
+firewall rewrites port 53 to it. Chosen over the `dns:` upstream (fixed address, subnet collisions), a sidecar
+(blast radius), and a sysctl to bind 53 (needs a managed-layer change only `agentbox init` propagates). The audit
+gained rows A9 and A10 for the embedded resolver's real listening ports.
 
 ### 2026-09-12: m18.1 findings folded in
 

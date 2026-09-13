@@ -152,14 +152,14 @@ nothing points it at the sinkhole. `agentbox bump` moves both pins together. The
 
 ### Implementation Steps
 
-- [ ] Write `dns_sinkhole.py` and its unit tests; run the proxy suite
-- [ ] Register the addon in `enforcer.py`, add the DNS mode to the `Dockerfile`, extend the harness, and add the
+- [x] Write `dns_sinkhole.py` and its unit tests; run the proxy suite
+- [x] Register the addon in `enforcer.py`, add the DNS mode to the `Dockerfile`, extend the harness, and add the
       integration test
-- [ ] Rewrite `init-firewall.sh`: address discovery with the restart fallback, rule set, DNAT, `resolv.conf`,
+- [x] Rewrite `init-firewall.sh`: address discovery with the restart fallback, rule set, DNAT, `resolv.conf`,
       self-tests with the IP-literal negative test and the DNS pair
-- [ ] Update the `entrypoint.sh` banner
-- [ ] Add S1 through S3 to `probe.bash`, the expected files, and the matrix
-- [ ] Write the changelog entry and record the design choice in the milestone plan
+- [x] Update the `entrypoint.sh` banner
+- [x] Add S1 through S3 to `probe.bash`, the expected files, and the matrix
+- [x] Write the changelog entry and record the design choice in the milestone plan
 - [ ] Maintainer rebuilds with `make setup` and `./images/build.sh proxy`, runs `agentbox up`, and runs the audit
       at `--stage after-m18.2`; iterate on failures from inside the rebuilt sandbox
 - [ ] Maintainer repeats the audit with `--container` against the devcontainer
