@@ -79,6 +79,9 @@ PROBES=(
   "D2|dns.google via proxy|DNS-over-HTTPS through the proxy with the host temporarily allowed"
   "D3|proxy:9 via proxy|allowed name that resolves into the sandbox's own bridge network"
   "D4|localhost:9 via proxy|allowed name that resolves to the proxy's loopback"
+  "S1|proxy:53/udp|raw UDP query for a random label to the proxy on port 53; the sinkhole after m18.2"
+  "S2|proxy:5353/udp|raw UDP query for a random label to the sinkhole port directly"
+  "S3|proxy:53/udp|raw UDP query, A proxy, answered by the sinkhole after m18.2"
   "E1|ip -6|IPv6 address and default route on eth0"
   "E2|[2001:4860:4860::8888]:53/udp|raw UDP query to a public resolver over IPv6"
   "E3|[2001:4860:4860::8888]:53/tcp|raw TCP query to a public resolver over IPv6"
@@ -336,6 +339,17 @@ if [ "$POLICY_PROBES" -eq 1 ]; then
   selected D2 && run D2 "dns.google via proxy" "$(http_probe "https://dns.google/resolve?name=$LABEL.$ZONE&type=A")"
   selected D3 && run D3 "proxy:9 via proxy" "$(http_probe "http://proxy:9/")"
   selected D4 && run D4 "localhost:9 via proxy" "$(http_probe "http://localhost:9/")"
+fi
+
+PROXY_ADDR=$(getent hosts proxy 2>/dev/null | awk '{print $1; exit}')
+if [ -n "$PROXY_ADDR" ]; then
+  selected S1 && run S1 "$PROXY_ADDR:53/udp" "$(dns_udp "$PROXY_ADDR" 53 "$LABEL.$ZONE" 1)"
+  selected S2 && run S2 "$PROXY_ADDR:5353/udp" "$(dns_udp "$PROXY_ADDR" 5353 "$LABEL.$ZONE" 1)"
+  selected S3 && run S3 "$PROXY_ADDR:53/udp" "$(dns_udp "$PROXY_ADDR" 53 proxy 1)"
+else
+  selected S1 && emit S1 "proxy:53/udp" error "proxy does not resolve"
+  selected S2 && emit S2 "proxy:5353/udp" error "proxy does not resolve"
+  selected S3 && emit S3 "proxy:53/udp" error "proxy does not resolve"
 fi
 
 V6_ADDR=$(ip -6 addr show dev eth0 scope global 2>/dev/null | awk '/inet6/{print $2}' | tr '\n' ' ')

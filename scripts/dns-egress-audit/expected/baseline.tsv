@@ -25,6 +25,9 @@ D1	proxy-403
 D2	http-200
 D3	http-502
 D4	http-502
+S1	*
+S2	*
+S3	*
 E1	absent
 E2	unreachable
 E3	unreachable

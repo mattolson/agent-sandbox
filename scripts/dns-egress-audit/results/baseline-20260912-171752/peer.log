@@ -1,0 +1,5 @@
+listening udp/53listening tcp/53
+
+udp 172.22.0.3 0228b85e.example.com
+tcp 172.22.0.3 0228b85e.example.com
+udp 172.22.0.5 example.com

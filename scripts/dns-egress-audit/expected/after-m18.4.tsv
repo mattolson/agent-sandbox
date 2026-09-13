@@ -25,6 +25,9 @@ D1	proxy-403
 D2	http-200
 D3	http-403
 D4	http-403
+S1	nxdomain
+S2	nxdomain
+S3	answered
 E1	absent|present
 E2	rejected|unreachable
 E3	rejected|unreachable
