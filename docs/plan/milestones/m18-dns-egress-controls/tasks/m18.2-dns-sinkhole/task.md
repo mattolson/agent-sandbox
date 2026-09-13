@@ -136,8 +136,9 @@ does not, re-running `sudo /usr/local/bin/init-firewall.sh` repairs it, and `m18
 **Audit.** Three control rows join `probe.bash`: S1 sends a random label to `proxy:53` over UDP and expects
 `nxdomain` after the rewrite, S2 does the same to `proxy:5353`, and S3 queries `proxy` A at `proxy:53` and expects
 `answered`. They are recorded but not compared in the baseline file. The after-m18.2 expectations were already
-rewritten during planning: A3 through A7, A9, A10, and B1 through B4 read `rejected`, A1 and A2 `not-found`, A8
-`answered`, H1 `not-seen`.
+rewritten during planning: A3 through A7, A9, A10, and B1 through B4 read `rejected`, A1 and A2 `not-found`, H1
+`not-seen`. A8 was left at `answered` by mistake; it is a raw query to `127.0.0.11` and reads `rejected` like the
+other raw rows. Corrected after the first host run, with S3 as the service-name control.
 
 **Tests.** Unit tests build `dns.Message` objects and drive `dns_request` directly: allowed and refused names, each
 type, case and trailing-dot handling, the env parsing, and the built-in resolver removal against a fake master. The

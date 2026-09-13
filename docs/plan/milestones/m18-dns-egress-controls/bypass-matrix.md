@@ -24,15 +24,15 @@ Result words are defined in the header of `probe.bash`. `*` means recorded but n
 | A5 | raw UDP/53, NULL | noerror-empty (forwarded) | rejected | rejected | rejected | m18.2 |
 | A6 | raw UDP/53, 253-byte name | nxdomain, 271 bytes (forwarded) | rejected | rejected | rejected | m18.2 via H1 |
 | A7 | raw TCP/53 to `127.0.0.11` | answered | rejected | rejected | rejected | m18.2 |
-| A8 | service name `proxy` | answered | answered | answered | answered | control |
+| A8 | raw UDP/53 to `127.0.0.11`, A `proxy` | answered | rejected | rejected | rejected | m18.2; S3 is the service-name control |
 | A9 | raw UDP to the embedded resolver's real port | answered | rejected | rejected | rejected | m18.2 |
 | A10 | raw TCP to the embedded resolver's real port | answered | rejected | rejected | rejected | m18.2 |
 | B1 | UDP/53 to bridge gateway | timeout | rejected | rejected | rejected | m18.2 |
 | B2 | TCP/53 to bridge gateway | conn-refused (reachable) | rejected | rejected | rejected | m18.2 |
 | B3 | UDP/53 to a peer container | reached, peer logged the query | rejected | rejected | rejected | m18.2 |
 | B4 | TCP/53 to a peer container | reached, peer logged the query | rejected | rejected | rejected | m18.2 |
-| C1 | UDP/53 to `192.168.5.1` | rejected | rejected | rejected | rejected | control |
-| C2 | TCP/53 to `192.168.5.1` | rejected | rejected | rejected | rejected | control |
+| C1 | UDP/53 to the upstream, `192.168.5.1` | rejected | rejected | rejected | rejected | control |
+| C2 | TCP/53 to the upstream, `192.168.5.1` | rejected | rejected | rejected | rejected | control |
 | C3 | UDP/53 to `8.8.8.8` | rejected | rejected | rejected | rejected | control |
 | C4 | TCP/53 to `8.8.8.8` | rejected | rejected | rejected | rejected | control |
 | C5 | TCP/853 to `1.1.1.1` | rejected | rejected | rejected | rejected | control |
