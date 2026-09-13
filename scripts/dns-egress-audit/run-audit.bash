@@ -18,6 +18,7 @@ STAGE=baseline
 CONTAINER=""
 LABEL=""
 ZONE=example.com
+UPSTREAM=""
 POLICY_PROBES=0
 SKIP_PEER=0
 SKIP_VM=0
@@ -36,6 +37,8 @@ Usage: scripts/dns-egress-audit/run-audit.bash [options]
                      for devcontainer mode after opening the repo in VS Code.
   --label STR        Random label queried under the zone. Default: generated. The captures grep for it.
   --zone DOMAIN      Public zone for the random label. Default: example.com.
+  --upstream ADDR    The embedded resolver's upstream, for C1 and C2. Default: read from a throwaway container
+                     on the sandbox network, since the firewall rewrites the agent's resolv.conf.
   --policy-probes    Run D2, D3, and D4. Requires the temporary policy entries described in README.md.
   --skip-peer        Do not start the peer responder. Skips B3, B4, and H3.
   --skip-vm          Do not use colima ssh. Skips the VM capture (H1) and VM listener check (H2).
@@ -56,6 +59,7 @@ while [ $# -gt 0 ]; do
     --container) CONTAINER=$2; shift 2 ;;
     --label) LABEL=$2; shift 2 ;;
     --zone) ZONE=$2; shift 2 ;;
+    --upstream) UPSTREAM=$2; shift 2 ;;
     --policy-probes) POLICY_PROBES=1; shift ;;
     --skip-peer) SKIP_PEER=1; shift ;;
     --skip-vm) SKIP_VM=1; shift ;;
@@ -81,12 +85,13 @@ Dry run. Stage: $STAGE. Label: $LABEL. Zone: $ZONE.
 
 1. Find the agent container: ${CONTAINER:-agentbox compose ps -q agent} and its compose network.
 2. Start the peer responder: docker run -d --rm --name $PEER_NAME --network <net> $PEER_IMAGE python3 -u /peer.py
-3. Start the VM capture: colima ssh -- sudo timeout $CAPTURE_SECS tcpdump -ni any -l -U udp port 53
+3. Learn the embedded resolver's upstream: docker run --rm --network <net> $PEER_IMAGE cat /etc/resolv.conf
+4. Start the VM capture: colima ssh -- sudo timeout $CAPTURE_SECS tcpdump -ni any -l -U udp port 53
    Mac-side capture, in another terminal: sudo tcpdump -ni $MAC_IFACE -l udp port 53 | grep --line-buffered $LABEL
-4. Run the probes: docker exec -i <agent> bash -s -- --label $LABEL --zone $ZONE --peer <peer ip> < probe.bash
-5. Collect H1 (label in the VM capture), H2 (colima ssh -- sudo ss -Hlunp sport = :53), H3 (docker run --dns <peer>),
+5. Run the probes: docker exec -i <agent> bash -s -- --label $LABEL --zone $ZONE --peer <peer ip> --upstream <ip> < probe.bash
+6. Collect H1 (label in the VM capture), H2 (colima ssh -- sudo ss -Hlunp sport = :53), H3 (docker run --dns <peer>),
    H4 (docker network inspect), H5 (docker exec -u root <agent> iptables -S; ip6tables -S).
-6. Diff results.tsv against $EXPECTED and write everything under $OUT/$STAGE-<timestamp>/.
+7. Diff results.tsv against $EXPECTED and write everything under $OUT/$STAGE-<timestamp>/.
 DRY
   exit 0
 fi
@@ -223,6 +228,20 @@ else
   skip B3; skip B4; skip H3
 fi
 
+# --- Upstream discovery ---------------------------------------------------
+# C1 and C2 target the embedded resolver's upstream. Docker names it in the ExtServers comment of the
+# resolv.conf it writes, but the firewall rewrites the agent's copy, so read it from a throwaway container
+# on the same network instead.
+if [ -z "$UPSTREAM" ]; then
+  docker run --rm --network "$NET" "$PEER_IMAGE" cat /etc/resolv.conf > "$RUN_DIR/network-resolv.conf" 2>&1 || true
+  UPSTREAM=$(sed -n 's/.*ExtServers: \[\(.*\)\].*/\1/p' "$RUN_DIR/network-resolv.conf" | sed 's/host(\(.*\))/\1/' | cut -d, -f1 | tr -d ' ')
+fi
+if [ -n "$UPSTREAM" ]; then
+  log "embedded resolver upstream: $UPSTREAM"
+else
+  log "could not learn the embedded resolver's upstream; C1 and C2 will read error"
+fi
+
 # --- VM capture -----------------------------------------------------------
 CAPTURE=0
 if [ "$SKIP_VM" -eq 0 ]; then
@@ -259,6 +278,7 @@ fi
 # --- Probes ---------------------------------------------------------------
 PROBE_ARGS=(--label "$LABEL" --zone "$ZONE")
 [ -n "$PEER_IP" ] && PROBE_ARGS+=(--peer "$PEER_IP")
+[ -n "$UPSTREAM" ] && PROBE_ARGS+=(--upstream "$UPSTREAM")
 if [ "$POLICY_PROBES" -eq 1 ]; then PROBE_ARGS+=(--policy-probes); else skip D2; skip D3; skip D4; fi
 log "running probes in the agent container"
 docker exec -i "$AGENT" bash -s -- "${PROBE_ARGS[@]}" < "$PROBE" > "$RUN_DIR/probes.tsv"

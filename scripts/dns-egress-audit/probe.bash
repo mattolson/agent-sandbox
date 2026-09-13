@@ -29,6 +29,7 @@ set -u
 ZONE=example.com
 LABEL=""
 PEER=""
+UPSTREAM=""
 PROXY="${HTTPS_PROXY:-http://proxy:8080}"
 ONLY=""
 POLICY_PROBES=0
@@ -37,13 +38,15 @@ LIST=0
 
 usage() {
   cat <<'USAGE'
-Usage: probe.bash [--label STR] [--zone DOMAIN] [--peer ADDR] [--proxy URL]
+Usage: probe.bash [--label STR] [--zone DOMAIN] [--peer ADDR] [--upstream ADDR] [--proxy URL]
                   [--only ID[,ID...]] [--policy-probes] [--timeout SECS] [--list]
 
   --label STR      Random label to query under the zone. Default: 8 random hex chars.
                    The host-side capture greps for this value.
   --zone DOMAIN    Public zone the random label is queried under. Default: example.com.
   --peer ADDR      Address of the dns-peer listener on the compose network. Enables B3 and B4.
+  --upstream ADDR  The embedded resolver's upstream, for C1 and C2. Default: the ExtServers comment in
+                   /etc/resolv.conf, which the firewall no longer keeps once it points the stub at the proxy.
   --proxy URL      Proxy for the D probes. Default: HTTPS_PROXY or http://proxy:8080.
   --only IDS       Run only these probe ids.
   --policy-probes  Also run D2, D3, and D4, which need temporary policy entries.
@@ -94,6 +97,7 @@ while [ $# -gt 0 ]; do
     --label) LABEL=$2; shift 2 ;;
     --zone) ZONE=$2; shift 2 ;;
     --peer) PEER=$2; shift 2 ;;
+    --upstream) UPSTREAM=$2; shift 2 ;;
     --proxy) PROXY=$2; shift 2 ;;
     --only) ONLY=$2; shift 2 ;;
     --policy-probes) POLICY_PROBES=1; shift ;;
@@ -118,7 +122,7 @@ ERRF=$(mktemp)
 trap 'rm -f "$ERRF"' EXIT
 
 GATEWAY=$(ip -4 route show default 2>/dev/null | awk '{print $3; exit}')
-UPSTREAM=$(sed -n 's/.*ExtServers: \[\(.*\)\].*/\1/p' /etc/resolv.conf | sed 's/host(\(.*\))/\1/' | cut -d, -f1 | tr -d ' ')
+[ -n "$UPSTREAM" ] || UPSTREAM=$(sed -n 's/.*ExtServers: \[\(.*\)\].*/\1/p' /etc/resolv.conf | sed 's/host(\(.*\))/\1/' | cut -d, -f1 | tr -d ' ')
 
 selected() {
   [ -z "$ONLY" ] && return 0
@@ -327,8 +331,8 @@ if [ -n "$UPSTREAM" ]; then
   selected C1 && run C1 "$UPSTREAM:53/udp" "$(dns_udp "$UPSTREAM" 53 "$ZONE" 1)"
   selected C2 && run C2 "$UPSTREAM:53/tcp" "$(dns_tcp "$UPSTREAM" 53 "$ZONE" 1)"
 else
-  selected C1 && emit C1 "upstream:53/udp" error "no ExtServers line in resolv.conf"
-  selected C2 && emit C2 "upstream:53/tcp" error "no ExtServers line in resolv.conf"
+  selected C1 && emit C1 "upstream:53/udp" error "upstream unknown: no ExtServers line in resolv.conf; pass --upstream"
+  selected C2 && emit C2 "upstream:53/tcp" error "upstream unknown: no ExtServers line in resolv.conf; pass --upstream"
 fi
 selected C3 && run C3 "8.8.8.8:53/udp" "$(dns_udp 8.8.8.8 53 "$ZONE" 1)"
 selected C4 && run C4 "8.8.8.8:53/tcp" "$(dns_tcp 8.8.8.8 53 "$ZONE" 1)"

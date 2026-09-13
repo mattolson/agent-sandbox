@@ -41,6 +41,13 @@ Results land in `results/<stage>-<timestamp>/`: `results.tsv` (every probe), `co
 expected file), the VM capture, the peer responder log, the `dns:` override check, and the firewall dumps taken as
 root. Commit the baseline run's directory; later runs are working files.
 
+## The upstream rows (C1, C2)
+
+C1 and C2 send raw queries to the embedded resolver's upstream. Docker names it in the `ExtServers` comment of
+the `resolv.conf` it writes, but since m18.2 the firewall rewrites the agent's copy, so the runner reads the
+comment from a throwaway container on the sandbox network and passes `--upstream` to `probe.bash`. Pass
+`--upstream ADDR` to either script to override it; without it, `probe.bash` alone reports `error` for both rows.
+
 ## Policy probes (D2, D3, D4)
 
 Three probes need hosts the default policy does not allow. Add them to `.agent-sandbox/policy/user.policy.yaml`
