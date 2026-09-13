@@ -73,6 +73,7 @@ class ProxyHarness:
         self._reader_thread = threading.Thread(target=self._pump_stdout, daemon=True)
         self.proxy_port = proxy_port
         self.policy_path = policy_path
+        self.dns_port = None
 
     def start_reader(self):
         self._reader_thread.start()
@@ -203,8 +204,12 @@ def _parse_status_code(data):
     return int(parts[1]) if len(parts) >= 2 and parts[1].isdigit() else 0
 
 
-def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_overrides=None):
-    """Start mitmdump with the integration addon and return a ProxyHarness."""
+def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_overrides=None, dns=False):
+    """Start mitmdump with the integration addon and return a ProxyHarness.
+
+    With `dns=True` a DNS-mode listener is added on a second loopback port, the way the
+    proxy image runs it, and the harness exposes it as `dns_port`.
+    """
     if MITMDUMP is None:
         raise RuntimeError("mitmdump not on PATH; cannot run integration harness")
 
@@ -213,6 +218,8 @@ def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_override
     policy_path.write_text(policy_text)
     reserved_port = reserve_tcp_port()
     proxy_port = reserved_port.getsockname()[1]
+    reserved_dns_port = reserve_tcp_port() if dns else None
+    dns_port = reserved_dns_port.getsockname()[1] if reserved_dns_port else None
 
     env = os.environ.copy()
     env["PROXY_MODE"] = "enforce" if enforce else "log"
@@ -234,17 +241,13 @@ def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_override
     ]
     for setting in mitmdump_settings:
         args.extend(["--set", setting])
-    args.extend(
-        [
-            "--listen-host",
-            "127.0.0.1",
-            "--listen-port",
-            str(proxy_port),
-            "--quiet",
-            "-s",
-            str(ENFORCER_ADDON),
-        ]
-    )
+    args.extend(["--listen-host", "127.0.0.1"])
+    if dns:
+        # Any explicit --mode replaces the default regular mode, so list both, as the image does.
+        args.extend(["--mode", f"regular@{proxy_port}", "--mode", f"dns@{dns_port}"])
+    else:
+        args.extend(["--listen-port", str(proxy_port)])
+    args.extend(["--quiet", "-s", str(ENFORCER_ADDON)])
     try:
         process = subprocess.Popen(
             args,
@@ -256,8 +259,11 @@ def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_override
         )
     finally:
         reserved_port.close()
+        if reserved_dns_port is not None:
+            reserved_dns_port.close()
 
     harness = ProxyHarness(process, proxy_port, policy_path, workdir)
+    harness.dns_port = dns_port
     harness.start_reader()
 
     if not wait_for_port(proxy_port, timeout=10.0):

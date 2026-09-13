@@ -42,4 +42,7 @@ USER mitmproxy
 # setting also streams request bodies and can prevent request-header policy blocks
 # from returning a synthetic response.
 # --set http2=false avoids HTTP/2 header validation issues (e.g., gh CLI trailing whitespace)
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh", "-s", "/home/mitmproxy/addons/enforcer.py", "--set", "http2=false"]
+# --mode dns@5353 serves the DNS sinkhole (addons/dns_sinkhole.py) from the same process; the agent's
+# firewall rewrites its port 53 traffic to it. Passing any --mode replaces the default, so the regular
+# HTTP proxy mode on 8080 is listed explicitly.
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh", "-s", "/home/mitmproxy/addons/enforcer.py", "--set", "http2=false", "--mode", "regular@8080", "--mode", "dns@5353"]

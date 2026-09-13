@@ -18,6 +18,8 @@ Environment variables:
   AGENTBOX_RENDER_POLICY_PATH: optional override for the render-policy binary
     path. Defaults to /usr/local/bin/render-policy (the location the proxy
     image installs it to).
+  AGENTBOX_DNS_ALLOW: extra exact names the DNS sinkhole answers; see
+    dns_sinkhole.py.
 """
 
 from __future__ import annotations
@@ -58,6 +60,7 @@ from secret_resolver import (  # noqa: E402
     SecretResolverError,
     render_header_value,
 )
+from dns_sinkhole import DnsSinkhole  # noqa: E402
 
 try:
     from mitmproxy import http
@@ -648,7 +651,10 @@ class PolicyEnforcer:
 def build_addons():
     if http is None:
         return []
-    return [PolicyEnforcer()]
+    # The sinkhole shares the log stream and level; it is served by the same mitmdump
+    # process in DNS mode (see the Dockerfile ENTRYPOINT).
+    sinkhole = DnsSinkhole(logger=JsonLogger(log_level=os.getenv("PROXY_LOG_LEVEL", "normal")))
+    return [PolicyEnforcer(), sinkhole]
 
 
 addons = build_addons()
