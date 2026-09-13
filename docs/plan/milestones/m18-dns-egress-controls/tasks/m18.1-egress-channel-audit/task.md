@@ -214,7 +214,7 @@ Resolved by the host run:
   DNAT-at-init design (dynamic address, sinkhole forwards service names to its own embedded resolver). The
   milestone plan now carries both
 - `m18.3` must enable IPv6 on the compose network for its audit run
-- Propose a troubleshooting entry: the proxy's single-file bind mount of `user.policy.yaml` pins the inode, so
-  editors that save by rename and `git checkout` make `agentbox proxy reload` re-render stale content while
-  reporting `applied`. Restart the proxy, or consider mounting the policy directory instead of single files
+- Filed as issue #201: the proxy's single-file bind mounts of the policy files pin the inode, so editors that save
+  by rename and `git checkout` make `agentbox proxy reload` re-render stale content while reporting `applied`.
+  The proposed fix mounts the policy directory instead and lets the renderer pick the per-agent file
 - The devcontainer run is part of the `m18.2` acceptance rather than this task
