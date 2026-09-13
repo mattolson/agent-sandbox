@@ -63,6 +63,12 @@ agentbox proxy reload
 D2 shows that DNS-over-HTTPS to an allowed host is open by design. D3 and D4 show that an allowed name resolving
 into the sandbox's own bridge network or the proxy's loopback is connected today; m18.4 must refuse both.
 
+If D2 still reads `proxy-403` after the reload, the proxy did not apply the new policy. Check the reload event with
+`agentbox compose logs proxy | grep '"type": "reload"'`; an `applied` entry means the entries are live, a
+`rejected` entry carries the render error. `agentbox compose restart proxy` re-renders from scratch if the
+signal path is not working. The three probes run inside the container, so once the entries are live they can
+also be taken from a sandbox shell with `probe.bash --policy-probes --only D2,D3,D4`.
+
 ## Devcontainer mode
 
 Open the repo as a devcontainer in VS Code, find the container id with `docker ps`, and pass it:

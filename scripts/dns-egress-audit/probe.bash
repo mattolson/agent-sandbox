@@ -239,7 +239,9 @@ peer_result() {
 http_probe() {
   local url=$1 body code connect rc
   body=$(mktemp)
-  code=$(curl -s -m 10 -o "$body" -w '%{http_code} %{http_connect}' -x "$PROXY" "$url" 2>/dev/null); rc=$?
+  # --noproxy '' overrides the container's NO_PROXY list, which names proxy and localhost; D3 and D4 must go
+  # through the proxy even though they target those names.
+  code=$(curl -s -m 10 --noproxy '' -o "$body" -w '%{http_code} %{http_connect}' -x "$PROXY" "$url" 2>/dev/null); rc=$?
   connect=${code#* }; code=${code%% *}
   if [ "$connect" = 403 ] || { [ "$code" = 403 ] && grep -q "Blocked by proxy policy" "$body"; }; then
     echo "proxy-403 $(head -c 120 "$body")"
