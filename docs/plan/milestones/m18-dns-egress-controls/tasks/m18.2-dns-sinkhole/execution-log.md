@@ -1,5 +1,19 @@
 # Execution Log: m18.2 - dns sinkhole
 
+## 2026-09-12 - Rebuilt proxy verified live from the old agent container
+
+The maintainer rebuilt `agent-sandbox-proxy:local` and recreated only the proxy, so the sinkhole could be checked
+from the still-running agent container before the agent image changes.
+
+**Observation:** From the agent, `proxy:5353` answers `proxy` A with the proxy's address, empty `NOERROR` for AAAA
+and TXT, `NXDOMAIN` for a random label over UDP and over TCP, and `NXDOMAIN` for a 253-byte name. Audit row S2
+reads `nxdomain`; S1 and S3 still time out because the port-53 rewrite lives in the agent image that is not yet
+rebuilt. The HTTP proxy is unaffected: allowed URLs succeed and an unlisted host still gets the policy 403.
+
+**Observation:** `https://github.com/` through the proxy returns 403 in this repo's sandbox. That is the repo's
+path-scoped GitHub policy, which allows only the git and API paths, not a regression; the milestone's acceptance
+wording assumes a host-level allow. The check here uses URLs the policy allows.
+
 ## 2026-09-12 - Proxy addon, firewall rewrite, tests, and audit rows landed; host run pending
 
 Approved as planned. The branch was renamed to `m18-dns-egress-controls` for the whole milestone first.
