@@ -164,8 +164,9 @@ nothing points it at the sinkhole. `agentbox bump` moves both pins together. The
 - [x] Maintainer rebuilds with `make setup` and `./images/build.sh proxy`, runs `agentbox up`, and runs the audit
       at `--stage after-m18.2`; iterate on failures from inside the rebuilt sandbox. Clean in CLI mode on
       2026-09-13 after two audit-side fixes; see the execution log
-- [ ] Maintainer repeats the audit with `--container` against the devcontainer
-- [ ] Verify each acceptance criterion, capture learnings, and note follow-ups for `m18.3` and `m18.5`
+- [x] Maintainer repeats the audit with `--container` against the devcontainer. Clean on 2026-09-13
+- [x] Verify each acceptance criterion, capture learnings, and note follow-ups for `m18.3` and `m18.5`. One
+      criterion is left open for a maintainer check; see the outcome
 
 ### Open Questions
 
@@ -186,18 +187,59 @@ nothing points it at the sinkhole. `agentbox bump` moves both pins together. The
 
 ### Acceptance Verification
 
-- [ ] From the agent container, a lookup of a random label under a domain we control returns `NXDOMAIN` and no
-      query reaches that domain's nameserver
-- [ ] `curl -x http://proxy:8080 https://github.com` still succeeds, and an unlisted host still returns the proxy 403
-- [ ] A direct query to a public resolver and a direct query to the bridge gateway both fail
-- [ ] The firewall self-test fails the container start if either DNS assertion does not hold
-- [ ] Both CLI mode and devcontainer mode pass the same assertions
-- [ ] `go test ./...` and the proxy suite pass, and generated compose output is covered by the existing template tests
+Evidence is the two clean after-m18.2 audit runs on 2026-09-13, CLI mode (`results/after-m18.2-20260913-161555/`)
+and devcontainer mode (`results/after-m18.2-20260913-162638/`), plus checks from inside the rebuilt CLI sandbox.
+
+- [x] From the agent container, a lookup of a random label under a domain we control returns `NXDOMAIN` and no
+      query reaches that domain's nameserver. A2 `not-found`, S1 `nxdomain`, H1 `not-seen` in both modes. The zone
+      is `example.com` rather than one we control; the VM capture shows no query carrying the label left the VM at
+      all, which is the stronger statement
+- [x] `curl -x http://proxy:8080 https://github.com` still succeeds, and an unlisted host still returns the proxy 403.
+      An allowed URL, the repo's API path on `api.github.com`, returns 200 through the proxy; `https://example.com`
+      gets `CONNECT` 403 (D1 `proxy-403` in both modes). `https://github.com/` itself is 403 under this repo's
+      path-scoped policy, as noted in the execution log
+- [x] A direct query to a public resolver and a direct query to the bridge gateway both fail. C3, C4, B1, B2
+      `rejected` in both modes
+- [ ] The firewall self-test fails the container start if either DNS assertion does not hold. Passing direction
+      verified live: re-running `sudo /usr/local/bin/init-firewall.sh` in the running sandbox rebuilt the rules and
+      passed all four self-tests in 0.1 s. Failing direction verified by reading the script (each `FAIL` branch
+      exits 1 under `set -e`, and the entrypoint aborts) and by the earlier function-level check of `dns_rcode`
+      against a forwarding resolver. Not observed: an actual container start against a proxy image without the
+      sinkhole. Maintainer check: pin the proxy to the pre-sinkhole GHCR digest in `user.override.yml`, run
+      `agentbox up`, and expect the agent to stop with the `agentbox bump` banner
+- [x] Both CLI mode and devcontainer mode pass the same assertions. Both runs clean; the `iptables -S` dumps are
+      identical modulo the network's addresses
+- [x] `go test ./...` and the proxy suite pass, and generated compose output is covered by the existing template
+      tests. Go: 5 packages ok. Proxy: 224 tests OK. No compose template changed in this task
 
 ### Learnings
 
-To be filled at completion.
+- An expected file written at planning time needs a pass against the final rule order. A8 was carried over from
+  baseline as `answered`, but no raw query to an address the firewall rejects outright can be answered
+- Once the firewall owns `/etc/resolv.conf`, nothing inside the agent container can learn Docker's resolver facts
+  from it. A throwaway container on the same network still gets Docker's original file; read such facts there
+- Re-running `init-firewall.sh` in place is safe, takes 0.1 s, and re-verifies all four self-tests. That is the
+  repair path after a proxy recreation and the thing `m18.5` should document
+- Devcontainer mode is a separate compose project, `<name>-devcontainer`, with its own proxy and network, so it
+  runs beside the CLI stack and the two audits do not interfere. `agentbox init --mode devcontainer` on a CLI
+  layout regenerates the managed layers from the current templates, so expect image-pin and layout churn in a
+  checked-in runtime tree
+- `mitmdump` in DNS mode with the sinkhole addon dies with `SIGSEGV` on `SIGTERM` in the integration harness and
+  leaves a `core` file at the repo root. Plain `mitmdump --mode dns@PORT` without the addon exits cleanly, and the
+  other integration tests leave no dump, so the addon or the harness teardown is involved
 
 ### Follow-up Items
 
-To be filled at completion.
+- The `SIGSEGV` on shutdown in DNS mode: find whether it is the resolver removal in `load()`, the DNS layer's
+  teardown with an open UDP socket, or the harness closing stdout under the process. The proxy container runs the
+  same configuration, so `agentbox compose stop proxy` may crash the same way. Until fixed, the suite leaves a
+  64 MB `core` at the repo root after every run
+- The tool inventory in the bypass matrix still has entries marked "verify". Node `fetch`, `uv`, `cargo`, and
+  `rustup` were never measured against the sinkhole, and anything that is not proxy-aware now fails with
+  `NXDOMAIN` rather than resolving directly. Measure them before `m18.5` writes the user-facing note
+- `m18.3`: the E rows. IPv6 is absent on the compose network today, so every IPv6 probe reads `unreachable` and
+  the flip to `rejected` is only observable once the run enables IPv6 on the network
+- `m18.5`: document the repair path (`sudo /usr/local/bin/init-firewall.sh`), `AGENTBOX_DNS_ALLOW`, the DoH
+  residual (D2), and the version-skew banner; write the decision record from the rationale in this plan
+- The checked-in `.agent-sandbox/` tree is behind the templates, as the devcontainer init showed. Refresh it in
+  its own change, not in this milestone

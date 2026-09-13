@@ -1,5 +1,28 @@
 # Execution Log: m18.2 - dns sinkhole
 
+## 2026-09-13 - Devcontainer run clean; acceptance verified from the sandbox
+
+The maintainer ran `agentbox init --mode devcontainer` on the CLI layout, reopened the repo in VS Code, and ran the
+audit with `--container agent-sandbox-devcontainer-agent-1`. Every compared row matches, the VM capture was live
+with zero packets carrying the label, and the `iptables -S` dump is identical to the CLI run modulo the network's
+addresses (`172.27.0.0/16` against `172.22.0.0/16`). The devcontainer stack is its own compose project, so it ran
+beside the CLI stack. Raw run under `results/after-m18.2-20260913-162638/` as a working file.
+
+**Observation:** From the rebuilt CLI sandbox, an allowed URL returns 200 through the proxy and `https://example.com`
+gets `CONNECT` 403. Re-running `sudo /usr/local/bin/init-firewall.sh` in place rebuilt the rules and passed all
+four self-tests in 0.1 s; `proxy` still resolves and the proxy still answers afterwards. `go test ./...` is green
+and the proxy suite runs 224 tests OK.
+
+**Issue:** The proxy suite leaves a 64 MB `core` at the repo root: `mitmdump` dies with `SIGSEGV` (`SEGV_ACCERR`)
+when the harness sends `SIGTERM`. Scoped by running the suites apart: only the DNS sinkhole integration tests
+produce it, the other integration tests do not, and a plain `mitmdump --mode regular@P --mode dns@P` without the
+addon exits 0 on `SIGTERM`. The suite itself passes. Recorded as a follow-up in the task plan; the dump is deleted
+and not committed.
+
+**Decision:** The acceptance list is filled in with evidence per criterion. One box stays open: the self-test's
+failing direction was verified by reading the script and by the earlier function-level check, not by starting an
+agent against a proxy image without the sinkhole. That check needs the Mac and is written up for the maintainer.
+
 ## 2026-09-13 - after-m18.2 host run clean in CLI mode
 
 Re-run of `run-audit.bash --stage after-m18.2` after the audit fixes. Every compared row matches. The only

@@ -4,8 +4,8 @@ Status: baseline complete for CLI mode, measured on 2026-09-12 from this repo's 
 in-container rows were run from the sandbox, the host-side rows by `run-audit.bash` on the Mac, and D2 through D4
 from a sandbox shell after the temporary policy entries went live. The raw run is checked in under
 `scripts/dns-egress-audit/results/baseline-20260912-121839/`. The devcontainer run belongs to the `m18.2`
-acceptance. The after-m18.2 column is confirmed for CLI mode as of 2026-09-13; that run is a working file under
-`results/after-m18.2-20260913-161555/`.
+acceptance. The after-m18.2 column is confirmed for both modes as of 2026-09-13; those runs are working files
+under `results/after-m18.2-20260913-161555/` (CLI) and `results/after-m18.2-20260913-162638/` (devcontainer).
 
 Re-run with `scripts/dns-egress-audit/run-audit.bash --stage <stage>` on the Mac, or run `probe.bash` alone from a
 sandbox shell for the in-container rows. `scripts/dns-egress-audit/README.md` has the procedure.
@@ -25,7 +25,7 @@ Result words are defined in the header of `probe.bash`. `*` means recorded but n
 | A5 | raw UDP/53, NULL | noerror-empty (forwarded) | rejected | rejected | rejected | m18.2 |
 | A6 | raw UDP/53, 253-byte name | nxdomain, 271 bytes (forwarded) | rejected | rejected | rejected | m18.2 via H1 |
 | A7 | raw TCP/53 to `127.0.0.11` | answered | rejected | rejected | rejected | m18.2 |
-| A8 | raw UDP/53 to `127.0.0.11`, A `proxy` | answered | rejected | rejected | rejected | m18.2; S3 is the service-name control |
+| A8 | raw UDP/53 to `127.0.0.11`, A `proxy` | answered | rejected | rejected | rejected | m18.2; S3 is the control |
 | A9 | raw UDP to the embedded resolver's real port | answered | rejected | rejected | rejected | m18.2 |
 | A10 | raw TCP to the embedded resolver's real port | answered | rejected | rejected | rejected | m18.2 |
 | B1 | UDP/53 to bridge gateway | timeout | rejected | rejected | rejected | m18.2 |
@@ -185,4 +185,6 @@ real sinkhole; entries marked "verify" are from documentation, not measurement.
 
 ## Pending
 
-- The devcontainer run with `--container`, which belongs to the `m18.2` acceptance run.
+- The dynamic check of the tool inventory below against the live sinkhole. The entries marked "verify" are
+  still from documentation.
+- The E rows, which need IPv6 enabled on the compose network for the `m18.3` run.
