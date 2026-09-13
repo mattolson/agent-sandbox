@@ -150,7 +150,7 @@ file on E2 through E4 when IPv6 is present; the `m18.4` file on D3 and D4.
       results file, expected-file diff, `--stage` and `--container` flags
 - [x] Run the in-container probes from this sandbox and record the baseline for A, C, D1, and E
 - [x] Maintainer runs `run-audit.bash` on the Mac: B3, B4, H1 through H5 measured; results directory committed
-- [ ] Maintainer runs `--policy-probes` for D2 through D4 after the temporary policy edit
+- [x] D2 through D4 taken from the sandbox after the temporary policy entries went live
 - [x] Fix the runner for macOS awk, which reserves `exp` as a function name
 - [x] Write `bypass-matrix.md` with observed values, the demonstration procedure, and findings
 - [x] Write the four `expected/*.tsv` files
@@ -181,7 +181,7 @@ Resolved by the host run:
 ### Acceptance Verification
 
 - [x] A checked-in matrix lists every probe, the observed result before any change, and the expected result after.
-      `bypass-matrix.md` plus `expected/*.tsv`; D2 through D4 observed values still pending the policy-probe run
+      `bypass-matrix.md` plus `expected/*.tsv`, every row observed in CLI mode
 - [x] The demonstration of the query-name channel is reproducible by a second person from the write-up. The
       three-terminal procedure is in the matrix doc; the checked-in VM capture shows the label at each hop
 - [x] Every later task in this milestone has at least one probe that must flip from escape to blocked. `m18.2`:
@@ -203,6 +203,10 @@ Resolved by the host run:
   and the first host run failed on exactly that. Test them on the Mac or avoid those names
 - The partial run still produced every row because the results file is written before the comparison. Keep
   collection and evaluation separate so a bug in one does not cost the other
+- `curl` honours `NO_PROXY` even with an explicit `-x`; a probe that must traverse the proxy to a name on that
+  list needs `--noproxy ''`
+- A single-file bind mount pins the inode. A reload that re-reads the file can report success while reading
+  content the host replaced minutes ago
 
 ### Follow-up Items
 
@@ -210,5 +214,7 @@ Resolved by the host run:
   DNAT-at-init design (dynamic address, sinkhole forwards service names to its own embedded resolver). The
   milestone plan now carries both
 - `m18.3` must enable IPv6 on the compose network for its audit run
-- D2 through D4 still need the `--policy-probes` run to fix the `m18.4` baseline
+- Propose a troubleshooting entry: the proxy's single-file bind mount of `user.policy.yaml` pins the inode, so
+  editors that save by rename and `git checkout` make `agentbox proxy reload` re-render stale content while
+  reporting `applied`. Restart the proxy, or consider mounting the policy directory instead of single files
 - The devcontainer run is part of the `m18.2` acceptance rather than this task

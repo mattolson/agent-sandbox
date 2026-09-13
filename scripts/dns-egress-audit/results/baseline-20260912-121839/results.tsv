@@ -28,3 +28,6 @@ H2	vm :53 listeners	info	8 sockets; UNCONN 0      0                             
 H3	docker run --dns 172.22.0.4	upstream-only	nameserver=127.0.0.11 example.com->203.0.113.1 # ExtServers: [172.22.0.4] proxy -> 172.22.0.2 
 H4	docker network inspect agent-sandbox_default	info	EnableIPv6=false subnets=172.22.0.0/16 
 H5	iptables -S / ip6tables -S	info	ipv4 rules=13 ipv6 rules=0 ipv6 policy: -P INPUT ACCEPT -P FORWARD ACCEPT -P OUTPUT ACCEPT  
+D2	dns.google via proxy	http-200	{"Status":0,"TC":false,"RD":true,"RA":true,"AD":true,"CD":false,"Question":[{"name":"7e3a9c10.example.com.","type":1}],"
+D3	proxy:9 via proxy	http-502	<html> <head> <title>502 Bad Gateway</title> </head> <body> <h1>502 Bad Gateway</h1> <p>[Errno 111] Connect
+D4	localhost:9 via proxy	http-502	<html> <head> <title>502 Bad Gateway</title> </head> <body> <h1>502 Bad Gateway</h1> <p>Multiple exceptions:

@@ -18,6 +18,8 @@ Lessons learned during project execution. Review at the start of each planning s
 - Bash can send and receive raw UDP and TCP through `/dev/udp` and `/dev/tcp` when an image has no `dig` or `nc`: read a reply with one `dd bs=4096 count=1`, capture socket-open errors with `{ exec 3<>...; } 2>file`, and tell the firewall's REJECT apart by errno (`EPERM` on a UDP send, `EHOSTUNREACH` on a TCP connect)
 - A proxy 403 to a `CONNECT` request has no body and shows up as curl exit 56; `-w '%{http_connect}'` exposes the status
 - Scripts meant to run on the Mac run on BSD tools: macOS awk reserves built-in function names such as `exp` as identifiers, and the first host-side audit run failed on that. Write collection and evaluation as separate steps so a bug in one does not lose the other's output
+- Single-file bind mounts pin the inode. The proxy mounts `user.policy.yaml` that way, so an editor that saves by rename, or `git checkout`, leaves the container reading the old content; `agentbox proxy reload` then re-renders stale policy and reports `applied`. Restart the proxy after such edits, or mount the directory instead of the file
+- `curl` honours `NO_PROXY` even when `-x` names a proxy explicitly; pass `--noproxy ''` when a request to a listed name must go through the proxy
 - Policy files that control security must live outside the workspace and be mounted read-only; otherwise the agent can modify them and re-run initialization to bypass restrictions
 - Baking default policies into images is safe (agent can't modify the image) and provides good UX (works out of the box)
 - Policy layering via Dockerfile COPY overwrites parent layer's policy cleanly

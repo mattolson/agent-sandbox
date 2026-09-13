@@ -18,9 +18,9 @@ C3	OK	rejected	rejected	Operation not permitted
 C4	OK	rejected	rejected	No route to host
 C5	OK	rejected	rejected	No route to host
 D1	OK	proxy-403	proxy-403	
-D2	SKIPPED	http-200	-	
-D3	SKIPPED	http-502	-	
-D4	SKIPPED	http-502	-	
+D2	OK	http-200	http-200	{"Status":0,"TC":false,"RD":true,"RA":true,"AD":true,"CD":false,"Question":[{"name":"7e3a9c10.example.com.","type":1}],"
+D3	OK	http-502	http-502	<html> <head> <title>502 Bad Gateway</title> </head> <body> <h1>502 Bad Gateway</h1> <p>[Errno 111] Connect
+D4	OK	http-502	http-502	<html> <head> <title>502 Bad Gateway</title> </head> <body> <h1>502 Bad Gateway</h1> <p>Multiple exceptions:
 E1	OK	absent	absent	no global IPv6 address on eth0; route=none
 E2	OK	unreachable	unreachable	Network is unreachable
 E3	OK	unreachable	unreachable	Network is unreachable

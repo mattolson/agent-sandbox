@@ -1,5 +1,24 @@
 # Execution Log: m18.1 - egress channel audit
 
+## 2026-09-12 - Policy probes taken; baseline complete for CLI mode
+
+**Issue:** The maintainer's `--policy-probes` run reported D2 `proxy-403` and D3, D4 `curl-7`.
+**Solution:** Two causes. D3 and D4 were a probe bug: the container's `NO_PROXY` names `proxy` and `localhost`, and
+curl honours it even with `-x`, so the requests bypassed the proxy. Fixed with `--noproxy ''`. D2 was the proxy not
+seeing the edit: `agentbox proxy reload` logged `applied` with the same 9 host records before and after, and the
+public allowlist rewritten at that moment lacked the entries. The proxy mounts `user.policy.yaml` as a single-file
+bind mount, so a save-by-rename left it attached to the old inode. `agentbox compose restart proxy` fixed it; the
+allowlist then had 12 hosts.
+
+**Observation:** D2 `http-200`: the DoH answer for the random label carries `example.com`'s SOA in its authority
+section, so the label reached the authoritative server via Google. D3 `http-502` with `[Errno 111] Connection
+refused` from the proxy's own bridge address; D4 `http-502` with `Multiple exceptions`, both loopbacks refused. The
+proxy connects wherever an allowed name points and only fails on the port. Rows appended to the committed baseline
+run and the comparison regenerated: 27 OK, 6 INFO, nothing skipped.
+
+**Decision:** The audit README now says restart rather than reload around the policy edit, and the task's follow-up
+list proposes a troubleshooting entry, since this will bite any user who edits policy with an atomic-save editor.
+
 ## 2026-09-12 - Host-side baseline run on the Mac
 
 The maintainer ran `run-audit.bash --stage baseline` from the Mac. Every row was collected; only the comparison

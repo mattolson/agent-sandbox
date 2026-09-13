@@ -1,9 +1,10 @@
 # m18 bypass matrix
 
-Status: baseline measured on 2026-09-12 in CLI mode, from this repo's dev sandbox on Colima. The in-container rows
-were run from the sandbox and the host-side rows by `run-audit.bash` on the Mac; the raw run is checked in under
-`scripts/dns-egress-audit/results/baseline-20260912-121839/`. Still pending: D2 through D4, which need the
-temporary policy entries, and the devcontainer run.
+Status: baseline complete for CLI mode, measured on 2026-09-12 from this repo's dev sandbox on Colima. The
+in-container rows were run from the sandbox, the host-side rows by `run-audit.bash` on the Mac, and D2 through D4
+from a sandbox shell after the temporary policy entries went live. The raw run is checked in under
+`scripts/dns-egress-audit/results/baseline-20260912-121839/`. The devcontainer run belongs to the `m18.2`
+acceptance.
 
 Re-run with `scripts/dns-egress-audit/run-audit.bash --stage <stage>` on the Mac, or run `probe.bash` alone from a
 sandbox shell for the in-container rows. `scripts/dns-egress-audit/README.md` has the procedure.
@@ -34,9 +35,9 @@ Result words are defined in the header of `probe.bash`. `*` means recorded but n
 | C4 | TCP/53 to `8.8.8.8` | rejected | rejected | rejected | rejected | control |
 | C5 | TCP/853 to `1.1.1.1` | rejected | rejected | rejected | rejected | control |
 | D1 | DoH through proxy, unlisted host | proxy-403 | proxy-403 | proxy-403 | proxy-403 | control |
-| D2 | DoH through proxy, host allowed | pending, expect http-200 | http-200 | http-200 | http-200 | residual |
-| D3 | allowed name resolving to the bridge net | pending, expect http-502 | http-502 | http-502 | http-403 | m18.4 |
-| D4 | allowed name resolving to loopback | pending, expect http-502 | http-502 | http-502 | http-403 | m18.4 |
+| D2 | DoH through proxy, host allowed | http-200, authority reached | http-200 | http-200 | http-200 | residual |
+| D3 | allowed name resolving to the bridge net | http-502, port refused | http-502 | http-502 | http-403 | m18.4 |
+| D4 | allowed name resolving to loopback | http-502, both loopbacks refused | http-502 | http-502 | http-403 | m18.4 |
 | E1 | IPv6 on `eth0` | absent | absent | absent or present | same | m18.3 decides |
 | E2 | UDP/53 to `2001:4860:4860::8888` | unreachable | unreachable | rejected when present | same | m18.3 |
 | E3 | TCP/53 to `2001:4860:4860::8888` | unreachable | unreachable | rejected when present | same | m18.3 |
@@ -126,6 +127,19 @@ label so the Mac capture can be started by hand.
 11. `ip6tables` works in the image and holds ACCEPT policies with no rules (H5), and the compose network has
     `EnableIPv6=false` (H4). IPv6 is unfiltered but unreachable. The `after-m18.3` run must enable IPv6 on the
     network, for example with `enable_ipv6: true` in a user override, or the E rows cannot flip.
+12. The residual is real (D2). With `dns.google` allowed, a DoH lookup for the random label returned a JSON answer
+    whose authority section names `example.com`'s nameservers, so the label reached the authoritative server
+    through Google's resolver with nothing in the sandbox involved but an allowed HTTPS host. D1 reads `http-200`
+    in that state too; its `proxy-403` baseline is the default policy.
+13. The proxy dials wherever an allowed name points (D3, D4). `proxy` resolved to the proxy's own bridge address
+    and `localhost` to both loopbacks; the proxy connected, got the port refused, and returned a 502 with the
+    errno in the body. Nothing checks the address class before the connect. `m18.4` turns both into a refusal
+    before the connect, with a distinct event.
+14. An operational finding from taking D2: the proxy mounts `user.policy.yaml` as a single-file bind mount, so an
+    editor that saves by writing a new file and renaming it leaves the container attached to the old inode.
+    `agentbox proxy reload` then re-renders the stale content and reports `applied`. `agentbox compose restart
+    proxy` re-establishes the mount from the path. The README for the audit says restart, not reload, for this
+    reason.
 
 ## Residual cases
 
@@ -155,6 +169,4 @@ real sinkhole; entries marked "verify" are from documentation, not measurement.
 
 ## Pending
 
-- D2 through D4 from a run with `--policy-probes`, which fixes the baseline value the `m18.4` flip is
-  measured against.
 - The devcontainer run with `--container`, which belongs to the `m18.2` acceptance run.
