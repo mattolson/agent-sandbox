@@ -1,5 +1,49 @@
 # Execution Log: m18.2 - dns sinkhole
 
+## 2026-09-13 - after-m18.2 host run clean in CLI mode
+
+Re-run of `run-audit.bash --stage after-m18.2` after the audit fixes. Every compared row matches. The only
+skipped rows are the policy probes D2 through D4, which need the temporary policy entries and `--policy-probes`;
+they are not part of this task's acceptance. The raw run is under `results/after-m18.2-20260913-161555/` as a
+working file.
+
+**Observation:** The VM capture was live for the whole window: `tcpdump` on `any` reported the run ending on the
+`timeout` exit and zero packets carrying the label, so H1's `not-seen` is a measurement, not a capture that failed
+to start. The peer log holds one UDP query for `example.com` from `172.22.0.5`; that is the H3 throwaway container
+forwarding through its `--dns` setting after the probes ran, not the agent, whose B3 and B4 read `rejected`.
+
+**Observation:** The runner learned the upstream `192.168.5.1` from the throwaway container's `resolv.conf`, and
+C1 and C2 read `rejected` against it.
+
+**Issue:** Left for acceptance: the devcontainer run with `--container`, then the criteria checklist.
+
+## 2026-09-12 - First after-m18.2 host run: the firewall held, the audit had two defects
+
+The maintainer rebuilt both images, ran `agentbox up`, and ran `run-audit.bash --stage after-m18.2` in CLI mode.
+Three rows mismatched: A8, C1, and C2. Every other compared row matched, including all thirteen flips and H1's
+`not-seen` from the VM capture.
+
+**Observation:** A8 read `rejected` against an expected `answered`. A8 is a raw UDP query to `127.0.0.11` for
+`proxy`, and rule 3 rejects that address outright, so `rejected` is the designed result; the planning value was
+carried over from baseline by mistake. S3, `proxy` A to `proxy:53`, read `answered` and is the service-name
+control from here on.
+
+**Decision:** A8 reads `rejected` in the after-m18.2, after-m18.3, and after-m18.4 files and joins the must-differ
+list. Pinning A8 to `127.0.0.11` rather than following `resolv.conf` keeps it as evidence that the embedded
+resolver is unreachable even for a legitimate name.
+
+**Observation:** C1 and C2 read `error`, `no ExtServers line in resolv.conf`. The probe learned the upstream from
+Docker's comment in the agent's `resolv.conf`, which `init-firewall.sh` now rewrites. The upstream did not change:
+a throwaway container on the same network still gets `ExtServers: [host(192.168.5.1)]`.
+
+**Decision:** `run-audit.bash` reads the comment from a throwaway `python:3-alpine` container on the sandbox
+network, saves it as `network-resolv.conf` in the run directory, and passes `--upstream` to `probe.bash`, which
+gains that option and falls back to the old parse. The firewall script stays untouched; preserving Docker's
+comment there would have put an audit convenience in a security-critical file. Verified from the rebuilt
+sandbox: `probe.bash --only A8,C1,C2 --upstream 192.168.5.1` reads `rejected` for all three.
+
+**Issue:** The host run needs repeating in CLI mode, and the devcontainer run is still pending.
+
 ## 2026-09-12 - Rebuilt proxy verified live from the old agent container
 
 The maintainer rebuilt `agent-sandbox-proxy:local` and recreated only the proxy, so the sinkhole could be checked

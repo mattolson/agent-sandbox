@@ -4,7 +4,8 @@ Status: baseline complete for CLI mode, measured on 2026-09-12 from this repo's 
 in-container rows were run from the sandbox, the host-side rows by `run-audit.bash` on the Mac, and D2 through D4
 from a sandbox shell after the temporary policy entries went live. The raw run is checked in under
 `scripts/dns-egress-audit/results/baseline-20260912-121839/`. The devcontainer run belongs to the `m18.2`
-acceptance.
+acceptance. The after-m18.2 column is confirmed for CLI mode as of 2026-09-13; that run is a working file under
+`results/after-m18.2-20260913-161555/`.
 
 Re-run with `scripts/dns-egress-audit/run-audit.bash --stage <stage>` on the Mac, or run `probe.bash` alone from a
 sandbox shell for the in-container rows. `scripts/dns-egress-audit/README.md` has the procedure.
@@ -150,6 +151,11 @@ label so the Mac capture can be started by hand.
     `agentbox proxy reload` then re-renders the stale content and reports `applied`. `agentbox compose restart
     proxy` re-establishes the mount from the path. The README for the audit says restart, not reload, for this
     reason.
+16. From the first after-m18.2 host run: two audit defects, no firewall defect. A8 was planned as `answered`, but it
+    is a raw query to `127.0.0.11`, which the design rejects outright, so it flips with the other raw rows; S3
+    carries the service-name control. And C1 and C2 read the upstream from the `ExtServers` comment in the
+    agent's `resolv.conf`, which the firewall now rewrites, so the runner reads it from a throwaway container on
+    the sandbox network and passes `--upstream`. Every other compared row matched on the first run.
 
 ## Residual cases
 

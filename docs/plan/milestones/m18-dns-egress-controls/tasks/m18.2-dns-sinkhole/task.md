@@ -161,8 +161,9 @@ nothing points it at the sinkhole. `agentbox bump` moves both pins together. The
 - [x] Update the `entrypoint.sh` banner
 - [x] Add S1 through S3 to `probe.bash`, the expected files, and the matrix
 - [x] Write the changelog entry and record the design choice in the milestone plan
-- [ ] Maintainer rebuilds with `make setup` and `./images/build.sh proxy`, runs `agentbox up`, and runs the audit
-      at `--stage after-m18.2`; iterate on failures from inside the rebuilt sandbox
+- [x] Maintainer rebuilds with `make setup` and `./images/build.sh proxy`, runs `agentbox up`, and runs the audit
+      at `--stage after-m18.2`; iterate on failures from inside the rebuilt sandbox. Clean in CLI mode on
+      2026-09-13 after two audit-side fixes; see the execution log
 - [ ] Maintainer repeats the audit with `--container` against the devcontainer
 - [ ] Verify each acceptance criterion, capture learnings, and note follow-ups for `m18.3` and `m18.5`
 
