@@ -129,6 +129,8 @@ import struct
 import threading
 
 A_RDATA = bytes([203, 0, 113, 1])  # TEST-NET-3, never routable
+# Bind to this container's own address on the compose network rather than every interface.
+BIND = socket.gethostbyname(socket.gethostname())
 
 
 def parse(q):
@@ -168,8 +170,8 @@ def respond(q):
 
 def udp():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.bind(("0.0.0.0", 53))
-    print("listening udp/53", flush=True)
+    s.bind((BIND, 53))
+    print(f"listening udp/53 on {BIND}", flush=True)
     while True:
         q, peer = s.recvfrom(4096)
         name, resp = respond(q)
@@ -181,9 +183,9 @@ def udp():
 def tcp():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(("0.0.0.0", 53))
+    s.bind((BIND, 53))
     s.listen(16)
-    print("listening tcp/53", flush=True)
+    print(f"listening tcp/53 on {BIND}", flush=True)
     while True:
         c, peer = s.accept()
         try:

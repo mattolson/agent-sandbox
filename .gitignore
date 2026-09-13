@@ -13,3 +13,5 @@ __pycache__/
 .DS_Store
 /bin/
 /dist/
+# Per-run copy of the audit peer responder; the source lives in run-audit.bash
+scripts/dns-egress-audit/results/*/peer.py
