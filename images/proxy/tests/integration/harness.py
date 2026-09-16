@@ -4,6 +4,12 @@ Spawns `mitmdump` as a subprocess against a temporary policy file and captures
 its stdout JSON log lines. Each test starts a fresh proxy; SIGHUP scenarios
 edit the policy file in place within a single test.
 
+mitmdump runs through `images/proxy/run-mitmdump`, the launcher the proxy image
+uses, so the tests exercise the same process the container runs. The launcher
+exists because mitmproxy's DNS mode crashes during interpreter teardown after
+it has handled a query; `terminate()` checks the exit status so a return of
+that crash fails the test instead of leaving a core file behind.
+
 Designed to work with `unittest`, matching the existing proxy test style.
 """
 
@@ -29,7 +35,7 @@ from urllib.parse import urlsplit
 REPO_ROOT = Path(__file__).resolve().parents[4]
 ENFORCER_ADDON = REPO_ROOT / "images" / "proxy" / "addons" / "enforcer.py"
 RENDER_POLICY_PATH = REPO_ROOT / "images" / "proxy" / "render-policy"
-MITMDUMP = shutil.which("mitmdump")
+RUN_MITMDUMP = REPO_ROOT / "images" / "proxy" / "run-mitmdump"
 
 
 class HarnessTimeoutError(Exception):
@@ -37,7 +43,7 @@ class HarnessTimeoutError(Exception):
 
 
 def mitmdump_available():
-    return MITMDUMP is not None
+    return importlib.util.find_spec("mitmproxy") is not None
 
 
 def reserve_tcp_port():
@@ -74,6 +80,7 @@ class ProxyHarness:
         self.proxy_port = proxy_port
         self.policy_path = policy_path
         self.dns_port = None
+        self.returncode = None
 
     def start_reader(self):
         self._reader_thread.start()
@@ -184,7 +191,14 @@ class ProxyHarness:
                     )
         return data
 
-    def terminate(self):
+    def terminate(self, check=True):
+        """Stop mitmdump with SIGTERM and clean up. Safe to call more than once.
+
+        With `check`, a process that did not exit with status 0 raises, so a crash
+        on shutdown fails the test that owned the proxy.
+        """
+        if self.returncode is not None:
+            return
         if self._process.poll() is None:
             self._process.send_signal(signal.SIGTERM)
             try:
@@ -192,10 +206,16 @@ class ProxyHarness:
             except subprocess.TimeoutExpired:
                 self._process.kill()
                 self._process.wait(timeout=2.0)
+        self.returncode = self._process.returncode
         if self._process.stdout is not None:
             self._process.stdout.close()
         self._reader_thread.join(timeout=2.0)
         shutil.rmtree(self._workdir, ignore_errors=True)
+        if check and self.returncode != 0:
+            raise RuntimeError(
+                f"mitmdump exited with status {self.returncode} after SIGTERM; "
+                f"last lines: {self.snapshot_lines()[-20:]}"
+            )
 
 
 def _parse_status_code(data):
@@ -210,8 +230,8 @@ def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_override
     With `dns=True` a DNS-mode listener is added on a second loopback port, the way the
     proxy image runs it, and the harness exposes it as `dns_port`.
     """
-    if MITMDUMP is None:
-        raise RuntimeError("mitmdump not on PATH; cannot run integration harness")
+    if not mitmdump_available():
+        raise RuntimeError("mitmproxy is not importable; cannot run integration harness")
 
     workdir = Path(tempfile.mkdtemp(prefix="agentbox-proxy-it-"))
     policy_path = workdir / "policy.yaml"
@@ -235,7 +255,8 @@ def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_override
     confdir.mkdir(parents=True, exist_ok=True)
 
     args = [
-        MITMDUMP,
+        sys.executable,
+        str(RUN_MITMDUMP),
         "--set",
         f"confdir={confdir}",
     ]
@@ -267,7 +288,7 @@ def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_override
     harness.start_reader()
 
     if not wait_for_port(proxy_port, timeout=10.0):
-        harness.terminate()
+        harness.terminate(check=False)
         raise RuntimeError(
             "mitmdump did not open listen port within 10s; "
             f"captured output: {harness.snapshot_lines()[-20:]}"

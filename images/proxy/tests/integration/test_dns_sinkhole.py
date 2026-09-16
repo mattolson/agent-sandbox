@@ -154,6 +154,18 @@ class DnsSinkholeIntegrationTests(unittest.TestCase):
         status, _ = harness.send_request("GET", "http://blocked.invalid/")
         self.assertEqual(status, 403)
 
+    def test_shutdown_after_queries_exits_cleanly(self):
+        # mitmproxy 11.0.2 with mitmproxy_rs 0.10.7 dies with SIGSEGV during interpreter
+        # teardown in about one shutdown out of four once a DNS query has been handled.
+        # run-mitmdump skips the teardown; three rounds make a regression likely to show.
+        for attempt in range(3):
+            with self.subTest(attempt=attempt):
+                harness = self.spawn()
+                query_udp(harness.dns_port, "exfil-label.example.com", 1)
+                query_tcp(harness.dns_port, "localhost", 1)
+                harness.terminate()
+                self.assertEqual(harness.returncode, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

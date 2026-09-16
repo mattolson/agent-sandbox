@@ -230,10 +230,11 @@ and devcontainer mode (`results/after-m18.2-20260913-162638/`), plus checks from
 
 ### Follow-up Items
 
-- The `SIGSEGV` on shutdown in DNS mode: find whether it is the resolver removal in `load()`, the DNS layer's
-  teardown with an open UDP socket, or the harness closing stdout under the process. The proxy container runs the
-  same configuration, so `agentbox compose stop proxy` may crash the same way. Until fixed, the suite leaves a
-  64 MB `core` at the repo root after every run
+- The `SIGSEGV` on shutdown in DNS mode is worked around, not fixed upstream: `run-mitmdump` exits without
+  interpreter teardown, the image and the harness both use it, and the harness fails a test whose proxy does not
+  exit 0. See the execution log for the evidence. Left to do: confirm which mitmproxy the proxy image actually
+  runs (`FROM mitmproxy/mitmproxy:latest`, unpinned) and whether the crash exists there, then pin the dev venv in
+  `Dockerfile.dev` and CI to the same version; today the venv has 11.0.2 and CI installs 12.2.3
 - The tool inventory in the bypass matrix still has entries marked "verify". Node `fetch`, `uv`, `cargo`, and
   `rustup` were never measured against the sinkhole, and anything that is not proxy-aware now fails with
   `NXDOMAIN` rather than resolving directly. Measure them before `m18.5` writes the user-facing note

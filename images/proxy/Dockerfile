@@ -23,9 +23,10 @@ COPY policy.yaml /etc/mitmproxy/policy.yaml
 COPY addons/ /home/mitmproxy/addons/
 COPY entrypoint.sh /usr/local/bin/
 RUN mkdir -p /usr/local/lib/agent-sandbox/proxy
-COPY render-policy service_catalog.py policy_injection.py secret_resolver.py credential_shim.py /usr/local/lib/agent-sandbox/proxy/
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/lib/agent-sandbox/proxy/render-policy \
-  && ln -s /usr/local/lib/agent-sandbox/proxy/render-policy /usr/local/bin/render-policy
+COPY render-policy run-mitmdump service_catalog.py policy_injection.py secret_resolver.py credential_shim.py /usr/local/lib/agent-sandbox/proxy/
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/lib/agent-sandbox/proxy/render-policy /usr/local/lib/agent-sandbox/proxy/run-mitmdump \
+  && ln -s /usr/local/lib/agent-sandbox/proxy/render-policy /usr/local/bin/render-policy \
+  && ln -s /usr/local/lib/agent-sandbox/proxy/run-mitmdump /usr/local/bin/run-mitmdump
 
 # Ensure mitmproxy user owns its home directory, confdir, the CA export
 # directory, and the /run/agentbox runtime export directory (credential shims

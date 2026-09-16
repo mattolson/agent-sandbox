@@ -1,5 +1,36 @@
 # Execution Log: m18.2 - dns sinkhole
 
+## 2026-09-13 - The shutdown segfault: an upstream teardown crash, worked around with a launcher
+
+Reproduced outside the test harness with a script that spawns `mitmdump` under `-X faulthandler`, waits for the
+DNS listener, optionally sends queries, then sends `SIGTERM`. faulthandler reports the crash in a thread with no
+Python frame, which is what a crash during interpreter finalization looks like.
+
+**Observation:** The sinkhole is not the cause. Crash counts per variant, `SIGTERM` after a DNS-mode start: a no-op
+addon that handled one query, 4 of 15; the same addon never queried, 0 of 10; an addon that only removes the
+built-in resolver, 1 of 6; the real enforcer, 0 of 15 in the script, though it crashed in the suite; the regular
+HTTP mode alone, never. Letting the UDP flow time out (20 s) before `SIGTERM` gave 0 of 4. So the trigger is a DNS
+flow handled through `mitmproxy_rs`'s Rust UDP server that is still open at shutdown.
+
+**Observation:** `gc.collect()` in the `done()` hook changes nothing (3 of 15). `os._exit(0)` at the end of
+`done()` gives 0 of 15, which places the crash after mitmproxy's own shutdown, including every addon's `done()`,
+in `Py_Finalize`. Neither the mitmproxy nor the mitmproxy_rs changelog after 11.0.2 / 0.10.7 mentions a fix.
+PyPI is blocked from the sandbox, so a newer version could not be tried here.
+
+**Decision:** `images/proxy/run-mitmdump` calls `mitmproxy.tools.main.mitmdump()` and then leaves with `os._exit`
+carrying the status mitmdump asked for, so a `sys.exit(1)` from an options error or a startup error is preserved;
+checked with `--options` (0) and `--set http2=maybe` (1). Placing the exit in an addon's `done()` was rejected:
+`done()` runs inside a `finally` on the `SystemExit` path, so it cannot know the pending status, and built-in addons
+later in the chain would lose their `done()`. The entrypoint runs the launcher; the harness spawns it with
+`sys.executable`, records the exit status, and `terminate()` raises on anything but 0. A new integration test
+spawns, queries over UDP and TCP, and terminates three times. Launcher under the worst variants: 30 of 30 clean.
+With the launcher swapped back for plain `mitmdump`, the test caught the crash in 2 of 3 rounds.
+
+**Issue:** Found on the way: CI runs the proxy suite on `pull_request` only, so this branch has never been tested
+there, and the workflow installs `mitmproxy` unpinned, which is 12.2.3 today, while the dev venv has 11.0.2.
+mitmproxy 12 renamed `dns.Message` to `dns.DNSMessage`; the unit test now takes whichever exists. The proxy image
+is `FROM mitmproxy/mitmproxy:latest`, also unpinned. Pinning all three to one version is a separate change.
+
 ## 2026-09-13 - Devcontainer run clean; acceptance verified from the sandbox
 
 The maintainer ran `agentbox init --mode devcontainer` on the CLI layout, reopened the repo in VS Code, and ran the
