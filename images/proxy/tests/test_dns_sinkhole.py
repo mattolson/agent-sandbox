@@ -15,6 +15,9 @@ try:
 except ImportError:  # pragma: no cover - CI installs mitmproxy; local minimal envs skip.
     dns = None
 
+# mitmproxy 12 renamed dns.Message to dns.DNSMessage; the fields are the same.
+DnsMessage = getattr(dns, "DNSMessage", None) or getattr(dns, "Message", None)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ADDON_PATH = REPO_ROOT / "images" / "proxy" / "addons" / "dns_sinkhole.py"
@@ -54,7 +57,7 @@ class FakeFlow:
 def make_query(name="proxy.", qtype=1, class_=1, op_code=0, questions=None):
     if questions is None:
         questions = [dns.Question(name, qtype, class_)]
-    return dns.Message(
+    return DnsMessage(
         timestamp=0.0,
         id=42,
         query=True,
