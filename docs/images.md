@@ -40,6 +40,14 @@ grep -E "linux_(amd64|arm64)\.tar\.gz$" "gh_${V}_checksums.txt"
 Copy the two hashes into the `GH_SHA256_AMD64` and `GH_SHA256_ARM64` defaults in `images/base/Dockerfile` and
 `images/build.sh`, set `GH_VERSION` in both, and rebuild. The Dockerfile fails the build if a hash does not match.
 
+## Pinned mitmproxy in the proxy image
+
+The proxy image builds on `mitmproxy/mitmproxy:<version>` with the version pinned by `MITMPROXY_VERSION` in
+`images/proxy/Dockerfile`. That line is the single source: `scripts/build-dev-image.bash` reads it to build the
+dev image's proxy test venv, and `.github/workflows/proxy-tests.yml` reads it to install the release CI tests
+against. To bump mitmproxy, change the ARG, rebuild with `./images/build.sh proxy` and `make setup`, run the proxy
+suite, and re-run the DNS egress audit under `scripts/dns-egress-audit/`. Dependabot does not track the tag.
+
 ## Local Dev Image
 
 This applies to developing agent-sandbox itself, not to using it.
@@ -67,6 +75,11 @@ actually reruns. Then recreate the container with `agentbox up -d`.
 
 Run `make bump` from the host. It needs Docker, which sandboxed agents cannot
 reach.
+
+The proxy test venv at `/opt/proxy-python` runs the mitmproxy release pinned in
+`images/proxy/Dockerfile` on a `uv`-managed Python (`PROXY_PYTHON_VERSION` in
+`Dockerfile.dev`, matching the mitmproxy image's Python line), because that
+release needs a newer interpreter than bookworm ships. `make setup` rebuilds it.
 
 `make bump` fails, without touching the pins, when it cannot read a concrete
 version for the agent it is about to build. That happens when the pull failed,

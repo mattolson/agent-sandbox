@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file.
 
 - **DNS egress is closed.** The agent container no longer resolves names through Docker's embedded resolver, which forwarded every query to the host and on to the internet, so query names carried data out regardless of policy. The proxy now serves a DNS sinkhole next to the HTTP proxy: compose service names resolve (`proxy`, plus any exact names listed in `AGENTBOX_DNS_ALLOW` on the proxy service), and every other name gets `NXDOMAIN` at once. The agent's firewall rejects Docker's resolver outright, rewrites port 53 to the sinkhole, and refuses DNS and DNS-over-TLS to anything else, including peers on the compose network. A tool that resolves names itself instead of using `HTTPS_PROXY` now fails with `NXDOMAIN`; route it through the proxy. Requires rebuilt images (`agentbox bump`): a new agent image against an old proxy image refuses to start and says why, and an old agent image against a new proxy image keeps the previous behaviour.
 
+### Changed
+
+- **The proxy image pins its mitmproxy release.** `images/proxy/Dockerfile` builds on `mitmproxy/mitmproxy:12.2.3` instead of `latest`, and the dev image's proxy test venv and the CI proxy tests read that one line so they always run the release the image ships. Previously the three could disagree silently: the venv had 11.0.2, CI installed whatever was current, and the image depended on when `latest` was last pulled. Requires rebuilt images (`agentbox bump`); for this repo's dev image, `make setup`.
+
 ### Fixed
 
 - **The proxy no longer crashes on shutdown.** With the DNS sinkhole listening, `mitmdump` died with `SIGSEGV` during interpreter teardown in about one stop out of four once it had answered a query, leaving exit status 139 and a core dump in the container. The crash is in mitmproxy's Rust extension after mitmproxy's own shutdown has completed, so the image now starts `mitmdump` through `run-mitmdump`, which exits without the teardown and keeps `mitmdump`'s exit status. The proxy integration tests run the same launcher and fail on a non-zero exit. Requires rebuilt images (`agentbox bump`).

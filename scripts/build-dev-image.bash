@@ -8,6 +8,7 @@ DOCKERFILE_PATH="${DOCKERFILE_PATH:-$REPO_ROOT/Dockerfile.dev}"
 BUILD_CONTEXT="${BUILD_CONTEXT:-$REPO_ROOT}"
 IMAGE_BUILDER="${IMAGE_BUILDER:-$REPO_ROOT/images/build.sh}"
 VERSIONS_FILE="${VERSIONS_FILE:-$SCRIPT_DIR/dev-image-versions.env}"
+PROXY_DOCKERFILE="${PROXY_DOCKERFILE:-$REPO_ROOT/images/proxy/Dockerfile}"
 
 is_supported_agent() {
 	case "$1" in
@@ -36,6 +37,9 @@ Optional environment variables:
   DOCKERFILE_PATH  Dockerfile to build (default: ./Dockerfile.dev)
   BUILD_CONTEXT    Docker build context (default: repo root)
   VERSIONS_FILE    Pinned agent CLI versions (default: ./scripts/dev-image-versions.env)
+  MITMPROXY_VERSION
+                   mitmproxy release for the proxy test venv (default: the ARG in
+                   ./images/proxy/Dockerfile, so the venv matches the proxy image)
 EOF
 }
 
@@ -107,6 +111,17 @@ if [ -f "$VERSIONS_FILE" ]; then
 	done < "$VERSIONS_FILE"
 fi
 
+# The proxy test venv runs the same mitmproxy release as the proxy image. The
+# Dockerfile's ARG line is the single source; an explicit variable still wins.
+if [ -z "${MITMPROXY_VERSION:-}" ]; then
+	MITMPROXY_VERSION=$(sed -n 's/^ARG MITMPROXY_VERSION=//p' "$PROXY_DOCKERFILE" | head -n1)
+fi
+if [ -z "$MITMPROXY_VERSION" ]; then
+	printf 'Unable to read MITMPROXY_VERSION from %s\n' "$PROXY_DOCKERFILE" >&2
+	exit 1
+fi
+printf 'Proxy test venv: mitmproxy %s\n' "$MITMPROXY_VERSION"
+
 printf 'Building prerequisite local images for %s\n' "$AGENT"
 "$IMAGE_BUILDER" base "$@"
 "$IMAGE_BUILDER" proxy "$@"
@@ -116,6 +131,7 @@ printf 'Building %s from %s\n' "$IMAGE_TAG" "$DOCKERFILE_PATH"
 printf 'Active agent: %s\n' "$AGENT"
 docker build \
 	--build-arg AGENT="$AGENT" \
+	--build-arg MITMPROXY_VERSION="$MITMPROXY_VERSION" \
 	-f "$DOCKERFILE_PATH" \
 	-t "$IMAGE_TAG" \
 	"$@" \

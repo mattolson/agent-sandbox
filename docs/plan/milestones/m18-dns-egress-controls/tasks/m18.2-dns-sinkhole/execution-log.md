@@ -1,5 +1,23 @@
 # Execution Log: m18.2 - dns sinkhole
 
+## 2026-09-13 - mitmproxy pinned to 12.2.3 from one line
+
+**Decision:** 12.2.3, the current release, rather than the 11.0.2 the dev venv happened to hold. CI on `main`
+passed on 2026-09-06 with mitmproxy installed unpinned, so the HTTP enforcer and its integration tests already
+run on 12.2.3, and a fresh `latest` pull gives the same release. 12.0.1 also moved user addons ahead of DNS
+resolution, which is the ordering the sinkhole wants; the resolver removal in `load()` still finds the addon and
+stays as belt and braces. The pin lives in `ARG MITMPROXY_VERSION` in `images/proxy/Dockerfile`;
+`build-dev-image.bash` and `proxy-tests.yml` read it with `sed`, so there is one place to bump.
+
+**Decision:** 12.2.3 requires Python 3.12 and the dev image is Debian bookworm with 3.11, so the test venv is now
+created by a pinned, checksum-verified `uv` on a managed Python 3.14, the line the mitmproxy 12.2.3 image runs
+(`python:3.14-slim-trixie`). CI moves to 3.14 for the same reason. The uv recipe is the one the hermes image
+uses, including the version and hashes. `/opt/proxy-python` keeps its path.
+
+**Issue:** None of this can be exercised from the sandbox: PyPI is blocked and the venv is 3.11. The maintainer
+runs `make setup`, then the proxy suite on the rebuilt venv, then `./images/build.sh proxy` and the audit. The
+unit tests already accept `dns.DNSMessage`; anything else 12.2.3 changed will show up there first.
+
 ## 2026-09-13 - The shutdown segfault: an upstream teardown crash, worked around with a launcher
 
 Reproduced outside the test harness with a script that spawns `mitmdump` under `-X faulthandler`, waits for the

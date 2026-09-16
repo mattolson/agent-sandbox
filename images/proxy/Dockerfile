@@ -1,4 +1,9 @@
-FROM mitmproxy/mitmproxy:latest
+# The mitmproxy release the proxy runs. This line is the only place the version
+# is written: scripts/build-dev-image.bash reads it for the dev image's test venv
+# and .github/workflows/proxy-tests.yml reads it for CI, so the tests always run
+# the release the image ships. Bump it here and rebuild.
+ARG MITMPROXY_VERSION=12.2.3
+FROM mitmproxy/mitmproxy:${MITMPROXY_VERSION}
 
 # Match uid/gid with the default first user on MacOS to avoid permission issues with mounts
 RUN groupmod -g 501 mitmproxy && usermod -u 501 mitmproxy
