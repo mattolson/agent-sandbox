@@ -1,5 +1,29 @@
 # Execution Log: m18.3 - ipv6 egress parity
 
+## 2026-09-17 - Approved and implemented from the sandbox
+
+The maintainer approved deny-all IPv6, keeping IPv6 enabled in this repo's dev sandbox, and leaving the sinkhole's
+AAAA answers alone. Docker Engine on Colima is 29.2.1, so `enable_ipv6: true` without a subnet gets a unique-local
+prefix from the daemon and the override needs no `ipam` block.
+
+**Decision:** Loopback over IPv6 is `::1` only (`-o lo -d ::1`, `-i lo -d ::1`), instead of the planned
+learn-before-flush step for IPv6 resolver addresses. The learn step could only see Docker's original `resolv.conf`
+on a first start, and the address of an IPv6 stub, if Docker ever installs one, is unknown here. A loopback rule
+that admits nothing but `::1` denies such a listener without knowing it, on a re-run too. The cost is local
+delivery to the container's own global IPv6 address, which nothing in the sandbox uses.
+
+**Issue:** `getent hosts proxy` prefers the AAAA record. On a network with IPv6 the firewall's `resolve_proxy`
+would print nothing, because its awk filter keeps only dotted quads, and the container would refuse to start; the
+audit's `PROXY_ADDR` would become the IPv6 address and the S rows would read `rejected`. Both now use
+`getent ahostsv4`, which asks for A records only. Found by reading, not by running: IPv6 is off in this sandbox
+until the override lands and the stack is recreated.
+
+**Issue:** `.agent-sandbox/` is mounted read-only inside the sandbox, so the override that enables IPv6 cannot be
+written from here. It is a host-side step in the implementation checklist, with the snippet in the audit README.
+
+**Issue:** None of the firewall change can run here. `sudo` allows only the installed script and `ip6tables` needs
+`NET_ADMIN`; `bash -n` is the only check available. The maintainer's run is the test.
+
 ## 2026-09-17 - Planning
 
 Context gathered from this sandbox, which runs on the rebuilt `m18.2` stack: `disable_ipv6` is 1 on `eth0` and 0

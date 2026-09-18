@@ -8,13 +8,14 @@ Apply the same default-deny posture to IPv6 so the sinkhole cannot be stepped ar
 
 From the milestone plan, with the adjustments proposed under Approach and listed as open questions:
 
-- Extend `init-firewall.sh` to program `ip6tables` alongside `iptables`: default-deny policies, loopback,
-  established and related. Proposed: no host-network exception and no port 53 exception over IPv6, because the agent
-  reaches the proxy and the sinkhole over IPv4 by construction
+- Extend `init-firewall.sh` to program `ip6tables` alongside `iptables`: default-deny policies, loopback limited to
+  `::1`, established and related. Decided 2026-09-17: no host-network exception and no port 53 exception over IPv6,
+  because the agent reaches the proxy and the sinkhole over IPv4 by construction
 - Handle the case where the kernel or image lacks `ip6tables` support: fail closed with a clear message when IPv6 is
   present on the interface, continue with an explicit message when it is absent
-- Decide whether to disable IPv6 on the compose network instead, and record why. Proposed: filter, and treat Docker's
-  default of no IPv6 as the common case the self-test names rather than something the firewall relies on
+- Decide whether to disable IPv6 on the compose network instead, and record why. Decided 2026-09-17: filter, and
+  treat Docker's default of no IPv6 as the common case the self-test names rather than something the firewall
+  relies on
 - Add the IPv6 probes from `m18.1` to the firewall self-test
 - Enable IPv6 on the compose network for the `after-m18.3` audit run in both modes, and tighten the expected file so
   the E rows must flip when IPv6 is present
@@ -61,8 +62,8 @@ From the milestone plan, with the adjustments proposed under Approach and listed
 
 ### Files Involved
 
-- `images/base/init-firewall.sh`: the IPv6 learn-before-flush step, availability check, rules, self-tests, and
-  messages
+- `images/base/init-firewall.sh`: the IPv6 availability check, rules, self-tests, and messages, plus the
+  `getent ahostsv4` fix to `resolve_proxy`
 - `images/base/entrypoint.sh`: only if the fail-closed banner needs a line naming IPv6
 - `scripts/dns-egress-audit/probe.bash`: `errno_result` gains the IPv6 reject signature
 - `scripts/dns-egress-audit/expected/after-m18.3.tsv`: E1 `present`, E2 through E4 `rejected`
@@ -70,7 +71,7 @@ From the milestone plan, with the adjustments proposed under Approach and listed
 - `docs/plan/milestones/m18-dns-egress-controls/bypass-matrix.md`: the observed after-m18.3 values for the E rows
   and H5, and the pending list
 - `.agent-sandbox/compose/user.override.yml`: `enable_ipv6: true` on the default network for this repo's dev
-  runtime, if open question 2 says yes
+  runtime, decided yes on 2026-09-17. Applied on the host: `.agent-sandbox/` is mounted read-only in the sandbox
 - `CHANGELOG.md`: an `[Unreleased]` entry that says rebuilt images are required
 - `docs/plan/milestones/m18-dns-egress-controls/milestone.md`: record the choice under `m18.3`
 
@@ -100,9 +101,10 @@ exceptions for IPv6; the deviation and the reasoning above go into the milestone
 
 **Firewall.** A new block after step 9, so the IPv4 rules are complete before IPv6 is touched.
 
-- Learn before flush, as step 1 does for `127.0.0.11`: collect any IPv6 `nameserver` in Docker's `resolv.conf` and
-  any DNAT target in `ip6tables-save -t nat`, if Docker installed one. Whether Docker adds either on an IPv6-enabled
-  network is open question 5; the code handles both being empty
+- No learn-before-flush step for IPv6, unlike step 1 for `127.0.0.11`. The loopback rules admit `::1` only
+  (`-o lo -d ::1` out, `-i lo -d ::1` in), so an address Docker might add to `lo` for its own resolver is denied
+  without the script knowing it, on a first start and on a re-run alike. The cost is local delivery to the
+  container's own global IPv6 address, which nothing in the sandbox uses. `ip6tables -t nat` is still flushed
 - Detect presence the way E1 does: `ip -6 addr show dev "$DEFAULT_IF" scope global` prints an address, or not. Read
   `/proc/sys/net/ipv6/conf/$DEFAULT_IF/disable_ipv6` for the message only
 - Availability: `ip6tables -S` succeeds, or not. Unavailable and present: print
@@ -110,16 +112,20 @@ exceptions for IPv6; the deviation and the reasoning above go into the milestone
   Unavailable and absent: print `IPv6: absent on eth0 and ip6tables unavailable; nothing to filter` and continue.
   Available: install the rules whether or not IPv6 is present, so the ruleset is the same on every start and H5
   reads the same in both cases
-- Rules, in order: reject each learned resolver address ahead of loopback; accept `lo` in and out; accept
-  established and related in and out; set `INPUT`, `FORWARD`, and `OUTPUT` to `DROP`; end `OUTPUT` with
-  `REJECT --reject-with icmp6-adm-prohibited` so a blocked attempt fails at once instead of timing out. Flush the
-  `filter` table first, and the `nat` and `mangle` tables where the kernel has them
+- Rules, in order: accept `lo` in and out for `::1`; accept established and related in and out; set `INPUT`,
+  `FORWARD`, and `OUTPUT` to `DROP`; end `OUTPUT` with `REJECT --reject-with icmp6-adm-prohibited` so a blocked
+  attempt fails at once instead of timing out. Flush the `filter` table first, and the `nat` and `mangle` tables
+  where the kernel has them
+- `resolve_proxy` and the audit's `PROXY_ADDR` switch from `getent hosts` to `getent ahostsv4`. `getent hosts`
+  prefers the AAAA record, so on a network with IPv6 the firewall would have found no IPv4 address for the proxy
+  and refused to start, and the audit's S rows would have targeted the IPv6 address
 - Self-tests, after the existing four. Present: a UDP query to `2001:4860:4860::8888` on port 53 must be
   `rejected`, and a TCP connect to the same address on 53 must fail without waiting for a timeout; either outcome
   otherwise is a `FAIL` that exits 1. Absent: one `PASS` line that names the state, for example
   `PASS: IPv6 absent on eth0 (disable_ipv6=1); ip6tables default-deny installed`, or the unavailable variant. That
-  line is the explicit statement the second criterion asks for. Both branches send one UDP datagram to `[::1]:9`,
-  which must succeed, so a rule that accidentally closes loopback is caught. `dns_rcode` already prints `rejected`
+  line is the explicit statement the second criterion asks for. Both branches, when `lo` has `::1`, send one UDP
+  datagram to `[::1]:9`, which must succeed, so a rule that closes loopback by accident is caught. `dns_rcode`
+  already prints `rejected`
   and `unreachable` from the errno of the send and the open, and bash resolves a bare IPv6 literal in
   `/dev/udp/<address>/<port>`, which the audit relies on today
 - `entrypoint.sh` keeps its "already initialized" check on the IPv4 `OUTPUT` policy. The script is idempotent and
@@ -154,11 +160,13 @@ in each run records the installed IPv6 rules.
 
 ### Implementation Steps
 
-- [ ] Add the IPv6 block to `init-firewall.sh`: learn-before-flush for IPv6 resolver addresses, the availability
-      check with both messages, the rules, and the self-tests
-- [ ] Extend `errno_result`, tighten `after-m18.3.tsv`, add the README section on enabling IPv6, and note the change
-      in the bypass matrix
-- [ ] Write the changelog entry and record the design choice in the milestone plan
+- [x] Add the IPv6 block to `init-firewall.sh`: the availability check with both messages, the `::1`-only loopback
+      rules, the self-tests, and the `getent ahostsv4` fix to `resolve_proxy`
+- [x] Extend `errno_result`, switch `PROXY_ADDR` to `ahostsv4`, tighten `after-m18.3.tsv`, add the README section
+      on enabling IPv6, and note the change in the bypass matrix
+- [x] Write the changelog entry and record the design choice in the milestone plan
+- [ ] Maintainer adds `networks: default: enable_ipv6: true` to `.agent-sandbox/compose/user.override.yml` on the
+      host and commits it; the directory is read-only inside the sandbox
 - [ ] Maintainer rebuilds with `make setup`, runs `agentbox up` with IPv6 off, confirms the absent-path line in the
       banner, and runs the audit at `--stage after-m18.2` to show IPv4 is unchanged
 - [ ] Maintainer enables IPv6 in `user.override.yml`, runs `agentbox down` and `agentbox up`, and runs the audit at
@@ -169,21 +177,16 @@ in each run records the installed IPv6 rules.
 
 ### Open Questions
 
-1. Deny-all IPv6 (option 3) rather than parity (option 2). Recommendation: option 3. Say if a sidecar reachable only
-   over IPv6 is a case to support; that is the one thing option 3 rules out
-2. Whether this repo's checked-in `user.override.yml` keeps `enable_ipv6: true` after the run, so development
-   exercises the IPv6 path every day. Recommendation: yes if Docker on Colima assigns the prefix automatically, no
-   if the override must hard-code a subnet, since a fixed subnet collides between projects the way the rejected
-   `dns:` design did
-3. Whether the sinkhole should stop answering AAAA so clients never try IPv6 first. Recommendation: leave it; the
-   firewall is the control, the rejected attempt costs one round trip on loopback, and a proxy change widens the
-   rollout. Revisit if a tool misbehaves on the rejected attempt
-4. The Docker Engine version Colima runs, and whether `enable_ipv6: true` without a subnet gets a unique-local
-   prefix on that version. On the host: `docker version --format '{{.Server.Version}}'`. Docker's documentation
-   is outside the sandbox allowlist, so this could not be checked from here
+1. Resolved 2026-09-17: deny-all IPv6 (option 3). A sidecar reachable only over IPv6 is not a case to support
+2. Resolved 2026-09-17: this repo's checked-in `user.override.yml` keeps `enable_ipv6: true`, so development
+   exercises the IPv6 path every day
+3. Resolved 2026-09-17: the sinkhole keeps answering AAAA. The firewall is the control, and a proxy change would
+   widen the rollout
+4. Resolved 2026-09-17: Docker Engine 29.2.1 on Colima, which assigns a unique-local prefix when no subnet is
+   given. The override carries no `ipam` block
 5. What Docker does for DNS on an IPv6-enabled network: whether `resolv.conf` gains an IPv6 nameserver, whether
-   `ip6tables -t nat` holds a redirect, and what the embedded resolver listens on. Decides whether the
-   learn-before-flush step finds anything; the code handles the empty case either way
+   `ip6tables -t nat` holds a redirect, and what the embedded resolver listens on. No longer changes the code, since
+   loopback admits `::1` only, but worth recording from the run for the decision record `m18.5` writes
 6. The exact errno for an IPv6 reject on a TCP connect, expected `EACCES`. The errno map gains the string either way;
    if the host shows a different one, the map gains that instead
 
