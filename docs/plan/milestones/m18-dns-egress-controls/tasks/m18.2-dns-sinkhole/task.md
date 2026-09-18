@@ -206,11 +206,13 @@ and devcontainer mode (`results/after-m18.2-20260913-162638/`), plus checks from
       exits 1 under `set -e`, and the entrypoint aborts) and by the earlier function-level check of `dns_rcode`
       against a forwarding resolver. Not observed: an actual container start against a proxy image without the
       sinkhole. Maintainer check: pin the proxy to the pre-sinkhole GHCR digest in `user.override.yml`, run
-      `agentbox up`, and expect the agent to stop with the `agentbox bump` banner
+      `agentbox up`, and expect the agent to stop with the `agentbox bump` banner. Deferred by the maintainer on
+      2026-09-17; the task closes with this box open and the check listed under Follow-up Items
 - [x] Both CLI mode and devcontainer mode pass the same assertions. Both runs clean; the `iptables -S` dumps are
       identical modulo the network's addresses
 - [x] `go test ./...` and the proxy suite pass, and generated compose output is covered by the existing template
-      tests. Go: 5 packages ok. Proxy: 224 tests OK. No compose template changed in this task
+      tests. Go: 5 packages ok. Proxy: 224 tests OK on 2026-09-13, and 225 on 2026-09-17 with the shutdown test
+      on the pinned mitmproxy 12.2.3. No compose template changed in this task
 
 ### Learnings
 
@@ -224,20 +226,28 @@ and devcontainer mode (`results/after-m18.2-20260913-162638/`), plus checks from
   runs beside the CLI stack and the two audits do not interfere. `agentbox init --mode devcontainer` on a CLI
   layout regenerates the managed layers from the current templates, so expect image-pin and layout churn in a
   checked-in runtime tree
-- `mitmdump` in DNS mode with the sinkhole addon dies with `SIGSEGV` on `SIGTERM` in the integration harness and
-  leaves a `core` file at the repo root. Plain `mitmdump --mode dns@PORT` without the addon exits cleanly, and the
-  other integration tests leave no dump, so the addon or the harness teardown is involved
+- `mitmdump` in DNS mode with the sinkhole addon died with `SIGSEGV` on `SIGTERM` in the integration harness and
+  left a `core` file at the repo root. The addon was not the cause: the crash is in interpreter finalization, after
+  every addon's `done()`, once a DNS flow served by mitmproxy_rs's UDP server is open at shutdown. `os._exit` at the
+  end of `done()` was the probe that placed it. A launcher that calls `mitmdump()` and leaves with `os._exit`
+  carrying the returned status preserves option and startup errors, which an addon's `done()` cannot
+- A version the image, the dev venv, and CI all need should be written once. `mitmproxy/mitmproxy:latest`, an
+  unpinned `pip install mitmproxy` in CI, and a venv built at an earlier date held three different releases without
+  anything noticing; one `ARG` line read with `sed` by the other two ends that
 
 ### Follow-up Items
 
-- The `SIGSEGV` on shutdown in DNS mode is worked around, not fixed upstream: `run-mitmdump` exits without
-  interpreter teardown, the image and the harness both use it, and the harness fails a test whose proxy does not
-  exit 0. See the execution log for the evidence. mitmproxy is now pinned to 12.2.3 in the image, the dev venv,
-  and CI from the one ARG line. After `make setup` rebuilds the venv on 12.2.3, re-run the proxy suite and the
-  launcher check; if the crash is gone on 12.2.3, the launcher can be retired
-- The tool inventory in the bypass matrix still has entries marked "verify". Node `fetch`, `uv`, `cargo`, and
-  `rustup` were never measured against the sinkhole, and anything that is not proxy-aware now fails with
-  `NXDOMAIN` rather than resolving directly. Measure them before `m18.5` writes the user-facing note
+- Deferred by the maintainer on 2026-09-17: the failing direction of the DNS self-test was never observed as a
+  container start. To close it, pin the proxy to the pre-sinkhole GHCR digest in `user.override.yml`, run
+  `agentbox up`, and expect the agent to stop with the `agentbox bump` banner
+- The `SIGSEGV` on shutdown is worked around, not fixed upstream: `run-mitmdump` exits without interpreter
+  teardown, the image and the harness both use it, and the harness fails a test whose proxy does not exit 0. On the
+  pinned mitmproxy 12.2.3 the crash did not reproduce (0 of 20 rounds with plain `mitmdump`, against 2 of 3 on
+  11.0.2). The launcher stays as cheap insurance; see the execution log for the reasoning
+- Deferred: the tool inventory in the bypass matrix still has entries marked "verify". Node `fetch`, `uv`, `cargo`,
+  and `rustup` were never measured against the sinkhole, and anything that is not proxy-aware now fails with
+  `NXDOMAIN` rather than resolving directly. None of the four is in this repo's dev image; measure them in the node
+  agent images and the python and rust stacks before `m18.5` writes the user-facing note
 - `m18.3`: the E rows. IPv6 is absent on the compose network today, so every IPv6 probe reads `unreachable` and
   the flip to `rejected` is only observable once the run enables IPv6 on the network
 - `m18.5`: document the repair path (`sudo /usr/local/bin/init-firewall.sh`), `AGENTBOX_DNS_ALLOW`, the DoH

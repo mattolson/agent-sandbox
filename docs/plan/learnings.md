@@ -114,6 +114,26 @@ Lessons learned during project execution. Review at the start of each planning s
 - Attach security invariants to the construct they protect, not to conventions around it. Credential transforms are https-only because `apply_rule_transform` enforces it in both the catalog and the renderer, not because every rule author remembered to write `schemes: [https]` (m17.2 review)
 - `curl` ignores uppercase `HTTP_PROXY` for `http://` URLs, so a plaintext probe from the sandbox goes direct and is dropped by the firewall. To test the proxy's own handling of plaintext, pass `-x http://proxy:8080` explicitly (m17.3)
 - A rebuilt local image can lag the branch head by minutes. When a rendered artifact disagrees with the code, compare the artifact's content against the newest commit that should have changed it before assuming the code is wrong; and prefer diagnosing from sanitized output over sending a request that would be harmful on the old code (m17.3)
+- Docker's embedded resolver stays bound to `127.0.0.11` on a random high port; the port-53 NAT rule only redirects
+  to it. A firewall that replaces the resolver must reject the address itself, ahead of the loopback rule, or the
+  real port stays reachable (m18.2)
+- `/etc/resolv.conf` is a single-file bind mount like the policy file: the firewall script truncates and rewrites
+  it in place, because a rename fails with `EBUSY` and a copy is invisible to the mount (m18.2)
+- Once the firewall owns `/etc/resolv.conf`, nothing inside the agent container can learn Docker's resolver facts
+  from it. A throwaway container on the same network still gets Docker's original file; read such facts there
+  (m18.2)
+- Re-running `sudo /usr/local/bin/init-firewall.sh` in a live sandbox is safe, takes 0.1 s, and re-verifies every
+  self-test. It is the repair path after the proxy is recreated with a new address (m18.2)
+- Devcontainer mode is its own compose project, `<name>-devcontainer`, with its own proxy and network, so it runs
+  beside the CLI stack and audits of the two do not interfere. `agentbox init --mode devcontainer` on a CLI layout
+  regenerates the managed layers from the current templates, so expect churn in a checked-in runtime tree (m18.2)
+- A `SIGSEGV` after every addon's `done()` has run is interpreter finalization, not mitmproxy. mitmproxy 11.0.2 with
+  mitmproxy_rs 0.10.7 crashed in `Py_Finalize` about one stop in four when a DNS-mode UDP flow was open at shutdown;
+  `os._exit` at the end of `done()` is the probe that places such a crash. `images/proxy/run-mitmdump` calls
+  `mitmdump()` and leaves with `os._exit` carrying the returned status, which keeps option and startup errors;
+  an addon's `done()` cannot do that because it runs inside a `finally` on the `SystemExit` path (m18.2)
+- mitmproxy 12 renamed `dns.Message` to `dns.DNSMessage` and, from 12.0.1, runs user addons ahead of its own DNS
+  resolver (m18.2)
 
 ## Architecture
 
@@ -159,3 +179,11 @@ Lessons learned during project execution. Review at the start of each planning s
 - Driving user-facing example files from existing integration test scenarios (`test_github_git_injection.py`, `test_credential_shim_replace.py`, `test_proxy_enforcement.py::test_header_injection_reaches_upstream_for_matched_rule`) gives the example a permanent canary: if the renderer or catalog shifts, an integration test breaks at the same time the example would become wrong. Examples decoupled from tests drift silently
 - For a multi-doc reference rewrite, keep one canonical doc (here, `docs/policy/schema.md`) and have every other doc link back to it for grammars and supported values. Re-deriving the secret ID grammar in `docs/secrets.md`, `docs/git.md`, and `docs/troubleshooting.md` would create three places that go stale independently
 - A schema-doc correction for an unreleased feature is not a migration. `docs/upgrades/` should be reserved for genuine breaking changes against released behavior; cleaning up an unshipped syntax variant (the `surfaces` / repo-scoped `readonly` paragraphs) is just a doc fix
+- A version that the image, the dev venv, and CI all need belongs on one line. `mitmproxy/mitmproxy:latest`, an
+  unpinned `pip install mitmproxy` in CI, and the venv held three different releases without anything noticing.
+  `ARG MITMPROXY_VERSION` in the proxy Dockerfile, read with `sed` by `build-dev-image.bash` and `proxy-tests.yml`,
+  is the fix and the pattern for the next such tool (m18.2)
+- The proxy suite runs in CI on pushes to `main` and on pull requests only, so a long-lived branch without a PR is
+  never tested there. Open the draft PR early (m18.2)
+- An expected file written at planning time needs a pass against the final rule order. A8 was carried over from
+  baseline as `answered`, but no raw query to an address the firewall rejects outright can be answered (m18.2)

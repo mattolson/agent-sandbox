@@ -256,6 +256,15 @@ B1, B2, and H2.
 
 ## Changes
 
+### 2026-09-17: m18.2 closed
+
+Both audit runs are clean in CLI and devcontainer mode and five of six acceptance criteria are verified with
+evidence. The failing direction of the DNS self-test, a start against a pre-sinkhole proxy image, and the dynamic
+check of the tool inventory's "verify" entries are deferred by the maintainer; both are listed under the task's
+follow-ups and the matrix's pending section. Along the way the proxy image, the dev venv, and CI were pinned to
+mitmproxy 12.2.3 from one `ARG` line, and `mitmdump` runs through a launcher that skips interpreter teardown because
+11.0.2 crashed on shutdown in DNS mode. `m18.3` planning opened the same day.
+
 ### 2026-09-12: m18.2 design chosen
 
 The sinkhole lives in the proxy container as a mitmproxy DNS-mode addon on an unprivileged port; the agent's

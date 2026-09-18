@@ -1,5 +1,27 @@
 # Execution Log: m18.2 - dns sinkhole
 
+## 2026-09-17 - Closed on the pinned release; two checks deferred
+
+The dev venv now holds Python 3.14.6, mitmproxy 12.2.3, and mitmproxy_rs 0.12.11, so `make setup` has been run on
+the pinned `Dockerfile.dev`. The proxy suite passes on it: 225 tests, the three-round shutdown test included. A
+CLI-mode audit run on 2026-09-15 matched every compared row; its raw directory
+(`results/after-m18.2-20260915-211045/`) stays a working file, as the audit README asks.
+
+**Observation:** The shutdown crash did not reproduce on 12.2.3. Plain `mitmdump`, spawned through the same harness
+as the integration test, queried over UDP and TCP, then sent `SIGTERM`: 0 crashes in 20 rounds. The launcher as a
+control: 0 in 20. On 11.0.2 the same shape crashed in 2 of 3 rounds. The real-enforcer variant also looked clean in
+a script on 11.0.2 while the suite still crashed, so this is strong evidence rather than proof.
+
+**Decision:** Keep `run-mitmdump`. It is 48 lines, it runs after mitmproxy's own shutdown has completed, and a rare
+exit 139 on stop would make the suite flaky. Its docstring names the versions the crash was seen on. Retire it only
+when a mitmproxy bump comes with a changelog entry for the teardown crash.
+
+**Decision:** The maintainer closes the task with two items deferred. The failing direction of the DNS self-test,
+a container start against a pre-sinkhole proxy image, stays a host-side check under Follow-up Items. The dynamic
+check of the tool inventory's "verify" entries (Node `fetch`, `uv`, `cargo`, `rustup`) stays pending in the bypass
+matrix as a prerequisite for the `m18.5` note; none of the four is installed in this repo's dev image, so it needs
+the node agent images and the python and rust stacks.
+
 ## 2026-09-13 - mitmproxy pinned to 12.2.3 from one line
 
 **Decision:** 12.2.3, the current release, rather than the 11.0.2 the dev venv happened to hold. CI on `main`
