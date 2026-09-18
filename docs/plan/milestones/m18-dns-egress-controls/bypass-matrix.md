@@ -44,10 +44,10 @@ Result words are defined in the header of `probe.bash`. `*` means recorded but n
 | S1 | random label to `proxy:53` | timeout, no listener | nxdomain | nxdomain | nxdomain | m18.2 control |
 | S2 | random label to `proxy:5353` | timeout, no listener | nxdomain | nxdomain | nxdomain | m18.2 control |
 | S3 | `proxy` A to `proxy:53` | timeout, no listener | answered | answered | answered | m18.2 control |
-| E1 | IPv6 on `eth0` | absent | absent | absent or present | same | m18.3 decides |
-| E2 | UDP/53 to `2001:4860:4860::8888` | unreachable | unreachable | rejected when present | same | m18.3 |
-| E3 | TCP/53 to `2001:4860:4860::8888` | unreachable | unreachable | rejected when present | same | m18.3 |
-| E4 | TCP/853 to `2606:4700:4700::1111` | unreachable | unreachable | rejected when present | same | m18.3 |
+| E1 | IPv6 on `eth0` | absent | absent | present (IPv6 enabled for the run) | same | m18.3 |
+| E2 | UDP/53 to `2001:4860:4860::8888` | unreachable | unreachable | rejected | same | m18.3 |
+| E3 | TCP/53 to `2001:4860:4860::8888` | unreachable | unreachable | rejected | same | m18.3 |
+| E4 | TCP/853 to `2606:4700:4700::1111` | unreachable | unreachable | rejected | same | m18.3 |
 | E5 | UDP/53 to `::1` | timeout | timeout | timeout | timeout | control |
 | H1 | random label seen in the VM capture | seen, 6 packets, left on `eth0` | not-seen | not-seen | not-seen | m18.2 |
 | H2 | port 53 listeners inside the VM | `dnsmasq` on `192.168.5.1` and loopback only | * | * | * | rule 5 decision |

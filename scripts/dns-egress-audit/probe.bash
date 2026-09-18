@@ -158,6 +158,7 @@ errno_result() {
   case $1 in
     *"Operation not permitted"*) echo rejected ;;
     *"No route to host"*) echo rejected ;;
+    *"Permission denied"*) echo rejected ;;  # ICMPv6 admin-prohibited on a TCP connect
     *"Connection refused"*) echo conn-refused ;;
     *"Network is unreachable"*) echo unreachable ;;
     *"timed out"*) echo timeout ;;
@@ -345,7 +346,9 @@ if [ "$POLICY_PROBES" -eq 1 ]; then
   selected D4 && run D4 "localhost:9 via proxy" "$(http_probe "http://localhost:9/")"
 fi
 
-PROXY_ADDR=$(getent hosts proxy 2>/dev/null | awk '{print $1; exit}')
+# ahostsv4: plain `getent hosts` prefers the AAAA record once the network has IPv6, and the S rows target the
+# sinkhole over IPv4, which is how the firewall points the stub resolver at it.
+PROXY_ADDR=$(getent ahostsv4 proxy 2>/dev/null | awk '{print $1; exit}')
 if [ -n "$PROXY_ADDR" ]; then
   selected S1 && run S1 "$PROXY_ADDR:53/udp" "$(dns_udp "$PROXY_ADDR" 53 "$LABEL.$ZONE" 1)"
   selected S2 && run S2 "$PROXY_ADDR:5353/udp" "$(dns_udp "$PROXY_ADDR" 5353 "$LABEL.$ZONE" 1)"

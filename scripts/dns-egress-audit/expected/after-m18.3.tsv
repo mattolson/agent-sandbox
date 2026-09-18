@@ -1,6 +1,7 @@
 # Expected after m18.3 (IPv6 parity). Same as after-m18.2 plus the E rows.
-# With IPv6 present on the network, E2 through E4 must read rejected. With IPv6 absent they stay unreachable and
-# the firewall self-test must say so; the flip is only observable when IPv6 is enabled for the run.
+# The run has IPv6 enabled on the compose network (README, "IPv6 for the after-m18.3 run"), so E1 must read
+# present and E2 through E4 must read rejected. A stack with IPv6 absent fails this file on purpose; it is covered
+# by after-m18.2. E5 stays open because ::1 is the one IPv6 address the sandbox keeps and nothing listens on 53.
 R1	*
 R2	*
 A1	not-found
@@ -29,10 +30,10 @@ D4	http-502
 S1	nxdomain
 S2	nxdomain
 S3	answered
-E1	absent|present
-E2	rejected|unreachable
-E3	rejected|unreachable
-E4	rejected|unreachable
+E1	present
+E2	rejected
+E3	rejected
+E4	rejected
 E5	timeout|conn-refused|rejected
 H1	not-seen
 H2	*

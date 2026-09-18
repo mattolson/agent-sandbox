@@ -93,3 +93,20 @@ The same expected file applies. Both modes must produce the same rows.
 
 `--stage after-m18.2`, `after-m18.3`, and `after-m18.4` pick the matching expected file. Each file's header says
 which rows must differ from baseline. The implementing task may change a value, but not undo a flip.
+
+## IPv6 for the after-m18.3 run
+
+The E rows can only flip when the compose network has IPv6, which Docker leaves off by default. Enable it in
+`.agent-sandbox/compose/user.override.yml`, which both modes share:
+
+```yaml
+networks:
+  default:
+    enable_ipv6: true
+```
+
+Docker Engine 27 and later assigns a unique-local `/64` when no subnet is given; this repo's Colima runs 29.2.1.
+An older daemon needs an `ipam` block with a subnet under `fd00::/8`. Compose does not change an existing network
+in place, so run `agentbox down` before `agentbox up`. With IPv6 on, `--stage after-m18.3` expects E1 `present`
+and E2 through E4 `rejected`; with it off, `--stage after-m18.2` is the file to use. This repo keeps the override
+in place so development exercises the IPv6 rules every day.
