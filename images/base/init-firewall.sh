@@ -15,12 +15,14 @@ IFS=$'\n\t'
 #   - DNS to the proxy's sinkhole only; port 53 to the proxy is rewritten to it
 #   - Docker host network (proxy container, other compose services)
 #   - Established/related return traffic
+#   - Over IPv6: loopback (::1 only) and established/related return traffic
 #
 # Blocked:
 #   - Docker's embedded resolver, on port 53 and on its real listening port
 #   - DNS (53) and DNS-over-TLS (853) to anything but the sinkhole
 #   - All other direct outbound (including SSH)
 #   - All inbound except established connections and host network
+#   - Everything else over IPv6; the proxy and the sinkhole are reached over IPv4
 
 SINKHOLE_PORT=5353
 RESOLV_CONF=/etc/resolv.conf
@@ -43,8 +45,10 @@ write_resolv_conf() {
 }
 
 # resolve_proxy: print the proxy service's IPv4 address, or nothing.
+# ahostsv4 asks for A records only; plain `getent hosts` prefers the AAAA record
+# and prints only the IPv6 address on a network that has IPv6.
 resolve_proxy() {
-    getent hosts proxy 2>/dev/null | awk '$1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ { print $1; exit }'
+    getent ahostsv4 proxy 2>/dev/null | awk '$1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ { print $1; exit }'
 }
 
 # dns_rcode HOST PORT NAME: send one A query with bash sockets and print the
@@ -71,6 +75,25 @@ dns_rcode() {
         echo "timeout"
     else
         echo $(( 16#${hex:6:2} & 15 ))
+    fi
+}
+
+# tcp_connect_result HOST PORT: try a TCP connect with bash sockets and print
+# "open", "rejected", "unreachable", "timeout", or "error". The firewall's
+# reject arrives as EHOSTUNREACH over IPv4 and as EACCES over IPv6.
+tcp_connect_result() {
+    local host=$1 port=$2 err rc=0
+    err=$(timeout 3 bash -c "exec 3<>/dev/tcp/$host/$port" 2>&1) || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        echo "open"
+    elif [ "$rc" -eq 124 ]; then
+        echo "timeout"
+    else
+        case $err in
+            *"Permission denied"*|*"Operation not permitted"*|*"No route to host"*) echo "rejected" ;;
+            *"Network is unreachable"*) echo "unreachable" ;;
+            *) echo "error" ;;
+        esac
     fi
 }
 
@@ -150,6 +173,46 @@ iptables -A OUTPUT -j REJECT --reject-with icmp-admin-prohibited
 #     container goes to the sinkhole.
 write_resolv_conf "$PROXY_IP"
 
+# 11. IPv6: deny everything except loopback and return traffic. The agent
+#     reaches the proxy and the sinkhole over IPv4 by construction, so no IPv6
+#     path has a consumer and a mirrored rule set would be surface for no gain.
+#     Docker leaves IPv6 off on the compose network by default; the rules go in
+#     either way so a network that has it takes the same code path. Loopback
+#     means ::1 and nothing else, so an address Docker might add to lo for its
+#     own resolver is denied without the script having to know it.
+IPV6_ADDR=$(ip -6 addr show dev "$DEFAULT_IF" scope global 2>/dev/null | awk '/inet6/ { print $2; exit }' || true)
+IPV6_DISABLED=$(cat "/proc/sys/net/ipv6/conf/$DEFAULT_IF/disable_ipv6" 2>/dev/null || echo "?")
+if ip6tables -S >/dev/null 2>&1; then
+    ip6tables -F
+    ip6tables -X
+    for table in nat mangle; do
+        ip6tables -t "$table" -F 2>/dev/null || true
+        ip6tables -t "$table" -X 2>/dev/null || true
+    done
+    ip6tables -A INPUT -i lo -d ::1 -j ACCEPT
+    ip6tables -A OUTPUT -o lo -d ::1 -j ACCEPT
+    ip6tables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+    ip6tables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+    ip6tables -P INPUT DROP
+    ip6tables -P FORWARD DROP
+    ip6tables -P OUTPUT DROP
+    ip6tables -A OUTPUT -j REJECT --reject-with icmp6-adm-prohibited
+    if [ -n "$IPV6_ADDR" ]; then
+        IPV6_STATE=present
+        echo "IPv6: present on $DEFAULT_IF ($IPV6_ADDR); ip6tables default-deny installed"
+    else
+        IPV6_STATE=absent
+        echo "IPv6: absent on $DEFAULT_IF (disable_ipv6=$IPV6_DISABLED); ip6tables default-deny installed anyway"
+    fi
+elif [ -n "$IPV6_ADDR" ]; then
+    echo "ERROR: IPv6 is present on $DEFAULT_IF ($IPV6_ADDR) but ip6tables is unavailable."
+    echo "       Refusing to start with IPv6 unfiltered. Disable IPv6 on the compose network or restore ip6tables."
+    exit 1
+else
+    IPV6_STATE=unsupported
+    echo "IPv6: absent on $DEFAULT_IF and ip6tables unavailable; nothing to filter"
+fi
+
 echo "Firewall configured."
 echo ""
 
@@ -212,6 +275,51 @@ if curl --connect-timeout 3 --noproxy '*' https://1.1.1.1 >/dev/null 2>&1; then
     exit 1
 else
     echo "PASS: Direct outbound blocked (1.1.1.1 unreachable)"
+fi
+
+# IPv6 tests. With an address on the interface, a query to a public resolver
+# over IPv6 must be rejected by ip6tables over both transports; without one,
+# the state is named and nothing is probed. Loopback (::1) must stay open in
+# both cases, since it is the only IPv6 the sandbox keeps.
+echo "Verifying IPv6..."
+case $IPV6_STATE in
+    present)
+        RESULT=$(dns_rcode 2001:4860:4860::8888 53 "$NEGATIVE_NAME")
+        if [ "$RESULT" = "rejected" ]; then
+            echo "PASS: IPv6 UDP/53 to a public resolver rejected"
+        else
+            echo "FAIL: IPv6 UDP/53 to a public resolver was not rejected (got: $RESULT)"
+            exit 1
+        fi
+        RESULT=$(tcp_connect_result 2001:4860:4860::8888 53)
+        if [ "$RESULT" = "rejected" ]; then
+            echo "PASS: IPv6 TCP/53 to a public resolver rejected"
+        else
+            echo "FAIL: IPv6 TCP/53 to a public resolver was not rejected (got: $RESULT)"
+            exit 1
+        fi
+        ;;
+    absent)
+        echo "PASS: IPv6 absent on $DEFAULT_IF; ip6tables default-deny covers it if the network gains it"
+        ;;
+    unsupported)
+        echo "PASS: IPv6 absent on $DEFAULT_IF and ip6tables unavailable; nothing to filter"
+        ;;
+esac
+if [ "$IPV6_STATE" != "unsupported" ] && ip -6 addr show dev lo 2>/dev/null | grep -q '::1/128'; then
+    LOOPBACK_OK=0
+    if { exec 3<>/dev/udp/::1/9; } 2>/dev/null; then
+        if printf 'x' >&3 2>/dev/null; then
+            LOOPBACK_OK=1
+        fi
+        exec 3>&- 3<&-
+    fi
+    if [ "$LOOPBACK_OK" -eq 1 ]; then
+        echo "PASS: IPv6 loopback open (::1)"
+    else
+        echo "FAIL: IPv6 loopback (::1) is blocked"
+        exit 1
+    fi
 fi
 
 echo ""

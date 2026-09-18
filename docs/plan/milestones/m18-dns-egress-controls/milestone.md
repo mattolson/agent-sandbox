@@ -145,6 +145,11 @@ address family.
 - Add the IPv6 probes from `m18.1` to the firewall self-test
 - The audit found `ip6tables` present in the image with ACCEPT policies and no rules, and `EnableIPv6=false` on the
   compose network. Enable IPv6 on the network for the `after-m18.3` audit run, or the E rows cannot flip
+- Decided 2026-09-17: deny all IPv6 except loopback (`::1` only) and established traffic, with no host-network or
+  port 53 exception, because the agent reaches the proxy and the sinkhole over IPv4 by construction. The rules go
+  in whether or not the network has IPv6; the firewall fails closed only when IPv6 is present and `ip6tables` is
+  unavailable. This repo's dev sandbox keeps IPv6 enabled so the path is exercised daily. The alternatives and
+  the reasoning are in `tasks/m18.3-ipv6-egress-parity/task.md`
 
 **Acceptance Criteria:**
 - With IPv6 available on the network, every IPv6 probe from the audit is blocked
@@ -255,6 +260,15 @@ B1, B2, and H2.
 - Docs, troubleshooting, the agent skill, and a decision record are updated, including the residual gaps
 
 ## Changes
+
+### 2026-09-17: m18.3 design chosen
+
+IPv6 is denied outright except loopback and return traffic, rather than mirrored from the IPv4 rule set. The
+mirrored host-network and port 53 exceptions would have had no consumer, since the agent reaches the proxy over
+IPv4, and would have needed ICMPv6 neighbour-discovery rules and a DNAT on the proxy's IPv6 address that only an
+IPv6-enabled run could test. Disabling IPv6 on the network was rejected because it needs a managed-layer change and
+leaves a user who enables IPv6 unfiltered. Loopback means `::1` alone, so a resolver address Docker might add to
+`lo` is denied without being known. This repo's dev sandbox enables IPv6 on its compose network from here on.
 
 ### 2026-09-17: m18.2 closed
 
