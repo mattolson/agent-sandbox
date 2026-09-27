@@ -19,8 +19,9 @@ From the milestone plan, with the adjustments proposed under Approach and listed
   the proxy's 403 and a body that names the guard and the reason
 - Proposed: hosts written as IP literals are exempt. The guard protects an allowed name from being pointed somewhere
   unexpected; a literal is an explicit address in a policy the agent cannot edit
-- Proposed: an operator allow list of CIDRs, `AGENTBOX_ADDRESS_GUARD_ALLOW` on the proxy service, outside the authored
-  policy surface. The milestone allowed a hatch only for tests; users who allowlist an internal host need one too
+- No operator escape hatch in this task (decided 2026-09-27). The tests need none under the literal exemption, and a
+  hatch is easier to add on demand than to remove once shipped. Users with an allowed host that resolves privately
+  are told in the changelog; a name-scoped hatch is the follow-up if one reports it
 - Update the audit so D3 and D4 can tell a guard refusal from a refused port, and the `after-m18.4` expectations
 - Rollout is image-only, proxy image only: `agentbox bump` then `agentbox up`. Changelog entry
 - Out of scope: user docs and the decision record, which `m18.5` writes; SNI and Host alignment, redirect
@@ -82,7 +83,8 @@ From the milestone plan, with the adjustments proposed under Approach and listed
 - `images/proxy/tests/integration/harness.py`: an `extra_addons` parameter for that addon
 - `scripts/dns-egress-audit/probe.bash`: D3 and D4 recognise the guard's marker in the response body
 - `scripts/dns-egress-audit/expected/after-m18.4.tsv`, `README.md`, and the milestone's `bypass-matrix.md`
-- `CHANGELOG.md`: an `[Unreleased]` entry, including what an operator with an internal allowed host must set
+- `CHANGELOG.md`: an `[Unreleased]` entry that says allowed hosts resolving to private addresses are now refused,
+  and points sidecar users at `NO_PROXY`
 - `docs/plan/milestones/m18-dns-egress-controls/milestone.md`: record the design choice under `m18.4`
 
 No change under `internal/`, `images/base/`, or the compose templates. The proxy `Dockerfile` copies `addons/` whole.
@@ -143,7 +145,7 @@ specific name is the more useful one in a log.
 - If `address[0]` parses as an IP literal, do nothing (open question 2)
 - Resolve with `loop.getaddrinfo(host, port, type=SOCK_STREAM)`. On a resolution error, leave the connection alone;
   mitmproxy's own dial fails the same way and reports it
-- If any answer is denied and not covered by `AGENTBOX_ADDRESS_GUARD_ALLOW`, set `data.server.error` to
+- If any answer is denied, set `data.server.error` to
   `agent-sandbox address guard: <host> resolves to <ip> (<class>); refused` and log the event. Any answer rather than
   the first, so a mixed answer cannot be steered onto its private half when the public half fails
 - Otherwise remember the hostname on the connection, set `address` to the first answer, and restore it in
@@ -169,23 +171,27 @@ was the guard. Two paths get there:
 carry `reason` and no `type`. The 403 body starts with `agent-sandbox address guard:` and names the host, address,
 and class.
 
-**Escape hatch.** `AGENTBOX_ADDRESS_GUARD_ALLOW`, a comma-separated list of CIDRs, read at load like
-`AGENTBOX_DNS_ALLOW`, set on the proxy service in `user.override.yml`. Addresses inside it pass. It is not in the
-policy file, so the agent cannot reach it, and the renderer does not need to know about it. `m18.5` documents it.
+**No escape hatch.** Nothing lets an operator exempt a name or a range. Of the cases that would want one, a compose
+sidecar reached through the proxy has a workaround: list its name in `NO_PROXY` on the agent service, and the agent
+connects directly over the host network the firewall already allows. An internal host such as a Git server on `10.x`
+has none; if a user reports one, the follow-up is an environment variable on the proxy service that names hosts
+allowed to resolve privately. Names rather than CIDRs, because allowing `10.0.0.0/8` for one server would also admit
+any other allowed name that resolves there.
 
 **Tests.**
 
 - Unit: every class in the table, both boundaries of each range, a mapped IPv4 address, public addresses in both
   families passing; the hook with a fake `data` and injected resolver for refuse, pin, restore on connected and on
-  connect error, the any-answer rule, IP literals, the allow list, log mode, and a resolution error
+  connect error, the any-answer rule, IP literals, log mode, and a resolution error
 - Integration, against the real `mitmdump`: policy allows `localhost`, which resolves to loopback on any machine,
   so the request is refused, the body names the guard, and the event names `loopback`. The other classes run
   through a test-only addon in the tests directory that swaps the guard's resolver for a fixed map, so a name can
   "resolve" to `10.0.0.1`, `169.254.169.254`, `fd00::1` without real DNS. Both paths are covered: an HTTPS
   CONNECT and a plain HTTP request each get a 403 with the guard's body. The connection is refused before any
   packet, so the addresses never need to exist. Pinning is proven with a name that does not resolve on the system,
-  mapped to `127.0.0.1` and allowed through `AGENTBOX_ADDRESS_GUARD_ALLOW=127.0.0.1/32`: the request can only reach
-  the loopback upstream if the dial used the pinned address
+  mapped by the test addon to `127.0.0.1`, with the same addon removing `loopback` from the guard's deny table for
+  that test only: the request can only reach the loopback upstream if the dial used the pinned address. Both
+  overrides live in the tests directory and are loaded with `-s`, so production carries no test hook
 - The existing integration tests stay as they are. They use `127.0.0.1` as a literal policy host, so under the
   literal exemption they need no hatch and prove the "no change" criterion for the proxy's normal paths
 
@@ -196,7 +202,7 @@ result when the body carries the guard's marker, so the row proves the guard and
 
 **Rollout.** Proxy image only. A user whose policy allows a name that resolves to a private address, such as an
 internal Git server or a compose sidecar reached through the proxy, starts getting 403s with the guard's reason; the
-changelog says so and names the environment variable. An agent image is unaffected.
+changelog says so, and tells sidecar users to use `NO_PROXY`. An agent image is unaffected.
 
 **Residuals, for the decision record.** Pinning uses the first answer, so a host whose first address is unreachable no
 longer falls back to the next. The guard trusts the answer the proxy container's resolver gives, which is Docker's
@@ -206,7 +212,7 @@ embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
 
 - [ ] Spike the pin against `mitmdump` 12.2.3: SNI and verification, reuse, plain HTTP, and the 403 swap in
       `http_connect_error`. Record the result; fall back to option 1 if the pin does not hold
-- [ ] Write `address_guard.py` with the classifier, the hook, and the allow list, and its unit tests
+- [ ] Write `address_guard.py` with the classifier and the hook, and its unit tests
 - [ ] Register it in `build_addons()`, add the enforcer's `http_connect_error` swap and the plain-`http` pre-check,
       add the harness's `extra_addons` and the resolver-swapping test addon, and write the integration tests
 - [ ] Teach `probe.bash` the `guard-refused` result, update `after-m18.4.tsv`, the audit README, and the matrix
@@ -223,10 +229,9 @@ embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
 2. Exempt IP-literal hosts. Recommendation: yes. The threat is a name pointed somewhere unexpected; a literal in a
    policy the agent cannot edit is the operator saying where. It also keeps the existing integration tests free of any
    hatch. The cost is that a policy author who writes `169.254.169.254` gets exactly that
-3. An operator allow list, `AGENTBOX_ADDRESS_GUARD_ALLOW`, beyond the tests' needs. The milestone said to add a hatch
-   only if the tests need one and to keep it out of the authored policy. With question 2 the tests need none, but a
-   user who allowlists `git.internal.example` on `10.x` has no other way through. Recommendation: add it, as an
-   environment variable on the proxy service
+3. Resolved 2026-09-27: no operator hatch for now. The tests need none, sidecars have `NO_PROXY`, and a hatch is
+   easier to add than to take back. If a user reports an internal host, add a name-scoped variable on the proxy
+   service, not a CIDR list
 4. Resolved 2026-09-27: 403, not 502. A guard refusal is the proxy refusing, deterministically, and 502 reads as an
    upstream fault that invites a retry. The body and the event distinguish it from a policy block. CONNECT gets the
    403 by replacing mitmproxy's 502 in `http_connect_error`; plain `http` gets it from a request-phase pre-check. A
@@ -235,8 +240,8 @@ embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
 5. Refuse when any answer is denied, or only when the pinned one is. Recommendation: any. It is the stricter rule,
    easier to explain, and denies an attacker the choice of which half of a mixed answer the proxy uses
 6. Whether `shared` (`100.64.0.0/10`) belongs in the deny set. It is carrier-grade NAT space, and Tailscale uses it. A
-   proxy container does not route to a tailnet by default, so denying it costs nothing today. Recommendation: deny,
-   and let the allow list cover a user who routes there
+   proxy container does not route to a tailnet by default, so denying it costs nothing today. Recommendation: deny;
+   a user who routes there is a case for the name-scoped hatch
 
 ## Outcome
 
