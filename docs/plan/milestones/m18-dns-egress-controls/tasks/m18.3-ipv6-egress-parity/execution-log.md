@@ -1,5 +1,15 @@
 # Execution Log: m18.3 - ipv6 egress parity
 
+## 2026-09-27 - IPv6-absent path verified in the rebuilt dev image
+
+The maintainer ran `make setup`. The installed `/usr/local/bin/init-firewall.sh` matches the branch, and the
+container started, so the boot-time run passed. A re-run in place with `sudo` printed
+`IPv6: absent on eth0 (disable_ipv6=1); ip6tables default-deny installed anyway`, then every self-test passed: the
+sinkhole resolves `proxy` and refuses a random `.invalid` name with `NXDOMAIN`, direct outbound to `1.1.1.1` is
+blocked, the IPv6-absent line, and `::1` open. `getent ahostsv4 proxy` returns `172.22.0.2`. This covers the second
+acceptance criterion's start path. The IPv4 audit (`--stage after-m18.2`) and the IPv6-enabled run are still to do
+on the host; the override is not in `user.override.yml` yet.
+
 ## 2026-09-17 - Approved and implemented from the sandbox
 
 The maintainer approved deny-all IPv6, keeping IPv6 enabled in this repo's dev sandbox, and leaving the sinkhole's
