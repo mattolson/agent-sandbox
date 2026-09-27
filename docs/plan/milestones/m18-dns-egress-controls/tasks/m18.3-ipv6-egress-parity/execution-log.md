@@ -1,5 +1,14 @@
 # Execution Log: m18.3 - ipv6 egress parity
 
+## 2026-09-27 - H1 control confirmed on a clean after-m18.3 re-run
+
+Re-ran `--stage after-m18.3` in CLI mode with the new control; every compared row matches again. H1 read
+`not-seen` with the control `ctl-a47afd89` in 4 packets and the run's label in none. The capture shows the full
+path a leak would take: Docker's embedded resolver sends to the VM's `dnsmasq` at `192.168.5.1` over `lo`,
+`dnsmasq` forwards out `eth0` to the Lima host at `192.168.5.2`, and the `NXDOMAIN` comes back the same way. So a
+label from the agent that escaped would have shown on `eth0`, and none did. This run replaces `154923` as the
+CLI-mode evidence.
+
 ## 2026-09-27 - after-m18.3 audit clean in CLI mode
 
 `run-audit.bash --stage after-m18.3` with IPv6 on matched every compared row. E1 read `present` with

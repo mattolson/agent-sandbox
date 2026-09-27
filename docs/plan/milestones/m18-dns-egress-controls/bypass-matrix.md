@@ -7,7 +7,9 @@ from a sandbox shell after the temporary policy entries went live. The raw run i
 acceptance. The after-m18.2 column is confirmed for both modes as of 2026-09-13; those runs are working files
 under `results/after-m18.2-20260913-161555/` (CLI) and `results/after-m18.2-20260913-162638/` (devcontainer).
 The after-m18.3 column is confirmed for CLI mode as of 2026-09-27, with IPv6 enabled on the compose network
-(`results/after-m18.3-20260927-154923/`, a working file); the devcontainer run is pending.
+(`results/after-m18.3-20260927-155350/`, a working file); the devcontainer run is pending. From that run on,
+H1 carries a positive control: a separate `ctl-` label resolved through Docker's resolver from a throwaway
+container during the capture, which must appear in the capture for `not-seen` to count.
 
 Re-run with `scripts/dns-egress-audit/run-audit.bash --stage <stage>` on the Mac, or run `probe.bash` alone from a
 sandbox shell for the in-container rows. `scripts/dns-egress-audit/README.md` has the procedure.
@@ -190,7 +192,3 @@ real sinkhole; entries marked "verify" are from documentation, not measurement.
 - The dynamic check of the tool inventory below against the live sinkhole. The entries marked "verify" are
   still from documentation.
 - The after-m18.3 run in devcontainer mode. CLI mode flipped E1 through E4 on 2026-09-27.
-- H1's positive control is new and has not run yet. On 2026-09-27 the VM capture was live for both runs but saw no
-  port 53 packets at all, so `not-seen` rested on silence. `run-audit.bash` now resolves a separate `ctl-` label
-  through Docker's resolver from a throwaway container during the window, and H1 reads `error` unless the capture
-  shows it.

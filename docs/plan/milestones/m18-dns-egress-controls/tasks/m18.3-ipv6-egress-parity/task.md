@@ -195,7 +195,8 @@ in each run records the installed IPv6 rules.
 ### Acceptance Verification
 
 Evidence is the CLI-mode audit runs on 2026-09-27, `results/after-m18.2-20260927-154352/` with IPv6 off and
-`results/after-m18.3-20260927-154923/` with IPv6 on, plus the firewall re-runs in the dev sandbox.
+`results/after-m18.3-20260927-155350/` with IPv6 on, whose H1 has the positive control, plus the firewall re-runs
+in the dev sandbox.
 
 - [ ] With IPv6 available on the network, every IPv6 probe from the audit is blocked. CLI mode: E1 `present`
       (`fd9f:73ac:d109::3/64`), E2 `rejected` (`EPERM`), E3 and E4 `rejected` (`EACCES`), and the self-test's two
