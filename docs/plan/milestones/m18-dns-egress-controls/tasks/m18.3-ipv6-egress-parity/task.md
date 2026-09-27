@@ -184,16 +184,27 @@ in each run records the installed IPv6 rules.
    widen the rollout
 4. Resolved 2026-09-17: Docker Engine 29.2.1 on Colima, which assigns a unique-local prefix when no subnet is
    given. The override carries no `ipam` block
-5. What Docker does for DNS on an IPv6-enabled network: whether `resolv.conf` gains an IPv6 nameserver, whether
-   `ip6tables -t nat` holds a redirect, and what the embedded resolver listens on. No longer changes the code, since
-   loopback admits `::1` only, but worth recording from the run for the decision record `m18.5` writes
+5. Resolved 2026-09-27: on an IPv6-enabled network Docker 29.2.1 still writes only `nameserver 127.0.0.11` and
+   the same `host(192.168.5.1)` upstream; no IPv6 nameserver appears. The VM's `dnsmasq` listens on `[::1]` and
+   the VM's link-local address, neither reachable from the container. `ip6tables -t nat` in a fresh container was
+   not dumped; the `::1`-only loopback rule makes it moot
 6. Resolved 2026-09-27: an IPv6 reject on a TCP connect is `EACCES` (`Permission denied`), as expected
 
 ## Outcome
 
 ### Acceptance Verification
 
-_Pending._
+Evidence is the CLI-mode audit runs on 2026-09-27, `results/after-m18.2-20260927-154352/` with IPv6 off and
+`results/after-m18.3-20260927-154923/` with IPv6 on, plus the firewall re-runs in the dev sandbox.
+
+- [ ] With IPv6 available on the network, every IPv6 probe from the audit is blocked. CLI mode: E1 `present`
+      (`fd9f:73ac:d109::3/64`), E2 `rejected` (`EPERM`), E3 and E4 `rejected` (`EACCES`), and the self-test's two
+      IPv6 rejects pass at start. Devcontainer run pending
+- [x] With IPv6 unavailable, container start still succeeds and the self-test says so explicitly.
+      `PASS: IPv6 absent on eth0; ip6tables default-deny covers it if the network gains it`, with
+      `disable_ipv6=1`, and the same five IPv6 rules installed
+- [x] No IPv4 behavior changes. Both runs match every compared A, B, C, D1, and S row, and H5 shows the same 15
+      IPv4 rules as on 2026-09-15
 
 ### Learnings
 

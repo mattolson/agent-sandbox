@@ -1,5 +1,22 @@
 # Execution Log: m18.3 - ipv6 egress parity
 
+## 2026-09-27 - after-m18.3 audit clean in CLI mode
+
+`run-audit.bash --stage after-m18.3` with IPv6 on matched every compared row. E1 read `present` with
+`fd9f:73ac:d109::3/64`; E2 `rejected` with `Operation not permitted`; E3 and E4 `rejected` with
+`Permission denied`, the `EACCES` mapping added to `errno_result`; E5 `timeout`, since `::1` is open and nothing
+listens on port 53 there. H4 shows `EnableIPv6=true` with both subnets, and the IPv4 rows are unchanged.
+
+**Observation:** Docker keeps DNS IPv4-only on an IPv6 network. The throwaway container's `resolv.conf` names
+`127.0.0.11` with the `host(192.168.5.1)` upstream and no IPv6 nameserver. The VM's `dnsmasq` adds `[::1]:53` and
+its link-local address, neither reachable from the container.
+
+**Issue:** H1 captured no port 53 packets for the second run in a row, so `not-seen` rests on silence. The capture
+was live (tcpdump on `any`, stopped by the timeout, 2 packets through the filter and 0 captured). The 2026-09-15
+run captured 56, most likely from unrelated VM traffic in the window, not from anything the audit sends. The audit
+needs a positive control; recorded in the matrix's pending list rather than fixed here, since it is an audit gap
+that predates this task.
+
 ## 2026-09-27 - IPv6 enabled on the dev network: self-tests pass, clients fall back
 
 The maintainer added `networks: default: enable_ipv6: true` to `user.override.yml` and recreated the stack. Docker

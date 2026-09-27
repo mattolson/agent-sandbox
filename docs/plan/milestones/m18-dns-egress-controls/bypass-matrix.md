@@ -6,6 +6,8 @@ from a sandbox shell after the temporary policy entries went live. The raw run i
 `scripts/dns-egress-audit/results/baseline-20260912-121839/`. The devcontainer run belongs to the `m18.2`
 acceptance. The after-m18.2 column is confirmed for both modes as of 2026-09-13; those runs are working files
 under `results/after-m18.2-20260913-161555/` (CLI) and `results/after-m18.2-20260913-162638/` (devcontainer).
+The after-m18.3 column is confirmed for CLI mode as of 2026-09-27, with IPv6 enabled on the compose network
+(`results/after-m18.3-20260927-154923/`, a working file); the devcontainer run is pending.
 
 Re-run with `scripts/dns-egress-audit/run-audit.bash --stage <stage>` on the Mac, or run `probe.bash` alone from a
 sandbox shell for the in-container rows. `scripts/dns-egress-audit/README.md` has the procedure.
@@ -187,4 +189,7 @@ real sinkhole; entries marked "verify" are from documentation, not measurement.
 
 - The dynamic check of the tool inventory below against the live sinkhole. The entries marked "verify" are
   still from documentation.
-- The E rows, which need IPv6 enabled on the compose network for the `m18.3` run.
+- The after-m18.3 run in devcontainer mode. CLI mode flipped E1 through E4 on 2026-09-27.
+- H1 has no positive control. On 2026-09-27 the VM capture was live for both runs but captured no port 53 packets
+  at all, so `not-seen` rests on silence. A lookup through Docker's resolver from a throwaway container during the
+  window would prove the capture sees upstream queries.
