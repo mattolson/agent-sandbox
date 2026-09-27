@@ -11,7 +11,9 @@ From the milestone plan, with the adjustments proposed under Approach and listed
 - At the point where the proxy opens an upstream connection, resolve the host, check every answer against a deny set
   (loopback, private, link-local including `169.254.169.254`, unique-local and link-local IPv6, the sandbox's own
   networks, and the other non-global ranges), and refuse the connection if any answer is denied
-- Pin the dial to the checked address so a second resolution cannot hand mitmproxy a different one
+- Pin the dial to the checked addresses so a second resolution cannot hand mitmproxy a different one. The spike
+  settled the mechanism: the checked answers are staged for the event loop's `getaddrinfo`, and mitmproxy's own dial
+  consumes them; `server.address` is never touched
 - One enforcement point, mitmproxy's `server_connect` hook, which every upstream connection passes through: CONNECT
   tunnels, decrypted requests, and plain HTTP alike. That covers both the CONNECT fast path and the request path the
   milestone names
@@ -60,8 +62,11 @@ From the milestone plan, with the adjustments proposed under Approach and listed
     `http_connect_error` hook fires with that 502 in `flow.response` before it is sent (`http/__init__.py:827`), so an
     addon can replace it. On a plain or decrypted request the failure goes through `ResponseProtocolError` with
     `CONNECT_FAILED`; the `error` hook fires but cannot replace what is sent
-  - In regular mode `request.host` comes from the request line or Host header, not from `server.address`; only
-    transparent mode copies the address into the request (`proxy/layers/http/__init__.py:224`)
+  - Requests inside a CONNECT tunnel take `request.host` from `server.address`: the layer inside the tunnel runs the
+    transparent-mode branch (`proxy/layers/http/__init__.py:224`). Plain proxy requests take it from the request line.
+    Measured in the spike: with the address rewritten, tunnelled requests carried `127.0.0.1` as their host
+  - mitmproxy refuses to change `server.address` on an open connection (`Cannot change server.address on open
+    connection`), so an address rewritten before the dial cannot be restored after it
   - `server.sni` is set from the hostname when `get_connection` creates the server, before `server_connect`. For the
     eager connection a CONNECT opens, `sni` is still unset at dial time and the TLS layer later fills it from the
     client's SNI or `address[0]` (`addons/tlsconfig.py:291`)
@@ -97,26 +102,20 @@ No change under `internal/`, `images/base/`, or the compose templates. The proxy
    leave the hostname in place so `asyncio.open_connection` resolves it again. Simple and uses no mitmproxy
    internals, but the second resolution is the rebinding window: a nameserver that answers a public address to the
    check and a private one to the dial, with TTL 0, walks through. The Colima VM's `dnsmasq` honours TTL 0.
-2. Check and pin. The same check, then set `server.address` to `(checked_ip, port)` for the dial and restore the
-   hostname in `server_connected` and `server_connect_error`. The dial goes to exactly the address that was checked,
-   so there is no time-of-check gap. SNI and certificate verification stay on the hostname: `sni` is already set on
-   request-path connections, and on the eager CONNECT connection the hostname is back in `address` before TLS
-   starts. Reuse keeps working because the address matches again once the connection is open. The cost is a
-   dependency on the order in which mitmproxy reads `address`, and the loss of `asyncio`'s fallback to the next
-   answer when the first does not connect.
+2. Check and pin. The same check, then make the dial use exactly the answers that were checked. Two mechanisms were
+   spiked. Rewriting `server.address` to the IP fails: it cannot be restored once the connection is open, and
+   tunnelled requests then carry the IP as their host, so the policy would match against an address. Staging works:
+   `server_connect` stores the checked answers under `(host, port)`, and a wrapper installed on the running event
+   loop's `getaddrinfo` returns them when `asyncio.open_connection` resolves that key. The address stays the
+   hostname, so SNI, certificate verification, connection reuse, and `request.host` are untouched, and because every
+   checked answer is staged, `asyncio`'s fallback to the next address still works. The cost is a wrapper on one
+   method of the loop instance, which relies on `asyncio` resolving through `loop.getaddrinfo`.
 3. A request-phase check in the enforcer's `http_connect` and `requestheaders` hooks, answering 403 through the
    existing block path, plus option 2 underneath for the race. A familiar status code, but two resolutions per
    request, including requests on a connection that is already open and already checked, and two places that must
    agree.
 
-This task proposes option 2, subject to a spike and open question 1.
-
-**Spike first.** Against `mitmdump` 12.2.3 with a throwaway addon: rewrite the address in `server_connect`, restore it
-in `server_connected`, and confirm (a) an HTTPS request through a CONNECT tunnel reaches a local TLS upstream with SNI
-and certificate verification on the hostname, (b) two requests on one tunnel reuse one upstream connection, (c) a
-plain HTTP request is pinned the same way, (d) replacing the 502 in `http_connect_error` delivers a 403 with the
-enforcer's body to a CONNECT client. If (a) through (c) fail, fall back to option 1 and record the residual; if (d)
-fails, CONNECT refusals stay 502 and the plan says so.
+This task takes option 2 with staging. The spike, on 2026-09-27 against `mitmdump` 12.2.3, is in the execution log.
 
 **Classifier.** A table of `(network, class)` pairs checked in order, first match wins, so the specific name beats the
 general one:
@@ -148,8 +147,9 @@ specific name is the more useful one in a log.
 - If any answer is denied, set `data.server.error` to
   `agent-sandbox address guard: <host> resolves to <ip> (<class>); refused` and log the event. Any answer rather than
   the first, so a mixed answer cannot be steered onto its private half when the public half fails
-- Otherwise remember the hostname on the connection, set `address` to the first answer, and restore it in
-  `server_connected` and `server_connect_error`. mitmproxy's own log line then shows `host (ip)`
+- Otherwise stage every answer under `(host, port)` for a few seconds. The loop wrapper, installed in the guard's
+  `running()` hook, returns staged answers for a staged key and passes every other lookup to the real
+  `getaddrinfo`, including the sinkhole's and the guard's own. mitmproxy's log line then shows `host (ip)`
 
 **Status code.** The client gets 403, the same status as a policy block, because a guard refusal is the proxy
 refusing and a retry cannot succeed; 502 reads as an upstream fault and invites one. The body and the event say it
@@ -204,14 +204,14 @@ result when the body carries the guard's marker, so the row proves the guard and
 internal Git server or a compose sidecar reached through the proxy, starts getting 403s with the guard's reason; the
 changelog says so, and tells sidecar users to use `NO_PROXY`. An agent image is unaffected.
 
-**Residuals, for the decision record.** Pinning uses the first answer, so a host whose first address is unreachable no
-longer falls back to the next. The guard trusts the answer the proxy container's resolver gives, which is Docker's
+**Residuals, for the decision record.** Pinning depends on `asyncio` resolving through the loop's `getaddrinfo`,
+which the pinned mitmproxy and Python versions do and an integration test proves on every run. The guard trusts the answer the proxy container's resolver gives, which is Docker's
 embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
 
 ### Implementation Steps
 
-- [ ] Spike the pin against `mitmdump` 12.2.3: SNI and verification, reuse, plain HTTP, and the 403 swap in
-      `http_connect_error`. Record the result; fall back to option 1 if the pin does not hold
+- [x] Spike the pin against `mitmdump` 12.2.3: SNI and verification, reuse, plain HTTP, and the 403 swap in
+      `http_connect_error`. Address rewriting failed; staging answers for the loop's `getaddrinfo` holds
 - [ ] Write `address_guard.py` with the classifier and the hook, and its unit tests
 - [ ] Register it in `build_addons()`, add the enforcer's `http_connect_error` swap and the plain-`http` pre-check,
       add the harness's `extra_addons` and the resolver-swapping test addon, and write the integration tests
@@ -223,9 +223,8 @@ embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
 
 ### Open Questions
 
-1. Pin (option 2) over check-only (option 1) or the request-phase 403 (option 3). Recommendation: option 2 if the
-   spike holds. Option 1 leaves the rebinding window the milestone asked to close or record; option 3 doubles the
-   resolution work for a friendlier status code
+1. Resolved 2026-09-27: pin (option 2), by staging checked answers for the loop's `getaddrinfo`, after the spike
+   showed that rewriting `server.address` breaks tunnelled requests
 2. Exempt IP-literal hosts. Recommendation: yes. The threat is a name pointed somewhere unexpected; a literal in a
    policy the agent cannot edit is the operator saying where. It also keeps the existing integration tests free of any
    hatch. The cost is that a policy author who writes `169.254.169.254` gets exactly that
