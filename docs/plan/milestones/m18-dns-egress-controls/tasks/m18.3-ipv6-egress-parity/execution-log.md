@@ -1,5 +1,20 @@
 # Execution Log: m18.3 - ipv6 egress parity
 
+## 2026-09-27 - IPv4 unchanged: after-m18.2 audit clean on the new base image
+
+`run-audit.bash --stage after-m18.2` in CLI mode matched every compared row (`results/after-m18.2-20260927-154352/`,
+a working file). The A, B, C, and S rows read exactly as on 2026-09-15, and H5 shows the same 15 IPv4 rules. That
+is the third acceptance criterion. The IPv6 dump in H5 is the planned rule set and nothing else: DROP policies on
+all three chains, `::1` accepted on `lo` in each direction, established and related in each direction, and the
+final `REJECT --reject-with icmp6-adm-prohibited`. E1 through E4 still read `absent` and `unreachable`, because
+the network has `EnableIPv6=false`.
+
+**Observation:** H1's capture was live but saw no port 53 traffic at all: `tcpdump` listened on `any` for the full
+window and exited on the timeout, with 0 packets captured, against 56 on 2026-09-15. So `not-seen` holds, but this
+run has no positive control showing the capture would have seen a query. The earlier traffic most likely came from
+the H3 throwaway container's lookup landing inside the window. For the after-m18.3 run, check that
+`vm-capture.txt` is non-empty or send a query from the VM during the window, so H1 is evidence rather than silence.
+
 ## 2026-09-27 - IPv6-absent path verified in the rebuilt dev image
 
 The maintainer ran `make setup`. The installed `/usr/local/bin/init-firewall.sh` matches the branch, and the
