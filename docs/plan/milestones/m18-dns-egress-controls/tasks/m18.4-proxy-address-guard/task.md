@@ -15,8 +15,8 @@ From the milestone plan, with the adjustments proposed under Approach and listed
 - One enforcement point, mitmproxy's `server_connect` hook, which every upstream connection passes through: CONNECT
   tunnels, decrypted requests, and plain HTTP alike. That covers both the CONNECT fast path and the request path the
   milestone names
-- Emit a distinct structured event naming the host, the address, and the address class, and put the reason in the
-  error body the client receives
+- Emit a distinct structured event naming the host, the address, and the address class, and answer the client with
+  the proxy's 403 and a body that names the guard and the reason
 - Proposed: hosts written as IP literals are exempt. The guard protects an allowed name from being pointed somewhere
   unexpected; a literal is an explicit address in a policy the agent cannot edit
 - Proposed: an operator allow list of CIDRs, `AGENTBOX_ADDRESS_GUARD_ALLOW` on the proxy service, outside the authored
@@ -55,9 +55,10 @@ From the milestone plan, with the adjustments proposed under Approach and listed
     setting `data.server.error` there kills the connection before any packet is sent (`proxy/server.py`)
   - `server_connected` cannot abort: its handler ignores `error` and completes the open. So a post-connect check on
     `peername` is not available without reaching into mitmproxy's transports
-  - A killed connection reaches the client as a 502. For an eager CONNECT the body is
-    `Cannot connect to <host:port>: Connection killed: <error> ...`; for a plain or decrypted request it goes through
-    `ResponseProtocolError` with `CONNECT_FAILED`. To confirm in the spike
+  - A killed connection reaches the client as a 502 that mitmproxy builds itself. On a CONNECT, the
+    `http_connect_error` hook fires with that 502 in `flow.response` before it is sent (`http/__init__.py:827`), so an
+    addon can replace it. On a plain or decrypted request the failure goes through `ResponseProtocolError` with
+    `CONNECT_FAILED`; the `error` hook fires but cannot replace what is sent
   - In regular mode `request.host` comes from the request line or Host header, not from `server.address`; only
     transparent mode copies the address into the request (`proxy/layers/http/__init__.py:224`)
   - `server.sni` is set from the hostname when `get_connection` creates the server, before `server_connect`. For the
@@ -72,8 +73,9 @@ From the milestone plan, with the adjustments proposed under Approach and listed
 ### Files Involved
 
 - `images/proxy/addons/address_guard.py` (new): the classifier, the resolver, and the `AddressGuard` addon
-- `images/proxy/addons/enforcer.py`: register the guard in `build_addons()` beside the sinkhole; document the new
-  environment variable in the module docstring
+- `images/proxy/addons/enforcer.py`: register the guard in `build_addons()` beside the sinkhole; an
+  `http_connect_error` hook that turns the guard's 502 into the enforcer's 403; a request-phase check for plain
+  `http` requests; document the new environment variable in the module docstring
 - `images/proxy/tests/test_address_guard.py` (new): classifier and hook unit tests with an injected resolver
 - `images/proxy/tests/integration/test_address_guard.py` (new) and a test-only addon under
   `images/proxy/tests/integration/` that replaces the guard's resolver, loaded with an extra `-s` by the harness
@@ -110,8 +112,9 @@ This task proposes option 2, subject to a spike and open question 1.
 **Spike first.** Against `mitmdump` 12.2.3 with a throwaway addon: rewrite the address in `server_connect`, restore it
 in `server_connected`, and confirm (a) an HTTPS request through a CONNECT tunnel reaches a local TLS upstream with SNI
 and certificate verification on the hostname, (b) two requests on one tunnel reuse one upstream connection, (c) a
-plain HTTP request is pinned the same way, (d) the refusal body a client receives on each path. If any of these fails,
-fall back to option 1 and record the residual.
+plain HTTP request is pinned the same way, (d) replacing the 502 in `http_connect_error` delivers a 403 with the
+enforcer's body to a CONNECT client. If (a) through (c) fail, fall back to option 1 and record the residual; if (d)
+fails, CONNECT refusals stay 502 and the plan says so.
 
 **Classifier.** A table of `(network, class)` pairs checked in order, first match wins, so the specific name beats the
 general one:
@@ -146,9 +149,25 @@ specific name is the more useful one in a log.
 - Otherwise remember the hostname on the connection, set `address` to the first answer, and restore it in
   `server_connected` and `server_connect_error`. mitmproxy's own log line then shows `host (ip)`
 
+**Status code.** The client gets 403, the same status as a policy block, because a guard refusal is the proxy
+refusing and a retry cannot succeed; 502 reads as an upstream fault and invites one. The body and the event say it
+was the guard. Two paths get there:
+
+- CONNECT, which carries nearly all HTTPS traffic: `server_connect` refuses the eager dial, mitmproxy prepares its
+  502, and the enforcer's `http_connect_error` hook replaces it with the 403 when the connection error carries the
+  guard's marker. One resolution, in `server_connect`
+- Plain `http` requests: the connection opens after the request hooks, and the `error` hook cannot replace the 502
+  mitmproxy sends. So the enforcer's `requestheaders` path runs the guard's check first for `http` requests only and
+  blocks with 403 through the existing block path. `server_connect` still checks and pins when the connection opens,
+  so a plain request resolves twice; if the answer changes between the two, the second check refuses with a 502.
+  Decrypted requests inside a tunnel are not pre-checked: they normally reuse the connection the CONNECT already
+  checked, and a new connection they open is still checked and pinned, with a 502 on refusal
+
 **Event.** One line per refusal, in the enforcer's JSON stream:
-`{"type": "address_guard", "action": "blocked", "host": ..., "port": ..., "address": ..., "address_class": ...,
-"answers": [...]}`. The `type` field sets it apart from policy decisions, which carry `reason` and no `type`.
+`{"type": "address_guard", "action": "blocked", "phase": "connect" | "request", "host": ..., "port": ...,
+"address": ..., "address_class": ..., "answers": [...]}`. The `type` field sets it apart from policy decisions, which
+carry `reason` and no `type`. The 403 body starts with `agent-sandbox address guard:` and names the host, address,
+and class.
 
 **Escape hatch.** `AGENTBOX_ADDRESS_GUARD_ALLOW`, a comma-separated list of CIDRs, read at load like
 `AGENTBOX_DNS_ALLOW`, set on the proxy service in `user.override.yml`. Addresses inside it pass. It is not in the
@@ -162,7 +181,8 @@ policy file, so the agent cannot reach it, and the renderer does not need to kno
 - Integration, against the real `mitmdump`: policy allows `localhost`, which resolves to loopback on any machine,
   so the request is refused, the body names the guard, and the event names `loopback`. The other classes run
   through a test-only addon in the tests directory that swaps the guard's resolver for a fixed map, so a name can
-  "resolve" to `10.0.0.1`, `169.254.169.254`, `fd00::1` without real DNS; the connection is refused before any
+  "resolve" to `10.0.0.1`, `169.254.169.254`, `fd00::1` without real DNS. Both paths are covered: an HTTPS
+  CONNECT and a plain HTTP request each get a 403 with the guard's body. The connection is refused before any
   packet, so the addresses never need to exist. Pinning is proven with a name that does not resolve on the system,
   mapped to `127.0.0.1` and allowed through `AGENTBOX_ADDRESS_GUARD_ALLOW=127.0.0.1/32`: the request can only reach
   the loopback upstream if the dial used the pinned address
@@ -170,12 +190,12 @@ policy file, so the agent cannot reach it, and the renderer does not need to kno
   literal exemption they need no hatch and prove the "no change" criterion for the proxy's normal paths
 
 **Audit.** D3 and D4 send plain HTTP to `proxy:9` and `localhost:9` through the proxy. Today both read `http-502`
-because the port refuses. `probe.bash` gains a `guard-refused` result when the body carries the guard's marker, and
-`after-m18.4.tsv` expects it for both rows, replacing the planning-time guess of `http-403`. D3 is refused as
-`sandbox_network` and D4 as `loopback`.
+because the port refuses. After this task they get the request-phase 403. `probe.bash` gains a `guard-refused`
+result when the body carries the guard's marker, so the row proves the guard and not just some 403, and
+`after-m18.4.tsv` expects it for both rows. D3 is refused as `sandbox_network` and D4 as `loopback`.
 
 **Rollout.** Proxy image only. A user whose policy allows a name that resolves to a private address, such as an
-internal Git server or a compose sidecar reached through the proxy, starts getting 502s with the guard's reason; the
+internal Git server or a compose sidecar reached through the proxy, starts getting 403s with the guard's reason; the
 changelog says so and names the environment variable. An agent image is unaffected.
 
 **Residuals, for the decision record.** Pinning uses the first answer, so a host whose first address is unreachable no
@@ -184,11 +204,11 @@ embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
 
 ### Implementation Steps
 
-- [ ] Spike the pin against `mitmdump` 12.2.3: SNI and verification, reuse, plain HTTP, and the refusal body on both
-      paths. Record the result; fall back to option 1 if the pin does not hold
+- [ ] Spike the pin against `mitmdump` 12.2.3: SNI and verification, reuse, plain HTTP, and the 403 swap in
+      `http_connect_error`. Record the result; fall back to option 1 if the pin does not hold
 - [ ] Write `address_guard.py` with the classifier, the hook, and the allow list, and its unit tests
-- [ ] Register it in `build_addons()`, add the harness's `extra_addons` and the resolver-swapping test addon, and write
-      the integration tests
+- [ ] Register it in `build_addons()`, add the enforcer's `http_connect_error` swap and the plain-`http` pre-check,
+      add the harness's `extra_addons` and the resolver-swapping test addon, and write the integration tests
 - [ ] Teach `probe.bash` the `guard-refused` result, update `after-m18.4.tsv`, the audit README, and the matrix
 - [ ] Write the changelog entry and record the design choice in the milestone plan
 - [ ] Maintainer rebuilds the proxy with `./images/build.sh proxy`, restarts it, and runs the audit at
@@ -207,9 +227,11 @@ embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
    only if the tests need one and to keep it out of the authored policy. With question 2 the tests need none, but a
    user who allowlists `git.internal.example` on `10.x` has no other way through. Recommendation: add it, as an
    environment variable on the proxy service
-4. 502 with the reason in the body, rather than 403. Recommendation: accept 502. It is what mitmproxy produces from the
-   one hook every connection passes through, and it stays distinguishable from a policy 403, which the milestone
-   wants. The audit matches the body marker, not the status
+4. Resolved 2026-09-27: 403, not 502. A guard refusal is the proxy refusing, deterministically, and 502 reads as an
+   upstream fault that invites a retry. The body and the event distinguish it from a policy block. CONNECT gets the
+   403 by replacing mitmproxy's 502 in `http_connect_error`; plain `http` gets it from a request-phase pre-check. A
+   502 remains only where the answer changes between the pre-check and the connect, and for a new connection opened
+   by a decrypted request, which is rare because those reuse the tunnel's connection
 5. Refuse when any answer is denied, or only when the pinned one is. Recommendation: any. It is the stricter rule,
    easier to explain, and denies an attacker the choice of which half of a mixed answer the proxy uses
 6. Whether `shared` (`100.64.0.0/10`) belongs in the deny set. It is carrier-grade NAT space, and Tailscale uses it. A
