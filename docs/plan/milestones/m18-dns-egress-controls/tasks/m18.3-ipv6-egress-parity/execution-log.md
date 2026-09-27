@@ -4,7 +4,7 @@
 
 The maintainer added `networks: default: enable_ipv6: true` to `user.override.yml` and recreated the stack. Docker
 29.2.1 assigned `fd9f:73ac:d109::/64` with no `ipam` block; `eth0` has `fd9f:73ac:d109::3` and a default route via
-`::1` on that prefix. The container started, and a re-run of the firewall printed
+`fd9f:73ac:d109::1`. The container started, and a re-run of the firewall printed
 `IPv6: present on eth0 (fd9f:73ac:d109::3/64)` and passed every self-test, including both IPv6 rejects and `::1`.
 
 **Observation:** `getent hosts proxy` now returns `fd9f:73ac:d109::2` alone, so the `ahostsv4` fix was necessary:
