@@ -1,5 +1,23 @@
 # Execution Log: m18.3 - ipv6 egress parity
 
+## 2026-09-27 - Devcontainer run clean; task closed
+
+The devcontainer run used a scratch project rather than this repo, so the repo stays in CLI layout:
+`agentbox init --batch --agent claude --mode devcontainer --ide vscode --name ipv6-audit`, with `user.override.yml`
+pointing the proxy and agent at `agent-sandbox-proxy:local` and `agent-sandbox-claude:local` and enabling IPv6.
+That runs the shipped claude image, not the dev image, on the same `agent-sandbox-base:local`. The start banner
+reported `IPv6: present on eth0 (fd9f:73ac:d109:1::3/64)` and every self-test passed.
+`run-audit.bash --stage after-m18.3 --container ipv6-audit-devcontainer-agent-1` matched every compared row, with
+H1's control seen in 4 packets and the label in none.
+
+**Issue:** The first attempt, under `~/tmp`, failed at `docker compose up` with
+`bind source path does not exist: .../.agent-sandbox/policy/user.policy.yaml` although the file was there. Colima
+shares only `~/dev/workspace` with the VM here, and Docker checks bind sources inside the VM. Moving the project
+under `~/dev/workspace` fixed it.
+
+**Observation:** Docker gave the second IPv6 network `fd9f:73ac:d109:1::/64`, the next `/64` after the CLI stack's,
+so separate projects get separate prefixes without configuration.
+
 ## 2026-09-27 - H1 control confirmed on a clean after-m18.3 re-run
 
 Re-ran `--stage after-m18.3` in CLI mode with the new control; every compared row matches again. H1 read

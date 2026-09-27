@@ -134,6 +134,17 @@ Lessons learned during project execution. Review at the start of each planning s
   an addon's `done()` cannot do that because it runs inside a `finally` on the `SystemExit` path (m18.2)
 - mitmproxy 12 renamed `dns.Message` to `dns.DNSMessage` and, from 12.0.1, runs user addons ahead of its own DNS
   resolver (m18.2)
+- `getent hosts` prefers the AAAA record, so on a network with IPv6 it prints only the IPv6 address. Scripts that
+  need a peer's IPv4 address use `getent ahostsv4` (m18.3)
+- On Linux an ICMPv6 administratively-prohibited reject reaches a TCP connect as `EACCES` (`Permission denied`);
+  IPv4's reaches it as `EHOSTUNREACH`, and a UDP send reads `EPERM` in both (m18.3)
+- Docker 29 gives a compose network with `enable_ipv6: true` and no subnet a unique-local `/64` from a shared pool,
+  a different one per network, and keeps container DNS IPv4-only at `127.0.0.11` (m18.3)
+- An `ip6tables` loopback rule limited to `-d ::1` denies any other address on `lo` without the script having to
+  discover it (m18.3)
+- Under Colima, Docker checks bind sources inside the VM, so a project outside Colima's shared directories fails
+  with `bind source path does not exist` although the file is on the Mac. This repo's Colima shares
+  `~/dev/workspace` (m18.3)
 
 ## Architecture
 
@@ -187,3 +198,7 @@ Lessons learned during project execution. Review at the start of each planning s
   never tested there. Open the draft PR early (m18.2)
 - An expected file written at planning time needs a pass against the final rule order. A8 was carried over from
   baseline as `answered`, but no raw query to an address the firewall rejects outright can be answered (m18.2)
+- An empty capture is not evidence of absence. A negative observation such as "the label never left the VM" needs a
+  positive control in the same window, something that must appear, or the check passes on a dead capture (m18.3)
+- When a second address family has no consumer, deny it outright rather than mirroring the first family's
+  exceptions. Parity rules are surface to keep in step and can only be tested with that family enabled (m18.3)

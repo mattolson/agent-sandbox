@@ -167,13 +167,13 @@ in each run records the installed IPv6 rules.
 - [x] Write the changelog entry and record the design choice in the milestone plan
 - [x] Maintainer adds `networks: default: enable_ipv6: true` to `.agent-sandbox/compose/user.override.yml` on the
       host; the directory is read-only inside the sandbox
-- [ ] Maintainer rebuilds with `make setup`, runs `agentbox up` with IPv6 off, confirms the absent-path line in the
+- [x] Maintainer rebuilds with `make setup`, runs `agentbox up` with IPv6 off, confirms the absent-path line in the
       banner, and runs the audit at `--stage after-m18.2` to show IPv4 is unchanged
-- [ ] Maintainer enables IPv6 in `user.override.yml`, runs `agentbox down` and `agentbox up`, and runs the audit at
+- [x] Maintainer enables IPv6 in `user.override.yml`, runs `agentbox down` and `agentbox up`, and runs the audit at
       `--stage after-m18.3` in CLI mode and against the devcontainer. Record the Docker Engine version, whether a
       prefix was assigned automatically, and what Docker did for DNS over IPv6 (`resolv.conf`, `ip6tables -t nat`,
       listeners in a throwaway container)
-- [ ] Verify each acceptance criterion, capture learnings, and note follow-ups for `m18.5`
+- [x] Verify each acceptance criterion, capture learnings, and note follow-ups for `m18.5`
 
 ### Open Questions
 
@@ -194,13 +194,14 @@ in each run records the installed IPv6 rules.
 
 ### Acceptance Verification
 
-Evidence is the CLI-mode audit runs on 2026-09-27, `results/after-m18.2-20260927-154352/` with IPv6 off and
-`results/after-m18.3-20260927-155350/` with IPv6 on, whose H1 has the positive control, plus the firewall re-runs
-in the dev sandbox.
+Evidence is the audit runs on 2026-09-27: CLI mode with IPv6 off (`results/after-m18.2-20260927-154352/`), CLI
+mode with IPv6 on (`results/after-m18.3-20260927-155350/`), and devcontainer mode with IPv6 on
+(`results/after-m18.3-20260927-160744/`), plus the firewall self-tests at start in both modes. Both IPv6 runs carry
+H1's positive control.
 
-- [ ] With IPv6 available on the network, every IPv6 probe from the audit is blocked. CLI mode: E1 `present`
-      (`fd9f:73ac:d109::3/64`), E2 `rejected` (`EPERM`), E3 and E4 `rejected` (`EACCES`), and the self-test's two
-      IPv6 rejects pass at start. Devcontainer run pending
+- [x] With IPv6 available on the network, every IPv6 probe from the audit is blocked. In both modes E1 reads
+      `present` (`fd9f:73ac:d109::3/64` CLI, `fd9f:73ac:d109:1::3/64` devcontainer), E2 `rejected` (`EPERM`), E3 and
+      E4 `rejected` (`EACCES`), and the self-test's two IPv6 rejects pass at container start
 - [x] With IPv6 unavailable, container start still succeeds and the self-test says so explicitly.
       `PASS: IPv6 absent on eth0; ip6tables default-deny covers it if the network gains it`, with
       `disable_ipv6=1`, and the same five IPv6 rules installed
@@ -209,8 +210,32 @@ in the dev sandbox.
 
 ### Learnings
 
-_Pending._
+- Deny-all beats parity when the second family has no consumer. Five `ip6tables` rules cover IPv6 completely,
+  with nothing to keep in step with the IPv4 exceptions, because the agent reaches the proxy over IPv4 by
+  construction
+- Restricting loopback to `::1` removes the need to discover local listeners. The planned learn-before-flush step
+  for an IPv6 resolver stub was dropped, and it would have been unknowable on a re-run anyway
+- `getent hosts` prefers the AAAA record. Any script that needs a peer's IPv4 address on a network that may have
+  IPv6 should use `getent ahostsv4`. This was found by reading before IPv6 was ever on; with it on, the old lookup
+  would have stopped the container at start
+- On Linux an ICMPv6 administratively-prohibited reject reaches a TCP connect as `EACCES`, where IPv4's reaches it
+  as `EHOSTUNREACH`; a UDP send reads `EPERM` in both
+- Docker 29.2.1 gives a network with `enable_ipv6: true` and no subnet a unique-local `/64`, and a second network
+  got the next `/64` of the same `/48`, so projects do not collide. DNS stays IPv4-only: `127.0.0.11` and the same
+  host upstream, no IPv6 nameserver
+- An empty capture is not evidence of absence. H1 read `not-seen` twice with no DNS captured at all; a control
+  query that must appear in the same window turns silence into a finding
+- Under Colima, a bind source outside the VM's shared directories fails with `bind source path does not exist`
+  even though the file is on the Mac. This repo's Colima shares `~/dev/workspace`; scratch projects belong there
 
 ### Follow-up Items
 
-_Pending._
+- `m18.5`: document that IPv6 is denied outright, what the IPv6 lines in the start banner mean, and that a client
+  trying the proxy's AAAA address is refused and falls back to IPv4. The decision record should carry the
+  deny-all versus parity reasoning and the rejected disable-IPv6 option
+- Revisit the sinkhole's AAAA answers only if a tool mishandles the refused IPv6 attempt; none of `curl`, `gh`,
+  `git`, or `go` did
+- `docs/troubleshooting.md` has two entries for `bind source path does not exist` (missing secret directory,
+  missing `.vscode/`) and none for a Colima mount that does not cover the project. A user in that case is sent to
+  the wrong fix. Outside this milestone; a small doc change on its own
+- Unchanged from `m18.2`: the failing direction of the DNS self-test and the tool inventory's "verify" entries

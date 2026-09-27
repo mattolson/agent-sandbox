@@ -261,6 +261,13 @@ B1, B2, and H2.
 
 ## Changes
 
+### 2026-09-27: m18.3 closed
+
+All three acceptance criteria verified in both modes. With IPv6 enabled on the compose network, every IPv6 probe
+is rejected, and with it off the self-test names the state; the IPv4 rows are unchanged. The audit's H1 row gained
+a positive control after two runs captured no DNS at all. This repo's dev sandbox now runs with IPv6 on. `m18.4`
+and `m18.5` remain.
+
 ### 2026-09-17: m18.3 design chosen
 
 IPv6 is denied outright except loopback and return traffic, rather than mirrored from the IPv4 rule set. The
