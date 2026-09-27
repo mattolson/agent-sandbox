@@ -1,5 +1,21 @@
 # Execution Log: m18.3 - ipv6 egress parity
 
+## 2026-09-27 - IPv6 enabled on the dev network: self-tests pass, clients fall back
+
+The maintainer added `networks: default: enable_ipv6: true` to `user.override.yml` and recreated the stack. Docker
+29.2.1 assigned `fd9f:73ac:d109::/64` with no `ipam` block; `eth0` has `fd9f:73ac:d109::3` and a default route via
+`::1` on that prefix. The container started, and a re-run of the firewall printed
+`IPv6: present on eth0 (fd9f:73ac:d109::3/64)` and passed every self-test, including both IPv6 rejects and `::1`.
+
+**Observation:** `getent hosts proxy` now returns `fd9f:73ac:d109::2` alone, so the `ahostsv4` fix was necessary:
+without it the firewall would have refused to start on this network. `resolv.conf` still names `172.22.0.2`.
+
+**Observation:** A TCP connect over IPv6 to a public resolver, and to the proxy's own IPv6 address, fails with
+`Permission denied` (EACCES). That settles open question 6; `errno_result` already maps it. curl through the proxy
+tries `[fd9f:73ac:d109::2]:8080` first, is refused at once, and connects to `172.22.0.2` in the same attempt;
+`gh api`, `git ls-remote`, and a Go module listing all completed in under 0.7 s. The AAAA answer from the sinkhole
+costs one immediate refusal, as planned.
+
 ## 2026-09-27 - IPv4 unchanged: after-m18.2 audit clean on the new base image
 
 `run-audit.bash --stage after-m18.2` in CLI mode matched every compared row (`results/after-m18.2-20260927-154352/`,

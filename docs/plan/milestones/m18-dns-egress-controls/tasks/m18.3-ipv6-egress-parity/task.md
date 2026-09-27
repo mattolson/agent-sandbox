@@ -165,8 +165,8 @@ in each run records the installed IPv6 rules.
 - [x] Extend `errno_result`, switch `PROXY_ADDR` to `ahostsv4`, tighten `after-m18.3.tsv`, add the README section
       on enabling IPv6, and note the change in the bypass matrix
 - [x] Write the changelog entry and record the design choice in the milestone plan
-- [ ] Maintainer adds `networks: default: enable_ipv6: true` to `.agent-sandbox/compose/user.override.yml` on the
-      host and commits it; the directory is read-only inside the sandbox
+- [x] Maintainer adds `networks: default: enable_ipv6: true` to `.agent-sandbox/compose/user.override.yml` on the
+      host; the directory is read-only inside the sandbox
 - [ ] Maintainer rebuilds with `make setup`, runs `agentbox up` with IPv6 off, confirms the absent-path line in the
       banner, and runs the audit at `--stage after-m18.2` to show IPv4 is unchanged
 - [ ] Maintainer enables IPv6 in `user.override.yml`, runs `agentbox down` and `agentbox up`, and runs the audit at
@@ -187,8 +187,7 @@ in each run records the installed IPv6 rules.
 5. What Docker does for DNS on an IPv6-enabled network: whether `resolv.conf` gains an IPv6 nameserver, whether
    `ip6tables -t nat` holds a redirect, and what the embedded resolver listens on. No longer changes the code, since
    loopback admits `::1` only, but worth recording from the run for the decision record `m18.5` writes
-6. The exact errno for an IPv6 reject on a TCP connect, expected `EACCES`. The errno map gains the string either way;
-   if the host shows a different one, the map gains that instead
+6. Resolved 2026-09-27: an IPv6 reject on a TCP connect is `EACCES` (`Permission denied`), as expected
 
 ## Outcome
 
