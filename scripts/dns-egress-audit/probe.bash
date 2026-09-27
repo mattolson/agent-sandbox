@@ -14,7 +14,7 @@
 #   servfail        a DNS reply with RCODE 2
 #   dns-refused     a DNS reply with RCODE 5
 #   reached         the peer listener replied, so port 53 to that address is open
-#   rejected        the firewall's REJECT: EPERM on a UDP send or EHOSTUNREACH on a TCP connect
+#   rejected        the firewall's REJECT: EPERM on a UDP send, EHOSTUNREACH (IPv4) or EACCES (IPv6) on a TCP connect
 #   conn-refused    the address is reachable and nothing listens there
 #   unreachable     no route, which today means IPv6 is absent
 #   timeout         no reply and no error, a silent drop or a listener that never answers

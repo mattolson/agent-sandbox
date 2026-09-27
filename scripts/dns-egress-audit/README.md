@@ -41,6 +41,10 @@ Results land in `results/<stage>-<timestamp>/`: `results.tsv` (every probe), `co
 expected file), the VM capture, the peer responder log, the `dns:` override check, and the firewall dumps taken as
 root. Commit the baseline run's directory; later runs are working files.
 
+H1 carries a positive control. During the capture a throwaway container resolves a separate `ctl-` label through
+Docker's embedded resolver, which forwards it out through the VM. H1 reads `not-seen` only when the capture shows
+the control and not the run's label, and `error` when it shows neither, since an empty capture proves nothing.
+
 ## The upstream rows (C1, C2)
 
 C1 and C2 send raw queries to the embedded resolver's upstream. Docker names it in the `ExtServers` comment of

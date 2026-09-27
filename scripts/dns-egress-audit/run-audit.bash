@@ -88,8 +88,10 @@ Dry run. Stage: $STAGE. Label: $LABEL. Zone: $ZONE.
 3. Learn the embedded resolver's upstream: docker run --rm --network <net> $PEER_IMAGE cat /etc/resolv.conf
 4. Start the VM capture: colima ssh -- sudo timeout $CAPTURE_SECS tcpdump -ni any -l -U udp port 53
    Mac-side capture, in another terminal: sudo tcpdump -ni $MAC_IFACE -l udp port 53 | grep --line-buffered $LABEL
+   Control lookup during the capture: docker run --rm --network <net> $PEER_IMAGE resolves ctl-<random>.$ZONE
+   through Docker's embedded resolver, so the capture must show it leaving the VM.
 5. Run the probes: docker exec -i <agent> bash -s -- --label $LABEL --zone $ZONE --peer <peer ip> --upstream <ip> < probe.bash
-6. Collect H1 (label in the VM capture), H2 (colima ssh -- sudo ss -Hlunp sport = :53), H3 (docker run --dns <peer>),
+6. Collect H1 (label in the VM capture, valid only if the control was seen), H2 (colima ssh -- sudo ss -Hlunp sport = :53), H3 (docker run --dns <peer>),
    H4 (docker network inspect), H5 (docker exec -u root <agent> iptables -S; ip6tables -S).
 7. Diff results.tsv against $EXPECTED and write everything under $OUT/$STAGE-<timestamp>/.
 DRY
@@ -261,6 +263,24 @@ if [ "$SKIP_VM" -eq 0 ]; then
     sleep 3
   fi
 fi
+
+# --- H1 positive control --------------------------------------------------
+# A not-seen verdict is only evidence if the capture can see a query that does leave. A throwaway container on
+# the same network resolves a fresh label through Docker's embedded resolver, which forwards it upstream through
+# the VM. The firewall does not apply there, so the capture must show it. The control label is separate from the
+# run's label so it can never count as a leak from the agent.
+CONTROL_LABEL=""
+if [ "$CAPTURE" -eq 1 ]; then
+  CONTROL_LABEL="ctl-$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"
+  log "control lookup of $CONTROL_LABEL.$ZONE from a throwaway container"
+  docker run --rm --network "$NET" "$PEER_IMAGE" python3 -c '
+import socket, sys
+try:
+    socket.getaddrinfo(sys.argv[1], None)
+except OSError:
+    pass
+' "$CONTROL_LABEL.$ZONE" > /dev/null 2>&1 || true
+fi
 [ "$CAPTURE" -eq 1 ] || skip H1
 [ "$SKIP_VM" -eq 0 ] || skip H2
 
@@ -292,10 +312,14 @@ if [ "$CAPTURE" -eq 1 ]; then
   wait "$CAPTURE_PID" 2>/dev/null || true
   CAPTURE_PID=""
   hits=$(grep -c -- "$LABEL" "$RUN_DIR/vm-capture.txt" || true)
+  control=$(grep -c -- "$CONTROL_LABEL" "$RUN_DIR/vm-capture.txt" || true)
   if [ "${hits:-0}" -gt 0 ]; then
     emit H1 "vm capture" seen "$hits packets; first: $(grep -m1 -- "$LABEL" "$RUN_DIR/vm-capture.txt")"
+  elif [ "${control:-0}" -gt 0 ]; then
+    emit H1 "vm capture" not-seen "0 packets carrying $LABEL; control $CONTROL_LABEL seen in $control packets"
   else
-    emit H1 "vm capture" not-seen "0 packets carrying $LABEL in $(wc -l < "$RUN_DIR/vm-capture.txt" | tr -d ' ') captured lines"
+    # The capture missed a query known to leave, so silence about the label proves nothing.
+    emit H1 "vm capture" error "capture saw neither $LABEL nor the control $CONTROL_LABEL; see vm-capture.err"
   fi
 fi
 

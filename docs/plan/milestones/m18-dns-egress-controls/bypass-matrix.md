@@ -190,6 +190,7 @@ real sinkhole; entries marked "verify" are from documentation, not measurement.
 - The dynamic check of the tool inventory below against the live sinkhole. The entries marked "verify" are
   still from documentation.
 - The after-m18.3 run in devcontainer mode. CLI mode flipped E1 through E4 on 2026-09-27.
-- H1 has no positive control. On 2026-09-27 the VM capture was live for both runs but captured no port 53 packets
-  at all, so `not-seen` rests on silence. A lookup through Docker's resolver from a throwaway container during the
-  window would prove the capture sees upstream queries.
+- H1's positive control is new and has not run yet. On 2026-09-27 the VM capture was live for both runs but saw no
+  port 53 packets at all, so `not-seen` rested on silence. `run-audit.bash` now resolves a separate `ctl-` label
+  through Docker's resolver from a throwaway container during the window, and H1 reads `error` unless the capture
+  shows it.
