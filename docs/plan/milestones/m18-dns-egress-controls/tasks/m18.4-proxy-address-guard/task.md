@@ -296,6 +296,10 @@ on the pinned mitmproxy 12.2.3.
   gate it, and the residuals: the guard trusts the proxy container's resolver, and DoH to an allowed host (D2)
   stays open
 - Add a name-scoped exemption on the proxy service the first time a user reports an internal allowed host
+- `m18.5` residual, raised in the #204 review: a compose peer that runs a DNS forwarder, or any forwarder, on a port
+  other than 53 or 853 is reachable, because the firewall accepts all traffic to the compose network so sidecars
+  can be reached. That is the host-network trust the milestone excludes from narrowing, not a DNS-specific gap: such
+  a peer is an open channel on any protocol. The docs should say that sidecars are trusted egress
 - `images/build.sh` treats an unknown first argument as `all` and passes it on to `docker buildx build`, so a typo
   such as `proxy,` builds everything and then fails with a confusing Docker error. Reject unknown targets instead;
   outside this milestone
