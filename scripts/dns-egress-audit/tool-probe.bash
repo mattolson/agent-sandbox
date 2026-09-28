@@ -29,7 +29,8 @@ trap 'rm -rf "$WORK"' EXIT
 # classify OUTPUT: map a tool's combined output to a result word
 classify() {
   case $1 in
-    *"Blocked by proxy policy"*|*"403"*|*"Forbidden"*|*"CONNECT tunnel failed"*|*"tunnel"*"403"*) echo proxied ;;
+    *"Blocked by proxy policy"*|*"403"*|*"Forbidden"*|*"CONNECT tunnel failed"*|*"unsuccessful tunnel"*|\
+    *"Proxy response"*) echo proxied ;;
     *ENOTFOUND*|*EAI_AGAIN*|*EAI_NONAME*|*"Could not resolve"*|*"could not resolve"*|*"failed to lookup address"*|\
     *"dns error"*|*"Name or service not known"*|*"Temporary failure in name resolution"*|*"nodename nor servname"*|\
     *"no such host"*|*"getaddrinfo"*|*"NameResolutionError"*|*"Failed to resolve"*) echo direct-dns ;;
@@ -38,7 +39,8 @@ classify() {
 }
 
 emit() { # TOOL VERSION RESULT DETAIL
-  printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$(printf '%s' "$4" | tr '\t\n' '  ' | cut -c1-180)"
+  # The end of the output carries the reason; tools print warnings and context first.
+  printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$(printf '%s' "$4" | tr '\t\n' '  ' | tr -s ' ' | tail -c 240)"
 }
 
 probe() { # TOOL VERSION_CMD PROBE_CMD
@@ -52,6 +54,14 @@ probe() { # TOOL VERSION_CMD PROBE_CMD
   emit "$tool" "$version" "$(classify "$out")" "$out"
 }
 
+# `docker exec ... bash -s` is not a login shell, so stacks that put their tools on PATH through /etc/profile.d
+# (rust, go) would read as absent. An agent's own shell loads these files; load them here too.
+set +u
+for profile in /etc/profile.d/*.sh; do
+  [ -r "$profile" ] && . "$profile"
+done
+set -u
+
 printf 'HTTPS_PROXY=%s NO_PROXY=%s\n' "${HTTPS_PROXY:-unset}" "${NO_PROXY:-unset}" >&2
 
 # Control: curl with the proxy switched off resolves the name itself, so it must read direct-dns.
@@ -61,9 +71,9 @@ probe curl "curl --version" "curl -sS -o /dev/null -w '%{http_code} %{http_conne
 probe git "git --version" "git ls-remote https://$HOST/x.git"
 probe python3 "python3 --version" "python3 -c 'import urllib.request; urllib.request.urlopen(\"$URL\", timeout=10)'"
 probe pip "pip --version" "pip download --no-deps --no-cache-dir -d . --index-url https://$HOST/simple requests"
-probe node "node --version" "node -e 'fetch(\"$URL\").then(r => console.log(\"status\", r.status)).catch(e => console.log(\"error\", (e.cause && e.cause.code) || e.message))'"
+probe node "node --version" "node -e 'fetch(\"$URL\").then(r => console.log(\"status\", r.status)).catch(e => console.log(\"error\", e.message, e.cause ? \"cause: \" + (e.cause.code || \"\") + \" \" + e.cause.message : \"\"))'"
 # NODE_USE_ENV_PROXY makes Node's built-in fetch honour HTTPS_PROXY on Node versions that support it.
-probe "node NODE_USE_ENV_PROXY=1" "node --version" "NODE_USE_ENV_PROXY=1 node -e 'fetch(\"$URL\").then(r => console.log(\"status\", r.status)).catch(e => console.log(\"error\", (e.cause && e.cause.code) || e.message))'"
+probe "node NODE_USE_ENV_PROXY=1" "node --version" "NODE_USE_ENV_PROXY=1 node -e 'fetch(\"$URL\").then(r => console.log(\"status\", r.status)).catch(e => console.log(\"error\", e.message, e.cause ? \"cause: \" + (e.cause.code || \"\") + \" \" + e.cause.message : \"\"))'"
 probe npm "npm --version" "npm view --registry https://$HOST/ left-pad version"
 probe uv "uv --version" "printf 'requests\n' | uv pip compile --no-cache --index-url https://$HOST/simple -"
 probe cargo "cargo --version" "CARGO_HOME=\$PWD/cargo-home cargo search --limit 1 --index sparse+https://$HOST/ serde"
