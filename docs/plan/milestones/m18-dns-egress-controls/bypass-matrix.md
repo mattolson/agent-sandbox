@@ -167,9 +167,55 @@ label so the Mac capture can be started by hand.
 
 ## Residual cases
 
-- DNS-over-HTTPS or DNS-over-TLS to a host the policy allows. This milestone does not close it. D2 measures it so
-  the docs in `m18.5` can state it plainly.
+- DNS-over-HTTPS or DNS-over-TLS to a host the policy allows. This milestone does not close it. D2 measures it, and
+  `docs/network.md` states it.
 - The proxy container's own resolution is out of scope and untouched.
+- Every compose service is reachable from the agent on any port; a service that forwards traffic is an egress path.
+  Sidecars are trusted egress (raised in the #204 review, stated in `docs/network.md`).
+- The address guard trusts the answers of the proxy container's resolver.
+
+## Coverage
+
+Each control in the milestone, what tests it automatically, and how to check it by hand. "Every start" means the
+firewall's self-test, which refuses to start the container if the check fails. The manual procedures run on the host;
+the audit rows come from `scripts/dns-egress-audit/run-audit.bash --stage after-m18.4 --policy-probes`, with IPv6
+enabled on the compose network for the E rows.
+
+| Control | Automated | Manual |
+|---------|-----------|--------|
+| Direct outbound refused | Every start: connect to `1.1.1.1` must fail | Audit C1-C5 |
+| Docker's resolver refused, port 53 and its real port | None | Audit A3-A10 |
+| DNS only to the sinkhole; 53 and 853 refused elsewhere, peers included | Every start: the negative lookup goes through the port-53 rewrite | Audit B1-B4, C1-C5 |
+| Unknown names get `NXDOMAIN`, no query leaves the host | Every start: a random `.invalid` name must get `NXDOMAIN`; `test_dns_sinkhole.py` unit tests; integration `test_unknown_name_is_nxdomain_over_udp_and_tcp` | Audit A1, A2, S1, S2; H1 with its positive control |
+| Allowed service names resolve | Every start: `proxy` must resolve through the sinkhole; integration `test_allowed_name_is_answered_with_addresses_and_ttl` | Audit S3 |
+| Built-in resolver removed, unanswered queries fail closed | Integration `test_listener_starts_with_builtin_resolver_removed`; unit tests | None |
+| `mitmdump` exits cleanly after DNS queries | Integration `test_shutdown_after_queries_exits_cleanly` | None |
+| IPv6 refused except `::1` | Every start with IPv6 present: UDP and TCP 53 over IPv6 must be rejected, `::1` open | Audit E1-E4 with IPv6 enabled |
+| Refuse to start with IPv6 present and no `ip6tables` | None | Procedure 1 below. Not yet run |
+| New agent image refuses an old proxy image | None | Procedure 2 below |
+| Address guard refuses each denied class | `test_address_guard.py` unit tests per class; integration `test_each_denied_class_is_refused_and_named` | Audit D3, D4 |
+| The dial uses only checked answers | Invariant tests in both `test_address_guard.py` files, each confirmed by mutation | None |
+| Guard refusals answer 403 on CONNECT and plain HTTP | Integration `test_invariant_refused_connect_gets_403_and_no_packet_reaches_the_address`, `test_allowed_name_resolving_to_loopback_is_refused_with_403` | Audit D3, D4 |
+| IP-literal hosts not checked | Integration `test_ip_literal_hosts_are_not_checked`; every pre-existing integration test | None |
+| DoH to an allowed host (residual) | None | Audit D2 records it |
+
+Procedure 1, fail closed without `ip6tables`. With IPv6 enabled on the compose network, from the host:
+
+```bash
+AGENT=<agent container>
+docker exec -u root "$AGENT" mv /usr/sbin/ip6tables /usr/sbin/ip6tables.off
+docker exec -u root "$AGENT" /usr/local/bin/init-firewall.sh; echo "exit=$?"
+# expect: ERROR: IPv6 is present (eth0 <address>) but ip6tables is unavailable.  exit=1
+docker exec -u root "$AGENT" mv /usr/sbin/ip6tables.off /usr/sbin/ip6tables
+docker exec -u root "$AGENT" /usr/local/bin/init-firewall.sh
+```
+
+The script stops before touching the IPv6 rules, but it has already flushed and rebuilt the IPv4 ones, so re-run it
+after restoring `ip6tables`.
+
+Procedure 2, version skew. In a scratch project, run the new agent image against the proxy image published from before
+the sinkhole, `agentbox up`, and read the agent's log: it must stop with `ERROR: 'proxy' does not resolve through the
+sinkhole` and the `FATAL: Firewall initialization failed!` banner that names `agentbox bump`.
 
 ## Tools that resolve names themselves
 
