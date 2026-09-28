@@ -152,10 +152,12 @@ Important template groups:
 
 ## Network Policy
 
-The stable high-level model is still:
+The model has four layers; `docs/network.md` describes each:
 
-1. Proxy enforcement in the `proxy` sidecar
-2. Firewall enforcement in the agent container
+1. Firewall enforcement in the agent container, with IPv6 denied except loopback
+2. A DNS sinkhole in the `proxy` sidecar: the agent resolves only compose service names
+3. Policy enforcement in the `proxy` sidecar
+4. An address guard in the `proxy` sidecar that refuses allowed hosts resolving to internal addresses
 
 Security-critical files:
 
@@ -163,6 +165,8 @@ Security-critical files:
 - `images/base/entrypoint.sh`
 - `images/base/install-proxy-ca.sh`
 - `images/proxy/addons/enforcer.py`
+- `images/proxy/addons/dns_sinkhole.py`
+- `images/proxy/addons/address_guard.py`, whose `getaddrinfo` wrapper is gated by the `test_invariant_*` tests
 - `images/proxy/render-policy`
 
 Policy docs and examples live under:
