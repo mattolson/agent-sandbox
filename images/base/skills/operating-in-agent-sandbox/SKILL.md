@@ -1,6 +1,6 @@
 ---
 name: operating-in-agent-sandbox
-description: Read this when you are an AI coding agent running inside an Agent Sandbox container. Explains the network proxy, allowlist policy, filesystem/git constraints, how to discover your own limits from the read-only .agent-sandbox directory, how to use GitHub (issues, pull requests, CI) through `gh api`, and what to do when a request fails with "Blocked by proxy policy" (HTTP 403) or a direct connection is refused. Use it before fighting a network/permission error or concluding a tool is broken.
+description: Read this when you are an AI coding agent running inside an Agent Sandbox container. Explains the network proxy, allowlist policy, filesystem/git constraints, how to discover your own limits from the read-only .agent-sandbox directory, how to use GitHub (issues, pull requests, CI) through `gh api`, and what to do when a request fails with "Blocked by proxy policy" (HTTP 403), a name does not resolve (NXDOMAIN), or a direct connection is refused. Use it before fighting a network/permission error or concluding a tool is broken.
 ---
 
 # Operating Inside an Agent Sandbox
@@ -23,20 +23,31 @@ You are almost certainly inside an Agent Sandbox if any of these hold:
 - You are the non-root user `dev` (uid 501) and lack general `sudo`.
 - A proxy CA certificate is mounted at `/etc/mitmproxy`.
 
-## The network model (two enforcement layers)
+## The network model (four enforcement layers)
 
 1. **Firewall (in your container).** All direct outbound traffic is dropped. Only the
    Docker host network — which includes the proxy sidecar — is reachable. A direct
    connection that bypasses the proxy is rejected immediately (ICMP admin-prohibited),
-   so it fails fast rather than hanging. SSH outbound is disabled.
+   so it fails fast rather than hanging. SSH outbound is disabled, and so is IPv6.
 
-2. **Proxy (the `proxy` sidecar).** All HTTP/HTTPS must go through `http://proxy:8080`.
+2. **DNS sinkhole.** Your container can resolve only compose service names such as
+   `proxy`. Every other name gets **NXDOMAIN** at once. This is deliberate: DNS queries
+   can carry data out. It does not stop normal work, because tools that use the proxy
+   never resolve names themselves; the proxy does it for them. A tool that fails with
+   `Could not resolve host`, `ENOTFOUND`, or `NXDOMAIN` is bypassing the proxy.
+
+3. **Proxy (the `proxy` sidecar).** All HTTP/HTTPS must go through `http://proxy:8080`.
    The standard proxy env vars are already set, so most tools (curl, git, package
    managers, language toolchains) use it automatically. The proxy enforces a
    **domain/service allowlist**. Anything not on the allowlist is blocked.
 
    - A blocked request returns **HTTP 403** with body `Blocked by proxy policy: <host>`.
    - For HTTPS, the blocking CONNECT is refused before the tunnel opens.
+
+4. **Address guard (in the proxy).** An allowed host whose DNS answer is an internal
+   address (loopback, private, link-local, cloud metadata) is refused before the proxy
+   connects: **HTTP 403** with body `agent-sandbox address guard: <host> resolves to
+   <address> (<class>); refused`. For HTTPS most clients show only the 403 on CONNECT.
 
 The proxy is a TLS-terminating man-in-the-middle. Its CA cert is installed in the
 container's system trust store. Tools that use the system store just work. A tool that
@@ -87,8 +98,11 @@ domains:           # explicit hosts; wildcards like "*.example.com" are allowed
 curl -sS -o /dev/null -w '%{http_code}\n' https://api.github.com/repos/OWNER/REPO
 
 # A 403 body of "Blocked by proxy policy: <host>" means the host is not allowed.
-# A direct (non-proxy) attempt is refused by the firewall, not the proxy:
-curl --noproxy '*' --connect-timeout 3 https://example.com   # expected to fail
+# A direct (non-proxy) connection is refused by the firewall. Use an IP address:
+# a name would fail earlier, at the DNS sinkhole.
+curl --noproxy '*' --connect-timeout 3 https://1.1.1.1       # expected: couldn't connect
+# A name outside the compose stack does not resolve at all:
+getent hosts example.com                                      # expected: no output, exit 2
 ```
 
 ## What you cannot do (stop and don't retry)
@@ -107,6 +121,13 @@ curl --noproxy '*' --connect-timeout 3 https://example.com   # expected to fail
 1. Confirm the cause. `Blocked by proxy policy: <host>` = host not on the allowlist.
    A connection refused/admin-prohibited on a direct attempt = firewall; route it
    through the proxy instead (usually automatic via the env vars).
+   `Could not resolve host` / `ENOTFOUND` / `NXDOMAIN` = the tool resolves names itself
+   instead of using the proxy. Do not retry and do not ask for DNS access; configure the
+   tool to use `http://proxy:8080` (for Node's built-in `fetch`, set
+   `NODE_USE_ENV_PROXY=1` where the Node version supports it). Asking to allow the host
+   does not help; the proxy already resolves allowed hosts.
+   `agent-sandbox address guard: ... refused` = the host is allowed but resolves to an
+   internal address. Only the human can change that; tell them the host and address.
 2. Check whether the host is already allowed in `/run/agentbox/policy.yaml`
    (or, failing that, `.agent-sandbox/policy/*.yaml`).
 3. Prefer an allowlisted alternative if one exists (e.g. a mirror or registry that is
