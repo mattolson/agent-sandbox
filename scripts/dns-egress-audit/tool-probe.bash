@@ -13,7 +13,8 @@
 #   docker exec -i <agent container> bash -s < scripts/dns-egress-audit/tool-probe.bash
 #
 # Output: one TSV line per tool: tool, version, result, detail.
-#   proxied     the tool went through the proxy (a proxy 403 or another HTTP answer)
+#   proxied     the tool went through the proxy (a proxy 403, another HTTP answer, or, on the dead-proxy
+#               rows, a failed connection to the dead proxy port)
 #   direct-dns  the tool resolved the name itself and got the sinkhole's NXDOMAIN
 #   absent      the tool is not installed
 #   unknown     neither pattern matched; read the detail
@@ -29,8 +30,8 @@ trap 'rm -rf "$WORK"' EXIT
 # classify OUTPUT: map a tool's combined output to a result word
 classify() {
   case $1 in
-    *"Blocked by proxy policy"*|*"403"*|*"Forbidden"*|*"CONNECT tunnel failed"*|*"unsuccessful tunnel"*|\
-    *"Proxy response"*) echo proxied ;;
+    *"Blocked by proxy policy"*|*"403"*|*"Forbidden"*|*"CONNECT tunnel failed"*|*"tunnel error: unsuccessful"*|\
+    *"unsuccessful tunnel"*|*"Proxy response"*|*"127.0.0.1:9"*|*"127.0.0.1 port 9"*) echo proxied ;;
     *ENOTFOUND*|*EAI_AGAIN*|*EAI_NONAME*|*"Could not resolve"*|*"could not resolve"*|*"failed to lookup address"*|\
     *"dns error"*|*"Name or service not known"*|*"Temporary failure in name resolution"*|*"nodename nor servname"*|\
     *"no such host"*|*"getaddrinfo"*|*"NameResolutionError"*|*"Failed to resolve"*) echo direct-dns ;;
@@ -74,8 +75,16 @@ probe pip "pip --version" "pip download --no-deps --no-cache-dir -d . --index-ur
 probe node "node --version" "node -e 'fetch(\"$URL\").then(r => console.log(\"status\", r.status)).catch(e => console.log(\"error\", e.message, e.cause ? \"cause: \" + (e.cause.code || \"\") + \" \" + e.cause.message : \"\"))'"
 # NODE_USE_ENV_PROXY makes Node's built-in fetch honour HTTPS_PROXY on Node versions that support it.
 probe "node NODE_USE_ENV_PROXY=1" "node --version" "NODE_USE_ENV_PROXY=1 node -e 'fetch(\"$URL\").then(r => console.log(\"status\", r.status)).catch(e => console.log(\"error\", e.message, e.cause ? \"cause: \" + (e.cause.code || \"\") + \" \" + e.cause.message : \"\"))'"
+# The real proxy's refusal can surface as a vague error ("Request was cancelled"). Pointing HTTPS_PROXY at a port
+# where nothing listens separates the cases cleanly: a client that honours the variable fails on 127.0.0.1:9, and
+# one that ignores it fails on the name. The control row checks the technique with curl.
+probe "curl dead-proxy (control)" "curl --version" "HTTPS_PROXY=http://127.0.0.1:9 curl -sS -o /dev/null $URL"
+probe "node dead-proxy" "node --version" "HTTPS_PROXY=http://127.0.0.1:9 node -e 'fetch(\"$URL\").then(r => console.log(\"status\", r.status)).catch(e => console.log(\"error\", e.message, e.cause ? \"cause: \" + (e.cause.code || \"\") + \" \" + e.cause.message : \"\"))'"
+probe "node NODE_USE_ENV_PROXY=1 dead-proxy" "node --version" "NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:9 node -e 'fetch(\"$URL\").then(r => console.log(\"status\", r.status)).catch(e => console.log(\"error\", e.message, e.cause ? \"cause: \" + (e.cause.code || \"\") + \" \" + e.cause.message : \"\"))'"
 probe npm "npm --version" "npm view --registry https://$HOST/ left-pad version"
 probe uv "uv --version" "printf 'requests\n' | uv pip compile --no-cache --index-url https://$HOST/simple -"
 probe cargo "cargo --version" "CARGO_HOME=\$PWD/cargo-home cargo search --limit 1 --index sparse+https://$HOST/ serde"
-probe rustup "rustup --version" "RUSTUP_DIST_SERVER=https://$HOST rustup check"
+# The rust stack's RUSTUP_HOME belongs to root, so rustup cannot write there as the agent user; give it an empty
+# writable home and ask for a toolchain, which fetches the channel manifest from the dist server.
+probe rustup "rustup --version" "RUSTUP_HOME=\$PWD/rustup-home RUSTUP_DIST_SERVER=https://$HOST rustup toolchain install stable --profile minimal --no-self-update"
 probe go "go version" "GOFLAGS=-mod=mod GOPROXY=https://$HOST GONOSUMDB=* GOSUMDB=off go list -m golang.org/x/text@latest"
