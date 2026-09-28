@@ -247,7 +247,9 @@ image build reaches users through the next push-triggered build and `agentbox bu
   the host; opening the draft PR afterwards works from the sandbox.
 - Every PR gets an automated Greptile review. Evaluate each comment, fix the valid ones in a new commit, and reply on
   the thread with the commit and the test that covers it. Then post a PR comment containing `@greptile review` so the
-  new commit gets a fresh review.
+  new commit gets a fresh review. Greptile resolves its own review threads when a re-review finds them addressed, so
+  there is nothing to resolve by hand after replying. The sandbox cannot see or change thread state; that needs
+  GraphQL, which the proxy blocks.
 
 ## Adding A New Agent
 
