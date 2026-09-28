@@ -19,6 +19,7 @@
 #   unreachable     no route, which today means IPv6 is absent
 #   timeout         no reply and no error, a silent drop or a listener that never answers
 #   proxy-403       the proxy refused the request by policy
+#   guard-refused   the proxy's address guard refused an allowed name that resolved to a denied address
 #   http-<code>     any other HTTP status through the proxy
 #   curl-<exit>     curl failed before getting a status
 #   present/absent  for the IPv6 presence probe
@@ -254,7 +255,9 @@ http_probe() {
   # through the proxy even though they target those names.
   code=$(curl -s -m 10 --noproxy '' -o "$body" -w '%{http_code} %{http_connect}' -x "$PROXY" "$url" 2>/dev/null); rc=$?
   connect=${code#* }; code=${code%% *}
-  if [ "$connect" = 403 ] || { [ "$code" = 403 ] && grep -q "Blocked by proxy policy" "$body"; }; then
+  if [ "$code" = 403 ] && grep -q "agent-sandbox address guard:" "$body"; then
+    echo "guard-refused $(head -c 160 "$body")"
+  elif [ "$connect" = 403 ] || { [ "$code" = 403 ] && grep -q "Blocked by proxy policy" "$body"; }; then
     echo "proxy-403 $(head -c 120 "$body")"
   elif [ "$rc" -ne 0 ]; then
     echo "curl-$rc connect=$connect"

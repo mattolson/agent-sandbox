@@ -75,8 +75,10 @@ Restart rather than reload. The proxy mounts the policy file as a single-file bi
 `git checkout` that replaces the file leaves the container attached to the old inode; a reload re-renders the stale
 content and still reports `applied`. A restart re-establishes the mount from the path.
 
-D2 shows that DNS-over-HTTPS to an allowed host is open by design. D3 and D4 show that an allowed name resolving
-into the sandbox's own bridge network or the proxy's loopback is connected today; m18.4 must refuse both.
+D2 shows that DNS-over-HTTPS to an allowed host is open by design. D3 and D4 send an allowed name that resolves
+into the sandbox's own network (`proxy`) or the proxy's loopback (`localhost`). Before m18.4 the proxy dialled both
+and returned the refused port's 502; since m18.4 both read `guard-refused`, a 403 whose body names the address guard
+and the address class, `sandbox_network` for D3 and `loopback` for D4.
 
 If D2 still reads `proxy-403`, the proxy is not seeing the entries. `agentbox compose logs proxy | grep
 '"type": "reload"'` shows the host count each render produced; if it does not grow, the mount is stale. The

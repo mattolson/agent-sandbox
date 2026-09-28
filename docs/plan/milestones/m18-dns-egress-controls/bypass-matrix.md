@@ -44,8 +44,8 @@ Result words are defined in the header of `probe.bash`. `*` means recorded but n
 | C5 | TCP/853 to `1.1.1.1` | rejected | rejected | rejected | rejected | control |
 | D1 | DoH through proxy, unlisted host | proxy-403 | proxy-403 | proxy-403 | proxy-403 | control |
 | D2 | DoH through proxy, host allowed | http-200, authority reached | http-200 | http-200 | http-200 | residual |
-| D3 | allowed name resolving to the bridge net | http-502, port refused | http-502 | http-502 | http-403 | m18.4 |
-| D4 | allowed name resolving to loopback | http-502, both loopbacks refused | http-502 | http-502 | http-403 | m18.4 |
+| D3 | allowed name resolving to the bridge net | http-502, port refused | http-502 | http-502 | guard-refused | m18.4 |
+| D4 | allowed name resolving to loopback | http-502, both loopbacks refused | http-502 | http-502 | guard-refused | m18.4 |
 | S1 | random label to `proxy:53` | timeout, no listener | nxdomain | nxdomain | nxdomain | m18.2 control |
 | S2 | random label to `proxy:5353` | timeout, no listener | nxdomain | nxdomain | nxdomain | m18.2 control |
 | S3 | `proxy` A to `proxy:53` | timeout, no listener | answered | answered | answered | m18.2 control |

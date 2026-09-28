@@ -1,5 +1,7 @@
 # Expected after m18.4 (proxy address guard). Same as after-m18.3 plus D3 and D4.
-# Must differ from baseline: D3, D4. The guard's status code is m18.4's call; the flip away from http-502 is not.
+# Must differ from baseline: D3, D4. Run with --policy-probes (README, "Policy probes") and IPv6 on, as for
+# after-m18.3. D3 and D4 must read guard-refused: a 403 whose body names the address guard, so the row proves the
+# guard refused before the dial rather than some other 403 or the refused port's 502.
 R1	*
 R2	*
 A1	not-found
@@ -23,15 +25,15 @@ C4	rejected
 C5	rejected
 D1	proxy-403
 D2	http-200
-D3	http-403
-D4	http-403
+D3	guard-refused
+D4	guard-refused
 S1	nxdomain
 S2	nxdomain
 S3	answered
-E1	absent|present
-E2	rejected|unreachable
-E3	rejected|unreachable
-E4	rejected|unreachable
+E1	present
+E2	rejected
+E3	rejected
+E4	rejected
 E5	timeout|conn-refused|rejected
 H1	not-seen
 H2	*
