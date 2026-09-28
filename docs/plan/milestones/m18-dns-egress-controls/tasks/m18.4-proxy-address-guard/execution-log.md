@@ -1,5 +1,22 @@
 # Execution Log: m18.4 - proxy address guard
 
+## 2026-09-27 - First after-m18.4 audit: D3 and D4 flip; D1 exposed an old conflict
+
+The maintainer rebuilt the proxy and ran `--stage after-m18.4 --policy-probes` in CLI mode with IPv6 on. D3 read
+`guard-refused` with `proxy resolves to fd9f:73ac:d109::2 (sandbox_network)` and D4 with
+`localhost resolves to ::1 (loopback)`. Every other row matched except D1.
+
+**Observation:** The proxy container has IPv6 on this network, so its lookups return the AAAA answer first, and both
+refusals name the IPv6 address. The any-answer rule would refuse either order. The `sandbox_network` class matched
+the IPv6 prefix read from the proxy container's own `ipv6_route`, so the route-table discovery works in the real
+container.
+
+**Issue:** D1 read `http-200` against an expected `proxy-403`. D1 and D2 requested the same `dns.google` URL, D1 as
+the default-policy control and D2 with `dns.google` allowed by the policy-probe setup, so no `--policy-probes` run
+could pass both. The conflict dates from `m18.1`; earlier stages ran without `--policy-probes`, which skips D2
+through D4. Making that flag required for `after-m18.4` exposed it. D1 now queries `cloudflare-dns.com`, which no
+policy in the repo allows and the probe setup never adds, so it stays a policy control in every run.
+
 ## 2026-09-27 - Implemented and tested from the sandbox
 
 The maintainer accepted the `getaddrinfo` wrapper on the condition that tests fail on any version bump that breaks

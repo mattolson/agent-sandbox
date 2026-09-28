@@ -79,7 +79,7 @@ PROBES=(
   "C3|8.8.8.8:53/udp|raw UDP query to a public resolver"
   "C4|8.8.8.8:53/tcp|raw TCP query to a public resolver"
   "C5|1.1.1.1:853/tcp|DNS-over-TLS port to a public resolver"
-  "D1|dns.google via proxy|DNS-over-HTTPS through the proxy to an unlisted host"
+  "D1|cloudflare-dns.com via proxy|DNS-over-HTTPS through the proxy to an unlisted host"
   "D2|dns.google via proxy|DNS-over-HTTPS through the proxy with the host temporarily allowed"
   "D3|proxy:9 via proxy|allowed name that resolves into the sandbox's own bridge network"
   "D4|localhost:9 via proxy|allowed name that resolves to the proxy's loopback"
@@ -342,7 +342,9 @@ selected C3 && run C3 "8.8.8.8:53/udp" "$(dns_udp 8.8.8.8 53 "$ZONE" 1)"
 selected C4 && run C4 "8.8.8.8:53/tcp" "$(dns_tcp 8.8.8.8 53 "$ZONE" 1)"
 selected C5 && run C5 "1.1.1.1:853/tcp" "$(port_open 1.1.1.1 853)"
 
-selected D1 && run D1 "dns.google via proxy" "$(http_probe "https://dns.google/resolve?name=$LABEL.$ZONE&type=A")"
+# D1 uses a DoH host the policy-probe setup never allows, so it stays a policy control in every run; D2 uses
+# dns.google, which that setup allows.
+selected D1 && run D1 "cloudflare-dns.com via proxy" "$(http_probe "https://cloudflare-dns.com/dns-query?name=$LABEL.$ZONE&type=A")"
 if [ "$POLICY_PROBES" -eq 1 ]; then
   selected D2 && run D2 "dns.google via proxy" "$(http_probe "https://dns.google/resolve?name=$LABEL.$ZONE&type=A")"
   selected D3 && run D3 "proxy:9 via proxy" "$(http_probe "http://proxy:9/")"

@@ -42,7 +42,7 @@ Result words are defined in the header of `probe.bash`. `*` means recorded but n
 | C3 | UDP/53 to `8.8.8.8` | rejected | rejected | rejected | rejected | control |
 | C4 | TCP/53 to `8.8.8.8` | rejected | rejected | rejected | rejected | control |
 | C5 | TCP/853 to `1.1.1.1` | rejected | rejected | rejected | rejected | control |
-| D1 | DoH through proxy, unlisted host | proxy-403 | proxy-403 | proxy-403 | proxy-403 | control |
+| D1 | DoH through proxy, unlisted host (`cloudflare-dns.com` from 2026-09-27; `dns.google` before) | proxy-403 | proxy-403 | proxy-403 | proxy-403 | control |
 | D2 | DoH through proxy, host allowed | http-200, authority reached | http-200 | http-200 | http-200 | residual |
 | D3 | allowed name resolving to the bridge net | http-502, port refused | http-502 | http-502 | guard-refused | m18.4 |
 | D4 | allowed name resolving to loopback | http-502, both loopbacks refused | http-502 | http-502 | guard-refused | m18.4 |
@@ -140,8 +140,9 @@ label so the Mac capture can be started by hand.
     network, for example with `enable_ipv6: true` in a user override, or the E rows cannot flip.
 12. The residual is real (D2). With `dns.google` allowed, a DoH lookup for the random label returned a JSON answer
     whose authority section names `example.com`'s nameservers, so the label reached the authoritative server
-    through Google's resolver with nothing in the sandbox involved but an allowed HTTPS host. D1 reads `http-200`
-    in that state too; its `proxy-403` baseline is the default policy.
+    through Google's resolver with nothing in the sandbox involved but an allowed HTTPS host. D1 read `http-200`
+    in that state too while it also used `dns.google`, so a `--policy-probes` run could never pass it. Since
+    2026-09-27 D1 queries `cloudflare-dns.com`, which the probe setup never allows, and reads `proxy-403` in every run.
 13. The proxy dials wherever an allowed name points (D3, D4). `proxy` resolved to the proxy's own bridge address
     and `localhost` to both loopbacks; the proxy connected, got the port refused, and returned a 502 with the
     errno in the body. Nothing checks the address class before the connect. `m18.4` turns both into a refusal
