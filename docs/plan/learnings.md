@@ -145,6 +145,15 @@ Lessons learned during project execution. Review at the start of each planning s
 - Under Colima, Docker checks bind sources inside the VM, so a project outside Colima's shared directories fails
   with `bind source path does not exist` although the file is on the Mac. This repo's Colima shares
   `~/dev/workspace` (m18.3)
+- mitmproxy 12: `server_connect` is the one hook every upstream connection passes through and the only one that can
+  refuse before the dial, by setting `server.error`. `server_connected` cannot abort. `server.address` cannot change
+  once the connection is open, and requests inside a CONNECT tunnel take `request.host` from it. A CONNECT's error
+  response can be replaced in `http_connect_error`; a plain request's cannot be replaced from the `error` hook (m18.4)
+- asyncio's `open_connection` resolves through the running loop's `getaddrinfo`, so answers staged for a wrapper on
+  that one method pin a dial without touching the caller. The proxy's address guard depends on it, and
+  `test_invariant_*` tests fail if a Python or mitmproxy bump breaks it (m18.4)
+- Python's `ssl` `sni_callback` must return `None`; any other value, such as the integer a `write()` returns, is
+  sent as a TLS alert and aborts the handshake (m18.4)
 
 ## Architecture
 
@@ -202,3 +211,11 @@ Lessons learned during project execution. Review at the start of each planning s
   positive control in the same window, something that must appear, or the check passes on a dead capture (m18.3)
 - When a second address family has no consumer, deny it outright rather than mirroring the first family's
   exceptions. Parity rules are surface to keep in step and can only be tested with that family enabled (m18.3)
+- Spike a mechanism against the real dependency before building on it, and check the harness with a direct control
+  before blaming the design. Reading source misjudged how mitmproxy treats `server.address`, and the spike's first
+  failure was a bug in the test upstream, not the proxy (m18.4)
+- A test that guards an invariant is only trustworthy once it has been seen to fail by breaking that invariant. The
+  first invariant test failed for an unrelated reason and blamed the wrong thing; one mutation per invariant settles
+  it (m18.4)
+- Audit rows that share a target but assume different policies conflict silently until one run exercises both. Give
+  a control row a target the other setups never touch (m18.4)

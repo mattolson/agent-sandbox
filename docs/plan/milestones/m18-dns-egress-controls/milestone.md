@@ -268,6 +268,13 @@ B1, B2, and H2.
 
 ## Changes
 
+### 2026-09-27: m18.4 closed
+
+All four acceptance criteria verified in both modes. An allowed name resolving to a denied address gets a 403 naming
+the guard and the address class, the dial is pinned to the checked answers, and nothing changes for public
+addresses or IP-literal hosts. The audit's D1 row moved to a DoH host the probe setup never allows, after the first
+`--policy-probes` run showed D1 and D2 had conflicted since `m18.1`. Only `m18.5` remains.
+
 ### 2026-09-27: m18.4 design chosen and implemented from the sandbox
 
 Check and pin in `server_connect`, with the pin done by staging checked answers for the loop's `getaddrinfo`, a

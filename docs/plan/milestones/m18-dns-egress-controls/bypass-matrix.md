@@ -10,7 +10,9 @@ The after-m18.3 column is confirmed for CLI mode as of 2026-09-27, with IPv6 ena
 (`results/after-m18.3-20260927-155350/`, a working file) and for devcontainer mode on the same day
 (`results/after-m18.3-20260927-160744/`). From the CLI run on,
 H1 carries a positive control: a separate `ctl-` label resolved through Docker's resolver from a throwaway
-container during the capture, which must appear in the capture for `not-seen` to count.
+container during the capture, which must appear in the capture for `not-seen` to count. The after-m18.4 column is
+confirmed for both modes as of 2026-09-27, run with `--policy-probes` and IPv6 on
+(`results/after-m18.4-20260927-172036/` CLI, `results/after-m18.4-20260927-172535/` devcontainer).
 
 Re-run with `scripts/dns-egress-audit/run-audit.bash --stage <stage>` on the Mac, or run `probe.bash` alone from a
 sandbox shell for the in-container rows. `scripts/dns-egress-audit/README.md` has the procedure.

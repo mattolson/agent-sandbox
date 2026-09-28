@@ -224,9 +224,9 @@ embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
       add the harness's `extra_addons` and the resolver-swapping test addon, and write the integration tests
 - [x] Teach `probe.bash` the `guard-refused` result, update `after-m18.4.tsv`, the audit README, and the matrix
 - [x] Write the changelog entry and record the design choice in the milestone plan
-- [ ] Maintainer rebuilds the proxy with `./images/build.sh proxy`, restarts it, and runs the audit at
+- [x] Maintainer rebuilds the proxy with `./images/build.sh proxy`, restarts it, and runs the audit at
       `--stage after-m18.4 --policy-probes` in CLI mode and against a devcontainer
-- [ ] Verify each acceptance criterion, capture learnings, and note follow-ups for `m18.5`
+- [x] Verify each acceptance criterion, capture learnings, and note follow-ups for `m18.5`
 
 ### Open Questions
 
@@ -249,13 +249,14 @@ embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
 
 ### Acceptance Verification
 
-Evidence so far: the CLI-mode audit on 2026-09-27 (`results/after-m18.4-20260927-172036/`), and the proxy suite,
-269 tests, on the pinned mitmproxy 12.2.3. The devcontainer run is pending.
+Evidence is the audit on 2026-09-27 in CLI mode (`results/after-m18.4-20260927-172036/`) and devcontainer mode
+(`results/after-m18.4-20260927-172535/`), both with `--policy-probes` and IPv6 on, and the proxy suite, 269 tests,
+on the pinned mitmproxy 12.2.3.
 
-- [ ] A host on the allowlist whose DNS answer is a private or link-local address is refused, with a log event
-      naming the address class. CLI mode: D3 refused as `sandbox_network` and D4 as `loopback`, both with a 403
-      naming the guard; the integration tests refuse every class, including `private`, `link_local`, and
-      `metadata`, each named in the body and the `address_guard` event. Devcontainer run pending
+- [x] A host on the allowlist whose DNS answer is a private or link-local address is refused, with a log event
+      naming the address class. In both modes D3 is refused as `sandbox_network` and D4 as `loopback`, each with a
+      403 naming the guard; the integration tests refuse every class, including `private`, `link_local`, and
+      `metadata`, each named in the body and the `address_guard` event
 - [x] The existing integration harness, which rebinds rendered hosts onto loopback, still passes, either through the
       documented escape hatch or by an explicit test-only configuration. All pre-existing integration tests pass
       unchanged: they write `127.0.0.1` as the policy host, and IP-literal hosts are exempt. The guard's own tests
@@ -268,8 +269,34 @@ Evidence so far: the CLI-mode audit on 2026-09-27 (`results/after-m18.4-20260927
 
 ### Learnings
 
-_Pending._
+- Spike a mechanism against the real dependency before building on it. Reading mitmproxy's source suggested
+  rewriting `server.address` would work; running it showed the address cannot change on an open connection and
+  that tunnelled requests take their host from it. Neither was visible from reading alone
+- Check the harness with a direct control before blaming the design. The spike's first HTTPS failure was the test
+  upstream's `sni_callback` returning an integer, which Python's `ssl` treats as a TLS alert; curl straight to the
+  upstream reproduced it without the proxy
+- A test that guards an invariant must be checked by breaking the invariant. The first unit invariant test failed
+  for an unrelated reason and blamed asyncio. Mutation runs, one per invariant, showed each test fails for the
+  reason its message gives
+- `server_connect` is the one mitmproxy hook every upstream connection passes through, and the only one that can
+  refuse before the dial. `server_connected` cannot abort, and a plain request's error response cannot be replaced
+  from the `error` hook, while a CONNECT's can be from `http_connect_error`
+- Pinning by staging answers for the loop's `getaddrinfo` keeps mitmproxy's connection state untouched, and staging
+  every checked answer preserves asyncio's fallback across addresses
+- With IPv6 on the network, the proxy's lookups return AAAA first. Refusing on any denied answer made the order
+  irrelevant; both live refusals named the IPv6 address
+- Two audit rows that share a target but expect different policies stay hidden until a run exercises both. D1 and
+  D2 had conflicted since `m18.1`
 
 ### Follow-up Items
 
-_Pending._
+- `m18.5`: document the guard: what it refuses, the 403 body and the `address_guard` event, the IP-literal
+  exemption, and `NO_PROXY` for sidecars reached through the proxy. The decision record should carry the three
+  designs, the spike that ruled out rewriting the address, the staging monkeypatch and the invariant tests that
+  gate it, and the residuals: the guard trusts the proxy container's resolver, and DoH to an allowed host (D2)
+  stays open
+- Add a name-scoped exemption on the proxy service the first time a user reports an internal allowed host
+- `images/build.sh` treats an unknown first argument as `all` and passes it on to `docker buildx build`, so a typo
+  such as `proxy,` builds everything and then fails with a confusing Docker error. Reject unknown targets instead;
+  outside this milestone
+- The branch has no pull request, so none of the `m18.2` through `m18.4` proxy changes has run in CI

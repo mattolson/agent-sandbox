@@ -1,5 +1,14 @@
 # Execution Log: m18.4 - proxy address guard
 
+## 2026-09-27 - Devcontainer run clean; task closed
+
+Re-created the scratch devcontainer project as `guard-audit` under `~/dev/workspace`, on `agent-sandbox-claude:local`
+and the rebuilt `agent-sandbox-proxy:local`, with IPv6 on and the three policy-probe hosts allowed.
+`--stage after-m18.4 --policy-probes --container guard-audit-devcontainer-agent-1` matched every compared row
+(`results/after-m18.4-20260927-172535/`). D3 was refused on the devcontainer network's own prefix,
+`fd9f:73ac:d109:1::2` as `sandbox_network`, and D4 on `::1` as `loopback`. All four acceptance criteria hold in both
+modes.
+
 ## 2026-09-27 - after-m18.4 audit clean in CLI mode
 
 Re-ran `--stage after-m18.4 --policy-probes` after the D1 fix; every compared row matches
