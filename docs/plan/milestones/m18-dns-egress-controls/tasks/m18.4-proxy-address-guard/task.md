@@ -249,7 +249,22 @@ embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
 
 ### Acceptance Verification
 
-_Pending._
+Evidence so far: the CLI-mode audit on 2026-09-27 (`results/after-m18.4-20260927-172036/`), and the proxy suite,
+269 tests, on the pinned mitmproxy 12.2.3. The devcontainer run is pending.
+
+- [ ] A host on the allowlist whose DNS answer is a private or link-local address is refused, with a log event
+      naming the address class. CLI mode: D3 refused as `sandbox_network` and D4 as `loopback`, both with a 403
+      naming the guard; the integration tests refuse every class, including `private`, `link_local`, and
+      `metadata`, each named in the body and the `address_guard` event. Devcontainer run pending
+- [x] The existing integration harness, which rebinds rendered hosts onto loopback, still passes, either through the
+      documented escape hatch or by an explicit test-only configuration. All pre-existing integration tests pass
+      unchanged: they write `127.0.0.1` as the policy host, and IP-literal hosts are exempt. The guard's own tests
+      use a test-only addon loaded through the harness
+- [x] No change in behavior for hosts that resolve to ordinary public addresses. Public addresses in both families
+      classify as allowed in the unit tests; pinned dials keep SNI, Host, connection reuse, and `request.host`
+      (integration); and in the live audit D2 still reaches `dns.google` through the proxy
+- [x] Proxy unit and integration tests cover each refused address class. Unit: every class at both ends of each
+      range, mapped IPv4, and zone suffixes. Integration: one refused request per class against the real `mitmdump`
 
 ### Learnings
 

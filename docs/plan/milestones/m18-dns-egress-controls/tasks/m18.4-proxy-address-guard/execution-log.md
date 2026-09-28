@@ -1,5 +1,12 @@
 # Execution Log: m18.4 - proxy address guard
 
+## 2026-09-27 - after-m18.4 audit clean in CLI mode
+
+Re-ran `--stage after-m18.4 --policy-probes` after the D1 fix; every compared row matches
+(`results/after-m18.4-20260927-172036/`, a working file). D1 `proxy-403` on `cloudflare-dns.com`, D2 `http-200`
+through the allowed `dns.google` (the recorded residual), D3 and D4 `guard-refused`, H1 `not-seen` with its control
+seen in 4 packets, and the A, B, C, S, and E rows as in `after-m18.3`. The devcontainer run is next.
+
 ## 2026-09-27 - First after-m18.4 audit: D3 and D4 flip; D1 exposed an old conflict
 
 The maintainer rebuilt the proxy and ran `--stage after-m18.4 --policy-probes` in CLI mode with IPv6 on. D3 read
