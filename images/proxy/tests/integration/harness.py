@@ -245,12 +245,14 @@ def spawn_proxy(
     env_overrides=None,
     dns=False,
     extra_addons=(),
+    listen_host="127.0.0.1",
 ):
     """Start mitmdump with the integration addon and return a ProxyHarness.
 
     With `dns=True` a DNS-mode listener is added on a second loopback port, the way the
     proxy image runs it, and the harness exposes it as `dns_port`. `extra_addons` are
-    script paths loaded after the enforcer, for test-only addons.
+    script paths loaded after the enforcer, for test-only addons. `listen_host=None`
+    binds every interface, the way the proxy image does.
     """
     if not mitmdump_available():
         raise RuntimeError("mitmproxy is not importable; cannot run integration harness")
@@ -284,7 +286,8 @@ def spawn_proxy(
     ]
     for setting in mitmdump_settings:
         args.extend(["--set", setting])
-    args.extend(["--listen-host", "127.0.0.1"])
+    if listen_host is not None:
+        args.extend(["--listen-host", listen_host])
     if dns:
         # Any explicit --mode replaces the default regular mode, so list both, as the image does.
         args.extend(["--mode", f"regular@{proxy_port}", "--mode", f"dns@{dns_port}"])

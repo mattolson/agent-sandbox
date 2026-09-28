@@ -108,7 +108,7 @@ def _write_test_pki(directory, names):
 
 @unittest.skipUnless(mitmdump_available(), _skip_reason())
 class AddressGuardIntegrationTests(unittest.TestCase):
-    def spawn(self, hosts, *, dns=None, allow=None, sandbox=None, settings=()):
+    def spawn(self, hosts, *, dns=None, allow=None, sandbox=None, settings=(), listen_host="127.0.0.1"):
         env = {}
         extra = ()
         if dns is not None or allow is not None or sandbox is not None:
@@ -119,7 +119,9 @@ class AddressGuardIntegrationTests(unittest.TestCase):
             if sandbox is not None:
                 env["AGENTBOX_TEST_GUARD_SANDBOX"] = json.dumps(sandbox)
             extra = (TEST_ADDON,)
-        harness = spawn_proxy(_policy(hosts), env_overrides=env, extra_addons=extra, mitmdump_settings=settings)
+        harness = spawn_proxy(
+            _policy(hosts), env_overrides=env, extra_addons=extra, mitmdump_settings=settings, listen_host=listen_host
+        )
         self.addCleanup(harness.terminate)
         if extra:
             harness.wait_for_event(lambda e: e.get("msg") == "address guard test config loaded", timeout=5.0)
@@ -264,6 +266,21 @@ class AddressGuardIntegrationTests(unittest.TestCase):
         status, _ = harness.send_get(f"http://127.0.0.1:{upstream.port}/")
         self.assertEqual(status, 200)
         self.assertEqual(self.guard_events(harness), [])
+
+    def test_proxy_bound_to_every_interface_serves_and_still_refuses(self):
+        """The image binds every interface; the guard must work the same way there.
+
+        mitmdump binds before the guard installs its wrapper, so this does not exercise
+        the bind lookup itself; `test_invariant_binding_every_interface_is_not_checked`
+        in the unit tests does.
+        """
+        upstream = self.plain_upstream()
+        harness = self.spawn(["127.0.0.1", "localhost"], listen_host=None)
+        status, _ = harness.send_get(f"http://127.0.0.1:{upstream.port}/")
+        self.assertEqual(status, 200, f"proxy log: {harness.snapshot_lines()[-15:]}")
+        status, data = harness.send_get(f"http://localhost:{upstream.port}/")
+        self.assertEqual(status, 403, "the guard must still refuse dials when the proxy binds every interface")
+        self.assertIn(MARKER.encode(), data)
 
     def test_guard_announces_itself_with_pinning_enabled(self):
         harness = self.spawn(["127.0.0.1"])

@@ -14,6 +14,7 @@ import socket
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 from test_enforcer import FakeFlow, FakeResponse, load_enforcer_module
@@ -27,10 +28,11 @@ if str(ADDON_DIR) not in sys.path:
 import address_guard  # noqa: E402
 from address_guard import (  # noqa: E402
     REFUSAL_MARKER,
-    STAGE_SECONDS,
     AddressGuard,
+    AddressRefused,
     PinningUnavailable,
     classify_address,
+    is_dial_lookup,
     read_sandbox_networks,
 )
 
@@ -62,14 +64,6 @@ class FakeServer:
 class FakeHookData:
     def __init__(self, host, port=443):
         self.server = FakeServer(host, port)
-
-
-class FakeClock:
-    def __init__(self):
-        self.now = 1000.0
-
-    def __call__(self):
-        return self.now
 
 
 def fake_resolver(table):
@@ -212,29 +206,35 @@ class CheckTests(unittest.TestCase):
         self.assertIsNone(guard.check("api.github.com", 443, [info("140.82.112.3"), info("2606:50c0::1")]))
 
 
-class ServerConnectTests(unittest.TestCase):
-    def make_guard(self, table, mode="enforce", clock=None):
-        logger = RecordingLogger()
-        guard = AddressGuard(
-            mode=mode,
-            logger=logger,
-            resolver=fake_resolver(table),
-            sandbox_networks=[],
-            clock=clock,
-        )
-        return guard, logger
+def make_guard(table=None, mode="enforce", classifier=None):
+    logger = RecordingLogger()
+    guard = AddressGuard(
+        mode=mode,
+        logger=logger,
+        resolver=fake_resolver(table) if table is not None else None,
+        sandbox_networks=[],
+        classifier=classifier,
+    )
+    return guard, logger
 
-    def test_denied_answer_kills_the_connection_before_the_dial(self):
-        guard, logger = self.make_guard({"rebound.example": ["169.254.169.254"]})
-        data = FakeHookData("rebound.example")
 
-        async def scenario():
-            await guard.server_connect(data)
+async def dial_lookup(guard, host, port=443, real=None):
+    """Install the wrapper on the running loop and make the lookup asyncio makes for a dial."""
+    loop = asyncio.get_running_loop()
+    if real is not None:
+        loop.getaddrinfo = real
+    guard.install_pinning(loop)
+    return await loop.getaddrinfo(host, port, family=0, type=socket.SOCK_STREAM, proto=0, flags=0)
 
-        run(scenario())
-        self.assertTrue(data.server.error.startswith(REFUSAL_MARKER))
-        self.assertIn("(metadata)", data.server.error)
-        self.assertEqual(guard._staged, {})
+
+class DialLookupTests(unittest.TestCase):
+    def test_denied_answer_raises_before_any_connection(self):
+        guard, logger = make_guard({"rebound.example": ["169.254.169.254"]})
+        with self.assertRaises(AddressRefused) as raised:
+            run(dial_lookup(guard, "rebound.example"))
+        self.assertIsInstance(raised.exception, OSError, "mitmproxy must see a failed connection")
+        self.assertTrue(str(raised.exception).startswith(REFUSAL_MARKER))
+        self.assertIn("rebound.example resolves to 169.254.169.254 (metadata)", str(raised.exception))
         self.assertEqual(
             logger.events[-1],
             {
@@ -250,152 +250,134 @@ class ServerConnectTests(unittest.TestCase):
             },
         )
 
-    def test_allowed_answers_are_staged_for_the_dial(self):
-        guard, logger = self.make_guard({"api.github.com": ["140.82.112.3", "140.82.112.4"]})
-        data = FakeHookData("api.github.com")
-
-        async def scenario():
-            await guard.server_connect(data)
-            return await asyncio.get_running_loop().getaddrinfo("api.github.com", 443)
-
-        answers = run(scenario())
-        self.assertIsNone(data.server.error)
+    def test_allowed_answers_are_returned_for_the_dial(self):
+        guard, logger = make_guard({"api.github.com": ["140.82.112.3", "140.82.112.4"]})
+        answers = run(dial_lookup(guard, "api.github.com"))
         self.assertEqual([a[4][0] for a in answers], ["140.82.112.3", "140.82.112.4"])
-        self.assertEqual(data.server.address, ("api.github.com", 443), "the address must never be rewritten")
         self.assertEqual(logger.events, [])
 
-    def test_ip_literal_is_not_resolved_or_refused(self):
-        guard, _ = self.make_guard({})
-        for host in ("127.0.0.1", "10.0.0.1", "::1"):
-            data = FakeHookData(host)
-            run(guard.server_connect(data))
-            with self.subTest(host=host):
-                self.assertIsNone(data.server.error)
-        self.assertEqual(guard.resolver.calls, [])
+    def test_mixed_answer_is_refused(self):
+        guard, _ = make_guard({"mixed.example": ["140.82.112.3", "10.0.0.5"]})
+        with self.assertRaises(AddressRefused):
+            run(dial_lookup(guard, "mixed.example"))
 
-    def test_resolution_failure_is_pinned_so_the_dial_cannot_look_again(self):
-        # A nameserver that fails the guard's lookup and answers the dial's with a
-        # private address must not get through: the dial sees the same failure.
-        guard, logger = self.make_guard({})
-        data = FakeHookData("flaky.example")
+    def test_the_dial_lookup_itself_is_checked_so_nothing_can_slip_past_it(self):
+        # The #204 review found staged answers could fail or expire and leave the dial
+        # an unchecked fallback. There is no fallback now: whatever the real resolver
+        # answers for the dial is what gets checked.
+        guard, _ = make_guard()
+
+        async def answers_private(host, port, *args, **kwargs):
+            return [info("10.0.0.7", port)]
+
+        with self.assertRaises(AddressRefused):
+            run(dial_lookup(guard, "flaky.example", real=answers_private))
+
+    def test_lookup_failure_propagates_unchanged(self):
+        guard, logger = make_guard({})
+        with self.assertRaises(socket.gaierror):
+            run(dial_lookup(guard, "nx.invalid"))
+        self.assertEqual(logger.events, [])
+
+    def test_log_mode_records_but_returns_the_answers(self):
+        guard, logger = make_guard({"rebound.example": ["10.0.0.1"]}, mode="log")
+        answers = run(dial_lookup(guard, "rebound.example"))
+        self.assertEqual(answers[0][4][0], "10.0.0.1")
+        self.assertEqual(logger.events[-1]["action"], "logged")
+
+    def test_family_filter_applies_to_injected_answers(self):
+        guard, _ = make_guard({"dual.example": ["140.82.112.3", "2606:50c0::1"]})
+
+        async def scenario():
+            guard.install_pinning(asyncio.get_running_loop())
+            return await asyncio.get_running_loop().getaddrinfo("dual.example", 443, family=socket.AF_INET6)
+
+        self.assertEqual([a[4][0] for a in run(scenario())], ["2606:50c0::1"])
+
+    def test_lookups_that_are_not_dials_pass_through_unchecked(self):
+        # The sinkhole resolves allowed names with no port, and a server binding every
+        # interface resolves (None, port) with AI_PASSIVE. Both answer denied addresses.
+        guard, logger = make_guard()
+        calls = []
+
+        async def real(host, port, *args, **kwargs):
+            calls.append((host, port))
+            return [info("172.22.0.2", port or 0)]
 
         async def scenario():
             loop = asyncio.get_running_loop()
+            loop.getaddrinfo = real
+            guard.install_pinning(loop)
+            await loop.getaddrinfo("proxy", None, family=socket.AF_INET, type=socket.SOCK_STREAM)
+            await loop.getaddrinfo(None, 8080, family=0, type=socket.SOCK_STREAM, flags=socket.AI_PASSIVE)
+            await loop.getaddrinfo("", 8080, family=0, type=socket.SOCK_STREAM)
+            await loop.getaddrinfo("proxy", 8080, family=0, type=socket.SOCK_STREAM, flags=socket.AI_PASSIVE)
 
-            async def second_lookup_answers_private(host, port, *args, **kwargs):
-                return [info("10.0.0.7", port)]
-
-            loop.getaddrinfo = second_lookup_answers_private
-            await guard.server_connect(data)
-            return await loop.getaddrinfo("flaky.example", 443)
-
-        with self.assertRaises(socket.gaierror):
-            run(scenario())
-        self.assertIsNone(data.server.error, "mitmproxy reports the failed lookup itself")
+        run(scenario())
+        self.assertEqual(len(calls), 4)
         self.assertEqual(logger.events, [])
 
-    def test_resolution_failure_is_not_pinned_in_log_mode(self):
-        guard, _ = self.make_guard({}, mode="log")
-        run(guard.server_connect(FakeHookData("flaky.example")))
-        self.assertEqual(guard._staged, {})
+    def test_is_dial_lookup(self):
+        self.assertTrue(is_dial_lookup("api.github.com", 443, {"flags": 0}))
+        self.assertFalse(is_dial_lookup("proxy", None, {}))
+        self.assertFalse(is_dial_lookup(None, 8080, {"flags": socket.AI_PASSIVE}))
+        self.assertFalse(is_dial_lookup("", 8080, {}))
+        self.assertFalse(is_dial_lookup("proxy", 8080, {"flags": socket.AI_PASSIVE}))
+        self.assertFalse(is_dial_lookup("10.0.0.1", 443, {}))
 
-    def test_connection_already_killed_is_left_alone(self):
-        guard, _ = self.make_guard({"rebound.example": ["10.0.0.1"]})
-        data = FakeHookData("rebound.example")
-        data.server.error = "killed by someone else"
-        run(guard.server_connect(data))
-        self.assertEqual(data.server.error, "killed by someone else")
-        self.assertEqual(guard.resolver.calls, [])
 
-    def test_log_mode_records_but_does_not_refuse(self):
-        guard, logger = self.make_guard({"rebound.example": ["10.0.0.1"]}, mode="log")
-        data = FakeHookData("rebound.example")
-        run(guard.server_connect(data))
+class ServerConnectTests(unittest.TestCase):
+    def test_installs_the_wrapper_before_a_dial(self):
+        guard, _ = make_guard()
+        data = FakeHookData("api.github.com")
+
+        async def scenario():
+            guard.server_connect(data)
+            return asyncio.get_running_loop().getaddrinfo == guard._checked_getaddrinfo
+
+        self.assertTrue(run(scenario()))
         self.assertIsNone(data.server.error)
-        self.assertEqual(logger.events[-1]["action"], "logged")
-        self.assertEqual(logger.events[-1]["address_class"], "private")
 
     def test_unpinnable_loop_refuses_names_in_enforce_mode(self):
-        guard, _ = self.make_guard({"api.github.com": ["140.82.112.3"]})
+        guard, _ = make_guard()
 
         def refuse(loop):
             raise PinningUnavailable("no")
 
         guard.install_pinning = refuse
         data = FakeHookData("api.github.com")
-        run(guard.server_connect(data))
+
+        async def scenario():
+            guard.server_connect(data)
+
+        run(scenario())
         self.assertTrue(data.server.error.startswith(REFUSAL_MARKER))
         self.assertIn("pinning unavailable", data.server.error)
 
-
-class PinningTests(unittest.TestCase):
-    def test_staged_answers_expire(self):
-        clock = FakeClock()
-        guard = AddressGuard(
-            mode="enforce",
-            logger=RecordingLogger(),
-            resolver=fake_resolver({"api.github.com": ["140.82.112.3"]}),
-            sandbox_networks=[],
-            clock=clock,
-        )
-        real_calls = []
+    def test_ip_literals_and_killed_connections_are_left_alone(self):
+        guard, _ = make_guard()
+        guard.install_pinning = lambda loop: self.fail("must not be called")
+        literal = FakeHookData("10.0.0.1")
+        killed = FakeHookData("api.github.com")
+        killed.server.error = "killed by someone else"
 
         async def scenario():
-            loop = asyncio.get_running_loop()
+            guard.server_connect(literal)
+            guard.server_connect(killed)
 
-            async def real(host, port, *args, **kwargs):
-                real_calls.append((host, port))
-                return [info("140.82.112.99", port)]
+        run(scenario())
+        self.assertIsNone(literal.server.error)
+        self.assertEqual(killed.server.error, "killed by someone else")
 
-            loop.getaddrinfo = real
-            await guard.server_connect(FakeHookData("api.github.com"))
-            staged = await loop.getaddrinfo("api.github.com", 443)
-            clock.now += STAGE_SECONDS + 0.1
-            fresh = await loop.getaddrinfo("api.github.com", 443)
-            return staged, fresh
 
-        staged, fresh = run(scenario())
-        self.assertEqual(staged[0][4][0], "140.82.112.3")
-        self.assertEqual(fresh[0][4][0], "140.82.112.99")
-        self.assertEqual(real_calls, [("api.github.com", 443)])
-
-    def test_family_filter_applies_to_staged_answers(self):
-        guard = AddressGuard(
-            mode="enforce",
-            logger=RecordingLogger(),
-            resolver=fake_resolver({"dual.example": ["140.82.112.3", "2606:50c0::1"]}),
-            sandbox_networks=[],
-        )
-
-        async def scenario():
-            await guard.server_connect(FakeHookData("dual.example"))
-            loop = asyncio.get_running_loop()
-            return await loop.getaddrinfo("dual.example", 443, family=socket.AF_INET6)
-
-        answers = run(scenario())
-        self.assertEqual([a[4][0] for a in answers], ["2606:50c0::1"])
-
-    def test_unstaged_lookups_pass_through(self):
-        guard = AddressGuard(mode="enforce", logger=RecordingLogger(), sandbox_networks=[])
-
-        async def scenario():
-            loop = asyncio.get_running_loop()
-            guard.install_pinning(loop)
-            return await loop.getaddrinfo("localhost", 80, type=socket.SOCK_STREAM)
-
-        answers = run(scenario())
-        self.assertTrue(answers)
-        self.assertTrue(all(classify_address(a[4][0]) == "loopback" for a in answers))
-
+class InvariantTests(unittest.TestCase):
     def test_invariant_asyncio_open_connection_resolves_through_loop_getaddrinfo(self):
-        """The pin works only if asyncio's dial resolves through the loop's getaddrinfo.
+        """The guard works only if asyncio's dial resolves through the loop's getaddrinfo.
 
         `pinned.invalid` cannot resolve anywhere (RFC 2606), so this connection
-        succeeds only if asyncio used the answer the guard staged.
+        succeeds only if asyncio used the answer the wrapper returned.
         """
-        # Stage directly rather than through server_connect: loopback is denied,
-        # and this test is about asyncio, not the classifier.
-        guard = AddressGuard(mode="enforce", logger=RecordingLogger(), sandbox_networks=[])
+        guard, _ = make_guard({"pinned.invalid": ["127.0.0.1"]}, classifier=lambda address, networks: None)
 
         async def scenario():
             accepted = asyncio.Event()
@@ -406,9 +388,7 @@ class PinningTests(unittest.TestCase):
 
             server = await asyncio.start_server(on_connect, "127.0.0.1", 0)
             port = server.sockets[0].getsockname()[1]
-            loop = asyncio.get_running_loop()
-            guard.install_pinning(loop)
-            guard._stage("pinned.invalid", port, [info("127.0.0.1", port)])
+            guard.install_pinning(asyncio.get_running_loop())
             reader, writer = await asyncio.open_connection("pinned.invalid", port)
             peer = writer.get_extra_info("peername")
             await asyncio.wait_for(accepted.wait(), 2)
@@ -421,23 +401,72 @@ class PinningTests(unittest.TestCase):
         except OSError as error:
             self.fail(
                 "asyncio.open_connection no longer resolves through loop.getaddrinfo, "
-                f"so the address guard cannot pin dials: {error}"
+                f"so the address guard cannot check dials: {error}"
             )
         self.assertEqual(peer[0], "127.0.0.1")
 
+    def test_invariant_a_refused_dial_opens_no_connection(self):
+        guard, _ = make_guard({"refused.invalid": ["127.0.0.1"]})
+
+        async def scenario():
+            accepted = []
+
+            async def on_connect(reader, writer):
+                accepted.append(1)
+                writer.close()
+
+            server = await asyncio.start_server(on_connect, "127.0.0.1", 0)
+            port = server.sockets[0].getsockname()[1]
+            guard.install_pinning(asyncio.get_running_loop())
+            refused = None
+            try:
+                await asyncio.open_connection("refused.invalid", port)
+            except AddressRefused as error:
+                refused = error
+            await asyncio.sleep(0.1)
+            server.close()
+            return refused, len(accepted)
+
+        refused, accepted = run(scenario())
+        self.assertIsNotNone(refused, "the dial to a denied address must be refused")
+        self.assertEqual(accepted, 0, "a refused dial must not open a connection")
+
+    def test_invariant_binding_every_interface_is_not_checked(self):
+        """A bind to every interface must pass through the wrapper unchecked.
+
+        asyncio resolves it as a lookup with no host and AI_PASSIVE, and the
+        wrapper passes it on either count, so both would have to change before
+        the check refused 0.0.0.0. mitmdump binds at startup, before the wrapper
+        is installed, but would rebind through it after an options change.
+        """
+        guard, _ = make_guard()
+
+        async def scenario():
+            guard.install_pinning(asyncio.get_running_loop())
+            server = await asyncio.start_server(lambda r, w: w.close(), host="", port=0)
+            ports = {sock.getsockname()[1] for sock in server.sockets}
+            server.close()
+            return ports
+
+        try:
+            ports = run(scenario())
+        except AddressRefused as error:
+            self.fail(f"binding every interface went through the dial check: {error}")
+        self.assertTrue(ports)
+
     def test_invariant_default_event_loop_accepts_the_wrapper(self):
-        """A loop class that forbids instance attributes would leave dials unpinned."""
-        guard = AddressGuard(mode="enforce", logger=RecordingLogger(), sandbox_networks=[])
+        """A loop class that forbids instance attributes would leave dials unchecked."""
+        guard, _ = make_guard()
 
         async def scenario():
             loop = asyncio.get_running_loop()
             guard.install_pinning(loop)
-            return loop.getaddrinfo == guard._pinned_getaddrinfo
+            return loop.getaddrinfo == guard._checked_getaddrinfo
 
         self.assertTrue(run(scenario()))
 
     def test_install_raises_when_the_loop_refuses_the_wrapper(self):
-        guard = AddressGuard(mode="enforce", logger=RecordingLogger(), sandbox_networks=[])
+        guard, _ = make_guard()
 
         class SlottedLoop:
             __slots__ = ()
@@ -554,7 +583,9 @@ class EnforcerIntegrationTests(unittest.TestCase):
         self.assertEqual(stream.getvalue(), before, "a guard refusal must not be logged as allowed")
 
     def test_build_addons_orders_the_guard_after_the_enforcer(self):
-        names = [type(addon).__name__ for addon in self.module.build_addons()]
+        with redirect_stdout(io.StringIO()):
+            addons = self.module.build_addons()
+        names = [type(addon).__name__ for addon in addons]
         if not names:
             self.skipTest("mitmproxy not importable")
         self.assertLess(names.index("PolicyEnforcer"), names.index("AddressGuard"))

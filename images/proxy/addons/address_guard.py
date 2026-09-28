@@ -8,20 +8,22 @@ private, link-local, the cloud metadata endpoint, the sandbox's own network,
 or any other non-global address is refused before the proxy dials it.
 
 How it works:
-  - `server_connect` fires for every upstream connection mitmproxy opens:
-    CONNECT tunnels, decrypted requests, and plain HTTP alike. The guard
-    resolves the host there and refuses the connection, by setting
-    `server.error`, if any answer is denied. Nothing is sent to the address.
-  - Otherwise the guard pins the dial to the answers it checked. mitmproxy dials
-    with `asyncio.open_connection(host, port)`, which resolves through the
-    running loop's `getaddrinfo`. The guard wraps that one method on that one
-    loop and returns the checked answers for the key it just staged, so a
-    second lookup cannot hand the dial a different address. Every other lookup
-    passes through unchanged. A lookup that fails during the check is pinned as a
-    failure, so the dial cannot fall back to a fresh, unchecked lookup.
-    `server.address` is never modified: it stays the
-    hostname, which keeps SNI, certificate verification, connection reuse, and
+  - mitmproxy opens every upstream connection, CONNECT tunnels, decrypted
+    requests, and plain HTTP alike, with `asyncio.open_connection(host, port)`,
+    which resolves through the running loop's `getaddrinfo`. The guard wraps
+    that one method on that one loop and checks the answers of every dial
+    lookup. If any answer is denied it raises before a socket is opened, so
+    nothing is sent to the address. Otherwise asyncio connects to exactly the
+    answers that were checked: the check and the dial are the same lookup, so
+    no later lookup, cache, or timing gap can hand the dial another address.
+  - Lookups that are not dials pass through unchecked: the DNS sinkhole's,
+    which carry no port, and asyncio's own when the proxy binds to every
+    interface. `server.address` is never modified: it stays the hostname,
+    which keeps SNI, certificate verification, connection reuse, and
     `request.host` intact.
+  - `server_connect` fires before every dial and makes sure the wrapper is in
+    place. If it cannot be installed, the connection is refused rather than
+    dialled unchecked.
   - Hosts written as IP literals are not checked. The guard protects a name from
     being pointed somewhere unexpected; a literal is an explicit address in a
     policy the agent cannot edit.
@@ -30,14 +32,15 @@ How it works:
     connection opens after the request hooks, and mitmproxy's error response
     there cannot be replaced, so the guard's own `requestheaders` hook checks
     those requests first and hands a refusal to the enforcer's `on_refused`
-    callback. The connection is still checked and pinned when it opens.
+    callback. The dial's own lookup is still checked when the connection opens.
 
-The wrapper relies on two facts about the pinned mitmproxy and Python: that
+The wrapper relies on facts about the pinned mitmproxy and Python: that
 mitmproxy dials by hostname through `asyncio.open_connection`, and that asyncio
-resolves through `loop.getaddrinfo`. `test_address_guard.py` and the
-integration tests fail if either stops holding. If the wrapper cannot be
-installed, the guard refuses every connection to a name rather than run
-unpinned.
+resolves through `loop.getaddrinfo`. It must also not mistake a server's bind
+for a dial: asyncio resolves a bind to every interface with no host and
+`AI_PASSIVE`, and the wrapper passes a lookup through on either count.
+`test_address_guard.py` and the integration tests fail if any of these stops
+holding.
 
 Environment variables:
   PROXY_MODE: enforce refuses; log records what would be refused and refuses
@@ -53,14 +56,12 @@ import json
 import os
 import socket
 import sys
-import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 
 REFUSAL_MARKER = "agent-sandbox address guard:"
-STAGE_SECONDS = 5.0
 
 # Checked in order; the first match names the class. The specific names come
 # before the general ones so the log says `metadata`, not `link_local`.
@@ -186,6 +187,24 @@ def is_refusal_message(text):
     return isinstance(text, str) and text.startswith(REFUSAL_MARKER)
 
 
+class AddressRefused(OSError):
+    """Raised from the dial's lookup when an answer is denied.
+
+    An OSError, so asyncio and mitmproxy treat it as a failed connection: the
+    message becomes `server.error`, which the enforcer turns into a 403 on a
+    CONNECT. Nothing has been sent to any address when it is raised.
+    """
+
+
+def is_dial_lookup(host, port, kwargs):
+    """True for a lookup made to open a connection to a named host."""
+    if not isinstance(host, str) or not host or port is None:
+        return False
+    if kwargs.get("flags", 0) & socket.AI_PASSIVE:
+        return False
+    return parse_ip(host) is None
+
+
 class PinningUnavailable(RuntimeError):
     """The loop's getaddrinfo could not be wrapped, so dials cannot be pinned."""
 
@@ -214,7 +233,6 @@ class AddressGuard:
         log_level=None,
         resolver=None,
         sandbox_networks=None,
-        clock=None,
         on_refused=None,
         classifier=None,
     ):
@@ -225,13 +243,11 @@ class AddressGuard:
         # loop.getaddrinfo, captured before the wrapper replaces it.
         self.resolver = resolver
         self.sandbox_networks = sandbox_networks
-        self.clock = clock or time.monotonic
         # classifier(address, sandbox_networks) -> denied class or None.
         self.classifier = classifier or classify_address
         # on_refused(flow, refusal) answers a refused plain-http request; the
         # enforcer supplies it so the refusal gets its 403 and its stored decision.
         self.on_refused = on_refused
-        self._staged = {}
         self._pinned_loop = None
         self._real_getaddrinfo = None
 
@@ -255,44 +271,31 @@ class AddressGuard:
             always=True,
         )
 
-    async def server_connect(self, data):
+    def server_connect(self, data):
+        """Refuse to dial a name when the checking wrapper is not in place.
+
+        The check itself happens inside the dial's own lookup, in
+        `_checked_getaddrinfo`. This hook only makes sure that lookup is
+        wrapped, and fails closed when it cannot be.
+        """
         server = data.server
-        if server.error or not server.address:
+        if self.mode != "enforce" or server.error or not server.address:
             return
-        host, port = server.address
+        host, _ = server.address
         if parse_ip(host) is not None:
             return
-        if self.mode == "enforce":
-            try:
-                self.install_pinning(asyncio.get_running_loop())
-            except PinningUnavailable as error:
-                server.error = f"{REFUSAL_MARKER} {host} not dialled; pinning unavailable ({error})"
-                return
         try:
-            answers = await self._resolve(host, port)
-        except OSError as error:
-            # Pin the failure too. Without it the dial would look the name up again,
-            # unchecked, and a nameserver could fail the check and answer the dial with
-            # a private address. The dial now fails with the same error, and mitmproxy
-            # reports it as it would any failed lookup.
-            if self.mode == "enforce":
-                self._stage(host, port, error)
-            return
-        refusal = self.check(host, port, answers)
-        if refusal is not None:
-            self._log_refusal(refusal, phase="connect")
-            if self.mode == "enforce":
-                server.error = refusal.message()
-            return
-        if self.mode == "enforce":
-            self._stage(host, port, answers)
+            self.install_pinning(asyncio.get_running_loop())
+        except PinningUnavailable as error:
+            server.error = f"{REFUSAL_MARKER} {host} not dialled; pinning unavailable ({error})"
 
     async def requestheaders(self, flow):
         """Refuse a plain `http` request before its connection opens.
 
         Runs after the enforcer's hook, so a request the policy already blocked
-        is left alone. Requests inside a tunnel use the connection the CONNECT
-        opened, which `server_connect` already checked.
+        is left alone. The dial's own lookup is still checked; this early check
+        exists so the refusal can be a 403 rather than mitmproxy's 502.
+        Requests inside a tunnel use the connection the CONNECT opened.
         """
         if self.mode != "enforce" or self.on_refused is None:
             return
@@ -322,39 +325,43 @@ class AddressGuard:
     # --- pinning ---------------------------------------------------------
 
     def install_pinning(self, loop):
-        """Wrap `loop.getaddrinfo` so staged keys return their checked answers. Idempotent."""
+        """Wrap `loop.getaddrinfo` so every dial lookup is checked. Idempotent."""
         if self._pinned_loop is loop:
             return
         real = loop.getaddrinfo
         try:
-            loop.getaddrinfo = self._pinned_getaddrinfo
+            loop.getaddrinfo = self._checked_getaddrinfo
         except (AttributeError, TypeError) as error:
             raise PinningUnavailable(f"cannot wrap {type(loop).__name__}.getaddrinfo: {error}") from error
-        if loop.getaddrinfo != self._pinned_getaddrinfo:
+        if loop.getaddrinfo != self._checked_getaddrinfo:
             raise PinningUnavailable(f"{type(loop).__name__}.getaddrinfo did not take the wrapper")
         self._real_getaddrinfo = real
         self._pinned_loop = loop
 
-    async def _pinned_getaddrinfo(self, host, port, *args, **kwargs):
-        staged = self._staged.get((host, port))
-        if staged is not None:
-            answers, expires = staged
-            if self.clock() < expires:
-                if isinstance(answers, OSError):
-                    raise type(answers)(*answers.args)
-                family = kwargs.get("family", args[0] if args else 0)
-                if family:
-                    answers = [info for info in answers if info[0] == family]
-                return list(answers)
-        return await self._real_getaddrinfo(host, port, *args, **kwargs)
+    async def _checked_getaddrinfo(self, host, port, *args, **kwargs):
+        """The loop's getaddrinfo, with the answers of every dial lookup checked.
 
-    def _stage(self, host, port, answers):
-        """Stage checked answers, or the error the check's lookup raised, for the dial."""
-        now = self.clock()
-        for key in [key for key, (_, expires) in self._staged.items() if expires <= now]:
-            del self._staged[key]
-        staged = answers if isinstance(answers, OSError) else tuple(answers)
-        self._staged[(host, port)] = (staged, now + STAGE_SECONDS)
+        asyncio connects to exactly the answers this returns, so a dial can only
+        reach addresses that passed the check. There is no second lookup and no
+        cached answer to fall back from. Lookups that are not dials pass through
+        unchecked: the sinkhole's (no port), and asyncio's own when a server
+        binds to every interface (no host, AI_PASSIVE), which answers 0.0.0.0.
+        """
+        if not is_dial_lookup(host, port, kwargs):
+            return await self._real_getaddrinfo(host, port, *args, **kwargs)
+        if self.resolver is not None:
+            answers = await self.resolver(host, port)
+            family = kwargs.get("family", 0)
+            if family:
+                answers = [info for info in answers if info[0] == family]
+        else:
+            answers = await self._real_getaddrinfo(host, port, *args, **kwargs)
+        refusal = self.check(host, port, answers)
+        if refusal is not None:
+            self._log_refusal(refusal, phase="connect")
+            if self.mode == "enforce":
+                raise AddressRefused(refusal.message())
+        return answers
 
     async def _resolve(self, host, port):
         if self.resolver is not None:
