@@ -16,6 +16,8 @@ These are functionally broken or point to things that no longer exist.
 
 - [x] **CHANGELOG mentions `PROXY_MODE=discovery` (line 58).** This mode does not exist in `enforcer.py`. Only `enforce` and `log` are supported. Fix: changed to `PROXY_MODE=log`.
 
+- [ ] **`rustup` cannot write as the agent user.** The rust stack (`images/base/stacks/rust.sh`) installs `RUSTUP_HOME` at `/usr/local/rustup` owned by root, so `rustup update`, `rustup toolchain install`, and even `rustup check` fail with `Permission denied` creating a temp file. Found by the m18.5 tool probe. Fix: make the directory writable by the `dev` user, or give the agent a per-user `RUSTUP_HOME`.
+
 ## Stale Documentation
 
 These are not broken but describe the old architecture and will confuse anyone reading them.
@@ -30,6 +32,10 @@ These are not broken but describe the old architecture and will confuse anyone r
 
 - [x] **CHANGELOG v0.3.0 breaking change describes old policy workflow (lines 38-44).** Fix: replaced with `agentbox init` workflow description.
 
+- [ ] **The hermes Dockerfile calls `uv` build-time only, but ships it.** The comment on the install says build-time only, and `/usr/local/bin/uv` stays in the image. Either remove the binary after the build or fix the comment. Found by the m18.5 tool probe.
+
+- [ ] **No troubleshooting entry for a project outside Colima's shared directories.** Docker checks bind sources inside the VM, so a project outside Colima's `mounts:` fails with `bind source path does not exist` although the file is on the Mac. The two existing entries for that error send the reader to the wrong fix. Found in m18.3.
+
 ## Code Cleanup
 
 Minor issues in the CLI codebase.
@@ -42,6 +48,10 @@ Minor issues in the CLI codebase.
 
 - [x] **Proxy log entries omit the query string from `path`.** `images/proxy/addons/enforcer.py` builds log entries with `flow.request.path`, but the rendered output (e.g. `"path": "/mattolson/agent-sandbox.git/info/refs"`) drops the `?service=git-upload-pack` / `?service=git-receive-pack` portion that the matcher actually uses to distinguish rules 2 vs 3. The matching is correct — `_normalize_request_target` in `policy_matcher.py` parses query parameters — but operators reading the log can't tell which discovery variant was hit without consulting `matched_rule_index` and cross-referencing the rendered policy. Fix: decision, response, `header_injection`, and error entries now log the path plus query string so smart-HTTP debugging doesn't require mental decoding.
 
+- [ ] **`images/build.sh` treats an unknown target as `all`.** A typo such as `./images/build.sh proxy,` falls through to building everything and passes the typo to `docker buildx build`, which then fails with a confusing argument error. Reject unknown first arguments that do not start with `-` and list the valid targets. Found in m18.4.
+
+- [ ] **The checked-in `.agent-sandbox/` tree is behind the templates.** `agentbox init --mode devcontainer` on this repo's CLI layout regenerated the managed layers with churn. Refresh it in its own change. Found in m18.2.
+
 ## Worth Discussing
 
 Design decisions that may or may not need action.
@@ -51,6 +61,8 @@ Design decisions that may or may not need action.
 - [x] **Devcontainer templates mount `.devcontainer` as read-only (line 41) but the directory only exists because init just created it.** Fix: added comments clarifying that paths are relative to the compose file's directory (`.devcontainer/`).
 
 - [x] **Copilot devcontainer.json has empty JetBrains plugins array.** Tracked in [#71](https://github.com/mattolson/agent-sandbox/issues/71).
+
+- [ ] **A name-scoped exemption for the proxy address guard.** The guard refuses allowed hosts that resolve to private addresses, with no exemption. When a user reports an internal host they need, add an environment variable on the proxy service that names hosts allowed to resolve privately, not a list of address ranges. See decision 010.
 
 ## Enhancements
 
