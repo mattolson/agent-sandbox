@@ -1,5 +1,19 @@
 # Execution Log: m18.5 - docs, tests, and agent guidance
 
+## 2026-09-28 - Procedure 1 run; task and milestone closed
+
+**Issue:** The first run of procedure 1 refused to start as expected, but its message was the pre-#204 format: the dev
+image's installed `init-firewall.sh` predates b6046b7, so it tested the old check. Running the repo's copy from
+`/workspace` tested the fix, first with the global address present and then with it removed, leaving only
+`fe80::ec55:d0ff:fe5c:753c/64`. Both refused with exit 1; the old script would have started in the second case. The
+container's address, route, and `ip6tables` were restored and the installed firewall re-run cleanly.
+
+**Observation:** `AGENTS.md` still described two enforcement layers and listed neither new addon among the
+security-critical files. Updated with the close, since agents working on this repo read it first.
+
+All four acceptance criteria verified. `m18` marked done in the roadmap; out-of-scope findings moved to
+`docs/plan/cleanup-tasks.md`.
+
 ## 2026-09-28 - Tool inventory measured; version skew observed
 
 **Observation:** `tool-probe.bash` took three runs in a hermes image on the node, python, and rust stacks. The first

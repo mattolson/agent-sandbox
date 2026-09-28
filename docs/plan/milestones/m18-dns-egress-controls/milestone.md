@@ -270,6 +270,15 @@ B1, B2, and H2.
 
 ## Changes
 
+### 2026-09-28: m18.5 and the milestone closed
+
+Every item of the definition of done holds. A name the stack does not need gets `NXDOMAIN` and no query leaves the
+host, shown by a VM capture with a positive control; port 53 reaches only the sinkhole over IPv4 and IPv6 in both
+modes; the self-test fails a start in both DNS directions, the failing one observed against a pre-sinkhole proxy
+image; the address guard refuses internal answers with its own event; the bypass matrix re-runs clean and its coverage
+table gives every control an automated test or a manual procedure; and the docs, troubleshooting, agent skill, and
+decisions 009 and 010 are written, residual gaps included. Out-of-scope findings went to `docs/plan/cleanup-tasks.md`.
+
 ### 2026-09-28: m18.4 guard reworked after review
 
 The #204 review found that staging checked answers left the dial an unchecked fallback whenever the staged entry was

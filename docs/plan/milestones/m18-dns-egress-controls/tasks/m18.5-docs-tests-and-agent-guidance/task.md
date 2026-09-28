@@ -135,10 +135,10 @@ the split is explicit. Controls that only a host can prove, such as H1's "no que
 - [x] Update the skill
 - [x] Write the decision records
 - [x] Write the coverage table and resolve the matrix's pending list
-- [ ] Settle the tool inventory per open question 3: `tool-probe.bash` written; maintainer runs it in a hermes image
-      built on the node, python, and rust stacks
-- [ ] Maintainer runs the version-skew check (coverage procedure 2) and the no-`ip6tables` check (procedure 1)
-- [ ] Verify each acceptance criterion; mark `m18` done in the roadmap and close the milestone
+- [x] Settle the tool inventory per open question 3: `tool-probe.bash`, run by the maintainer in a hermes image built
+      on the node, python, and rust stacks
+- [x] Maintainer runs the version-skew check (coverage procedure 2) and the no-`ip6tables` check (procedure 1)
+- [x] Verify each acceptance criterion; mark `m18` done in the roadmap and close the milestone
 
 ### Open Questions
 
@@ -150,12 +150,36 @@ land m18.5 in #204, which then leaves draft.
 
 ### Acceptance Verification
 
-_Pending._
+- [x] A user who hits the new failure mode can diagnose it from the troubleshooting entry alone. Five entries, one per
+      failure: `NXDOMAIN` from a tool, the guard's 403, the two startup refusals, and lookups failing after a proxy
+      recreation. Each quotes what the user sees, taken from the code or, for the version-skew banner, from a real run,
+      and names the log line that confirms it
+- [x] The decision record states the alternatives considered and why a policy-driven resolver was rejected. Decision
+      009 compares the four placements and gives the policy-resolver rejection its own section; decision 010 covers
+      the address guard's five designs
+- [x] Every control in this milestone has either automated coverage or a documented manual procedure, and the split is
+      explicit. The coverage table in the bypass matrix lists each control's automated tests and manual procedure.
+      The two controls that had neither, the `ip6tables` fail-closed start and version skew, gained procedures, and
+      both were run
+- [x] No doc still describes container DNS as unrestricted. No user doc ever mentioned DNS; the docs that described the
+      boundary as two layers (README, the agent skill, `AGENTS.md`) now describe four, and `docs/network.md` is the
+      canonical description
 
 ### Learnings
 
-_Pending._
+- Let the discriminator do the work, not the error wording. Classifying tools by their error messages took three
+  probe runs and still left Node ambiguous; pointing `HTTPS_PROXY` at a dead port gave an answer no wording could blur
+- Check which artifact a test actually ran. The first `ip6tables` check passed on the dev image's older script; the
+  message format gave it away, and running the repo's copy against a link-local-only interface is what verified the
+  #204 fix
+- HTTPS clients hide the body of a refused CONNECT, so two different refusals look identical to the user. Docs have to
+  send them to the log that tells them apart
+- A doc that quotes output should quote a real run where one is possible. The version-skew banner was written from the
+  code and then replaced with what the container printed
 
 ### Follow-up Items
 
-_Pending._
+- The dev image predates the #204 firewall fix and the skill update; the next `make setup` ships both
+- Small issues found during the milestone and outside its scope went to `docs/plan/cleanup-tasks.md`: `rustup` unusable
+  as the agent user, the hermes `uv` comment, a troubleshooting entry for Colima mounts, `images/build.sh` accepting
+  unknown targets, the stale checked-in `.agent-sandbox/` tree, and a name-scoped guard exemption to discuss

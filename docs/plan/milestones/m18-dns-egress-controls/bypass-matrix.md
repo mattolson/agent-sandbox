@@ -191,7 +191,7 @@ enabled on the compose network for the E rows.
 | Built-in resolver removed, unanswered queries fail closed | Integration `test_listener_starts_with_builtin_resolver_removed`; unit tests | None |
 | `mitmdump` exits cleanly after DNS queries | Integration `test_shutdown_after_queries_exits_cleanly` | None |
 | IPv6 refused except `::1` | Every start with IPv6 present: UDP and TCP 53 over IPv6 must be rejected, `::1` open | Audit E1-E4 with IPv6 enabled |
-| Refuse to start with IPv6 present and no `ip6tables` | None | Procedure 1 below. Not yet run |
+| Refuse to start with IPv6 present and no `ip6tables` | None | Procedure 1 below. Run 2026-09-28, with a global address and with only a link-local one: refused both times |
 | New agent image refuses an old proxy image | None | Procedure 2 below. Run 2026-09-28: refused to start as expected |
 | Address guard refuses each denied class | `test_address_guard.py` unit tests per class; integration `test_each_denied_class_is_refused_and_named` | Audit D3, D4 |
 | The dial uses only checked answers | Invariant tests in both `test_address_guard.py` files, each confirmed by mutation | None |
@@ -211,7 +211,9 @@ docker exec -u root "$AGENT" /usr/local/bin/init-firewall.sh
 ```
 
 The script stops before touching the IPv6 rules, but it has already flushed and rebuilt the IPv4 ones, so re-run it
-after restoring `ip6tables`.
+after restoring `ip6tables`. To test the link-local case, remove the global address first with
+`ip -6 addr del <address>/64 dev eth0` as root, run the script, then add the address back. On an image older than
+the fix, run the repo's copy, `bash /workspace/images/base/init-firewall.sh`, rather than the installed one.
 
 Procedure 2, version skew. In a scratch project, run the new agent image against the proxy image published from before
 the sinkhole, `agentbox up`, and read the agent's log: it must stop with `ERROR: 'proxy' does not resolve through the
