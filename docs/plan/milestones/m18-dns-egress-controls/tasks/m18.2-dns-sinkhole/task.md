@@ -200,14 +200,12 @@ and devcontainer mode (`results/after-m18.2-20260913-162638/`), plus checks from
       path-scoped policy, as noted in the execution log
 - [x] A direct query to a public resolver and a direct query to the bridge gateway both fail. C3, C4, B1, B2
       `rejected` in both modes
-- [ ] The firewall self-test fails the container start if either DNS assertion does not hold. Passing direction
-      verified live: re-running `sudo /usr/local/bin/init-firewall.sh` in the running sandbox rebuilt the rules and
-      passed all four self-tests in 0.1 s. Failing direction verified by reading the script (each `FAIL` branch
-      exits 1 under `set -e`, and the entrypoint aborts) and by the earlier function-level check of `dns_rcode`
-      against a forwarding resolver. Not observed: an actual container start against a proxy image without the
-      sinkhole. Maintainer check: pin the proxy to the pre-sinkhole GHCR digest in `user.override.yml`, run
-      `agentbox up`, and expect the agent to stop with the `agentbox bump` banner. Deferred by the maintainer on
-      2026-09-17; the task closes with this box open and the check listed under Follow-up Items
+- [x] The firewall self-test fails the container start if either DNS assertion does not hold. Passing direction
+      verified live on 2026-09-13: re-running `sudo /usr/local/bin/init-firewall.sh` in the running sandbox passed all
+      four self-tests. Failing direction observed on 2026-09-28, in `m18.5`: the agent image with the sinkhole firewall
+      against the proxy image published from `main`, which predates the sinkhole, stopped after 30 s with
+      `ERROR: 'proxy' does not resolve through the sinkhole at 172.28.0.2:5353 after 30s.` and the `FATAL: Firewall
+      initialization failed!` banner naming `agentbox bump`
 - [x] Both CLI mode and devcontainer mode pass the same assertions. Both runs clean; the `iptables -S` dumps are
       identical modulo the network's addresses
 - [x] `go test ./...` and the proxy suite pass, and generated compose output is covered by the existing template
@@ -237,9 +235,8 @@ and devcontainer mode (`results/after-m18.2-20260913-162638/`), plus checks from
 
 ### Follow-up Items
 
-- Deferred by the maintainer on 2026-09-17: the failing direction of the DNS self-test was never observed as a
-  container start. To close it, pin the proxy to the pre-sinkhole GHCR digest in `user.override.yml`, run
-  `agentbox up`, and expect the agent to stop with the `agentbox bump` banner
+- Closed on 2026-09-28 in `m18.5`: the failing direction of the DNS self-test was observed as a real container start
+  against the pre-sinkhole proxy image
 - The `SIGSEGV` on shutdown is worked around, not fixed upstream: `run-mitmdump` exits without interpreter
   teardown, the image and the harness both use it, and the harness fails a test whose proxy does not exit 0. On the
   pinned mitmproxy 12.2.3 the crash did not reproduce (0 of 20 rounds with plain `mitmdump`, against 2 of 3 on

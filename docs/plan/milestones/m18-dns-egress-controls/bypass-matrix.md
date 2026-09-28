@@ -192,7 +192,7 @@ enabled on the compose network for the E rows.
 | `mitmdump` exits cleanly after DNS queries | Integration `test_shutdown_after_queries_exits_cleanly` | None |
 | IPv6 refused except `::1` | Every start with IPv6 present: UDP and TCP 53 over IPv6 must be rejected, `::1` open | Audit E1-E4 with IPv6 enabled |
 | Refuse to start with IPv6 present and no `ip6tables` | None | Procedure 1 below. Not yet run |
-| New agent image refuses an old proxy image | None | Procedure 2 below |
+| New agent image refuses an old proxy image | None | Procedure 2 below. Run 2026-09-28: refused to start as expected |
 | Address guard refuses each denied class | `test_address_guard.py` unit tests per class; integration `test_each_denied_class_is_refused_and_named` | Audit D3, D4 |
 | The dial uses only checked answers | Invariant tests in both `test_address_guard.py` files, each confirmed by mutation | None |
 | Guard refusals answer 403 on CONNECT and plain HTTP | Integration `test_invariant_refused_connect_gets_403_and_no_packet_reaches_the_address`, `test_allowed_name_resolving_to_loopback_is_refused_with_403` | Audit D3, D4 |

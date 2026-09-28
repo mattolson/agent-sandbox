@@ -1,5 +1,18 @@
 # Execution Log: m18.5 - docs, tests, and agent guidance
 
+## 2026-09-28 - Tool inventory measured; version skew observed
+
+**Observation:** `tool-probe.bash` took three runs in a hermes image on the node, python, and rust stacks. The first
+two exposed probe faults, not tool behaviour: cargo and rustup live on a PATH only login shells load; uv's wording
+was `tunnel error: unsuccessful`, not the guessed pattern; rustup could not write its root-owned `RUSTUP_HOME`; and
+with `NODE_USE_ENV_PROXY=1` the real proxy's refusal surfaced only as `Request was cancelled.`. Pointing
+`HTTPS_PROXY` at a dead port settled Node: with the flag it failed on `127.0.0.1:9`, without it on the name. Result:
+every probed tool uses the proxy except Node 22's built-in `fetch`, which `NODE_USE_ENV_PROXY=1` fixes.
+
+**Observation:** Procedure 2 run. The sinkhole agent image against the proxy image published from `main` stopped
+after 30 s with the expected error and `FATAL` banner. That closes `m18.2`'s last open acceptance box, and the
+troubleshooting entry now quotes the output as printed.
+
 ## 2026-09-28 - Docs written; host checks outstanding
 
 Approved as recommended. Written: `docs/network.md`, the README's four layers, the schema doc's "What The Policy Does

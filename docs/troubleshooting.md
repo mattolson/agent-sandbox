@@ -313,12 +313,18 @@ What to do depends on the host:
 The agent container exits during startup. Its log shows:
 
 ```text
-Waiting for the DNS sinkhole....  FAILED
-ERROR: 'proxy' does not resolve through the sinkhole at <address>:5353 after 30s.
+Waiting for the DNS sinkhole.................................  FAILED
+ERROR: 'proxy' does not resolve through the sinkhole at 172.28.0.2:5353 after 30s.
        The proxy image may predate the DNS sinkhole. Run 'agentbox bump' and then 'agentbox up'.
-```
 
-followed by the `FATAL: Firewall initialization failed!` banner.
+==========================================
+FATAL: Firewall initialization failed!
+Container cannot start without working firewall.
+Check the errors above and rebuild the image.
+If the DNS sinkhole check failed, the proxy image may predate it:
+run 'agentbox bump' and then 'agentbox up' to refresh both images.
+==========================================
+```
 
 The agent image expects the proxy to serve DNS, and the proxy image is older than that. This happens when only one of
 the two images was updated. Update both:
