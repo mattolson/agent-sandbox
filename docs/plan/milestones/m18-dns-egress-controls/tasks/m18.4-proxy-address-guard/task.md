@@ -85,7 +85,9 @@ From the milestone plan, with the adjustments proposed under Approach and listed
 - `images/proxy/tests/test_address_guard.py` (new): classifier and hook unit tests with an injected resolver
 - `images/proxy/tests/integration/test_address_guard.py` (new) and a test-only addon under
   `images/proxy/tests/integration/` that replaces the guard's resolver, loaded with an extra `-s` by the harness
-- `images/proxy/tests/integration/harness.py`: an `extra_addons` parameter for that addon
+- `images/proxy/tests/integration/harness.py`: an `extra_addons` parameter for that addon, a keep-alive TLS upstream
+  that records SNI and client ports, a connection counter, the proxy CA path, and a CONNECT helper that reads the
+  response body
 - `scripts/dns-egress-audit/probe.bash`: D3 and D4 recognise the guard's marker in the response body
 - `scripts/dns-egress-audit/expected/after-m18.4.tsv`, `README.md`, and the milestone's `bypass-matrix.md`
 - `CHANGELOG.md`: an `[Unreleased]` entry that says allowed hosts resolving to private addresses are now refused,
@@ -192,6 +194,11 @@ any other allowed name that resolves there.
   mapped by the test addon to `127.0.0.1`, with the same addon removing `loopback` from the guard's deny table for
   that test only: the request can only reach the loopback upstream if the dial used the pinned address. Both
   overrides live in the tests directory and are loaded with `-s`, so production carries no test hook
+- Invariant tests, named `test_invariant_*`, pin the facts the design rests on and say so when they fail: asyncio's
+  dial resolves through `loop.getaddrinfo`; the default loop accepts the wrapper; mitmproxy dials the tunnel and
+  plain requests by hostname through asyncio, with SNI, Host, reuse, and `request.host` intact; a connection killed in
+  `server_connect` receives no packet; and the CONNECT 502 can be replaced. Each was checked by mutation: breaking
+  the invariant makes the test fail
 - The existing integration tests stay as they are. They use `127.0.0.1` as a literal policy host, so under the
   literal exemption they need no hatch and prove the "no change" criterion for the proxy's normal paths
 
@@ -212,11 +219,11 @@ embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
 
 - [x] Spike the pin against `mitmdump` 12.2.3: SNI and verification, reuse, plain HTTP, and the 403 swap in
       `http_connect_error`. Address rewriting failed; staging answers for the loop's `getaddrinfo` holds
-- [ ] Write `address_guard.py` with the classifier and the hook, and its unit tests
-- [ ] Register it in `build_addons()`, add the enforcer's `http_connect_error` swap and the plain-`http` pre-check,
+- [x] Write `address_guard.py` with the classifier and the hook, and its unit tests
+- [x] Register it in `build_addons()`, add the enforcer's `http_connect_error` swap and the plain-`http` pre-check,
       add the harness's `extra_addons` and the resolver-swapping test addon, and write the integration tests
-- [ ] Teach `probe.bash` the `guard-refused` result, update `after-m18.4.tsv`, the audit README, and the matrix
-- [ ] Write the changelog entry and record the design choice in the milestone plan
+- [x] Teach `probe.bash` the `guard-refused` result, update `after-m18.4.tsv`, the audit README, and the matrix
+- [x] Write the changelog entry and record the design choice in the milestone plan
 - [ ] Maintainer rebuilds the proxy with `./images/build.sh proxy`, restarts it, and runs the audit at
       `--stage after-m18.4 --policy-probes` in CLI mode and against a devcontainer
 - [ ] Verify each acceptance criterion, capture learnings, and note follow-ups for `m18.5`
@@ -225,9 +232,7 @@ embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
 
 1. Resolved 2026-09-27: pin (option 2), by staging checked answers for the loop's `getaddrinfo`, after the spike
    showed that rewriting `server.address` breaks tunnelled requests
-2. Exempt IP-literal hosts. Recommendation: yes. The threat is a name pointed somewhere unexpected; a literal in a
-   policy the agent cannot edit is the operator saying where. It also keeps the existing integration tests free of any
-   hatch. The cost is that a policy author who writes `169.254.169.254` gets exactly that
+2. Resolved 2026-09-27: IP-literal hosts are exempt
 3. Resolved 2026-09-27: no operator hatch for now. The tests need none, sidecars have `NO_PROXY`, and a hatch is
    easier to add than to take back. If a user reports an internal host, add a name-scoped variable on the proxy
    service, not a CIDR list
@@ -236,11 +241,9 @@ embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
    403 by replacing mitmproxy's 502 in `http_connect_error`; plain `http` gets it from a request-phase pre-check. A
    502 remains only where the answer changes between the pre-check and the connect, and for a new connection opened
    by a decrypted request, which is rare because those reuse the tunnel's connection
-5. Refuse when any answer is denied, or only when the pinned one is. Recommendation: any. It is the stricter rule,
-   easier to explain, and denies an attacker the choice of which half of a mixed answer the proxy uses
-6. Whether `shared` (`100.64.0.0/10`) belongs in the deny set. It is carrier-grade NAT space, and Tailscale uses it. A
-   proxy container does not route to a tailnet by default, so denying it costs nothing today. Recommendation: deny;
-   a user who routes there is a case for the name-scoped hatch
+5. Resolved 2026-09-27: refuse when any answer is denied
+6. Resolved 2026-09-27: `shared` (`100.64.0.0/10`, carrier-grade NAT, used by Tailscale) is denied; a user who
+   routes there is a case for the name-scoped hatch
 
 ## Outcome
 

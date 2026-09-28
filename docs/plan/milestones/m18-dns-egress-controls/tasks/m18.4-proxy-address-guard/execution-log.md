@@ -1,5 +1,33 @@
 # Execution Log: m18.4 - proxy address guard
 
+## 2026-09-27 - Implemented and tested from the sandbox
+
+The maintainer accepted the `getaddrinfo` wrapper on the condition that tests fail on any version bump that breaks
+the invariants it relies on. `address_guard.py`, the enforcer wiring, 36 unit tests, and 8 integration tests are in;
+the full proxy suite runs 269 tests, all passing. The audit reports `guard-refused` for D3 and D4.
+
+**Decision:** The plain-`http` pre-check lives in the guard's own async `requestheaders` hook, ordered after the
+enforcer, with a callback into the enforcer to store a blocked decision and set the 403. The enforcer's request
+hooks are synchronous and its unit tests call them that way; making them async to await a lookup would have
+rewritten those tests. The stored decision keeps the enforcer's response hook from logging the flow as allowed.
+
+**Decision:** The guard takes `resolver` and `classifier` as constructor parameters. The unit tests inject them, and
+the integration tests' test-only addon replaces them on the running guard, so production carries no test-specific
+environment variable or flag.
+
+**Issue:** The first version of the unit invariant test failed with a message saying asyncio no longer resolved
+through the loop. The real cause was the test: it cleared the deny table to let `127.0.0.1` through, but the
+catch-all `not is_global` rule still classified it `reserved`, so nothing was staged. A test that misreports a
+broken invariant is worse than none. It now stages the answer directly and tests only the asyncio fact.
+
+**Observation:** Mutation checks. Simulating an asyncio that resolves through `socket.getaddrinfo` instead of the
+loop method fails the unit invariant test with its message. With the wrapper installed but ignored, both integration
+pinning tests fail. With the enforcer's `http_connect_error` swap removed, the refused-CONNECT test fails on the
+502. Source files were restored after each run.
+
+**Issue:** `send_connect_and_wait` stops at the end of the headers, so the refused CONNECT's body looked empty. The
+harness gained `send_connect_full`, which reads to close.
+
 ## 2026-09-27 - Spike: rewriting the address fails, staging answers pins
 
 Approved with IP literals exempt, no operator hatch, any-answer refusal, `100.64.0.0/10` denied, and 403 for

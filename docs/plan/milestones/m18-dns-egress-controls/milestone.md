@@ -183,6 +183,13 @@ address family.
 - No change in behavior for hosts that resolve to ordinary public addresses
 - Proxy unit and integration tests cover each refused address class
 
+- Decided 2026-09-27: the guard is a separate addon hooking `server_connect`, the one point every upstream
+  connection passes through. It refuses before the dial if any answer is denied, and pins the dial to the checked
+  answers by staging them for a wrapper on the running loop's `getaddrinfo`; rewriting `server.address` was spiked
+  and breaks tunnelled requests. Invariant tests fail on any mitmproxy or Python bump that breaks the pin.
+  Refusals are 403, IP-literal hosts are exempt, and there is no operator hatch yet. Reasoning in
+  `tasks/m18.4-proxy-address-guard/task.md`
+
 **Dependencies:** None on the other tasks; can run in parallel with `m18.2` and `m18.3`.
 
 ### m18.5-docs-tests-and-agent-guidance
@@ -260,6 +267,14 @@ B1, B2, and H2.
 - Docs, troubleshooting, the agent skill, and a decision record are updated, including the residual gaps
 
 ## Changes
+
+### 2026-09-27: m18.4 design chosen and implemented from the sandbox
+
+Check and pin in `server_connect`, with the pin done by staging checked answers for the loop's `getaddrinfo`, a
+monkeypatch accepted on the condition that tests fail when its invariants break. The milestone's scope said to add
+an escape hatch only if the tests needed one; they need none because IP-literal hosts are exempt, and the
+maintainer chose to ship without an operator hatch until a user reports an internal host. Refusals answer 403
+rather than mitmproxy's 502, so an agent reads them as a proxy refusal and does not retry.
 
 ### 2026-09-27: m18.3 closed
 
