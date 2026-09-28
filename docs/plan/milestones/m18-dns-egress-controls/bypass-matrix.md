@@ -240,6 +240,3 @@ were not probed.
 | `cargo` | rust stack | yes | measured, 1.98.1 |
 | `rustup` | rust stack | yes | measured, 1.29.1, with a writable `RUSTUP_HOME`; the stack's own is root-owned, so rustup cannot write as the agent user at all |
 | `getent`, libc | everywhere | no | resolves directly; this is the path the sinkhole takes over |
-
-## Pending
-
