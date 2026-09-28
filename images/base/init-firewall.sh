@@ -181,6 +181,9 @@ write_resolv_conf "$PROXY_IP"
 #     means ::1 and nothing else, so an address Docker might add to lo for its
 #     own resolver is denied without the script having to know it.
 IPV6_ADDR=$(ip -6 addr show dev "$DEFAULT_IF" scope global 2>/dev/null | awk '/inet6/ { print $2; exit }' || true)
+# Any IPv6 address on any interface but loopback, link-local included: enough to
+# reach same-link peers, so enough to require ip6tables.
+IPV6_ANY=$(ip -6 -o addr show 2>/dev/null | awk '$2 != "lo" { print $2 " " $4; exit }' || true)
 IPV6_DISABLED=$(cat "/proc/sys/net/ipv6/conf/$DEFAULT_IF/disable_ipv6" 2>/dev/null || echo "?")
 if ip6tables -S >/dev/null 2>&1; then
     ip6tables -F
@@ -204,13 +207,13 @@ if ip6tables -S >/dev/null 2>&1; then
         IPV6_STATE=absent
         echo "IPv6: absent on $DEFAULT_IF (disable_ipv6=$IPV6_DISABLED); ip6tables default-deny installed anyway"
     fi
-elif [ -n "$IPV6_ADDR" ]; then
-    echo "ERROR: IPv6 is present on $DEFAULT_IF ($IPV6_ADDR) but ip6tables is unavailable."
+elif [ -n "$IPV6_ANY" ]; then
+    echo "ERROR: IPv6 is present ($IPV6_ANY) but ip6tables is unavailable."
     echo "       Refusing to start with IPv6 unfiltered. Disable IPv6 on the compose network or restore ip6tables."
     exit 1
 else
     IPV6_STATE=unsupported
-    echo "IPv6: absent on $DEFAULT_IF and ip6tables unavailable; nothing to filter"
+    echo "IPv6: no address outside loopback and ip6tables unavailable; nothing to filter"
 fi
 
 echo "Firewall configured."
@@ -303,7 +306,7 @@ case $IPV6_STATE in
         echo "PASS: IPv6 absent on $DEFAULT_IF; ip6tables default-deny covers it if the network gains it"
         ;;
     unsupported)
-        echo "PASS: IPv6 absent on $DEFAULT_IF and ip6tables unavailable; nothing to filter"
+        echo "PASS: no IPv6 address outside loopback and ip6tables unavailable; nothing to filter"
         ;;
 esac
 if [ "$IPV6_STATE" != "unsupported" ] && ip -6 addr show dev lo 2>/dev/null | grep -q '::1/128'; then
