@@ -393,4 +393,11 @@ if [ "$bad" -gt 0 ]; then
   log "$bad probe(s) did not match $STAGE expectations"
   exit 1
 fi
+# A skipped row with a real expectation was never checked, so the run cannot vouch for the stage.
+skipped_ids=$(awk -F'\t' '$2 == "SKIPPED" && $3 != "*" { printf "%s ", $1 }' "$RUN_DIR/compare.tsv")
+if [ -n "$skipped_ids" ]; then
+  log "every probe that ran matches, but these expected rows were skipped: ${skipped_ids% }"
+  log "the $STAGE expectations are not fully verified; see the README for the flags each row needs"
+  exit 2
+fi
 log "all compared probes match the $STAGE expectations"
