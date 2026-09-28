@@ -429,6 +429,7 @@ class FakeTlsUpstream(FakeUpstream):
         self.port = self.server.server_address[1]
         self.server_names = []
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(str(cert_path), str(key_path))
         context.sni_callback = self._record_sni
         self.server.socket = context.wrap_socket(self.server.socket, server_side=True)
