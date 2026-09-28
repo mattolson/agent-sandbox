@@ -184,9 +184,11 @@ address family.
 - Proxy unit and integration tests cover each refused address class
 
 - Decided 2026-09-27: the guard is a separate addon hooking `server_connect`, the one point every upstream
-  connection passes through. It refuses before the dial if any answer is denied, and pins the dial to the checked
-  answers by staging them for a wrapper on the running loop's `getaddrinfo`; rewriting `server.address` was spiked
-  and breaks tunnelled requests. Invariant tests fail on any mitmproxy or Python bump that breaks the pin.
+  connection passes through. A wrapper on the running loop's `getaddrinfo` checks the dial's own lookup and refuses
+  before any socket opens if any answer is denied, so the check and the dial are one lookup; rewriting
+  `server.address` was spiked and breaks tunnelled requests, and staging checked answers was built first and
+  replaced after the #204 review found unchecked fallbacks. Invariant tests fail on any mitmproxy or Python bump
+  that breaks the wrapper.
   Refusals are 403, IP-literal hosts are exempt, and there is no operator hatch yet. Reasoning in
   `tasks/m18.4-proxy-address-guard/task.md`
 
@@ -267,6 +269,13 @@ B1, B2, and H2.
 - Docs, troubleshooting, the agent skill, and a decision record are updated, including the residual gaps
 
 ## Changes
+
+### 2026-09-28: m18.4 guard reworked after review
+
+The #204 review found that staging checked answers left the dial an unchecked fallback whenever the staged entry was
+missing, failed, expired during mitmproxy's connection-semaphore wait, or was overwritten by another connection. The
+wrapper now checks the dial's own lookup, which removes the fallback. The same review tightened the IPv6 fail-closed
+check to any IPv6 address and made the audit exit 2 when it skipped expected rows.
 
 ### 2026-09-27: m18.4 closed
 

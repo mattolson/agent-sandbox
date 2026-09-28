@@ -1,5 +1,29 @@
 # Execution Log: m18.4 - proxy address guard
 
+## 2026-09-28 - Review of #204: check the dial's own lookup
+
+Greptile's first pass found a failed guard lookup left the dial unchecked; 415280e pinned the failure in the staging
+table. Its second pass found the deeper problem: the wrapper passed any lookup without a live staged entry to the
+real resolver, unchecked, and entries could be missing in several ways. Confirmed in mitmproxy's source: the dial
+waits on a per-address semaphore of 5 (`proxy/server.py:206`) after `server_connect` has run, so a wait longer than
+the staging lifetime found the entry expired. And the table was shared by key, so one connection's staged failure
+could fail another's dial.
+
+**Decision:** Remove staging. The wrapper checks the answers of every dial lookup and raises `AddressRefused`, an
+`OSError`, before asyncio opens a socket. The check and the dial are one lookup, so nothing can expire, be missing,
+or be shared. `server_connect` now only ensures the wrapper is installed. Committed as c1f8a9a; less code than
+before.
+
+**Issue:** Checking every lookup through the loop widens what the wrapper touches. Two non-dial callers were traced:
+the sinkhole resolves with no port, and a server binding every interface resolves `(None, 0)` with `AI_PASSIVE`,
+which answers `0.0.0.0` and would stop the proxy starting if checked. Both pass through.
+
+**Observation:** Mutation checks on the new wrapper. Skipping the answer check fails the refused-CONNECT integration
+test; ignoring the wrapper fails both pinning tests. Removing the `AI_PASSIVE` rule alone, or the no-host rule alone,
+passed everything, because each protects the bind by itself; removing both fails the unit invariant test. The
+integration test that runs the proxy bound to every interface did not fail even then, because mitmdump binds before
+the guard installs the wrapper. It was renamed from an invariant test to a regression test.
+
 ## 2026-09-27 - Devcontainer run clean; task closed
 
 Re-created the scratch devcontainer project as `guard-audit` under `~/dev/workspace`, on `agent-sandbox-claude:local`

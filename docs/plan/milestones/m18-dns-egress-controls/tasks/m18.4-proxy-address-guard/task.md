@@ -11,12 +11,12 @@ From the milestone plan, with the adjustments proposed under Approach and listed
 - At the point where the proxy opens an upstream connection, resolve the host, check every answer against a deny set
   (loopback, private, link-local including `169.254.169.254`, unique-local and link-local IPv6, the sandbox's own
   networks, and the other non-global ranges), and refuse the connection if any answer is denied
-- Pin the dial to the checked addresses so a second resolution cannot hand mitmproxy a different one. The spike
-  settled the mechanism: the checked answers are staged for the event loop's `getaddrinfo`, and mitmproxy's own dial
-  consumes them; `server.address` is never touched
-- One enforcement point, mitmproxy's `server_connect` hook, which every upstream connection passes through: CONNECT
-  tunnels, decrypted requests, and plain HTTP alike. That covers both the CONNECT fast path and the request path the
-  milestone names
+- Make the dial use only checked addresses, so no later resolution can hand mitmproxy a different one. As built,
+  after the #204 review: the check runs inside the dial's own lookup, through a wrapper on the event loop's
+  `getaddrinfo`, so the check and the dial are one lookup; `server.address` is never touched
+- One enforcement point that every upstream connection passes through, CONNECT tunnels, decrypted requests, and
+  plain HTTP alike: the dial's lookup, with `server_connect` making sure the wrapper is in place. That covers both
+  the CONNECT fast path and the request path the milestone names
 - Emit a distinct structured event naming the host, the address, and the address class, and answer the client with
   the proxy's 403 and a body that names the guard and the reason
 - Proposed: hosts written as IP literals are exempt. The guard protects an allowed name from being pointed somewhere
@@ -117,7 +117,11 @@ No change under `internal/`, `images/base/`, or the compose templates. The proxy
    request, including requests on a connection that is already open and already checked, and two places that must
    agree.
 
-This task takes option 2 with staging. The spike, on 2026-09-27 against `mitmdump` 12.2.3, is in the execution log.
+This task took option 2 with staging, and the spike, on 2026-09-27 against `mitmdump` 12.2.3, is in the execution log.
+The #204 review then found that staging still left an unchecked path: the wrapper passed any lookup without a live
+staged entry to the real resolver, and an entry could be missing because the lookup failed, because it expired while
+the dial waited on mitmproxy's per-address connection semaphore, or because another connection to the same key
+overwrote it. The design as built checks the dial's own lookup instead; see "The check" below.
 
 **Classifier.** A table of `(network, class)` pairs checked in order, first match wins, so the specific name beats the
 general one:
@@ -139,33 +143,36 @@ IPv4-mapped IPv6 (`::ffff:a.b.c.d`) is classified by its embedded IPv4 address. 
 configured with address pools outside RFC 1918; on a default daemon those networks are also `private`, and the more
 specific name is the more useful one in a log.
 
-**The hook.** `AddressGuard.server_connect(data)`, async:
+**The check.** The wrapper on the running loop's `getaddrinfo`, installed in the guard's `running()` hook:
 
-- Enforce mode only. In log mode the guard classifies and logs `action: logged` without refusing, matching how log
-  mode treats policy
-- If `address[0]` parses as an IP literal, do nothing (open question 2)
-- Resolve with `loop.getaddrinfo(host, port, type=SOCK_STREAM)`. On a resolution error, leave the connection alone;
-  mitmproxy's own dial fails the same way and reports it
-- If any answer is denied, set `data.server.error` to
-  `agent-sandbox address guard: <host> resolves to <ip> (<class>); refused` and log the event. Any answer rather than
-  the first, so a mixed answer cannot be steered onto its private half when the public half fails
-- Otherwise stage every answer under `(host, port)` for a few seconds. The loop wrapper, installed in the guard's
-  `running()` hook, returns staged answers for a staged key and passes every other lookup to the real
-  `getaddrinfo`, including the sinkhole's and the guard's own. mitmproxy's log line then shows `host (ip)`
+- A dial lookup is one with a named host and a port and without `AI_PASSIVE`. It is resolved by the real
+  `getaddrinfo`, and every answer is classified. If any answer is denied, the wrapper logs the event and raises
+  `AddressRefused`, an `OSError` whose message is
+  `agent-sandbox address guard: <host> resolves to <ip> (<class>); refused`, before asyncio opens a socket.
+  mitmproxy records the message as `server.error`. Any answer rather than the first, so a mixed answer cannot be
+  steered onto its private half when the public half fails
+- Otherwise the wrapper returns the answers, and asyncio connects to exactly those, falling back across them in
+  order as usual. A failed lookup fails the dial with its own error
+- Every other lookup passes through unchecked: the sinkhole's, which carry no port, and a server's bind to every
+  interface, which asyncio resolves with no host and `AI_PASSIVE`; either count lets it through
+- IP-literal hosts never reach the wrapper, because asyncio does not resolve them (open question 2)
+- Log mode classifies and logs `action: logged` and returns the answers, matching how log mode treats policy
+- `server_connect` fires before every dial and only makes sure the wrapper is installed; if it cannot be, the
+  connection is refused rather than dialled unchecked
 
 **Status code.** The client gets 403, the same status as a policy block, because a guard refusal is the proxy
 refusing and a retry cannot succeed; 502 reads as an upstream fault and invites one. The body and the event say it
 was the guard. Two paths get there:
 
-- CONNECT, which carries nearly all HTTPS traffic: `server_connect` refuses the eager dial, mitmproxy prepares its
-  502, and the enforcer's `http_connect_error` hook replaces it with the 403 when the connection error carries the
-  guard's marker. One resolution, in `server_connect`
+- CONNECT, which carries nearly all HTTPS traffic: the wrapper refuses the eager dial, mitmproxy prepares its 502,
+  and the enforcer's `http_connect_error` hook replaces it with the 403 when the connection error carries the guard's
+  marker. One resolution, the dial's own
 - Plain `http` requests: the connection opens after the request hooks, and the `error` hook cannot replace the 502
   mitmproxy sends. So the enforcer's `requestheaders` path runs the guard's check first for `http` requests only and
-  blocks with 403 through the existing block path. `server_connect` still checks and pins when the connection opens,
-  so a plain request resolves twice; if the answer changes between the two, the second check refuses with a 502.
+  blocks with 403 through the existing block path. The dial's own lookup is still checked when the connection
+  opens, so a plain request resolves twice; if the answer changes between the two, the dial is refused with a 502.
   Decrypted requests inside a tunnel are not pre-checked: they normally reuse the connection the CONNECT already
-  checked, and a new connection they open is still checked and pinned, with a 502 on refusal
+  checked, and a new connection they open is still checked, with a 502 on refusal
 
 **Event.** One line per refusal, in the enforcer's JSON stream:
 `{"type": "address_guard", "action": "blocked", "phase": "connect" | "request", "host": ..., "port": ...,
@@ -211,14 +218,16 @@ result when the body carries the guard's marker, so the row proves the guard and
 internal Git server or a compose sidecar reached through the proxy, starts getting 403s with the guard's reason; the
 changelog says so, and tells sidecar users to use `NO_PROXY`. An agent image is unaffected.
 
-**Residuals, for the decision record.** Pinning depends on `asyncio` resolving through the loop's `getaddrinfo`,
-which the pinned mitmproxy and Python versions do and an integration test proves on every run. The guard trusts the answer the proxy container's resolver gives, which is Docker's
+**Residuals, for the decision record.** The check depends on `asyncio` resolving dials through the loop's
+`getaddrinfo`, which the pinned mitmproxy and Python versions do and the invariant tests prove on every run. The
+guard trusts the answer the proxy container's resolver gives, which is Docker's
 embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
 
 ### Implementation Steps
 
 - [x] Spike the pin against `mitmdump` 12.2.3: SNI and verification, reuse, plain HTTP, and the 403 swap in
-      `http_connect_error`. Address rewriting failed; staging answers for the loop's `getaddrinfo` holds
+      `http_connect_error`. Address rewriting failed; staging answers for the loop's `getaddrinfo` held, and was
+      replaced after the #204 review by checking the dial's own lookup in the same wrapper
 - [x] Write `address_guard.py` with the classifier and the hook, and its unit tests
 - [x] Register it in `build_addons()`, add the enforcer's `http_connect_error` swap and the plain-`http` pre-check,
       add the harness's `extra_addons` and the resolver-swapping test addon, and write the integration tests
@@ -230,8 +239,9 @@ embedded resolver and the host's upstream. The DoH residual (D2) is untouched.
 
 ### Open Questions
 
-1. Resolved 2026-09-27: pin (option 2), by staging checked answers for the loop's `getaddrinfo`, after the spike
-   showed that rewriting `server.address` breaks tunnelled requests
+1. Resolved 2026-09-27: pin (option 2), after the spike showed that rewriting `server.address` breaks tunnelled
+   requests. Built first by staging checked answers for the loop's `getaddrinfo`; since the #204 review the wrapper
+   checks the dial's own lookup instead, which leaves no unchecked fallback
 2. Resolved 2026-09-27: IP-literal hosts are exempt
 3. Resolved 2026-09-27: no operator hatch for now. The tests need none, sidecars have `NO_PROXY`, and a hatch is
    easier to add than to take back. If a user reports an internal host, add a name-scoped variable on the proxy
@@ -281,8 +291,14 @@ on the pinned mitmproxy 12.2.3.
 - `server_connect` is the one mitmproxy hook every upstream connection passes through, and the only one that can
   refuse before the dial. `server_connected` cannot abort, and a plain request's error response cannot be replaced
   from the `error` hook, while a CONNECT's can be from `http_connect_error`
-- Pinning by staging answers for the loop's `getaddrinfo` keeps mitmproxy's connection state untouched, and staging
-  every checked answer preserves asyncio's fallback across addresses
+- Check where the decision is used, not beside it. Staging checked answers for a later lookup looked like pinning,
+  but every path where the entry was missing, failed, expired, or overwritten fell through unchecked. Checking the
+  dial's own lookup removed all of them at once, with less code
+- A safety rule with two independent protections needs a mutation that removes both. The bind-every-interface case
+  is let through by the no-host rule and by `AI_PASSIVE`; removing either alone passed every test
+- A test is only an invariant test if the code path runs through the thing it guards. mitmdump binds its listeners
+  before the guard installs the wrapper, so the integration test that binds every interface could not catch a
+  broken bind rule; the unit test does
 - With IPv6 on the network, the proxy's lookups return AAAA first. Refusing on any denied answer made the order
   irrelevant; both live refusals named the IPv6 address
 - Two audit rows that share a target but expect different policies stay hidden until a run exercises both. D1 and
@@ -292,8 +308,8 @@ on the pinned mitmproxy 12.2.3.
 
 - `m18.5`: document the guard: what it refuses, the 403 body and the `address_guard` event, the IP-literal
   exemption, and `NO_PROXY` for sidecars reached through the proxy. The decision record should carry the three
-  designs, the spike that ruled out rewriting the address, the staging monkeypatch and the invariant tests that
-  gate it, and the residuals: the guard trusts the proxy container's resolver, and DoH to an allowed host (D2)
+  designs, the spike that ruled out rewriting the address, the move from staging to checking the dial's own lookup
+  after the #204 review, the monkeypatch and the invariant tests that gate it, and the residuals: the guard trusts the proxy container's resolver, and DoH to an allowed host (D2)
   stays open
 - Add a name-scoped exemption on the proxy service the first time a user reports an internal allowed host
 - `m18.5` residual, raised in the #204 review: a compose peer that runs a DNS forwarder, or any forwarder, on a port

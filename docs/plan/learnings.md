@@ -149,9 +149,10 @@ Lessons learned during project execution. Review at the start of each planning s
   refuse before the dial, by setting `server.error`. `server_connected` cannot abort. `server.address` cannot change
   once the connection is open, and requests inside a CONNECT tunnel take `request.host` from it. A CONNECT's error
   response can be replaced in `http_connect_error`; a plain request's cannot be replaced from the `error` hook (m18.4)
-- asyncio's `open_connection` resolves through the running loop's `getaddrinfo`, so answers staged for a wrapper on
-  that one method pin a dial without touching the caller. The proxy's address guard depends on it, and
-  `test_invariant_*` tests fail if a Python or mitmproxy bump breaks it (m18.4)
+- asyncio's `open_connection` resolves through the running loop's `getaddrinfo`, so a wrapper on that one method can
+  check a dial's answers without touching the caller, and the dial connects to exactly what it returns. A bind to
+  every interface also goes through it, as a lookup with no host and `AI_PASSIVE`. The proxy's address guard
+  depends on both, and `test_invariant_*` tests fail if a Python or mitmproxy bump breaks them (m18.4)
 - Python's `ssl` `sni_callback` must return `None`; any other value, such as the integer a `write()` returns, is
   sent as a TLS alert and aborts the handshake (m18.4)
 
@@ -219,3 +220,7 @@ Lessons learned during project execution. Review at the start of each planning s
   it (m18.4)
 - Audit rows that share a target but assume different policies conflict silently until one run exercises both. Give
   a control row a target the other setups never touch (m18.4)
+- Check where the decision is used, not beside it. A guard that validated answers for a later lookup to consume had
+  an unchecked path for every way the hand-off could fail; validating the consuming lookup itself had none (m18.4)
+- A safety rule with two independent protections needs a mutation that removes both, and a test only guards an
+  invariant if its code path runs through the guarded thing. Both were found by mutating the address guard (m18.4)
