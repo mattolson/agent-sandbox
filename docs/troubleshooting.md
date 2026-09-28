@@ -233,8 +233,131 @@ The `phase` field tells you which enforcement gate ran, and `reason` names the o
 - `phase: request`, `reason: scheme_not_permitted` — the host matched but none of its rules permit this scheme
   (usually an HTTP request to an HTTPS-only record). Fix: adjust the rule's `schemes` list.
 
+A `403` whose body starts with `agent-sandbox address guard:` is not a policy decision. The host is allowed, but it
+resolved to an internal address; see
+[403 "agent-sandbox address guard" on an allowed host](#403-agent-sandbox-address-guard-on-an-allowed-host).
+
 For rules with `query.exact`, the whole normalized query-param map must match. Extra client-added params such as
 pagination tokens, trace IDs, or protocol-version hints will produce `no_rule_matched`; add those params to the exact
 map or remove the query constraint if they are not security-relevant.
 
 After editing policy, run `agentbox proxy reload` to apply the change without restarting the container.
+
+## A tool fails with "Could not resolve host" or `NXDOMAIN`
+
+Inside the agent container, a tool fails with a name-resolution error such as `Could not resolve host: <name>`,
+`getaddrinfo ENOTFOUND <name>`, `Name or service not known`, or `NXDOMAIN`, while `curl` to the same allowed host
+works.
+
+The agent container can resolve only compose service names (`proxy`, plus any in `AGENTBOX_DNS_ALLOW`); every other
+name gets `NXDOMAIN` from the proxy's DNS sinkhole. Tools that send requests to `HTTPS_PROXY` never resolve names
+themselves, so they are unaffected. A tool that fails this way ignores the proxy settings and resolves the name
+directly. See [network.md](./network.md#tools-that-resolve-names-themselves).
+
+Confirm it in the proxy log. Each refused name is logged:
+
+```bash
+agentbox proxy logs | grep '"type": "dns"'
+# {"ts": "...", "type": "dns", "action": "nxdomain", "name": "registry.example.com", "qtype": "A", "client": "..."}
+```
+
+Fix it by making the tool use the proxy, not by making the name resolve:
+
+- Check that the tool reads `HTTPS_PROXY` and that `NO_PROXY` does not list the host.
+- Node's built-in `fetch` ignores `HTTPS_PROXY` unless `NODE_USE_ENV_PROXY=1` is set, on Node versions that support it.
+- Tools with their own proxy setting, such as a config file or command-line flag, need it pointed at
+  `http://proxy:8080`.
+- `scripts/dns-egress-audit/tool-probe.bash` reports which installed tools use the proxy.
+
+If the name is another compose service the agent must reach directly, see
+[network.md](./network.md#sidecars): the name goes in `AGENTBOX_DNS_ALLOW` on the proxy and in `NO_PROXY` on the
+agent.
+
+## 403 "agent-sandbox address guard" on an allowed host
+
+A request to a host the policy allows gets `403`. For plain HTTP the body says why:
+
+```text
+agent-sandbox address guard: git.internal.example resolves to 10.1.2.3 (private); refused
+```
+
+For HTTPS the refusal comes on the `CONNECT`, and most clients show only the status: curl prints
+`CONNECT tunnel failed, response 403`, the same as for a host the policy does not allow. The proxy log tells the two
+apart.
+
+The proxy refuses to connect to an allowed host whose DNS answer is loopback, private, link-local, a cloud metadata
+address, or otherwise not public. It checks every answer, so a host with one public and one private address is
+refused too. The proxy log has the event, with the address class:
+
+```bash
+agentbox proxy logs | grep '"type": "address_guard"'
+# {"ts": "...", "type": "address_guard", "action": "blocked", "phase": "connect", "host": "git.internal.example",
+#  "port": 443, "address": "10.1.2.3", "address_class": "private", "answers": ["10.1.2.3"]}
+```
+
+What to do depends on the host:
+
+- **Another compose service, reached through the proxy.** Connect to it directly instead: add its name to `NO_PROXY`
+  on the agent service and to `AGENTBOX_DNS_ALLOW` on the proxy. See [network.md](./network.md#sidecars).
+- **A host on your own network, such as an internal Git server.** There is no exemption yet. Writing the host as an
+  IP address in the policy is exempt from the guard, but HTTPS to an IP address usually fails certificate
+  verification. Please open an issue describing the setup.
+- **A public host that unexpectedly resolves to an internal address.** That is what the guard exists to stop. Check
+  the host's DNS before allowing it.
+
+## Agent container stops at start: `'proxy' does not resolve through the sinkhole`
+
+The agent container exits during startup. Its log shows:
+
+```text
+Waiting for the DNS sinkhole....  FAILED
+ERROR: 'proxy' does not resolve through the sinkhole at <address>:5353 after 30s.
+       The proxy image may predate the DNS sinkhole. Run 'agentbox bump' and then 'agentbox up'.
+```
+
+followed by the `FATAL: Firewall initialization failed!` banner.
+
+The agent image expects the proxy to serve DNS, and the proxy image is older than that. This happens when only one of
+the two images was updated. Update both:
+
+```bash
+agentbox bump
+agentbox up
+```
+
+If your `user.override.yml` pins the proxy to a specific image, update that pin too.
+
+## Agent container stops at start: IPv6 is present but `ip6tables` is unavailable
+
+The agent container exits during startup with:
+
+```text
+ERROR: IPv6 is present (eth0 fd00::3/64) but ip6tables is unavailable.
+       Refusing to start with IPv6 unfiltered. Disable IPv6 on the compose network or restore ip6tables.
+```
+
+The container has an IPv6 address, link-local included, but the firewall cannot program IPv6 rules, usually because
+the host kernel lacks IPv6 netfilter support. Rather than start with IPv6 unfiltered, the container stops.
+
+Either disable IPv6 on the compose network, which is Docker's default (remove `enable_ipv6: true` from
+`user.override.yml`, then run `agentbox down` and `agentbox up`), or use a Docker host whose kernel supports
+`ip6tables`.
+
+## Every lookup fails after the proxy was restarted
+
+After the proxy container was recreated, for example by `agentbox bump` or `docker compose up` for the proxy alone,
+every network request from the agent fails, including requests through the proxy, with errors such as
+`Could not resolve proxy: proxy`.
+
+The agent's firewall and resolver point at the proxy's address from when the agent started. A recreated proxy can
+come back with a different address. Restart the agent so its firewall picks up the new one:
+
+```bash
+agentbox compose restart agent
+```
+
+Or, from a shell inside the agent container, re-run the firewall in place:
+
+```bash
+sudo /usr/local/bin/init-firewall.sh
+```
