@@ -591,6 +591,26 @@ declares one (see [Request transforms](#request-transforms)); it does not
 inspect request bodies, response bodies, or arbitrary URLs for leaked secret
 values.
 
+## What The Policy Does Not Control
+
+Some of the network boundary is fixed and has no policy key. The full picture
+is in [../network.md](../network.md).
+
+- **DNS.** There is no `dns:` key. The agent container resolves only compose
+  service names (`proxy`, plus names listed in `AGENTBOX_DNS_ALLOW` on the
+  proxy service); every other name gets `NXDOMAIN`. Resolvable names follow
+  the compose stack rather than the policy because the proxy resolves every
+  allowed host on the agent's behalf, so allowing a host in `domains` never
+  requires the agent to resolve it. `AGENTBOX_DNS_ALLOW` is an environment
+  variable on the proxy service, not a policy field.
+- **Addresses.** An allowed host whose DNS answer is loopback, private,
+  link-local, a cloud metadata address, or otherwise not public is refused
+  with a `403` that names the address guard, whatever the rules allow.
+  Hosts written as IP addresses are exempt: a policy entry such as
+  `127.0.0.1` means that address.
+- **IPv6.** Egress over IPv6 is refused by the agent's firewall except
+  loopback. The proxy is reached over IPv4.
+
 ## Policy Inputs
 
 The proxy consumes a rendered policy file at `POLICY_PATH`. In normal
