@@ -128,35 +128,23 @@ the split is explicit. Controls that only a host can prove, such as H1's "no que
 
 ### Implementation Steps
 
-- [ ] Write `docs/network.md`
-- [ ] Update the README's network section and security principles
-- [ ] Add the schema doc section
-- [ ] Add the troubleshooting entries, each checked against the code that emits what it quotes
-- [ ] Update the skill
-- [ ] Write the decision records
-- [ ] Write the coverage table and resolve the matrix's pending list
-- [ ] Settle the tool inventory per open question 3
+- [x] Write `docs/network.md`
+- [x] Update the README's network section and security principles
+- [x] Add the schema doc section
+- [x] Add the troubleshooting entries, each checked against the code that emits what it quotes
+- [x] Update the skill
+- [x] Write the decision records
+- [x] Write the coverage table and resolve the matrix's pending list
+- [ ] Settle the tool inventory per open question 3: `tool-probe.bash` written; maintainer runs it in a hermes image
+      built on the node, python, and rust stacks
+- [ ] Maintainer runs the version-skew check (coverage procedure 2) and the no-`ip6tables` check (procedure 1)
 - [ ] Verify each acceptance criterion; mark `m18` done in the roadmap and close the milestone
 
 ### Open Questions
 
-1. A new `docs/network.md`, or spread the content across the README and troubleshooting. Recommendation: the new doc.
-   The boundary now has four layers, operator knobs, a repair path, and residuals; one canonical place keeps the
-   README short and stops the facts drifting apart
-2. Two decision records (009 sinkhole, 010 address guard) or one for the milestone. Recommendation: two. They were
-   separate decisions with separate alternatives, and 010 carries the monkeypatch rationale a future mitmproxy bump
-   will need to find
-3. The tool inventory's "verify" entries (Node `fetch` and `undici` per agent, `uv`, `cargo`, `rustup`). Options:
-   measure them before the `NXDOMAIN` entry is written, which needs the node-based agent images and the python and
-   rust stacks, so it is a host step; or write the entry from documentation and label those tools as unverified.
-   Recommendation: measure. I can write a small script that runs one request per tool through the sandbox and
-   reports whether it went through the proxy, for you to run in each image
-4. `m18.2`'s open acceptance box, the DNS self-test's failing direction, never observed as a real container start.
-   Options: close it here with a host step (pin the proxy to a pre-sinkhole image, `agentbox up`, expect the banner),
-   or leave it recorded as deferred. Recommendation: close it; it is one `agentbox up`, and the troubleshooting entry
-   for that failure quotes the banner it would show
-5. m18.5 lands in PR #204, which then leaves draft. Recommendation: yes; the PR description already says it stays a
-   draft until m18.5
+All five resolved 2026-09-28 as recommended: a new `docs/network.md`; two decision records, 009 and 010; measure the
+tool inventory with a probe the maintainer runs; close `m18.2`'s open acceptance box with the version-skew check; and
+land m18.5 in #204, which then leaves draft.
 
 ## Outcome
 

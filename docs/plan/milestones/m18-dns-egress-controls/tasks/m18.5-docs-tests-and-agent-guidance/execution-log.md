@@ -1,5 +1,30 @@
 # Execution Log: m18.5 - docs, tests, and agent guidance
 
+## 2026-09-28 - Docs written; host checks outstanding
+
+Approved as recommended. Written: `docs/network.md`, the README's four layers, the schema doc's "What The Policy Does
+Not Control", five troubleshooting entries, the skill update, decisions 009 and 010, and a coverage table in the
+bypass matrix. Every quoted message was taken from the code that emits it.
+
+**Issue:** Two claims were wrong until checked. HTTPS clients never show the guard's body: curl reports
+`CONNECT tunnel failed, response 403`, the same as a policy block, so the entry and the network doc now send the
+reader to the proxy log. And curl reports an unresolvable proxy as `Could not resolve proxy: proxy`, not
+`Could not resolve host`.
+
+**Observation:** Reaching a sidecar by name takes two settings: the name in `AGENTBOX_DNS_ALLOW` on the proxy so it
+resolves, and in `NO_PROXY` on the agent so HTTP clients connect directly; through the proxy, the address guard
+refuses the sidecar's private address. Missing either gives a different failure, and both entries say so.
+
+**Issue:** The coverage table showed that refusing to start with IPv6 present and no `ip6tables` had neither a test nor
+a procedure; the #204 fix was checked only with `bash -n`. Procedure 1 moves the binary aside inside a running agent
+and re-runs the firewall. Not yet run.
+
+**Observation:** `tool-probe.bash` classifies each tool by fetching `example.com`: the proxy's 403 means it used the
+proxy, a DNS error means it resolved the name itself. Its control row, curl with the proxy off, read `direct-dns` in
+the dev sandbox, and curl, git, python `urllib`, pip, and go read `proxied`. The hermes image keeps `uv` at runtime
+despite the "build-time only" comment on its install, so a hermes image on the node, python, and rust stacks carries
+every unmeasured tool.
+
 ## 2026-09-28 - Planning
 
 No user doc mentions DNS, so no doc describes it as unrestricted; the gap is that nothing explains the new
