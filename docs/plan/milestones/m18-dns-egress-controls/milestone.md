@@ -220,6 +220,14 @@ address family.
 
 **Dependencies:** `m18.2`, `m18.3`, `m18.4`.
 
+### m18.6-firewall-ci-tests
+
+**Summary:** Follow-up opened 2026-09-28. Run the agent firewall and the DNS sinkhole end to end in CI with IPv6 on and
+off, so this repo's dev sandbox no longer has to keep IPv6 enabled to exercise the IPv6 path. Plan in
+`tasks/m18.6-firewall-ci-tests/task.md`.
+
+**Dependencies:** `m18.2`, `m18.3`, and PR #204, on whose branch it is stacked.
+
 ## Execution Order
 
 1. `m18.1` first. It is cheap, it establishes the baseline, and every later acceptance criterion refers to its matrix.
@@ -269,6 +277,12 @@ B1, B2, and H2.
 - Docs, troubleshooting, the agent skill, and a decision record are updated, including the residual gaps
 
 ## Changes
+
+### 2026-09-28: m18.6 opened as a follow-up
+
+Keeping IPv6 on in the dev sandbox was the only recurring exercise of the IPv6-present firewall path. `m18.6` moves
+that into CI, covering both IPv6 paths on every relevant PR, and then turns IPv6 off in the dev sandbox so it matches
+what users run.
 
 ### 2026-09-28: m18.5 and the milestone closed
 
