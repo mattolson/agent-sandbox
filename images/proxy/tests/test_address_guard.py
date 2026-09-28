@@ -273,13 +273,31 @@ class ServerConnectTests(unittest.TestCase):
                 self.assertIsNone(data.server.error)
         self.assertEqual(guard.resolver.calls, [])
 
-    def test_resolution_failure_is_left_to_mitmproxy(self):
+    def test_resolution_failure_is_pinned_so_the_dial_cannot_look_again(self):
+        # A nameserver that fails the guard's lookup and answers the dial's with a
+        # private address must not get through: the dial sees the same failure.
         guard, logger = self.make_guard({})
-        data = FakeHookData("nx.invalid")
-        run(guard.server_connect(data))
-        self.assertIsNone(data.server.error)
-        self.assertEqual(guard._staged, {})
+        data = FakeHookData("flaky.example")
+
+        async def scenario():
+            loop = asyncio.get_running_loop()
+
+            async def second_lookup_answers_private(host, port, *args, **kwargs):
+                return [info("10.0.0.7", port)]
+
+            loop.getaddrinfo = second_lookup_answers_private
+            await guard.server_connect(data)
+            return await loop.getaddrinfo("flaky.example", 443)
+
+        with self.assertRaises(socket.gaierror):
+            run(scenario())
+        self.assertIsNone(data.server.error, "mitmproxy reports the failed lookup itself")
         self.assertEqual(logger.events, [])
+
+    def test_resolution_failure_is_not_pinned_in_log_mode(self):
+        guard, _ = self.make_guard({}, mode="log")
+        run(guard.server_connect(FakeHookData("flaky.example")))
+        self.assertEqual(guard._staged, {})
 
     def test_connection_already_killed_is_left_alone(self):
         guard, _ = self.make_guard({"rebound.example": ["10.0.0.1"]})

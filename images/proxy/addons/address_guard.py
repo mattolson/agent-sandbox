@@ -17,7 +17,9 @@ How it works:
     running loop's `getaddrinfo`. The guard wraps that one method on that one
     loop and returns the checked answers for the key it just staged, so a
     second lookup cannot hand the dial a different address. Every other lookup
-    passes through unchanged. `server.address` is never modified: it stays the
+    passes through unchanged. A lookup that fails during the check is pinned as a
+    failure, so the dial cannot fall back to a fresh, unchecked lookup.
+    `server.address` is never modified: it stays the
     hostname, which keeps SNI, certificate verification, connection reuse, and
     `request.host` intact.
   - Hosts written as IP literals are not checked. The guard protects a name from
@@ -268,8 +270,13 @@ class AddressGuard:
                 return
         try:
             answers = await self._resolve(host, port)
-        except OSError:
-            # mitmproxy's own dial fails the same way and reports it.
+        except OSError as error:
+            # Pin the failure too. Without it the dial would look the name up again,
+            # unchecked, and a nameserver could fail the check and answer the dial with
+            # a private address. The dial now fails with the same error, and mitmproxy
+            # reports it as it would any failed lookup.
+            if self.mode == "enforce":
+                self._stage(host, port, error)
             return
         refusal = self.check(host, port, answers)
         if refusal is not None:
@@ -333,6 +340,8 @@ class AddressGuard:
         if staged is not None:
             answers, expires = staged
             if self.clock() < expires:
+                if isinstance(answers, OSError):
+                    raise type(answers)(*answers.args)
                 family = kwargs.get("family", args[0] if args else 0)
                 if family:
                     answers = [info for info in answers if info[0] == family]
@@ -340,10 +349,12 @@ class AddressGuard:
         return await self._real_getaddrinfo(host, port, *args, **kwargs)
 
     def _stage(self, host, port, answers):
+        """Stage checked answers, or the error the check's lookup raised, for the dial."""
         now = self.clock()
         for key in [key for key, (_, expires) in self._staged.items() if expires <= now]:
             del self._staged[key]
-        self._staged[(host, port)] = (tuple(answers), now + STAGE_SECONDS)
+        staged = answers if isinstance(answers, OSError) else tuple(answers)
+        self._staged[(host, port)] = (staged, now + STAGE_SECONDS)
 
     async def _resolve(self, host, port):
         if self.resolver is not None:
