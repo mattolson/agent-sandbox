@@ -22,6 +22,7 @@ import os
 import shutil
 import signal
 import socket
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -94,6 +95,11 @@ class ProxyHarness:
     @property
     def proxy_url(self):
         return f"http://127.0.0.1:{self.proxy_port}"
+
+    @property
+    def ca_cert_path(self):
+        """The CA mitmdump signs intercepted TLS with; clients trust it to talk HTTPS through the proxy."""
+        return self._workdir / "mitmproxy" / "mitmproxy-ca-cert.pem"
 
     def write_policy(self, text):
         self.policy_path.write_text(text)
@@ -171,6 +177,13 @@ class ProxyHarness:
         message = f"CONNECT {host}:{port} HTTP/1.1\r\nHost: {host}:{port}\r\n\r\n".encode("ascii")
         return self._exchange(message, timeout=timeout, read_all=False, tolerate_timeout=True)
 
+    def send_connect_full(self, host, port, timeout=3.0):
+        """Send CONNECT and read the whole response, body included, until the proxy closes.
+
+        For a refused CONNECT, whose body carries the reason."""
+        message = f"CONNECT {host}:{port} HTTP/1.1\r\nHost: {host}:{port}\r\n\r\n".encode("ascii")
+        return self._exchange(message, timeout=timeout, read_all=True, tolerate_timeout=True)
+
     def _exchange(self, payload, *, timeout, read_all, tolerate_timeout=False):
         with socket.create_connection(("127.0.0.1", self.proxy_port), timeout=timeout) as sock:
             sock.settimeout(timeout)
@@ -224,11 +237,20 @@ def _parse_status_code(data):
     return int(parts[1]) if len(parts) >= 2 and parts[1].isdigit() else 0
 
 
-def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_overrides=None, dns=False):
+def spawn_proxy(
+    policy_text,
+    *,
+    enforce=True,
+    mitmdump_settings=(),
+    env_overrides=None,
+    dns=False,
+    extra_addons=(),
+):
     """Start mitmdump with the integration addon and return a ProxyHarness.
 
     With `dns=True` a DNS-mode listener is added on a second loopback port, the way the
-    proxy image runs it, and the harness exposes it as `dns_port`.
+    proxy image runs it, and the harness exposes it as `dns_port`. `extra_addons` are
+    script paths loaded after the enforcer, for test-only addons.
     """
     if not mitmdump_available():
         raise RuntimeError("mitmproxy is not importable; cannot run integration harness")
@@ -269,6 +291,8 @@ def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_override
     else:
         args.extend(["--listen-port", str(proxy_port)])
     args.extend(["--quiet", "-s", str(ENFORCER_ADDON)])
+    for addon in extra_addons:
+        args.extend(["-s", str(addon)])
     try:
         process = subprocess.Popen(
             args,
@@ -370,6 +394,84 @@ class FakeUpstream:
 
     def snapshot_requests(self):
         return self.server.snapshot_requests()
+
+
+class _KeepAliveHandler(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def do_GET(self):  # noqa: N802 - BaseHTTPRequestHandler convention
+        self.server.record_request(
+            self.command,
+            self.path,
+            b"",
+            {**dict(self.headers.items()), "x-test-client-port": str(self.client_address[1])},
+        )
+        body = b"ok"
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format, *args):  # noqa: A002 - silence default logging
+        return
+
+
+class FakeTlsUpstream(FakeUpstream):
+    """HTTPS recording server on 127.0.0.1 that keeps connections alive.
+
+    Records the SNI of every handshake and, per request, the client port it
+    arrived on, so a test can tell whether the proxy reused one connection.
+    """
+
+    def __init__(self, cert_path, key_path):
+        self.server = _RecordingHTTPServer(("127.0.0.1", 0), _KeepAliveHandler)
+        self.port = self.server.server_address[1]
+        self.server_names = []
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(str(cert_path), str(key_path))
+        context.sni_callback = self._record_sni
+        self.server.socket = context.wrap_socket(self.server.socket, server_side=True)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+
+    def _record_sni(self, ssl_socket, server_name, context):
+        self.server_names.append(server_name)
+        return None  # any other value aborts the handshake as a TLS alert
+
+    @property
+    def url(self):
+        return f"https://127.0.0.1:{self.port}/"
+
+
+class ConnectionCounter:
+    """A TCP listener on 127.0.0.1 that only counts accepted connections."""
+
+    def __init__(self):
+        self.socket = socket.socket()
+        self.socket.bind(("127.0.0.1", 0))
+        self.socket.listen(8)
+        self.socket.settimeout(0.2)
+        self.port = self.socket.getsockname()[1]
+        self.accepted = 0
+        self._stop = threading.Event()
+        self.thread = threading.Thread(target=self._run, daemon=True)
+
+    def _run(self):
+        while not self._stop.is_set():
+            try:
+                connection, _ = self.socket.accept()
+            except (socket.timeout, OSError):
+                continue
+            self.accepted += 1
+            connection.close()
+
+    def start(self):
+        self.thread.start()
+
+    def stop(self):
+        self._stop.set()
+        self.thread.join(timeout=2.0)
+        self.socket.close()
 
 
 def provision_secret_dir(secrets):
