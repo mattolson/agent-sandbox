@@ -242,6 +242,9 @@ image build reaches users through the next push-triggered build and `agentbox bu
 - PRs are rebase-merged. A PR stacked on another branch needs `git rebase origin/main` after its base lands, which
   requires a force-push of the PR branch. Ask the maintainer before any force-push and use `--force-with-lease`.
 - Never amend a pushed commit. Address review feedback in new commits.
+- The sandbox's GitHub token has no `workflow` scope, so GitHub rejects any push whose commits change a file under
+  `.github/workflows/`. Nothing partial is pushed. Commit as usual, then ask the maintainer to push the branch from
+  the host; opening the draft PR afterwards works from the sandbox.
 - Every PR gets an automated Greptile review. Evaluate each comment, fix the valid ones in a new commit, and reply on
   the thread with the commit and the test that covers it. Then post a PR comment containing `@greptile review` so the
   new commit gets a fresh review.
