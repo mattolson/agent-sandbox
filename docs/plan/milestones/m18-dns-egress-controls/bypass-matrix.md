@@ -219,25 +219,27 @@ sinkhole` and the `FATAL: Firewall initialization failed!` banner that names `ag
 
 ## Tools that resolve names themselves
 
-Static inventory of network-using tools in the base image, the optional stacks, and the agent images. "Proxy-aware"
-means the tool sends requests to `HTTP_PROXY` or `HTTPS_PROXY` and lets the proxy resolve the name. Anything that
-is not proxy-aware will start failing with `NXDOMAIN` after `m18.2`. The dynamic check runs in `m18.2` against the
-real sinkhole; entries marked "verify" are from documentation, not measurement.
+Network-using tools in the base image, the optional stacks, and the agent images. "Proxy-aware" means the tool sends
+requests to `HTTP_PROXY` or `HTTPS_PROXY` and lets the proxy resolve the name. Anything that is not proxy-aware fails
+with `NXDOMAIN` after `m18.2`; before it, the firewall already refused its direct connection, so only the error
+changed. Measured on 2026-09-28 with `scripts/dns-egress-audit/tool-probe.bash` against the live sinkhole: in a hermes
+image built on the node, python, and rust stacks, and in this repo's dev image for `go`. Rows marked "documented"
+were not probed.
 
 | Tool | Where | Proxy-aware | Notes |
 |------|-------|-------------|-------|
-| `curl` | base | yes | honours the proxy environment variables |
-| `git` | base, built against libcurl | yes | HTTPS remotes only; SSH is disabled |
-| `gh` | base | yes | Go `ProxyFromEnvironment` |
-| `apt` | base | yes | `configure-apt-proxy.sh` writes the Acquire proxy setting |
-| `npm`, `npx` | node stack and every node-based agent image | yes | reads the proxy environment variables |
-| Node `fetch`, `undici` | node agents | not by default | needs dispatcher or `NODE_USE_ENV_PROXY`; verify per agent |
-| `pip`, `uv` | python stack, hermes | yes | verify `uv` |
-| `go` | go stack | yes | module and checksum fetches honour the proxy variables |
-| `cargo`, `rustup` | rust stack | yes | verify |
+| `curl` | base | yes | measured, 7.88.1 |
+| `git` | base, built against libcurl | yes | measured, 2.50.1; HTTPS remotes only, SSH is disabled |
+| `gh` | base | yes | documented: Go `ProxyFromEnvironment`; used through the proxy daily in `m17` |
+| `apt` | base | yes | documented: `configure-apt-proxy.sh` writes the Acquire proxy setting |
+| Python `urllib`, `pip` | python stack | yes | measured, Python 3.11.2 and pip 23.0.1 |
+| `uv` | hermes | yes | measured, 0.11.21 |
+| `npm`, `npx` | node stack and every node-based agent image | yes | measured, npm 10.9.9 |
+| Node `fetch`, `undici` | node stack and node-based agent images | not by default | measured, Node 22.23.3: fails with `ENOTFOUND`. With `NODE_USE_ENV_PROXY=1` it uses the proxy, printing an "experimental" warning, and a refused host surfaces as `Request was cancelled.` rather than a 403 |
+| `go` | go stack | yes | measured, 1.26.1 |
+| `cargo` | rust stack | yes | measured, 1.98.1 |
+| `rustup` | rust stack | yes | measured, 1.29.1, with a writable `RUSTUP_HOME`; the stack's own is root-owned, so rustup cannot write as the agent user at all |
 | `getent`, libc | everywhere | no | resolves directly; this is the path the sinkhole takes over |
 
 ## Pending
 
-- The dynamic check of the tool inventory below against the live sinkhole. The entries marked "verify" are
-  still from documentation.

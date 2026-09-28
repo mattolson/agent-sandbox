@@ -252,7 +252,8 @@ works.
 The agent container can resolve only compose service names (`proxy`, plus any in `AGENTBOX_DNS_ALLOW`); every other
 name gets `NXDOMAIN` from the proxy's DNS sinkhole. Tools that send requests to `HTTPS_PROXY` never resolve names
 themselves, so they are unaffected. A tool that fails this way ignores the proxy settings and resolves the name
-directly. See [network.md](./network.md#tools-that-resolve-names-themselves).
+directly; before the sinkhole it failed too, with a connection error, because the firewall refuses direct
+connections. See [network.md](./network.md#tools-that-resolve-names-themselves).
 
 Confirm it in the proxy log. Each refused name is logged:
 
@@ -264,7 +265,9 @@ agentbox proxy logs | grep '"type": "dns"'
 Fix it by making the tool use the proxy, not by making the name resolve:
 
 - Check that the tool reads `HTTPS_PROXY` and that `NO_PROXY` does not list the host.
-- Node's built-in `fetch` ignores `HTTPS_PROXY` unless `NODE_USE_ENV_PROXY=1` is set, on Node versions that support it.
+- Node's built-in `fetch` ignores `HTTPS_PROXY` and fails with `ENOTFOUND`. Set `NODE_USE_ENV_PROXY=1` to route it
+  through the proxy (measured on Node 22). Node then warns that `EnvHttpProxyAgent` is experimental, and a host the
+  proxy refuses fails with the cause `Request was cancelled.` instead of a 403.
 - Tools with their own proxy setting, such as a config file or command-line flag, need it pointed at
   `http://proxy:8080`.
 - `scripts/dns-egress-audit/tool-probe.bash` reports which installed tools use the proxy.

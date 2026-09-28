@@ -64,11 +64,17 @@ The proxy logs each refusal as a JSON line, which `agentbox proxy logs` shows:
 ## Tools that resolve names themselves
 
 Most tools send requests to `HTTPS_PROXY` and let the proxy resolve the name, so they are unaffected. A tool that
-resolves the name itself gets `NXDOMAIN`. The fix is to configure that tool to use the proxy, not to allow the name.
+resolves the name itself gets `NXDOMAIN`. Such a tool already failed before the sinkhole existed, because the firewall
+refused its direct connection; only the error changed. The fix is to configure the tool to use the proxy, not to allow
+the name.
 
-Node's built-in `fetch` does not honour `HTTPS_PROXY` by default; on Node versions that support it, set
-`NODE_USE_ENV_PROXY=1`. `scripts/dns-egress-audit/tool-probe.bash` measures which installed tools use the proxy; run it
-inside a sandbox with `docker exec -i <agent container> bash -s < scripts/dns-egress-audit/tool-probe.bash`.
+Measured against the sinkhole: `curl`, `git`, Python's `urllib`, `pip`, `uv`, `npm`, `go`, `cargo`, and `rustup` use the
+proxy. Node's built-in `fetch` does not: on Node 22 it fails with `ENOTFOUND`. Setting `NODE_USE_ENV_PROXY=1` makes it
+use the proxy; Node then prints an "EnvHttpProxyAgent is experimental" warning, and a host the proxy refuses shows up
+as `fetch failed` with the cause `Request was cancelled.` rather than a 403.
+
+`scripts/dns-egress-audit/tool-probe.bash` reports which installed tools use the proxy. Run it inside a sandbox with
+`docker exec -i <agent container> bash -s < scripts/dns-egress-audit/tool-probe.bash`.
 
 ## Sidecars
 

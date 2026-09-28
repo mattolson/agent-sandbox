@@ -124,7 +124,8 @@ getent hosts example.com                                      # expected: no out
    `Could not resolve host` / `ENOTFOUND` / `NXDOMAIN` = the tool resolves names itself
    instead of using the proxy. Do not retry and do not ask for DNS access; configure the
    tool to use `http://proxy:8080` (for Node's built-in `fetch`, set
-   `NODE_USE_ENV_PROXY=1` where the Node version supports it). Asking to allow the host
+   `NODE_USE_ENV_PROXY=1`; a host the proxy refuses then fails with
+   `Request was cancelled.` instead of a 403). Asking to allow the host
    does not help; the proxy already resolves allowed hosts.
    `agent-sandbox address guard: ... refused` = the host is allowed but resolves to an
    internal address. Only the human can change that; tell them the host and address.
