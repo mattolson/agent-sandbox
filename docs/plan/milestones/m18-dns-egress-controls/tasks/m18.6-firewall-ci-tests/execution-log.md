@@ -1,5 +1,13 @@
 # Execution Log: m18.6 - firewall CI tests
 
+## 2026-09-30 - The new check stops a start without the resolver rule
+
+With the fifth check built in, both modes pass locally and show `PASS: Docker's resolver at 127.0.0.11 refused`. The
+deleted-rule run now fails at container start rather than in the audit:
+`FAIL: a query to Docker's resolver at 127.0.0.11 was not refused (got: timeout)`, the `FATAL` banner, and the driver
+reports the missing lines and a stopped agent, exit 1. Restoring the file and rebuilding produced the same image
+config, `sha256:44494ffac9e3...`, as the passing build, so the maintainer's `:local` base image is the tested one.
+
 ## 2026-09-30 - Startup check for Docker's resolver added
 
 Approved by the maintainer. `init-firewall.sh` now sends a raw query to `127.0.0.11:53` after the sinkhole check and
