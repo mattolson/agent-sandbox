@@ -4,6 +4,12 @@ Spawns `mitmdump` as a subprocess against a temporary policy file and captures
 its stdout JSON log lines. Each test starts a fresh proxy; SIGHUP scenarios
 edit the policy file in place within a single test.
 
+mitmdump runs through `images/proxy/run-mitmdump`, the launcher the proxy image
+uses, so the tests exercise the same process the container runs. The launcher
+exists because mitmproxy's DNS mode crashes during interpreter teardown after
+it has handled a query; `terminate()` checks the exit status so a return of
+that crash fails the test instead of leaving a core file behind.
+
 Designed to work with `unittest`, matching the existing proxy test style.
 """
 
@@ -16,6 +22,7 @@ import os
 import shutil
 import signal
 import socket
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -29,7 +36,7 @@ from urllib.parse import urlsplit
 REPO_ROOT = Path(__file__).resolve().parents[4]
 ENFORCER_ADDON = REPO_ROOT / "images" / "proxy" / "addons" / "enforcer.py"
 RENDER_POLICY_PATH = REPO_ROOT / "images" / "proxy" / "render-policy"
-MITMDUMP = shutil.which("mitmdump")
+RUN_MITMDUMP = REPO_ROOT / "images" / "proxy" / "run-mitmdump"
 
 
 class HarnessTimeoutError(Exception):
@@ -37,7 +44,7 @@ class HarnessTimeoutError(Exception):
 
 
 def mitmdump_available():
-    return MITMDUMP is not None
+    return importlib.util.find_spec("mitmproxy") is not None
 
 
 def reserve_tcp_port():
@@ -73,6 +80,8 @@ class ProxyHarness:
         self._reader_thread = threading.Thread(target=self._pump_stdout, daemon=True)
         self.proxy_port = proxy_port
         self.policy_path = policy_path
+        self.dns_port = None
+        self.returncode = None
 
     def start_reader(self):
         self._reader_thread.start()
@@ -86,6 +95,11 @@ class ProxyHarness:
     @property
     def proxy_url(self):
         return f"http://127.0.0.1:{self.proxy_port}"
+
+    @property
+    def ca_cert_path(self):
+        """The CA mitmdump signs intercepted TLS with; clients trust it to talk HTTPS through the proxy."""
+        return self._workdir / "mitmproxy" / "mitmproxy-ca-cert.pem"
 
     def write_policy(self, text):
         self.policy_path.write_text(text)
@@ -163,6 +177,13 @@ class ProxyHarness:
         message = f"CONNECT {host}:{port} HTTP/1.1\r\nHost: {host}:{port}\r\n\r\n".encode("ascii")
         return self._exchange(message, timeout=timeout, read_all=False, tolerate_timeout=True)
 
+    def send_connect_full(self, host, port, timeout=3.0):
+        """Send CONNECT and read the whole response, body included, until the proxy closes.
+
+        For a refused CONNECT, whose body carries the reason."""
+        message = f"CONNECT {host}:{port} HTTP/1.1\r\nHost: {host}:{port}\r\n\r\n".encode("ascii")
+        return self._exchange(message, timeout=timeout, read_all=True, tolerate_timeout=True)
+
     def _exchange(self, payload, *, timeout, read_all, tolerate_timeout=False):
         with socket.create_connection(("127.0.0.1", self.proxy_port), timeout=timeout) as sock:
             sock.settimeout(timeout)
@@ -183,7 +204,14 @@ class ProxyHarness:
                     )
         return data
 
-    def terminate(self):
+    def terminate(self, check=True):
+        """Stop mitmdump with SIGTERM and clean up. Safe to call more than once.
+
+        With `check`, a process that did not exit with status 0 raises, so a crash
+        on shutdown fails the test that owned the proxy.
+        """
+        if self.returncode is not None:
+            return
         if self._process.poll() is None:
             self._process.send_signal(signal.SIGTERM)
             try:
@@ -191,10 +219,16 @@ class ProxyHarness:
             except subprocess.TimeoutExpired:
                 self._process.kill()
                 self._process.wait(timeout=2.0)
+        self.returncode = self._process.returncode
         if self._process.stdout is not None:
             self._process.stdout.close()
         self._reader_thread.join(timeout=2.0)
         shutil.rmtree(self._workdir, ignore_errors=True)
+        if check and self.returncode != 0:
+            raise RuntimeError(
+                f"mitmdump exited with status {self.returncode} after SIGTERM; "
+                f"last lines: {self.snapshot_lines()[-20:]}"
+            )
 
 
 def _parse_status_code(data):
@@ -203,16 +237,33 @@ def _parse_status_code(data):
     return int(parts[1]) if len(parts) >= 2 and parts[1].isdigit() else 0
 
 
-def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_overrides=None):
-    """Start mitmdump with the integration addon and return a ProxyHarness."""
-    if MITMDUMP is None:
-        raise RuntimeError("mitmdump not on PATH; cannot run integration harness")
+def spawn_proxy(
+    policy_text,
+    *,
+    enforce=True,
+    mitmdump_settings=(),
+    env_overrides=None,
+    dns=False,
+    extra_addons=(),
+    listen_host="127.0.0.1",
+):
+    """Start mitmdump with the integration addon and return a ProxyHarness.
+
+    With `dns=True` a DNS-mode listener is added on a second loopback port, the way the
+    proxy image runs it, and the harness exposes it as `dns_port`. `extra_addons` are
+    script paths loaded after the enforcer, for test-only addons. `listen_host=None`
+    binds every interface, the way the proxy image does.
+    """
+    if not mitmdump_available():
+        raise RuntimeError("mitmproxy is not importable; cannot run integration harness")
 
     workdir = Path(tempfile.mkdtemp(prefix="agentbox-proxy-it-"))
     policy_path = workdir / "policy.yaml"
     policy_path.write_text(policy_text)
     reserved_port = reserve_tcp_port()
     proxy_port = reserved_port.getsockname()[1]
+    reserved_dns_port = reserve_tcp_port() if dns else None
+    dns_port = reserved_dns_port.getsockname()[1] if reserved_dns_port else None
 
     env = os.environ.copy()
     env["PROXY_MODE"] = "enforce" if enforce else "log"
@@ -228,23 +279,23 @@ def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_override
     confdir.mkdir(parents=True, exist_ok=True)
 
     args = [
-        MITMDUMP,
+        sys.executable,
+        str(RUN_MITMDUMP),
         "--set",
         f"confdir={confdir}",
     ]
     for setting in mitmdump_settings:
         args.extend(["--set", setting])
-    args.extend(
-        [
-            "--listen-host",
-            "127.0.0.1",
-            "--listen-port",
-            str(proxy_port),
-            "--quiet",
-            "-s",
-            str(ENFORCER_ADDON),
-        ]
-    )
+    if listen_host is not None:
+        args.extend(["--listen-host", listen_host])
+    if dns:
+        # Any explicit --mode replaces the default regular mode, so list both, as the image does.
+        args.extend(["--mode", f"regular@{proxy_port}", "--mode", f"dns@{dns_port}"])
+    else:
+        args.extend(["--listen-port", str(proxy_port)])
+    args.extend(["--quiet", "-s", str(ENFORCER_ADDON)])
+    for addon in extra_addons:
+        args.extend(["-s", str(addon)])
     try:
         process = subprocess.Popen(
             args,
@@ -256,12 +307,15 @@ def spawn_proxy(policy_text, *, enforce=True, mitmdump_settings=(), env_override
         )
     finally:
         reserved_port.close()
+        if reserved_dns_port is not None:
+            reserved_dns_port.close()
 
     harness = ProxyHarness(process, proxy_port, policy_path, workdir)
+    harness.dns_port = dns_port
     harness.start_reader()
 
     if not wait_for_port(proxy_port, timeout=10.0):
-        harness.terminate()
+        harness.terminate(check=False)
         raise RuntimeError(
             "mitmdump did not open listen port within 10s; "
             f"captured output: {harness.snapshot_lines()[-20:]}"
@@ -343,6 +397,85 @@ class FakeUpstream:
 
     def snapshot_requests(self):
         return self.server.snapshot_requests()
+
+
+class _KeepAliveHandler(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def do_GET(self):  # noqa: N802 - BaseHTTPRequestHandler convention
+        self.server.record_request(
+            self.command,
+            self.path,
+            b"",
+            {**dict(self.headers.items()), "x-test-client-port": str(self.client_address[1])},
+        )
+        body = b"ok"
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format, *args):  # noqa: A002 - silence default logging
+        return
+
+
+class FakeTlsUpstream(FakeUpstream):
+    """HTTPS recording server on 127.0.0.1 that keeps connections alive.
+
+    Records the SNI of every handshake and, per request, the client port it
+    arrived on, so a test can tell whether the proxy reused one connection.
+    """
+
+    def __init__(self, cert_path, key_path):
+        self.server = _RecordingHTTPServer(("127.0.0.1", 0), _KeepAliveHandler)
+        self.port = self.server.server_address[1]
+        self.server_names = []
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+        context.load_cert_chain(str(cert_path), str(key_path))
+        context.sni_callback = self._record_sni
+        self.server.socket = context.wrap_socket(self.server.socket, server_side=True)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+
+    def _record_sni(self, ssl_socket, server_name, context):
+        self.server_names.append(server_name)
+        return None  # any other value aborts the handshake as a TLS alert
+
+    @property
+    def url(self):
+        return f"https://127.0.0.1:{self.port}/"
+
+
+class ConnectionCounter:
+    """A TCP listener on 127.0.0.1 that only counts accepted connections."""
+
+    def __init__(self):
+        self.socket = socket.socket()
+        self.socket.bind(("127.0.0.1", 0))
+        self.socket.listen(8)
+        self.socket.settimeout(0.2)
+        self.port = self.socket.getsockname()[1]
+        self.accepted = 0
+        self._stop = threading.Event()
+        self.thread = threading.Thread(target=self._run, daemon=True)
+
+    def _run(self):
+        while not self._stop.is_set():
+            try:
+                connection, _ = self.socket.accept()
+            except (socket.timeout, OSError):
+                continue
+            self.accepted += 1
+            connection.close()
+
+    def start(self):
+        self.thread.start()
+
+    def stop(self):
+        self._stop.set()
+        self.thread.join(timeout=2.0)
+        self.socket.close()
 
 
 def provision_secret_dir(secrets):

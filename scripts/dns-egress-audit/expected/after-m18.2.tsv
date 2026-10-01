@@ -1,0 +1,42 @@
+# Expected after m18.2 (sinkhole in the proxy, 127.0.0.11 rejected outright, port 53 only to the proxy).
+# Encodes the m18.2 plan; the task adjusts values, not flips.
+# Must differ from baseline: A1, A3, A4, A5, A6, A7, A8, A9, A10, B1, B2, B3, B4, H1.
+# A8 flips too: it is a raw query to 127.0.0.11, which is rejected outright. S3 is the service-name control.
+R1	*
+R2	*
+A1	not-found
+A2	not-found
+A3	rejected
+A4	rejected
+A5	rejected
+A6	rejected
+A7	rejected
+A8	rejected
+A9	rejected
+A10	rejected
+B1	rejected
+B2	rejected
+B3	rejected
+B4	rejected
+C1	rejected
+C2	rejected
+C3	rejected
+C4	rejected
+C5	rejected
+D1	proxy-403
+D2	http-200
+D3	http-502
+D4	http-502
+S1	nxdomain
+S2	nxdomain
+S3	answered
+E1	absent
+E2	unreachable
+E3	unreachable
+E4	unreachable
+E5	timeout|conn-refused
+H1	not-seen
+H2	*
+H3	*
+H4	*
+H5	*

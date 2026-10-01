@@ -12,6 +12,8 @@ else
     echo "FATAL: Firewall initialization failed!"
     echo "Container cannot start without working firewall."
     echo "Check the errors above and rebuild the image."
+    echo "If the DNS sinkhole check failed, the proxy image may predate it:"
+    echo "run 'agentbox bump' and then 'agentbox up' to refresh both images."
     echo "=========================================="
     exit 1
   fi

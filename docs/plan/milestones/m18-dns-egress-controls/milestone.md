@@ -43,8 +43,8 @@ Excluded:
 ## Applicable Learnings
 
 - "iptables rules must preserve Docker's internal DNS resolution (127.0.0.11 NAT rules) or container DNS breaks" is
-  the first line of `learnings.md`, and it is exactly what this milestone reverses. The replacement has to resolve
-  compose service names itself, because the agent still needs `proxy` to resolve for `HTTPS_PROXY` to work
+  the first line of `learnings.md`. The `m18.1` audit showed why: on a user-defined network the `127.0.0.11` stub is
+  the only source of compose service names. Whatever `m18.2` picks must keep `proxy` resolving for `HTTPS_PROXY`
 - Environment-variable proxy configuration is advisory; network-level enforcement is what counts. The same reasoning
   applies here. A resolver the agent is merely pointed at is not a control unless the firewall also stops it from
   reaching any other resolver
@@ -95,20 +95,31 @@ firewall at it.
 - Decide between a dedicated resolver sidecar and adding a resolver to the existing proxy container, and record the
   decision. The proxy container currently runs as a non-root user with all capabilities dropped, so binding port 53
   there requires a capability or a sysctl; a sidecar keeps that boundary intact at the cost of one more service
-- Serve only the names the stack needs. Forward the compose service names to the container's own embedded resolver so
-  service discovery keeps working through Docker's IPAM, and answer `NXDOMAIN` for every other name. Do not use a
-  static hosts file keyed on container IPs, which change between runs
+- Choose how the agent reaches the resolver, using the `m18.1` audit (`bypass-matrix.md`, findings 9 and 10). On a
+  user-defined network Docker keeps the stub at `127.0.0.11` and treats compose `dns:` as the embedded resolver's
+  upstream list, dialed from the container's own namespace. Two coherent designs follow. With `dns:`, the embedded
+  resolver keeps answering service names from IPAM and forwards everything else to the sinkhole, which answers
+  `NXDOMAIN`; the `127.0.0.11` NAT rules stay restored, and the sinkhole needs a fixed address because `dns:` takes
+  IP addresses, which means a declared subnet. With a DNAT at firewall init, `init-firewall.sh` resolves the
+  sinkhole's current address through the embedded resolver and replaces Docker's `127.0.0.11` DNAT with one to the
+  sinkhole; the sinkhole answers service names by forwarding to its own embedded resolver on the same network and
+  `NXDOMAIN` for everything else. Either way, serve only the names the stack needs and never a static hosts file
+  keyed on container IPs, which change between runs. Record the choice for the decision record `m18.5` writes
 - Return `NXDOMAIN` promptly rather than dropping, so a blocked lookup fails fast instead of hanging on a resolver
   timeout the way a silent drop would
-- Point the agent container at the resolver with compose `dns:` in the managed base layer, which both CLI mode and
-  the devcontainer templates consume
+- Wire the chosen design into the managed base layer, which both CLI mode and the devcontainer templates consume
 - Add the resolver to the agent's `depends_on` with a health condition, so the agent cannot start before name
   resolution exists
-- Change `init-firewall.sh`: stop extracting and restoring the `127.0.0.11` NAT rules, and allow UDP and TCP port 53
-  only to the resolver's address. Keep the existing positive and negative self-tests and add a DNS pair to them, one
-  name that must resolve and one that must not
+- Change `init-firewall.sh`: allow UDP and TCP port 53 only to the resolver's address, ahead of the host-network
+  rule, so a peer container on the compose network and the bridge gateway stop being reachable on port 53 (audit
+  rows B1 through B4). Keep the existing positive and negative self-tests and add a DNS pair to them, one name that
+  must resolve and one that must not; audit finding 5 gives the errno signatures to assert on
 - Leave the proxy container's own resolution untouched
 - Regenerate this repo's checked-in `.agent-sandbox/` runtime so local development exercises the new stack
+- Decided 2026-09-12: the sinkhole is a mitmproxy DNS-mode addon inside the proxy container on port 5353, reached
+  through a port rewrite in the agent's firewall, with Docker's resolver rejected outright. No compose change, so
+  `agentbox bump` alone rolls it out and the runtime tree needs no regeneration. The comparison with the `dns:`
+  upstream, sidecar, and sysctl variants and the spike results are in `tasks/m18.2-dns-sinkhole/task.md`
 
 **Acceptance Criteria:**
 - From the agent container, a lookup of a random label under a domain we control returns `NXDOMAIN` and no query
@@ -132,6 +143,14 @@ address family.
 - Decide whether to disable IPv6 on the compose network instead, and record why the chosen option was picked. If
   IPv6 is disabled rather than filtered, the firewall should assert that it is actually off rather than assume it
 - Add the IPv6 probes from `m18.1` to the firewall self-test
+- The audit found `ip6tables` present in the image with ACCEPT policies and no rules, and `EnableIPv6=false` on the
+  compose network. Enable IPv6 on the network for the `after-m18.3` audit run, or the E rows cannot flip
+- Decided 2026-09-17: deny all IPv6 except loopback (`::1` only) and established traffic, with no host-network or
+  port 53 exception, because the agent reaches the proxy and the sinkhole over IPv4 by construction. The rules go
+  in whether or not the network has IPv6; the firewall fails closed only when IPv6 is present and `ip6tables` is
+  unavailable. This repo's dev sandbox kept IPv6 enabled so the path was exercised daily, until `m18.6` moved that
+  coverage into CI and turned it off on 2026-10-01. The alternatives and the reasoning are in
+  `tasks/m18.3-ipv6-egress-parity/task.md`
 
 **Acceptance Criteria:**
 - With IPv6 available on the network, every IPv6 probe from the audit is blocked
@@ -165,6 +184,15 @@ address family.
 - No change in behavior for hosts that resolve to ordinary public addresses
 - Proxy unit and integration tests cover each refused address class
 
+- Decided 2026-09-27: the guard is a separate addon hooking `server_connect`, the one point every upstream
+  connection passes through. A wrapper on the running loop's `getaddrinfo` checks the dial's own lookup and refuses
+  before any socket opens if any answer is denied, so the check and the dial are one lookup; rewriting
+  `server.address` was spiked and breaks tunnelled requests, and staging checked answers was built first and
+  replaced after the #204 review found unchecked fallbacks. Invariant tests fail on any mitmproxy or Python bump
+  that breaks the wrapper.
+  Refusals are 403, IP-literal hosts are exempt, and there is no operator hatch yet. Reasoning in
+  `tasks/m18.4-proxy-address-guard/task.md`
+
 **Dependencies:** None on the other tasks; can run in parallel with `m18.2` and `m18.3`.
 
 ### m18.5-docs-tests-and-agent-guidance
@@ -193,6 +221,14 @@ address family.
 
 **Dependencies:** `m18.2`, `m18.3`, `m18.4`.
 
+### m18.6-firewall-ci-tests
+
+**Summary:** Follow-up opened 2026-09-28. Run the agent firewall and the DNS sinkhole end to end in CI with IPv6 on and
+off, so this repo's dev sandbox no longer has to keep IPv6 enabled to exercise the IPv6 path. Plan in
+`tasks/m18.6-firewall-ci-tests/task.md`.
+
+**Dependencies:** `m18.2` and `m18.3`. Lands in PR #204 with the rest of the milestone.
+
 ## Execution Order
 
 1. `m18.1` first. It is cheap, it establishes the baseline, and every later acceptance criterion refers to its matrix.
@@ -201,9 +237,10 @@ address family.
    with either.
 4. `m18.5` last, once the behavior is settled.
 
-Decision point after `m18.1`: if the audit shows the bridge gateway exposes a resolver the agent can reach directly,
-the firewall change in `m18.2` grows to narrow rule 5 rather than just redirect port 53, and that is a larger change
-worth re-scoping before starting.
+Decision point after `m18.1`, resolved 2026-09-12: the audit found no resolver on the bridge gateway. The VM's
+`dnsmasq` listens on `192.168.5.1` and loopback only, which the container already cannot reach, so rule 5 stays as
+it is and `m18.2` restricts port 53 within the host network to the resolver's address. See `bypass-matrix.md` rows
+B1, B2, and H2.
 
 ## Risks
 
@@ -241,6 +278,89 @@ worth re-scoping before starting.
 - Docs, troubleshooting, the agent skill, and a decision record are updated, including the residual gaps
 
 ## Changes
+
+### 2026-10-01: m18.6 closed
+
+The firewall, the DNS sinkhole, and the address guard now run end to end in CI with IPv6 on and off, on every change
+to the images or the audit. The first CI runs found that Docker's upstream on GitHub's runners is systemd-resolved's
+loopback, which the audit's C1 and C2 cannot test; they now report `not-applicable` there. A deliberate-failure run
+added a fifth startup check, for Docker's resolver. This repo's dev sandbox runs with IPv6 off from here on.
+
+### 2026-09-28: m18.6 opened as a follow-up
+
+Keeping IPv6 on in the dev sandbox was the only recurring exercise of the IPv6-present firewall path. `m18.6` moves
+that into CI, covering both IPv6 paths on every relevant PR, and then turns IPv6 off in the dev sandbox so it matches
+what users run.
+
+### 2026-09-28: m18.5 and the milestone closed
+
+Every item of the definition of done holds. A name the stack does not need gets `NXDOMAIN` and no query leaves the
+host, shown by a VM capture with a positive control; port 53 reaches only the sinkhole over IPv4 and IPv6 in both
+modes; the self-test fails a start in both DNS directions, the failing one observed against a pre-sinkhole proxy
+image; the address guard refuses internal answers with its own event; the bypass matrix re-runs clean and its coverage
+table gives every control an automated test or a manual procedure; and the docs, troubleshooting, agent skill, and
+decisions 009 and 010 are written, residual gaps included. Out-of-scope findings went to `docs/plan/cleanup-tasks.md`.
+
+### 2026-09-28: m18.4 guard reworked after review
+
+The #204 review found that staging checked answers left the dial an unchecked fallback whenever the staged entry was
+missing, failed, expired during mitmproxy's connection-semaphore wait, or was overwritten by another connection. The
+wrapper now checks the dial's own lookup, which removes the fallback. The same review tightened the IPv6 fail-closed
+check to any IPv6 address and made the audit exit 2 when it skipped expected rows.
+
+### 2026-09-27: m18.4 closed
+
+All four acceptance criteria verified in both modes. An allowed name resolving to a denied address gets a 403 naming
+the guard and the address class, the dial is pinned to the checked answers, and nothing changes for public
+addresses or IP-literal hosts. The audit's D1 row moved to a DoH host the probe setup never allows, after the first
+`--policy-probes` run showed D1 and D2 had conflicted since `m18.1`. Only `m18.5` remains.
+
+### 2026-09-27: m18.4 design chosen and implemented from the sandbox
+
+Check and pin in `server_connect`, with the pin done by staging checked answers for the loop's `getaddrinfo`, a
+monkeypatch accepted on the condition that tests fail when its invariants break. The milestone's scope said to add
+an escape hatch only if the tests needed one; they need none because IP-literal hosts are exempt, and the
+maintainer chose to ship without an operator hatch until a user reports an internal host. Refusals answer 403
+rather than mitmproxy's 502, so an agent reads them as a proxy refusal and does not retry.
+
+### 2026-09-27: m18.3 closed
+
+All three acceptance criteria verified in both modes. With IPv6 enabled on the compose network, every IPv6 probe
+is rejected, and with it off the self-test names the state; the IPv4 rows are unchanged. The audit's H1 row gained
+a positive control after two runs captured no DNS at all. This repo's dev sandbox now runs with IPv6 on. `m18.4`
+and `m18.5` remain.
+
+### 2026-09-17: m18.3 design chosen
+
+IPv6 is denied outright except loopback and return traffic, rather than mirrored from the IPv4 rule set. The
+mirrored host-network and port 53 exceptions would have had no consumer, since the agent reaches the proxy over
+IPv4, and would have needed ICMPv6 neighbour-discovery rules and a DNAT on the proxy's IPv6 address that only an
+IPv6-enabled run could test. Disabling IPv6 on the network was rejected because it needs a managed-layer change and
+leaves a user who enables IPv6 unfiltered. Loopback means `::1` alone, so a resolver address Docker might add to
+`lo` is denied without being known. This repo's dev sandbox enables IPv6 on its compose network from here on.
+
+### 2026-09-17: m18.2 closed
+
+Both audit runs are clean in CLI and devcontainer mode and five of six acceptance criteria are verified with
+evidence. The failing direction of the DNS self-test, a start against a pre-sinkhole proxy image, and the dynamic
+check of the tool inventory's "verify" entries are deferred by the maintainer; both are listed under the task's
+follow-ups and the matrix's pending section. Along the way the proxy image, the dev venv, and CI were pinned to
+mitmproxy 12.2.3 from one `ARG` line, and `mitmdump` runs through a launcher that skips interpreter teardown because
+11.0.2 crashed on shutdown in DNS mode. `m18.3` planning opened the same day.
+
+### 2026-09-12: m18.2 design chosen
+
+The sinkhole lives in the proxy container as a mitmproxy DNS-mode addon on an unprivileged port; the agent's
+firewall rewrites port 53 to it. Chosen over the `dns:` upstream (fixed address, subnet collisions), a sidecar
+(blast radius), and a sysctl to bind 53 (needs a managed-layer change only `agentbox init` propagates). The audit
+gained rows A9 and A10 for the embedded resolver's real listening ports.
+
+### 2026-09-12: m18.1 findings folded in
+
+The audit resolved the rule 5 decision point and corrected the `m18.2` scope: compose `dns:` sets the embedded
+resolver's upstream rather than replacing the stub, so the NAT restore stays with that design and the sinkhole
+needs a fixed address; the DNAT-at-init alternative is recorded alongside it. `m18.3` gained the note that IPv6
+must be enabled on the network for its audit run.
 
 ### 2026-09-12: Renumbered from m21 to m18
 

@@ -1,0 +1,6 @@
+# An explicit unique-local subnet for Docker engines older than 27. Fixed is fine here: the test owns the host.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: fd5c:1c2b:3a4d::/64

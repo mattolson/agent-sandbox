@@ -1,4 +1,9 @@
-FROM mitmproxy/mitmproxy:latest
+# The mitmproxy release the proxy runs. This line is the only place the version
+# is written: scripts/build-dev-image.bash reads it for the dev image's test venv
+# and .github/workflows/proxy-tests.yml reads it for CI, so the tests always run
+# the release the image ships. Bump it here and rebuild.
+ARG MITMPROXY_VERSION=12.2.3
+FROM mitmproxy/mitmproxy:${MITMPROXY_VERSION}
 
 # Match uid/gid with the default first user on MacOS to avoid permission issues with mounts
 RUN groupmod -g 501 mitmproxy && usermod -u 501 mitmproxy
@@ -23,9 +28,10 @@ COPY policy.yaml /etc/mitmproxy/policy.yaml
 COPY addons/ /home/mitmproxy/addons/
 COPY entrypoint.sh /usr/local/bin/
 RUN mkdir -p /usr/local/lib/agent-sandbox/proxy
-COPY render-policy service_catalog.py policy_injection.py secret_resolver.py credential_shim.py /usr/local/lib/agent-sandbox/proxy/
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/lib/agent-sandbox/proxy/render-policy \
-  && ln -s /usr/local/lib/agent-sandbox/proxy/render-policy /usr/local/bin/render-policy
+COPY render-policy run-mitmdump service_catalog.py policy_injection.py secret_resolver.py credential_shim.py /usr/local/lib/agent-sandbox/proxy/
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/lib/agent-sandbox/proxy/render-policy /usr/local/lib/agent-sandbox/proxy/run-mitmdump \
+  && ln -s /usr/local/lib/agent-sandbox/proxy/render-policy /usr/local/bin/render-policy \
+  && ln -s /usr/local/lib/agent-sandbox/proxy/run-mitmdump /usr/local/bin/run-mitmdump
 
 # Ensure mitmproxy user owns its home directory, confdir, the CA export
 # directory, and the /run/agentbox runtime export directory (credential shims
@@ -42,4 +48,7 @@ USER mitmproxy
 # setting also streams request bodies and can prevent request-header policy blocks
 # from returning a synthetic response.
 # --set http2=false avoids HTTP/2 header validation issues (e.g., gh CLI trailing whitespace)
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh", "-s", "/home/mitmproxy/addons/enforcer.py", "--set", "http2=false"]
+# --mode dns@5353 serves the DNS sinkhole (addons/dns_sinkhole.py) from the same process; the agent's
+# firewall rewrites its port 53 traffic to it. Passing any --mode replaces the default, so the regular
+# HTTP proxy mode on 8080 is listed explicitly.
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh", "-s", "/home/mitmproxy/addons/enforcer.py", "--set", "http2=false", "--mode", "regular@8080", "--mode", "dns@5353"]

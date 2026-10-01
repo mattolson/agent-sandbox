@@ -14,6 +14,12 @@ Lessons learned during project execution. Review at the start of each planning s
 - devcontainer.json and docker-compose.yml need separate volume/mount configs; they serve different workflows and VS Code reads devcontainer.json directly
 - yq syntax `.foo // [] | .[]` safely iterates arrays that may be missing or null
 - Shell-sourced state files should write user-facing values with shell escaping (`%q`) or later reads can break on spaces and special characters
+- On a user-defined Docker network the container's stub resolver is always `127.0.0.11`; compose `dns:` only sets the embedded resolver's upstream list. Upstreams marked `host(...)` in the resolv.conf comment are dialed from the host namespace and bypass the container's iptables entirely; container-address upstreams are dialed from the container and are subject to them
+- Bash can send and receive raw UDP and TCP through `/dev/udp` and `/dev/tcp` when an image has no `dig` or `nc`: read a reply with one `dd bs=4096 count=1`, capture socket-open errors with `{ exec 3<>...; } 2>file`, and tell the firewall's REJECT apart by errno (`EPERM` on a UDP send, `EHOSTUNREACH` on a TCP connect)
+- A proxy 403 to a `CONNECT` request has no body and shows up as curl exit 56; `-w '%{http_connect}'` exposes the status
+- Scripts meant to run on the Mac run on BSD tools: macOS awk reserves built-in function names such as `exp` as identifiers, and the first host-side audit run failed on that. Write collection and evaluation as separate steps so a bug in one does not lose the other's output
+- Single-file bind mounts pin the inode. The proxy mounts `user.policy.yaml` that way, so an editor that saves by rename, or `git checkout`, leaves the container reading the old content; `agentbox proxy reload` then re-renders stale policy and reports `applied`. Restart the proxy after such edits, or mount the directory instead of the file
+- `curl` honours `NO_PROXY` even when `-x` names a proxy explicitly; pass `--noproxy ''` when a request to a listed name must go through the proxy
 - Policy files that control security must live outside the workspace and be mounted read-only; otherwise the agent can modify them and re-run initialization to bypass restrictions
 - Baking default policies into images is safe (agent can't modify the image) and provides good UX (works out of the box)
 - Policy layering via Dockerfile COPY overwrites parent layer's policy cleanly
@@ -108,6 +114,47 @@ Lessons learned during project execution. Review at the start of each planning s
 - Attach security invariants to the construct they protect, not to conventions around it. Credential transforms are https-only because `apply_rule_transform` enforces it in both the catalog and the renderer, not because every rule author remembered to write `schemes: [https]` (m17.2 review)
 - `curl` ignores uppercase `HTTP_PROXY` for `http://` URLs, so a plaintext probe from the sandbox goes direct and is dropped by the firewall. To test the proxy's own handling of plaintext, pass `-x http://proxy:8080` explicitly (m17.3)
 - A rebuilt local image can lag the branch head by minutes. When a rendered artifact disagrees with the code, compare the artifact's content against the newest commit that should have changed it before assuming the code is wrong; and prefer diagnosing from sanitized output over sending a request that would be harmful on the old code (m17.3)
+- Docker's embedded resolver stays bound to `127.0.0.11` on a random high port; the port-53 NAT rule only redirects
+  to it. A firewall that replaces the resolver must reject the address itself, ahead of the loopback rule, or the
+  real port stays reachable (m18.2)
+- `/etc/resolv.conf` is a single-file bind mount like the policy file: the firewall script truncates and rewrites
+  it in place, because a rename fails with `EBUSY` and a copy is invisible to the mount (m18.2)
+- Once the firewall owns `/etc/resolv.conf`, nothing inside the agent container can learn Docker's resolver facts
+  from it. A throwaway container on the same network still gets Docker's original file; read such facts there
+  (m18.2)
+- Re-running `sudo /usr/local/bin/init-firewall.sh` in a live sandbox is safe, takes 0.1 s, and re-verifies every
+  self-test. It is the repair path after the proxy is recreated with a new address (m18.2)
+- Devcontainer mode is its own compose project, `<name>-devcontainer`, with its own proxy and network, so it runs
+  beside the CLI stack and audits of the two do not interfere. `agentbox init --mode devcontainer` on a CLI layout
+  regenerates the managed layers from the current templates, so expect churn in a checked-in runtime tree (m18.2)
+- A `SIGSEGV` after every addon's `done()` has run is interpreter finalization, not mitmproxy. mitmproxy 11.0.2 with
+  mitmproxy_rs 0.10.7 crashed in `Py_Finalize` about one stop in four when a DNS-mode UDP flow was open at shutdown;
+  `os._exit` at the end of `done()` is the probe that places such a crash. `images/proxy/run-mitmdump` calls
+  `mitmdump()` and leaves with `os._exit` carrying the returned status, which keeps option and startup errors;
+  an addon's `done()` cannot do that because it runs inside a `finally` on the `SystemExit` path (m18.2)
+- mitmproxy 12 renamed `dns.Message` to `dns.DNSMessage` and, from 12.0.1, runs user addons ahead of its own DNS
+  resolver (m18.2)
+- `getent hosts` prefers the AAAA record, so on a network with IPv6 it prints only the IPv6 address. Scripts that
+  need a peer's IPv4 address use `getent ahostsv4` (m18.3)
+- On Linux an ICMPv6 administratively-prohibited reject reaches a TCP connect as `EACCES` (`Permission denied`);
+  IPv4's reaches it as `EHOSTUNREACH`, and a UDP send reads `EPERM` in both (m18.3)
+- Docker 29 gives a compose network with `enable_ipv6: true` and no subnet a unique-local `/64` from a shared pool,
+  a different one per network, and keeps container DNS IPv4-only at `127.0.0.11` (m18.3)
+- An `ip6tables` loopback rule limited to `-d ::1` denies any other address on `lo` without the script having to
+  discover it (m18.3)
+- Under Colima, Docker checks bind sources inside the VM, so a project outside Colima's shared directories fails
+  with `bind source path does not exist` although the file is on the Mac. This repo's Colima shares
+  `~/dev/workspace` (m18.3)
+- mitmproxy 12: `server_connect` is the one hook every upstream connection passes through and the only one that can
+  refuse before the dial, by setting `server.error`. `server_connected` cannot abort. `server.address` cannot change
+  once the connection is open, and requests inside a CONNECT tunnel take `request.host` from it. A CONNECT's error
+  response can be replaced in `http_connect_error`; a plain request's cannot be replaced from the `error` hook (m18.4)
+- asyncio's `open_connection` resolves through the running loop's `getaddrinfo`, so a wrapper on that one method can
+  check a dial's answers without touching the caller, and the dial connects to exactly what it returns. A bind to
+  every interface also goes through it, as a lookup with no host and `AI_PASSIVE`. The proxy's address guard
+  depends on both, and `test_invariant_*` tests fail if a Python or mitmproxy bump breaks them (m18.4)
+- Python's `ssl` `sni_callback` must return `None`; any other value, such as the integer a `write()` returns, is
+  sent as a TLS alert and aborts the handshake (m18.4)
 
 ## Architecture
 
@@ -153,3 +200,27 @@ Lessons learned during project execution. Review at the start of each planning s
 - Driving user-facing example files from existing integration test scenarios (`test_github_git_injection.py`, `test_credential_shim_replace.py`, `test_proxy_enforcement.py::test_header_injection_reaches_upstream_for_matched_rule`) gives the example a permanent canary: if the renderer or catalog shifts, an integration test breaks at the same time the example would become wrong. Examples decoupled from tests drift silently
 - For a multi-doc reference rewrite, keep one canonical doc (here, `docs/policy/schema.md`) and have every other doc link back to it for grammars and supported values. Re-deriving the secret ID grammar in `docs/secrets.md`, `docs/git.md`, and `docs/troubleshooting.md` would create three places that go stale independently
 - A schema-doc correction for an unreleased feature is not a migration. `docs/upgrades/` should be reserved for genuine breaking changes against released behavior; cleaning up an unshipped syntax variant (the `surfaces` / repo-scoped `readonly` paragraphs) is just a doc fix
+- A version that the image, the dev venv, and CI all need belongs on one line. `mitmproxy/mitmproxy:latest`, an
+  unpinned `pip install mitmproxy` in CI, and the venv held three different releases without anything noticing.
+  `ARG MITMPROXY_VERSION` in the proxy Dockerfile, read with `sed` by `build-dev-image.bash` and `proxy-tests.yml`,
+  is the fix and the pattern for the next such tool (m18.2)
+- The proxy suite runs in CI on pushes to `main` and on pull requests only, so a long-lived branch without a PR is
+  never tested there. Open the draft PR early (m18.2)
+- An expected file written at planning time needs a pass against the final rule order. A8 was carried over from
+  baseline as `answered`, but no raw query to an address the firewall rejects outright can be answered (m18.2)
+- An empty capture is not evidence of absence. A negative observation such as "the label never left the VM" needs a
+  positive control in the same window, something that must appear, or the check passes on a dead capture (m18.3)
+- When a second address family has no consumer, deny it outright rather than mirroring the first family's
+  exceptions. Parity rules are surface to keep in step and can only be tested with that family enabled (m18.3)
+- Spike a mechanism against the real dependency before building on it, and check the harness with a direct control
+  before blaming the design. Reading source misjudged how mitmproxy treats `server.address`, and the spike's first
+  failure was a bug in the test upstream, not the proxy (m18.4)
+- A test that guards an invariant is only trustworthy once it has been seen to fail by breaking that invariant. The
+  first invariant test failed for an unrelated reason and blamed the wrong thing; one mutation per invariant settles
+  it (m18.4)
+- Audit rows that share a target but assume different policies conflict silently until one run exercises both. Give
+  a control row a target the other setups never touch (m18.4)
+- Check where the decision is used, not beside it. A guard that validated answers for a later lookup to consume had
+  an unchecked path for every way the hand-off could fail; validating the consuming lookup itself had none (m18.4)
+- A safety rule with two independent protections needs a mutation that removes both, and a test only guards an
+  invariant if its code path runs through the guarded thing. Both were found by mutating the address guard (m18.4)

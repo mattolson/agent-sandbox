@@ -158,10 +158,14 @@ agentbox switch --agent codex
 
 ## Network policy
 
-Network enforcement has two layers:
+Network enforcement has four layers:
 
-1. **Proxy** (mitmproxy sidecar) - Enforces allowed hosts plus optional request-aware rules. Blocks non-matching traffic with 403.
-2. **Firewall** (iptables) - Blocks all direct outbound from the agent container. Only the Docker host network is reachable, which is where the proxy sidecar runs. This prevents applications from bypassing the proxy.
+1. **Firewall** (iptables) - Blocks all direct outbound from the agent container. Only the Docker host network is reachable, which is where the proxy sidecar runs. This prevents applications from bypassing the proxy. IPv6 is blocked except loopback.
+2. **DNS sinkhole** (in the proxy sidecar) - The agent can resolve only compose service names such as `proxy`. Every other name gets `NXDOMAIN`, so DNS queries cannot carry data out. Tools that use the proxy never notice, because the proxy resolves allowed hosts for them.
+3. **Proxy** (mitmproxy sidecar) - Enforces allowed hosts plus optional request-aware rules. Blocks non-matching traffic with 403.
+4. **Address guard** (in the proxy sidecar) - Refuses an allowed host whose DNS answer is loopback, private, link-local, or a cloud metadata address, before connecting to it.
+
+[docs/network.md](./docs/network.md) describes each layer, what a refusal looks like from inside the container, how to reach other compose services, and the cases that remain open.
 
 The proxy image ships with a default policy that blocks all traffic. `agentbox init` sets up the layered policy files and active-agent baseline for your project.
 
@@ -169,7 +173,7 @@ The proxy image ships with a default policy that blocks all traffic. `agentbox i
 
 The agent container has `HTTP_PROXY`/`HTTPS_PROXY` set to point at the proxy sidecar. The proxy runs a mitmproxy addon (`enforcer.py`) that checks HTTPS CONNECT tunnels against the host policy, then checks decrypted HTTP/HTTPS requests against any scheme, method, path, or query rules. Non-matching requests get a 403 response.
 
-The agent's iptables firewall (`init-firewall.sh`) blocks all direct outbound except to the Docker bridge network. This means even if an application ignores the proxy env vars, it cannot reach the internet directly.
+The agent's iptables firewall (`init-firewall.sh`) blocks all direct outbound except to the Docker bridge network. This means even if an application ignores the proxy env vars, it cannot reach the internet directly. The firewall also points the agent's resolver at the proxy's DNS sinkhole and refuses every other resolver, so a tool that resolves names itself gets `NXDOMAIN` instead of reaching the internet's DNS.
 
 The proxy's CA certificate is shared via a Docker volume and automatically installed into the agent's system trust store at startup.
 
@@ -301,6 +305,8 @@ Key principles:
 
 - Minimal mounts: only the repo workspace + project-scoped agent state
 - Network egress is tightly controlled through sidecar proxy with default deny policy
+- Name resolution is limited to compose service names, so DNS queries cannot carry data out
+- Allowed hosts that resolve to internal or metadata addresses are refused
 - Raw proxy-injected secrets are mounted into the proxy only, not the agent container
 - Firewall verification runs at every container start
 
