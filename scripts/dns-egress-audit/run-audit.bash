@@ -31,8 +31,8 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/dns-egress-audit/run-audit.bash [options]
 
-  --stage NAME       baseline | after-m18.2 | after-m18.3 | after-m18.4. Picks expected/<stage>.tsv.
-                     Default: baseline.
+  --stage NAME       baseline | after-m18.2 | after-m18.3 | after-m18.4, or ci-ipv6-on | ci-ipv6-off for the
+                     CI run in images/base/tests/firewall-e2e.bash. Picks expected/<stage>.tsv. Default: baseline.
   --container ID     Probe an existing container instead of the CLI stack's agent service. Use this
                      for devcontainer mode after opening the repo in VS Code.
   --label STR        Random label queried under the zone. Default: generated. The captures grep for it.

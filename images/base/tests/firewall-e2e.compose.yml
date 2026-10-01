@@ -1,0 +1,36 @@
+# Two-service stack for firewall-e2e.bash: the proxy and an agent running the bare base image, which carries
+# init-firewall.sh. No agent CLI, no secrets, no CA mount; the base entrypoint skips the CA install without one.
+services:
+  proxy:
+    image: ${FWTEST_PROXY_IMAGE:-agent-sandbox-proxy:local}
+    cap_drop:
+      - ALL
+    environment:
+      - PROXY_MODE=enforce
+    volumes:
+      # Allows proxy and localhost, so the audit's D3 and D4 reach the address guard.
+      - type: bind
+        source: ./firewall-e2e.policy.yaml
+        target: /etc/agent-sandbox/policy/user.policy.yaml
+        read_only: true
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "localhost", "8080" ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  agent:
+    image: ${FWTEST_BASE_IMAGE:-agent-sandbox-base:local}
+    depends_on:
+      proxy:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SETUID
+      - SETGID
+    environment:
+      - HTTP_PROXY=http://proxy:8080
+      - HTTPS_PROXY=http://proxy:8080
+      - NO_PROXY=localhost,127.0.0.1,proxy
