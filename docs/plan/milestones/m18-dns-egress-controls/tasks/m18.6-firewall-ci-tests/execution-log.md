@@ -1,5 +1,17 @@
 # Execution Log: m18.6 - firewall CI tests
 
+## 2026-09-30 - The test fails on a broken firewall
+
+The maintainer deleted the rule that rejects `127.0.0.11`, rebuilt the base image, and ran `--ipv6 off`. Exit 1: the
+audit failed A3 through A10. A9 and A10 read `answered` with two answers, so the agent could query Docker's embedded
+resolver on its real port, the channel the milestone closed. Restoring the file and rebuilding reused the cached
+layer, so the image was byte-identical to the tested one, and the working tree is clean.
+
+**Observation:** The firewall's own startup checks all passed with the rule gone. They test the sinkhole and a direct
+connection, not Docker's resolver, so a regression in that rule is caught by this test or a host audit, never at
+container start. A fifth startup check, a raw query to `127.0.0.11` that must be rejected, would catch it on every
+start; see the open question in `task.md`.
+
 ## 2026-09-30 - Local runs pass in both modes
 
 The maintainer ran the driver on the Mac, Docker Engine 29.2.1 and Compose 5.1.0, against freshly built `:local`

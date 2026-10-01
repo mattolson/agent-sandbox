@@ -85,7 +85,7 @@ change in the milestone.
       subnet on engines before 27; the first CI run is the spike
 - [x] Write the compose stack and the two expectation files
 - [x] Write the workflow; maintainer pushes the branch from the host
-- [ ] See the workflow fail on a deliberately broken firewall, then pass on the real one
+- [x] See the test fail on a deliberately broken firewall, then pass on the real one (locally, 2026-09-30)
 - [ ] Turn IPv6 off in this repo's dev sandbox and update the docs
 - [ ] Verify each acceptance criterion and capture learnings
 
