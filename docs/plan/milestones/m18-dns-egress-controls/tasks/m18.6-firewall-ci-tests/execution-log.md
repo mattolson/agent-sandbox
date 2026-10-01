@@ -1,5 +1,22 @@
 # Execution Log: m18.6 - firewall CI tests
 
+## 2026-09-30 - Local runs pass in both modes
+
+The maintainer ran the driver on the Mac, Docker Engine 29.2.1 and Compose 5.1.0, against freshly built `:local`
+images.
+
+**Issue:** The first IPv6-on run failed D3 and D4 with `Blocked by proxy policy`; the proxy logged `0 host records`.
+With no active agent, `render-policy` renders a single file, the baked default-deny policy unless
+`AGENTBOX_POLICY_SOURCE_PATH` names another, and reads `user.policy.yaml` only in layered mode. The test policy is now
+mounted at its own path and named by that variable (cd7f724). Every other check in that run passed, and the failure
+showed the driver reports a mismatch: exit 1, with the agent and proxy logs dumped.
+
+**Observation:** After the fix both modes pass. IPv6 on: the eight startup lines, every compared row, D3 refused on
+`fd9f:73ac:d109:1::2` as `sandbox_network` and D4 on `::1` as `loopback`, and all three `ip6tables` checks, the
+link-local one included. IPv6 off: the `absent` lines, the same IPv4 and DNS rows, the E rows `unreachable`, D3 refused
+on `172.28.0.2` as `sandbox_network`, and D4 still on `::1`, because the proxy's loopback keeps IPv6 when the network
+has none.
+
 ## 2026-09-30 - Test, expectation files, and workflow written
 
 Approved as recommended. Docker is not reachable from the sandbox, so the logic lives in a driver,
