@@ -119,5 +119,6 @@ networks:
 Docker Engine 27 and later assigns a unique-local `/64` when no subnet is given; this repo's Colima runs 29.2.1.
 An older daemon needs an `ipam` block with a subnet under `fd00::/8`. Compose does not change an existing network
 in place, so run `agentbox down` before `agentbox up`. With IPv6 on, `--stage after-m18.3` expects E1 `present`
-and E2 through E4 `rejected`; with it off, `--stage after-m18.2` is the file to use. This repo keeps the override
-in place so development exercises the IPv6 rules every day.
+and E2 through E4 `rejected`; with it off, `--stage after-m18.2` is the file to use. This repo's dev sandbox runs
+with IPv6 off, as users do by default; the CI firewall test (`images/base/tests/firewall-e2e.bash`) exercises both
+paths on every change to the images or the audit, so enable IPv6 here only for a host audit of the E rows.

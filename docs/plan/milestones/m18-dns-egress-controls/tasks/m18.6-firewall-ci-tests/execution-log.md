@@ -1,5 +1,12 @@
 # Execution Log: m18.6 - firewall CI tests
 
+## 2026-10-01 - IPv6 off in the dev sandbox; task closed
+
+The maintainer removed `networks: default: enable_ipv6: true` from `user.override.yml` and recreated the stack. The
+dev container has no global IPv6 address and `disable_ipv6=1` on `eth0`. The audit README, the m18.3 decision in the
+milestone, and the m18.3 task now say the dev sandbox runs with IPv6 off and CI covers both paths. All five
+acceptance criteria hold.
+
 ## 2026-10-01 - CI green; review finding fixed
 
 The third CI run passed both firewall jobs, the proxy suite, and CodeQL, with no failure annotations. Greptile scored

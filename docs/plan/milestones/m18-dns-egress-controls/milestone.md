@@ -148,8 +148,9 @@ address family.
 - Decided 2026-09-17: deny all IPv6 except loopback (`::1` only) and established traffic, with no host-network or
   port 53 exception, because the agent reaches the proxy and the sinkhole over IPv4 by construction. The rules go
   in whether or not the network has IPv6; the firewall fails closed only when IPv6 is present and `ip6tables` is
-  unavailable. This repo's dev sandbox keeps IPv6 enabled so the path is exercised daily. The alternatives and
-  the reasoning are in `tasks/m18.3-ipv6-egress-parity/task.md`
+  unavailable. This repo's dev sandbox kept IPv6 enabled so the path was exercised daily, until `m18.6` moved that
+  coverage into CI and turned it off on 2026-10-01. The alternatives and the reasoning are in
+  `tasks/m18.3-ipv6-egress-parity/task.md`
 
 **Acceptance Criteria:**
 - With IPv6 available on the network, every IPv6 probe from the audit is blocked
@@ -277,6 +278,13 @@ B1, B2, and H2.
 - Docs, troubleshooting, the agent skill, and a decision record are updated, including the residual gaps
 
 ## Changes
+
+### 2026-10-01: m18.6 closed
+
+The firewall, the DNS sinkhole, and the address guard now run end to end in CI with IPv6 on and off, on every change
+to the images or the audit. The first CI runs found that Docker's upstream on GitHub's runners is systemd-resolved's
+loopback, which the audit's C1 and C2 cannot test; they now report `not-applicable` there. A deliberate-failure run
+added a fifth startup check, for Docker's resolver. This repo's dev sandbox runs with IPv6 off from here on.
 
 ### 2026-09-28: m18.6 opened as a follow-up
 

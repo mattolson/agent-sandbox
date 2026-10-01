@@ -23,6 +23,3 @@ volumes:
   go-build-cache:
   go-env:
   pip-cache:
-networks:
-  default:
-    enable_ipv6: true

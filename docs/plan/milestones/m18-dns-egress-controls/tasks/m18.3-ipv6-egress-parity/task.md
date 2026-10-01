@@ -179,7 +179,8 @@ in each run records the installed IPv6 rules.
 
 1. Resolved 2026-09-17: deny-all IPv6 (option 3). A sidecar reachable only over IPv6 is not a case to support
 2. Resolved 2026-09-17: this repo's checked-in `user.override.yml` keeps `enable_ipv6: true`, so development
-   exercises the IPv6 path every day
+   exercises the IPv6 path every day. Superseded 2026-10-01 by `m18.6`: CI covers both IPv6 paths, and the dev
+   sandbox runs with IPv6 off
 3. Resolved 2026-09-17: the sinkhole keeps answering AAAA. The firewall is the control, and a proxy change would
    widen the rollout
 4. Resolved 2026-09-17: Docker Engine 29.2.1 on Colima, which assigns a unique-local prefix when no subnet is

@@ -32,7 +32,9 @@ A follow-up to the milestone, opened on 2026-09-28 after it closed:
       firewall without its resolver rule, first in the audit rows and then at start
 - [x] The workflow was seen to fail on a deliberately broken firewall before it is trusted. Locally, 2026-09-30, the
       same script CI runs
-- [ ] This repo's dev sandbox runs with IPv6 off, and no doc still says the repo keeps it on
+- [x] This repo's dev sandbox runs with IPv6 off, and no doc still says the repo keeps it on. The maintainer removed
+      the override on 2026-10-01; the start banner reads `IPv6: absent on eth0`, and the audit README, the m18.3
+      decision, and the m18.3 task now say so
 
 ## Applicable Learnings
 
@@ -91,8 +93,8 @@ change in the milestone.
 - [x] Write the compose stack and the two expectation files
 - [x] Write the workflow; maintainer pushes the branch from the host
 - [x] See the test fail on a deliberately broken firewall, then pass on the real one (locally, 2026-09-30)
-- [ ] Turn IPv6 off in this repo's dev sandbox and update the docs
-- [ ] Verify each acceptance criterion and capture learnings
+- [x] Turn IPv6 off in this repo's dev sandbox and update the docs
+- [x] Verify each acceptance criterion and capture learnings
 
 ### Open Questions
 
@@ -110,12 +112,22 @@ rebase or force-push is needed after #204 merges.
 
 ### Acceptance Verification
 
-_Pending._
+All five criteria are ticked above. The workflow runs on every relevant push to #204 and passed on Docker Engine 28.0.4,
+Ubuntu amd64; the same script passes locally on Colima arm64, Docker 29.2.1; and it was seen to fail on a firewall
+missing its rule against Docker's resolver.
 
 ### Learnings
 
-_Pending._
+- A deliberate-failure run is worth doing even when the test looks complete. Deleting one firewall rule showed that
+  none of the firewall's own startup checks covered it, which led to the fifth check
+- A CI runner is a different host, not a faster laptop. Docker's upstream there is systemd-resolved's loopback, which
+  broke an audit assumption that held on Colima for the whole milestone
+- When the sandbox cannot read a system's output, make the system report through a channel it can read. GitHub
+  annotations come from `api.github.com`; job logs and artifacts do not
+- Under `set -e`, a test driver needs an ERR trap that reports, or the most basic failures, such as a Compose error,
+  end the run with nothing to diagnose
+- Fixed container and project names make concurrent test runs collide; name them per run
 
 ### Follow-up Items
 
-_Pending._
+- None for the milestone. The host-only rows, H1 and H2, stay manual by nature
