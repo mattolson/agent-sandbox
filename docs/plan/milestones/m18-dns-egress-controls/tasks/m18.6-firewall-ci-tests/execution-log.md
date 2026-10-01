@@ -1,5 +1,16 @@
 # Execution Log: m18.6 - firewall CI tests
 
+## 2026-10-01 - CI green; review finding fixed
+
+The third CI run passed both firewall jobs, the proxy suite, and CodeQL, with no failure annotations. Greptile scored
+the m18.6 commits 5/5 with one P2: concurrent local runs collided on the audit's fixed peer name, and two runs of one
+IPv6 mode shared a Compose project. CI's jobs run on separate machines and were unaffected. Fixed in 3be886d by naming
+the peer after the run's label and giving the test project a random suffix. Checked by `bash -n` and an audit dry run;
+no concurrent run was attempted, as the sandbox has no Docker.
+
+Remaining: the maintainer removes `enable_ipv6` from this repo's `user.override.yml`, then the docs that say the repo
+keeps IPv6 on are updated.
+
 ## 2026-10-01 - First CI runs: one audit assumption fails on GitHub's runners
 
 **Issue:** Both firewall jobs failed on the first CI run, and the reason was out of reach: job logs and artifacts are

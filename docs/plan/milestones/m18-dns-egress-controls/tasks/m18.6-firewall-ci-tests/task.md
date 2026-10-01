@@ -24,11 +24,14 @@ A follow-up to the milestone, opened on 2026-09-28 after it closed:
 
 ## Acceptance Criteria
 
-- [ ] A PR that touches `images/base/`, `images/proxy/`, or the audit scripts runs the workflow
-- [ ] With IPv6 on, the run fails if any IPv6 self-test line is missing, any E row does not read `rejected`, or the
-      firewall starts without `ip6tables`
-- [ ] With IPv6 off, the run fails if the `absent` line is missing or any IPv4 or DNS row regresses
-- [ ] The workflow was seen to fail on a deliberately broken firewall before it is trusted
+- [x] A PR that touches `images/base/`, `images/proxy/`, or the audit scripts runs the workflow. It ran on every push
+      to #204 from 2026-10-01
+- [x] With IPv6 on, the run fails if any IPv6 self-test line is missing, any E row does not read `rejected`, or the
+      firewall starts without `ip6tables`. The driver checks each; passing in CI on Docker 28.0.4 and locally on 29.2.1
+- [x] With IPv6 off, the run fails if the `absent` line is missing or any IPv4 or DNS row regresses. Seen failing on a
+      firewall without its resolver rule, first in the audit rows and then at start
+- [x] The workflow was seen to fail on a deliberately broken firewall before it is trusted. Locally, 2026-09-30, the
+      same script CI runs
 - [ ] This repo's dev sandbox runs with IPv6 off, and no doc still says the repo keeps it on
 
 ## Applicable Learnings
@@ -83,8 +86,8 @@ change in the milestone.
 
 ### Implementation Steps
 
-- [ ] Spike the runner's IPv6 support: folded into the workflow, which prints the engine version and declares a
-      subnet on engines before 27; the first CI run is the spike
+- [x] Spike the runner's IPv6 support: folded into the workflow, which prints the engine version and declares a
+      subnet on engines before 27; the first CI run was the spike
 - [x] Write the compose stack and the two expectation files
 - [x] Write the workflow; maintainer pushes the branch from the host
 - [x] See the test fail on a deliberately broken firewall, then pass on the real one (locally, 2026-09-30)
