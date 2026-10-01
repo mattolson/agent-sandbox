@@ -7,11 +7,13 @@ services:
       - ALL
     environment:
       - PROXY_MODE=enforce
+      # With no active agent, render-policy renders this one file instead of the layered policy. It allows proxy
+      # and localhost, so the audit's D3 and D4 reach the address guard.
+      - AGENTBOX_POLICY_SOURCE_PATH=/etc/agent-sandbox/policy/firewall-e2e.policy.yaml
     volumes:
-      # Allows proxy and localhost, so the audit's D3 and D4 reach the address guard.
       - type: bind
         source: ./firewall-e2e.policy.yaml
-        target: /etc/agent-sandbox/policy/user.policy.yaml
+        target: /etc/agent-sandbox/policy/firewall-e2e.policy.yaml
         read_only: true
     healthcheck:
       test: [ "CMD", "nc", "-z", "localhost", "8080" ]
