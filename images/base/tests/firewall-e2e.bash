@@ -102,6 +102,7 @@ expect_line() { # TEXT
 }
 expect_line "OK (proxy resolves to"
 expect_line "PASS: unknown name refused with NXDOMAIN"
+expect_line "PASS: Docker's resolver at 127.0.0.11 refused"
 expect_line "PASS: Direct outbound blocked (1.1.1.1 unreachable)"
 if [ "$MODE" = on ]; then
   expect_line "IPv6: present on eth0"

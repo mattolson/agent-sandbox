@@ -17,8 +17,10 @@ A follow-up to the milestone, opened on 2026-09-28 after it closed:
 - The fail-closed start without `ip6tables`, coverage procedure 1, automated in the IPv6-on run
 - Once the workflow passes on `main`'s side of the stack, turn IPv6 off in this repo's `user.override.yml` and update
   the lines that say the repo keeps it on
-- Out of scope: the host-only rows (H1, the VM capture, and H2), which need Colima; the address guard, which the proxy
-  suite already covers in CI; any change to the controls themselves
+- One change to the controls, approved 2026-09-30: a fifth startup check in `init-firewall.sh`, a raw query to
+  Docker's resolver at `127.0.0.11` that must be rejected, after the deliberate-failure run showed no startup check
+  covered that rule
+- Out of scope: the host-only rows (H1, the VM capture, and H2), which need Colima; any other change to the controls
 
 ## Acceptance Criteria
 
@@ -94,7 +96,7 @@ change in the milestone.
 All five resolved 2026-09-30 as recommended: the bare base image as the agent; the stack under `images/base/tests/`;
 a hand-written compose file; the `proxy-tests.yml` trigger paths; stacked on #204.
 
-6. Raised 2026-09-30 by the deliberate-failure run. The firewall's startup checks passed with the `127.0.0.11` reject
+6. Resolved 2026-09-30: yes, added. Raised by the deliberate-failure run. The firewall's startup checks passed with the `127.0.0.11` reject
    rule deleted, because none of them tests Docker's resolver. Add a fifth check, a raw DNS query to `127.0.0.11` on
    port 53 that must read `rejected`, so every container start catches that regression rather than only this test or
    a host audit. Recommendation: yes; it reuses `dns_rcode`, which already reports `rejected`, and costs one send

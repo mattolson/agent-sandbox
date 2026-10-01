@@ -109,6 +109,7 @@ The firewall prints its checks to the container log at every start. A healthy st
 
 ```
 PASS: unknown name refused with NXDOMAIN (sinkhole-test-<random>.invalid)
+PASS: Docker's resolver at 127.0.0.11 refused
 PASS: Direct outbound blocked (1.1.1.1 unreachable)
 Verifying IPv6...
 PASS: IPv6 absent on eth0; ip6tables default-deny covers it if the network gains it

@@ -270,6 +270,16 @@ case $RCODE in
     *) echo "FAIL: lookup of $NEGATIVE_NAME returned $RCODE instead of NXDOMAIN"; exit 1 ;;
 esac
 
+# Docker's embedded resolver must be unreachable: it forwards every name to the
+# host and on to the internet. Rule 3 rejects its address outright, so a raw
+# query to its port 53 must fail at once. Without the rule the query times out or
+# is answered, and the sinkhole checks above would still pass.
+RESULT=$(dns_rcode 127.0.0.11 53 "$NEGATIVE_NAME")
+case $RESULT in
+    rejected) echo "PASS: Docker's resolver at 127.0.0.11 refused" ;;
+    *) echo "FAIL: a query to Docker's resolver at 127.0.0.11 was not refused (got: $RESULT)"; exit 1 ;;
+esac
+
 # Negative test: direct outbound should be blocked. An IP literal, because names
 # no longer resolve and the point is the firewall, not the resolver.
 echo "Verifying firewall..."

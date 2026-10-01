@@ -184,7 +184,7 @@ enabled on the compose network for the E rows.
 | Control | Automated | Manual |
 |---------|-----------|--------|
 | Direct outbound refused | Every start: connect to `1.1.1.1` must fail | Audit C1-C5 |
-| Docker's resolver refused, port 53 and its real port | None | Audit A3-A10 |
+| Docker's resolver refused, port 53 and its real port | Every start: a raw query to `127.0.0.11:53` must be rejected (added in `m18.6`); `firewall-e2e.bash` in CI | Audit A3-A10 |
 | DNS only to the sinkhole; 53 and 853 refused elsewhere, peers included | Every start: the negative lookup goes through the port-53 rewrite | Audit B1-B4, C1-C5 |
 | Unknown names get `NXDOMAIN`, no query leaves the host | Every start: a random `.invalid` name must get `NXDOMAIN`; `test_dns_sinkhole.py` unit tests; integration `test_unknown_name_is_nxdomain_over_udp_and_tcp` | Audit A1, A2, S1, S2; H1 with its positive control |
 | Allowed service names resolve | Every start: `proxy` must resolve through the sinkhole; integration `test_allowed_name_is_answered_with_addresses_and_ttl` | Audit S3 |

@@ -1,5 +1,14 @@
 # Execution Log: m18.6 - firewall CI tests
 
+## 2026-09-30 - Startup check for Docker's resolver added
+
+Approved by the maintainer. `init-firewall.sh` now sends a raw query to `127.0.0.11:53` after the sinkhole check and
+stops the container unless it reads `rejected`. Without rule 3 the query times out or is answered, so the check fails;
+run from the repo script in the dev sandbox, whose firewall has the rule, it printed
+`PASS: Docker's resolver at 127.0.0.11 refused` in 12 ms. The e2e driver expects the new line, `docs/network.md` shows
+it in the healthy startup output, and the coverage table lists it as automated coverage for A3 through A10's control.
+The failing direction needs the host: the same deleted-rule run, which should now stop at container start.
+
 ## 2026-09-30 - The test fails on a broken firewall
 
 The maintainer deleted the rule that rejects `127.0.0.11`, rebuilt the base image, and ran `--ipv6 off`. Exit 1: the
