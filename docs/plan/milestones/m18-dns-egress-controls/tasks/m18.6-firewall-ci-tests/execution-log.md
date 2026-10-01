@@ -1,5 +1,22 @@
 # Execution Log: m18.6 - firewall CI tests
 
+## 2026-09-30 - Test, expectation files, and workflow written
+
+Approved as recommended. Docker is not reachable from the sandbox, so the logic lives in a driver,
+`images/base/tests/firewall-e2e.bash`, that the workflow calls and that also runs on the maintainer's Mac. That turns
+"seen to fail on a broken firewall" into a local run rather than a series of CI round trips.
+
+**Decision:** The test stack mounts a policy that allows `proxy` and `localhost`, so the audit's D3 and D4 run and the
+address guard is exercised inside the real proxy image, which the proxy suite, running outside a container, does not
+do. D2 stays recorded rather than compared, because it needs `dns.google` reachable; H1 and H2 need the Colima VM.
+
+**Issue:** Found while reading `run-audit.bash`: `die()` already exited 2, so the exit 2 that 61c8a57 gave an
+incomplete audit was ambiguous. Fixed on the #204 branch (192a439): an incomplete audit now exits 3. This branch was
+rebased onto it before its first push.
+
+**Decision:** The spike step was folded into the workflow. It prints the engine and Compose versions, and the driver
+declares an IPv6 subnet on engines before 27, which do not assign one. The first CI run is the spike.
+
 ## 2026-09-28 - Planning
 
 Opened as a follow-up after the maintainer asked whether a test could replace keeping IPv6 on in the dev sandbox. The

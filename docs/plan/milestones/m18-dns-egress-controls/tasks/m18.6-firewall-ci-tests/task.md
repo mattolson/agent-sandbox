@@ -81,27 +81,18 @@ change in the milestone.
 
 ### Implementation Steps
 
-- [ ] Spike the runner's IPv6 support
-- [ ] Write the compose stack and the two expectation files
-- [ ] Write the workflow; maintainer pushes the branch from the host
+- [ ] Spike the runner's IPv6 support: folded into the workflow, which prints the engine version and declares a
+      subnet on engines before 27; the first CI run is the spike
+- [x] Write the compose stack and the two expectation files
+- [x] Write the workflow; maintainer pushes the branch from the host
 - [ ] See the workflow fail on a deliberately broken firewall, then pass on the real one
 - [ ] Turn IPv6 off in this repo's dev sandbox and update the docs
 - [ ] Verify each acceptance criterion and capture learnings
 
 ### Open Questions
 
-1. The agent service runs the bare base image rather than an agent image. Recommendation: yes. The firewall and its
-   checks live in the base image, and an agent image would add minutes of build for no extra coverage of this path
-2. Where the test compose file lives: next to the firewall under `images/base/tests/`, or with the audit under
-   `scripts/dns-egress-audit/`. Recommendation: `images/base/tests/`, since it tests the base image, with the
-   expectation files staying beside the others
-3. Whether to build the stack from `agentbox init` output instead of a hand-written compose file, so the templates are
-   tested too. Recommendation: hand-written for now. `agentbox init` pins and may pull the published agent images,
-   which is slow and tests a different thing; the Go suite already covers template generation
-4. The workflow's trigger: PRs and pushes to `main` that touch `images/base/`, `images/proxy/`,
-   `scripts/dns-egress-audit/`, or the workflow itself. Recommendation: yes, matching `proxy-tests.yml`
-5. The stacking. This branch starts from `m18-dns-egress-controls` because it needs the m18 code. Its PR merges after
-   #204 and is rebased onto `main` when #204 lands. Recommendation: as described
+All five resolved 2026-09-30 as recommended: the bare base image as the agent; the stack under `images/base/tests/`;
+a hand-written compose file; the `proxy-tests.yml` trigger paths; stacked on #204.
 
 ## Outcome
 
