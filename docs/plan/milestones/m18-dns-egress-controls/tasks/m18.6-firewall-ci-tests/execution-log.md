@@ -1,5 +1,13 @@
 # Execution Log: m18.6 - firewall CI tests
 
+## 2026-09-30 - Folded into #204
+
+**Decision:** The maintainer chose to land m18.6 in #204 rather than a stacked PR. The new startup check fixes a gap in
+a control #204 introduces and belongs with it; the end-to-end test then gates #204's own firewall changes; and the
+stack's rebase and force-push after #204 merges go away. `m18-dns-egress-controls` was fast-forwarded to the m18.6
+commits, so no history was rewritten, and the local `m18.6-firewall-ci-tests` branch was deleted. It had never been
+pushed.
+
 ## 2026-09-30 - The new check stops a start without the resolver rule
 
 With the fifth check built in, both modes pass locally and show `PASS: Docker's resolver at 127.0.0.11 refused`. The

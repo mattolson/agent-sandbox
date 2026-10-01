@@ -226,7 +226,7 @@ address family.
 off, so this repo's dev sandbox no longer has to keep IPv6 enabled to exercise the IPv6 path. Plan in
 `tasks/m18.6-firewall-ci-tests/task.md`.
 
-**Dependencies:** `m18.2`, `m18.3`, and PR #204, on whose branch it is stacked.
+**Dependencies:** `m18.2` and `m18.3`. Lands in PR #204 with the rest of the milestone.
 
 ## Execution Order
 

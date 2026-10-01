@@ -94,7 +94,9 @@ change in the milestone.
 ### Open Questions
 
 All five resolved 2026-09-30 as recommended: the bare base image as the agent; the stack under `images/base/tests/`;
-a hand-written compose file; the `proxy-tests.yml` trigger paths; stacked on #204.
+a hand-written compose file; the `proxy-tests.yml` trigger paths; stacked on #204. Changed later that day: folded
+into #204 instead, by fast-forwarding its branch, so the end-to-end test gates the firewall changes it tests and no
+rebase or force-push is needed after #204 merges.
 
 6. Resolved 2026-09-30: yes, added. Raised by the deliberate-failure run. The firewall's startup checks passed with the `127.0.0.11` reject
    rule deleted, because none of them tests Docker's resolver. Add a fifth check, a raw DNS query to `127.0.0.11` on
