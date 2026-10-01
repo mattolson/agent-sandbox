@@ -94,6 +94,11 @@ change in the milestone.
 All five resolved 2026-09-30 as recommended: the bare base image as the agent; the stack under `images/base/tests/`;
 a hand-written compose file; the `proxy-tests.yml` trigger paths; stacked on #204.
 
+6. Raised 2026-09-30 by the deliberate-failure run. The firewall's startup checks passed with the `127.0.0.11` reject
+   rule deleted, because none of them tests Docker's resolver. Add a fifth check, a raw DNS query to `127.0.0.11` on
+   port 53 that must read `rejected`, so every container start catches that regression rather than only this test or
+   a host audit. Recommendation: yes; it reuses `dns_rcode`, which already reports `rejected`, and costs one send
+
 ## Outcome
 
 ### Acceptance Verification
