@@ -24,6 +24,7 @@
 #   curl-<exit>     curl failed before getting a status
 #   present/absent  for the IPv6 presence probe
 #   no-listener     the embedded resolver's port could not be discovered
+#   not-applicable  the probe cannot test anything here; the detail says why
 #   info            informational rows that are recorded, not compared
 set -u
 
@@ -331,13 +332,24 @@ if [ -n "$PEER" ]; then
   selected B4 && run B4 "$PEER:53/tcp" "$(peer_result "$(dns_tcp "$PEER" 53 "$LABEL.$ZONE" 1)")"
 fi
 
-if [ -n "$UPSTREAM" ]; then
-  selected C1 && run C1 "$UPSTREAM:53/udp" "$(dns_udp "$UPSTREAM" 53 "$ZONE" 1)"
-  selected C2 && run C2 "$UPSTREAM:53/tcp" "$(dns_tcp "$UPSTREAM" 53 "$ZONE" 1)"
-else
-  selected C1 && emit C1 "upstream:53/udp" error "upstream unknown: no ExtServers line in resolv.conf; pass --upstream"
-  selected C2 && emit C2 "upstream:53/tcp" error "upstream unknown: no ExtServers line in resolv.conf; pass --upstream"
-fi
+case $UPSTREAM in
+  "")
+    selected C1 && emit C1 "upstream:53/udp" error "upstream unknown: no ExtServers line in resolv.conf; pass --upstream"
+    selected C2 && emit C2 "upstream:53/tcp" error "upstream unknown: no ExtServers line in resolv.conf; pass --upstream"
+    ;;
+  127.*|::1)
+    # Docker dials a loopback upstream, such as systemd-resolved's 127.0.0.53, from the host's namespace. Inside the
+    # container that address is the container's own loopback, so a query to it reaches nothing of the host's. The
+    # host resolver is reachable only through Docker's embedded resolver, which A3 through A10 cover.
+    why="upstream $UPSTREAM is the host's loopback, which the container's own loopback shadows"
+    selected C1 && emit C1 "$UPSTREAM:53/udp" not-applicable "$why"
+    selected C2 && emit C2 "$UPSTREAM:53/tcp" not-applicable "$why"
+    ;;
+  *)
+    selected C1 && run C1 "$UPSTREAM:53/udp" "$(dns_udp "$UPSTREAM" 53 "$ZONE" 1)"
+    selected C2 && run C2 "$UPSTREAM:53/tcp" "$(dns_tcp "$UPSTREAM" 53 "$ZONE" 1)"
+    ;;
+esac
 selected C3 && run C3 "8.8.8.8:53/udp" "$(dns_udp 8.8.8.8 53 "$ZONE" 1)"
 selected C4 && run C4 "8.8.8.8:53/tcp" "$(dns_tcp 8.8.8.8 53 "$ZONE" 1)"
 selected C5 && run C5 "1.1.1.1:853/tcp" "$(port_open 1.1.1.1 853)"

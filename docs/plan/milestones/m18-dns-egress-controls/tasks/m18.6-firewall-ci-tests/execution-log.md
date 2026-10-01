@@ -1,5 +1,29 @@
 # Execution Log: m18.6 - firewall CI tests
 
+## 2026-10-01 - First CI runs: one audit assumption fails on GitHub's runners
+
+**Issue:** Both firewall jobs failed on the first CI run, and the reason was out of reach: job logs and artifacts are
+served from Azure blob storage, which the sandbox proxy blocks. Rather than allow those hosts, the driver now reports
+a failure as GitHub error annotations, which `api.github.com` serves (55484f7). It also gained an ERR trap so an
+unexpected command failure, such as a failed `docker compose up`, is reported rather than ending the run silently.
+
+**Observation:** The second run, on Docker Engine 28.0.4, Compose 2.38.2, and kernel 6.17.0-1022-azure, reported
+through annotations. The firewall passed everything in both modes: every startup line, the new resolver check, all
+three `ip6tables` checks, and every audit row but C1 and C2, which read `timeout` and `conn-refused` instead of
+`rejected`.
+
+**Issue:** C1 and C2 query Docker's upstream resolver, taken from the `ExtServers` comment with the `host(...)` marker
+stripped. GitHub's Ubuntu runners use systemd-resolved, so the upstream is `host(127.0.0.53)`: Docker dials it from
+the host's namespace, but inside the container `127.0.0.53` is the container's own loopback, where nothing listens.
+The probe tested nothing; it was not a leak. The host's resolver is reachable from the container only through
+Docker's embedded resolver, which A3 through A10 cover. The probe now reports `not-applicable` with that reason for a
+loopback upstream, and the CI expectation files accept it alongside `rejected`; the host stage files stay strict,
+since Colima's upstream is a routable address.
+
+**Learning:** The first CI run was the spike the plan anticipated, and it answered both questions: the runner's Docker
+assigns IPv6 the same way Colima does, and an assumption baked into the audit, that Docker's upstream is a routable
+address, does not hold on every host.
+
 ## 2026-09-30 - Folded into #204
 
 **Decision:** The maintainer chose to land m18.6 in #204 rather than a stacked PR. The new startup check fixes a gap in

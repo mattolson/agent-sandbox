@@ -1,6 +1,7 @@
 # Expected in CI (images/base/tests/firewall-e2e.bash --ipv6 off): after-m18.4 with IPv6 off, Docker's default.
 # Rows a CI runner cannot produce are recorded, not compared: H1 and H2 need the Colima VM, and D2 needs
-# dns.google reachable and allowed. The test policy allows proxy and localhost, so D3 and D4 run.
+# dns.google reachable and allowed. The test policy allows proxy and localhost, so D3 and D4 run. C1 and C2
+# read not-applicable where Docker's upstream is the host's loopback, as on GitHub's Ubuntu runners.
 R1	*
 R2	*
 A1	not-found
@@ -17,8 +18,8 @@ B1	rejected
 B2	rejected
 B3	rejected
 B4	rejected
-C1	rejected
-C2	rejected
+C1	rejected|not-applicable
+C2	rejected|not-applicable
 C3	rejected
 C4	rejected
 C5	rejected
