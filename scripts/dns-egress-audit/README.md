@@ -37,9 +37,10 @@ terminal before the probes run, and use `--pause` so the runner waits for you:
 sudo tcpdump -ni "$(route -n get 8.8.8.8 | awk '/interface:/{print $2}')" -l udp port 53 | grep --line-buffered <label>
 ```
 
-The runner exits 0 when every row with an expected value ran and matched, 1 on any mismatch or missing row,
-and 2 when everything that ran matched but some expected rows were skipped, for example D2 through D4 without
-`--policy-probes` or H1 and H2 with `--skip-vm`. Exit 2 means the stage is not fully verified.
+The runner exits 0 when every row with an expected value ran and matched, 1 on any mismatch or missing row, 2 when
+it could not run (a bad option, no container), and 3 when everything that ran matched but some expected rows were
+skipped, for example D2 through D4 without `--policy-probes` or H1 and H2 with `--skip-vm`. Exit 3 means the stage is
+not fully verified.
 
 Results land in `results/<stage>-<timestamp>/`: `results.tsv` (every probe), `compare.tsv` (status against the
 expected file), the VM capture, the peer responder log, the `dns:` override check, and the firewall dumps taken as

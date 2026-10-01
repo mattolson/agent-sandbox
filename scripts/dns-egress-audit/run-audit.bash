@@ -398,6 +398,6 @@ skipped_ids=$(awk -F'\t' '$2 == "SKIPPED" && $3 != "*" { printf "%s ", $1 }' "$R
 if [ -n "$skipped_ids" ]; then
   log "every probe that ran matches, but these expected rows were skipped: ${skipped_ids% }"
   log "the $STAGE expectations are not fully verified; see the README for the flags each row needs"
-  exit 2
+  exit 3
 fi
 log "all compared probes match the $STAGE expectations"
