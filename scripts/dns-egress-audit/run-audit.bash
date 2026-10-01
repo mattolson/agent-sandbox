@@ -11,7 +11,6 @@ set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 PROBE="$SCRIPT_DIR/probe.bash"
-PEER_NAME=agentbox-dns-peer
 PEER_IMAGE=python:3-alpine
 
 STAGE=baseline
@@ -75,6 +74,9 @@ done
 EXPECTED="$SCRIPT_DIR/expected/$STAGE.tsv"
 [ -f "$EXPECTED" ] || die "no expected file for stage '$STAGE' at $EXPECTED"
 [ -n "$LABEL" ] || LABEL=$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')
+# Named per run, so concurrent audits, such as the CI firewall test beside a host audit, do not remove each
+# other's peer.
+PEER_NAME="agentbox-dns-peer-$LABEL"
 
 MAC_IFACE=$(route -n get 8.8.8.8 2>/dev/null | awk '/interface:/{print $2}' || true)
 MAC_IFACE=${MAC_IFACE:-en0}

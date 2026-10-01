@@ -40,7 +40,8 @@ case $MODE in
   *) echo "usage: $0 --ipv6 on|off [--keep] [--out DIR]" >&2; exit 2 ;;
 esac
 
-PROJECT="fwtest-ipv6-$MODE"
+# Named per run, so two runs at once, in the same mode or not, keep their own containers and networks.
+PROJECT="fwtest-ipv6-$MODE-$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n')"
 FILES=(-f "$SCRIPT_DIR/firewall-e2e.compose.yml")
 FAILURES=0
 FAIL_MESSAGES=()
