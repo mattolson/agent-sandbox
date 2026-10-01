@@ -15,7 +15,9 @@
 # Usage: images/base/tests/firewall-e2e.bash --ipv6 on|off [--keep] [--out DIR]
 #   --keep     leave the stack running afterwards, for debugging
 #   --out DIR  where the audit writes its results (default: a temporary directory)
-# Exits 0 when every check passes, 1 otherwise.
+# Exits 0 when every check passes, 1 otherwise. Under GitHub Actions a failure is also reported as up to four
+# error annotations (the failed checks, the mismatched audit rows, and the agent and proxy log tails), which the
+# GitHub API serves without the job log.
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -41,23 +43,28 @@ esac
 PROJECT="fwtest-ipv6-$MODE"
 FILES=(-f "$SCRIPT_DIR/firewall-e2e.compose.yml")
 FAILURES=0
+FAIL_MESSAGES=()
+VERSIONS=""
 [ -n "$OUT" ] || OUT=$(mktemp -d)
 
 log() { printf '[fwtest %s] %s\n' "$MODE" "$*"; }
-fail() { printf '[fwtest %s] FAIL: %s\n' "$MODE" "$*"; FAILURES=$((FAILURES + 1)); }
-compose() { docker compose -p "$PROJECT" "${FILES[@]}" "$@"; }
+fail() {
+  printf '[fwtest %s] FAIL: %s\n' "$MODE" "$*"
+  FAILURES=$((FAILURES + 1))
+  FAIL_MESSAGES+=("$*")
+}
 
-server_version=$(docker version --format '{{.Server.Version}}')
-log "docker engine $server_version, $(docker compose version --short 2>/dev/null || echo 'compose ?')"
-log "images: ${FWTEST_BASE_IMAGE:-agent-sandbox-base:local} ${FWTEST_PROXY_IMAGE:-agent-sandbox-proxy:local}"
-if [ "$MODE" = on ]; then
-  FILES+=(-f "$SCRIPT_DIR/firewall-e2e.ipv6.yml")
-  # Engines before 27 do not assign an IPv6 prefix on their own.
-  if [ "${server_version%%.*}" -lt 27 ] 2>/dev/null; then
-    FILES+=(-f "$SCRIPT_DIR/firewall-e2e.ipv6-subnet.yml")
-    log "engine before 27: declaring the IPv6 subnet"
-  fi
-fi
+# annotate TITLE TEXT: a GitHub Actions error annotation, when running there. Workflow commands need %, CR, and LF
+# escaped. GitHub keeps ten error annotations per step, so callers keep to a handful.
+annotate() {
+  [ "${GITHUB_ACTIONS:-}" = true ] || return 0
+  local text=$2
+  text=${text//'%'/'%25'}
+  text=${text//$'\r'/'%0D'}
+  text=${text//$'\n'/'%0A'}
+  printf '::error title=firewall-e2e (IPv6 %s) %s::%s\n' "$MODE" "$1" "$text"
+}
+compose() { docker compose -p "$PROJECT" "${FILES[@]}" "$@"; }
 
 cleanup() {
   if [ "$KEEP" -eq 1 ]; then
@@ -73,12 +80,56 @@ dump_logs() {
   log "proxy log (tail):"; compose logs --no-color --tail 40 proxy 2>&1 | sed 's/^/    /' || true
 }
 
+# finish_failed: print the logs, report the failure as annotations, and exit 1.
+finish_failed() {
+  trap - ERR
+  dump_logs
+  local failed mismatches compare
+  failed=$(printf -- '- %s\n' "${FAIL_MESSAGES[@]}")
+  annotate "failed checks" "$FAILURES check(s) failed ($VERSIONS):"$'\n'"$failed"
+  compare=$(ls -t "$OUT"/*/compare.tsv 2>/dev/null | head -n 1 || true)
+  if [ -n "$compare" ]; then
+    mismatches=$(awk -F'\t' '$2 == "MISMATCH" || $2 == "MISSING" || ($2 == "SKIPPED" && $3 != "*") {
+      printf "%s %s expected=%s observed=%s %s\n", $1, $2, $3, $4, substr($5, 1, 100) }' "$compare")
+    [ -z "$mismatches" ] || annotate "audit rows" "$mismatches"
+  fi
+  annotate "agent log" "$(compose logs --no-color --no-log-prefix --tail 40 agent 2>&1 || true)"
+  annotate "proxy log" "$(compose logs --no-color --no-log-prefix --tail 25 proxy 2>&1 || true)"
+  log "$FAILURES check(s) failed; audit results under $OUT"
+  exit 1
+}
+
+# Under set -e an unexpected command failure would end the run with no report; record it and report as usual.
+on_unexpected_error() { # LINE COMMAND
+  fail "unexpected error at line $1: $2"
+  finish_failed
+}
+trap 'on_unexpected_error "$LINENO" "$BASH_COMMAND"' ERR
+
+server_version=$(docker version --format '{{.Server.Version}}')
+VERSIONS="docker engine $server_version, compose $(docker compose version --short 2>/dev/null || echo '?'), kernel $(uname -r)"
+log "$VERSIONS"
+log "images: ${FWTEST_BASE_IMAGE:-agent-sandbox-base:local} ${FWTEST_PROXY_IMAGE:-agent-sandbox-proxy:local}"
+if [ "$MODE" = on ]; then
+  FILES+=(-f "$SCRIPT_DIR/firewall-e2e.ipv6.yml")
+  # Engines before 27 do not assign an IPv6 prefix on their own.
+  if [ "${server_version%%.*}" -lt 27 ] 2>/dev/null; then
+    FILES+=(-f "$SCRIPT_DIR/firewall-e2e.ipv6-subnet.yml")
+    log "engine before 27: declaring the IPv6 subnet"
+  fi
+fi
+
 # --- start ----------------------------------------------------------------
 compose down -v --remove-orphans >/dev/null 2>&1 || true
 log "starting $PROJECT"
-compose up -d
+if ! up_output=$(compose up -d 2>&1); then
+  printf '%s\n' "$up_output"
+  fail "docker compose up failed: $(printf '%s' "$up_output" | tail -n 5)"
+  finish_failed
+fi
+printf '%s\n' "$up_output"
 AGENT=$(compose ps -aq agent)
-[ -n "$AGENT" ] || { fail "no agent container"; dump_logs; exit 1; }
+[ -n "$AGENT" ] || { fail "no agent container"; finish_failed; }
 
 # The firewall runs once, at start. Wait for it to finish one way or the other.
 agent_log=""
@@ -120,8 +171,7 @@ fi
 
 if [ "$(docker inspect -f '{{.State.Running}}' "$AGENT")" != true ]; then
   fail "agent container is not running; skipping the audit"
-  dump_logs
-  exit 1
+  finish_failed
 fi
 
 # --- 2. audit rows ------------------------------------------------------------
@@ -171,8 +221,6 @@ fi
 
 # --- summary --------------------------------------------------------------------
 if [ "$FAILURES" -gt 0 ]; then
-  dump_logs
-  log "$FAILURES check(s) failed; audit results under $OUT"
-  exit 1
+  finish_failed
 fi
 log "all checks passed; audit results under $OUT"
