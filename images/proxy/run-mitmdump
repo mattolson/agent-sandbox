@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""Run mitmdump and leave the process without interpreter teardown.
+
+mitmdump's DNS mode is served by mitmproxy_rs, a Rust extension with its own
+thread pool. Once a DNS flow has been handled, letting the interpreter tear
+down at exit crashes with SIGSEGV in about one run out of four (mitmproxy
+11.0.2, mitmproxy_rs 0.10.7). The crash is in a non-Python thread during
+finalization, after mitmproxy's own shutdown, including every addon's done()
+hook, has completed. It costs a core dump and exit status 139 and nothing
+else. This launcher runs mitmdump normally and then leaves with os._exit,
+skipping finalization, with the status mitmdump asked for.
+"""
+
+import os
+import sys
+
+from mitmproxy.tools.main import mitmdump
+
+
+def exit_status(returned, raised):
+    """Map mitmdump's return value or SystemExit to a process exit status."""
+    if raised is not None:
+        code = raised.code
+        if code is None:
+            return 0
+        if isinstance(code, int):
+            return code
+        print(code, file=sys.stderr)
+        return 1
+    return returned if isinstance(returned, int) else 0
+
+
+def main():
+    returned = None
+    raised = None
+    try:
+        returned = mitmdump()
+    except SystemExit as exc:
+        raised = exc
+    except KeyboardInterrupt:
+        raised = SystemExit(130)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(exit_status(returned, raised))
+
+
+if __name__ == "__main__":
+    main()

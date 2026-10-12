@@ -1,0 +1,59 @@
+name: Firewall Tests
+
+# Runs the agent firewall, the DNS sinkhole, and the address guard end to end in real containers, once with IPv6
+# on the compose network and once without. See images/base/tests/firewall-e2e.bash.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'images/base/**'
+      - 'images/proxy/**'
+      - 'scripts/dns-egress-audit/**'
+      - '.github/workflows/firewall-tests.yml'
+  pull_request:
+    paths:
+      - 'images/base/**'
+      - 'images/proxy/**'
+      - 'scripts/dns-egress-audit/**'
+      - '.github/workflows/firewall-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  firewall:
+    name: firewall (IPv6 ${{ matrix.ipv6 }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        # Quoted: unquoted on and off are YAML 1.1 booleans.
+        ipv6: ['on', 'off']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Docker versions
+        run: |
+          docker version
+          docker compose version
+
+      - name: Build the base and proxy images
+        run: |
+          ./images/build.sh base
+          ./images/build.sh proxy
+
+      - name: Run the firewall end-to-end test
+        run: images/base/tests/firewall-e2e.bash --ipv6 '${{ matrix.ipv6 }}' --out "$RUNNER_TEMP/audit"
+
+      - name: Upload the audit results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: firewall-audit-ipv6-${{ matrix.ipv6 }}
+          path: ${{ runner.temp }}/audit
+          if-no-files-found: ignore

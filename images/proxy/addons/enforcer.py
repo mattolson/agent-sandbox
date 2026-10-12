@@ -18,6 +18,13 @@ Environment variables:
   AGENTBOX_RENDER_POLICY_PATH: optional override for the render-policy binary
     path. Defaults to /usr/local/bin/render-policy (the location the proxy
     image installs it to).
+  AGENTBOX_DNS_ALLOW: extra exact names the DNS sinkhole answers; see
+    dns_sinkhole.py.
+
+Address guard: address_guard.py refuses an allowed name that resolves to a
+loopback, private, link-local, metadata, or other non-global address, and
+pins each dial to the answers it checked. This addon answers its refusals with
+the same 403 as a policy block and a body that names the guard.
 """
 
 from __future__ import annotations
@@ -58,6 +65,8 @@ from secret_resolver import (  # noqa: E402
     SecretResolverError,
     render_header_value,
 )
+from dns_sinkhole import DnsSinkhole  # noqa: E402
+from address_guard import AddressGuard, is_refusal_message  # noqa: E402
 
 try:
     from mitmproxy import http
@@ -545,6 +554,39 @@ class PolicyEnforcer:
 
         self._clear_stored_decision(flow)
 
+    def http_connect_error(self, flow):
+        """Answer a CONNECT the address guard refused with 403 instead of mitmproxy's 502."""
+        if self.mode != "enforce":
+            return
+        server_conn = getattr(flow, "server_conn", None)
+        error = getattr(server_conn, "error", None)
+        if not is_refusal_message(error):
+            return
+        self._block_for_address_guard(flow, error, phase="connect")
+
+    def address_guard_refused(self, flow, refusal):
+        """Callback for the address guard's plain-http pre-check."""
+        self._block_for_address_guard(flow, refusal.message(), phase="request")
+
+    def _block_for_address_guard(self, flow, message, phase):
+        # The guard logs its own event; the stored decision keeps the response
+        # hook from logging this flow as allowed.
+        self._store_decision(
+            flow,
+            PolicyDecision(
+                phase=phase,
+                action="blocked",
+                reason="address_guard",
+                host=flow.request.host,
+                scheme=flow.request.scheme,
+                method=flow.request.method,
+                detail=message,
+            ),
+        )
+        if getattr(flow.request, "stream", False):
+            flow.request.stream = False
+        flow.response = self._make_response(403, message)
+
     def _handle_request_decision(self, flow):
         if self.mode != "enforce":
             return
@@ -648,7 +690,14 @@ class PolicyEnforcer:
 def build_addons():
     if http is None:
         return []
-    return [PolicyEnforcer()]
+    # The sinkhole shares the log stream and level; it is served by the same mitmdump
+    # process in DNS mode (see the Dockerfile ENTRYPOINT).
+    logger = JsonLogger(log_level=os.getenv("PROXY_LOG_LEVEL", "normal"))
+    sinkhole = DnsSinkhole(logger=logger)
+    enforcer = PolicyEnforcer()
+    # After the enforcer, so its requestheaders hook sees the policy decision first.
+    guard = AddressGuard(mode=enforcer.mode, logger=logger, on_refused=enforcer.address_guard_refused)
+    return [enforcer, sinkhole, guard]
 
 
 addons = build_addons()

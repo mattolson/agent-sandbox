@@ -12,8 +12,41 @@ ENV GOCACHE=/home/dev/.cache/go-build
 
 # Setup python
 RUN /etc/agent-sandbox/stacks/python.sh
-RUN python3 -m venv /opt/proxy-python && \
-  /opt/proxy-python/bin/pip install --no-cache-dir mitmproxy pytest PyYAML
+
+# Proxy test venv. It runs the mitmproxy release the proxy image pins, which
+# needs a newer Python than bookworm ships, so a pinned, checksum-verified uv
+# (build-time only, same recipe as images/agents/hermes/Dockerfile) installs a
+# managed interpreter under /opt where the dev user can run it.
+# MITMPROXY_VERSION has no default on purpose: scripts/build-dev-image.bash
+# reads it from images/proxy/Dockerfile so the venv matches the image.
+ARG MITMPROXY_VERSION
+ARG PROXY_PYTHON_VERSION=3.14
+ARG UV_VERSION=0.11.21
+ARG UV_SHA256_AMD64=8c88519b0ef0af9801fcdee419bbb12116bd9e6b18e162ae093c932d8b264050
+ARG UV_SHA256_ARM64=88e800834007cc5efd4675f166eb2a51e7e3ad19876d85fa8805a6fb5c922397
+ARG TARGETARCH
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
+RUN set -e && \
+    if [ -z "$MITMPROXY_VERSION" ]; then \
+      echo "MITMPROXY_VERSION is required; build with scripts/build-dev-image.bash (make setup)" >&2; exit 1; \
+    fi && \
+    case "$TARGETARCH" in \
+      amd64) UV_TRIPLE=x86_64-unknown-linux-gnu; UV_SHA="$UV_SHA256_AMD64" ;; \
+      arm64) UV_TRIPLE=aarch64-unknown-linux-gnu; UV_SHA="$UV_SHA256_ARM64" ;; \
+      *) echo "unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
+    esac && \
+    curl -fsSL -o /tmp/uv.tar.gz \
+      "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${UV_TRIPLE}.tar.gz" && \
+    echo "${UV_SHA}  /tmp/uv.tar.gz" | sha256sum -c - && \
+    tar -xzf /tmp/uv.tar.gz -C /tmp && \
+    install -m 0755 "/tmp/uv-${UV_TRIPLE}/uv" /usr/local/bin/uv && \
+    export UV_CACHE_DIR=/tmp/uv-cache && \
+    uv python install "$PROXY_PYTHON_VERSION" && \
+    uv venv --python "$PROXY_PYTHON_VERSION" --seed /opt/proxy-python && \
+    uv pip install --python /opt/proxy-python/bin/python "mitmproxy==${MITMPROXY_VERSION}" pytest PyYAML && \
+    /opt/proxy-python/bin/python -c \
+      "import sys, mitmproxy.version as v; print('venv python', sys.version.split()[0], 'mitmproxy', v.VERSION)" && \
+    rm -rf /tmp/uv-cache /tmp/uv.tar.gz "/tmp/uv-${UV_TRIPLE}" /usr/local/bin/uv
 ENV PIP_CACHE_DIR=/home/dev/.cache/pip
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 

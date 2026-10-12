@@ -31,4 +31,6 @@ export AGENTBOX_PUBLIC_POLICY_PATH="$PUBLIC_POLICY_PATH"
 
 # Run mitmdump with all passed arguments, using the same confdir
 # --quiet suppresses mitmproxy's built-in logging (we use our own JSON logs)
-exec mitmdump --quiet --set confdir="$CA_DIR" "$@"
+# run-mitmdump is mitmdump without interpreter teardown: DNS mode crashes on
+# exit otherwise (see the launcher's docstring).
+exec run-mitmdump --quiet --set confdir="$CA_DIR" "$@"

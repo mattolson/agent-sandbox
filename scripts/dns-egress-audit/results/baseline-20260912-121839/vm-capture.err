@@ -1,0 +1,7 @@
+tcpdump: data link type LINUX_SLL2
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on any, link-type LINUX_SLL2 (Linux cooked v2), snapshot length 262144 bytes
+32 packets captured
+46 packets received by filter
+0 packets dropped by kernel
+time="2026-09-12T12:19:08-07:00" level=fatal msg="exit status 124"

@@ -1,0 +1,5 @@
+# IPv6 on the test network. Docker Engine 27 and later assigns a unique-local prefix; firewall-e2e.bash adds
+# firewall-e2e.ipv6-subnet.yml on older engines, which need one declared.
+networks:
+  default:
+    enable_ipv6: true

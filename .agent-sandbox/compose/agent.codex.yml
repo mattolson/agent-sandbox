@@ -13,7 +13,7 @@ services:
     environment:
       - AGENTBOX_ACTIVE_AGENT=codex
   agent:
-    image: ghcr.io/mattolson/agent-sandbox-codex@sha256:37dfb7985dabd6a0a8617dfa8336a323571c57ef12c008a4134d34c6048c1c99
+    image: ghcr.io/mattolson/agent-sandbox-codex@sha256:827a42c26aecb7bea075076826c6298f9ce6ab45ac40f3cfedbc79cd2bc9c28b
     volumes:
       - codex-state:/home/dev/.codex
       - codex-history:/commandhistory

@@ -140,7 +140,7 @@ Detailed project plan can be found in [plan/project.md](./plan/project.md) and r
 - Validate and document which stock `gh` commands work under repo-scoped rules
 - Add agent instructions for the most common workflows to the `operating-in-agent-sandbox` skill
 
-## m18: DNS egress controls (planned)
+## m18: DNS egress controls (done)
 
 - Replace Docker's embedded resolver with a sinkhole that answers compose service names and returns `NXDOMAIN` for
   everything else, closing query-name exfiltration

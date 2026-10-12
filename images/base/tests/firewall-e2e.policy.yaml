@@ -1,0 +1,5 @@
+# Test-only policy for firewall-e2e.bash: the two names the audit's D3 and D4 send through the proxy.
+services: []
+domains:
+  - proxy
+  - localhost
