@@ -44,8 +44,10 @@ ENV CODEX_HOME="/home/dev/.codex"
 # codex-package.json). The codex binary refuses to start unless it runs from
 # inside that layout, so the package is unpacked to /opt/codex and only the
 # entrypoint is symlinked onto PATH. The archive is verified against the
-# release's codex-package_SHA256SUMS. Releases that predate the package are
-# not supported; any download failure aborts the build.
+# release's codex-package_SHA256SUMS. "latest" is resolved to a release tag
+# once so the package and checksums always come from the same release.
+# Releases that predate the package are not supported; any download failure
+# aborts the build.
 ARG CODEX_VERSION=latest
 ARG TARGETARCH
 USER root
@@ -55,11 +57,17 @@ RUN set -e && \
       arm64) TRIPLE="aarch64-unknown-linux-musl" ;; \
       *) echo "Unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
     esac && \
-    if [ "$CODEX_VERSION" = "latest" ]; then \
-      BASE_URL="https://github.com/openai/codex/releases/latest/download"; \
-    else \
-      BASE_URL="https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}"; \
+    VERSION="$CODEX_VERSION" && \
+    if [ "$VERSION" = "latest" ]; then \
+      LATEST_URL=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/openai/codex/releases/latest) && \
+      VERSION="${LATEST_URL##*/rust-v}" && \
+      if [ -z "$VERSION" ] || [ "$VERSION" = "$LATEST_URL" ]; then \
+        echo "ERROR: could not resolve the latest Codex release from ${LATEST_URL}" >&2; \
+        exit 1; \
+      fi && \
+      echo "Resolved latest Codex release to ${VERSION}"; \
     fi && \
+    BASE_URL="https://github.com/openai/codex/releases/download/rust-v${VERSION}" && \
     PACKAGE="codex-package-${TRIPLE}.tar.gz" && \
     for ASSET in "$PACKAGE" codex-package_SHA256SUMS; do \
       echo "Downloading ${BASE_URL}/${ASSET}..." && \
