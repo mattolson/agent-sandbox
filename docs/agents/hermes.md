@@ -105,7 +105,7 @@ The image sets these environment variables to keep Hermes well-behaved inside th
 
 ### Install layout
 
-Hermes is installed from a **pinned git checkout**, not the PyPI wheel. The image shallow-clones the upstream release tag to `/opt/hermes/hermes-agent` and editable-installs it (`uv sync --locked`) into a sibling venv at `/opt/hermes/hermes-agent/.venv`. The whole tree is root-owned and read-only at runtime; the source lives outside the `HERMES_HOME` volume so the runtime mount never shadows it.
+Hermes is installed from a **pinned git checkout**, not the PyPI wheel. The image shallow-clones the upstream release tag to `/opt/hermes/hermes-agent` and editable-installs it (`uv sync --locked`) into a sibling venv at `/opt/hermes/hermes-agent/.venv`. The venv runs on a uv-managed CPython (python-build-standalone) installed under `/opt/hermes/python`, not Debian's `python3`: upstream locks for Python 3.14 only and bookworm ships 3.11. uv picks the version from the pinned tag's `.python-version` and `requires-python` and verifies the download against the checksum built into the pinned uv release. Debian's `python3` is still installed so `python3` stays on `PATH` for tools run in the sandbox, but Hermes does not use it. The whole tree is root-owned and read-only at runtime; the source lives outside the `HERMES_HOME` volume so the runtime mount never shadows it.
 
 Two reasons for the git layout over the wheel:
 
@@ -122,13 +122,11 @@ The image also plants `sitecustomize.py` in the venv's `site-packages` that does
 
 ### SQLite (WAL-reset fix)
 
-Debian bookworm ships SQLite **3.40.1**, which python3.11's `sqlite3` module links dynamically. 3.40.1 is inside the range affected by the SQLite [WAL-reset bug](https://www.sqlite.org/wal.html) (all releases 3.7.0–3.51.2): under WAL mode, two connections in separate threads/processes that write or checkpoint at the same instant can corrupt the database. Because the Hermes **gateway runs as a long-lived background process** while the CLI is a second process on the same state DB, that concurrency pattern is reachable here. Upstream fixed it in **3.51.3** (backports **3.50.7** / **3.44.6**).
+SQLite releases 3.7.0–3.51.2 are affected by the [WAL-reset bug](https://www.sqlite.org/wal.html): under WAL mode, two connections in separate threads/processes that write or checkpoint at the same instant can corrupt the database. Because the Hermes **gateway runs as a long-lived background process** while the CLI is a second process on the same state DB, that concurrency pattern is reachable here. Upstream fixed it in **3.51.3** (backports **3.50.7** / **3.44.6**).
 
-The image compiles the official SQLite amalgamation (pinned version, verified against sqlite.org's published SHA3-256) and drops it over the multiarch `libsqlite3.so.0` that Python links. SQLite keeps ABI stability across the 3.x series, so no Python rebuild is needed and `sqlite3.sqlite_version` reports the fixed release.
+Hermes's uv-managed interpreter links its own SQLite (3.53.1 in python-build-standalone `20260610`, the build the pinned uv selects for CPython 3.14.6), so it does not use bookworm's `libsqlite3` 3.40.1. The build checks `sqlite3.sqlite_version` in the Hermes venv and fails if it is below 3.51.3. Debian's system `python3` still links 3.40.1; do not point it at the Hermes state DB.
 
-> **`hermes doctor` note.** Doctor flags SQLite 3.40.1 and tells you to `run hermes update`. Ignore that remedy: it does not apply here. `hermes update` only updates the Hermes *Python package* — it can never change the linked C `libsqlite3` — and in this sandbox it fails outright against the read-only checkout (see [Upgrading](#upgrading)). After a rebuild that includes this fix, the warning clears on its own.
-
-To bump SQLite, update `SQLITE_YEAR`, `SQLITE_VERSION`, and `SQLITE_SHA3_256` together in `images/agents/hermes/Dockerfile` from [sqlite.org/download.html](https://www.sqlite.org/download.html). `SQLITE_VERSION` is the zero-padded `X_YY_ZZ_WW` form (3.51.3 → `3510300`); keep it at or above a fixed release. The build fails closed if `SQLITE_SHA3_256` is unset or mismatched.
+If a future uv or Python bump ever trips that check, bump `UV_VERSION` (and both checksums) in `images/agents/hermes/Dockerfile` to a release whose managed builds carry a fixed SQLite.
 
 ## State persistence
 
