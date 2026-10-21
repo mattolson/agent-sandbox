@@ -9,57 +9,12 @@
 
 ARG BASE_IMAGE=agent-sandbox-base:local
 
-# --- SQLite builder stage -------------------------------------------------
-# Compile a WAL-reset-fixed SQLite for the runtime image.
-#
-# Debian bookworm ships libsqlite3 3.40.1, which python3.11's `sqlite3` module
-# links dynamically. 3.40.1 is inside the range affected by the SQLite WAL-reset
-# bug (all releases 3.7.0-3.51.2): under WAL mode, two connections in separate
-# threads/processes that write or checkpoint at the same instant can corrupt the
-# database. The hermes gateway runs as a long-lived background process while the
-# CLI is a second process on the same state DB, so this concurrency pattern is
-# reachable here. Fixed upstream in 3.51.3 (backports 3.50.7 / 3.44.6).
-# See https://www.sqlite.org/wal.html and docs/agents/hermes.md.
-#
-# The runtime base ships no compiler (build-essential lives only in base's
-# throwaway git-builder stage), so we build the official amalgamation into a
-# shared object here and COPY only the .so into the final image — the same
-# builder-stage pattern base uses for git and yq. SQLite keeps ABI stability
-# across the 3.x series, so dropping the .so over the linked libsqlite3.so.0
-# needs no Python rebuild. Verified against sqlite.org's published SHA3-256
-# (not SHA-256), checked with python3's hashlib so no extra tooling is required.
-#
-# Bump SQLITE_YEAR, SQLITE_VERSION, and SQLITE_SHA3_256 together from
-# https://www.sqlite.org/download.html. SQLITE_VERSION is the zero-padded
-# X_YY_ZZ_WW form (3.51.3 -> 3510300). Must stay >= 3.51.3 (or a fixed backport).
-FROM ${BASE_IMAGE} AS sqlite-builder
-USER root
-ARG SQLITE_YEAR=2026
-ARG SQLITE_VERSION=3510300
-ARG SQLITE_SHA3_256=ced02ff9738970f338c9c8e269897b554bcda73f6cf1029d49459e1324dbeaea
-RUN set -e && \
-    [ -n "$SQLITE_SHA3_256" ] || { echo "ERROR: SQLITE_SHA3_256 build-arg is required. Copy the SHA3-256 for sqlite-amalgamation-${SQLITE_VERSION}.zip from https://www.sqlite.org/download.html (see docs/agents/hermes.md)." >&2; exit 1; } && \
-    apt-get update && apt-get install -y --no-install-recommends build-essential python3 && \
-    curl -fsSL -o /tmp/sqlite.zip \
-      "https://www.sqlite.org/${SQLITE_YEAR}/sqlite-amalgamation-${SQLITE_VERSION}.zip" && \
-    python3 -c "import hashlib; d=hashlib.sha3_256(open('/tmp/sqlite.zip','rb').read()).hexdigest(); exp='$SQLITE_SHA3_256'.strip().lower(); assert d==exp, 'SQLite amalgamation SHA3-256 mismatch: expected %s got %s' % (exp, d)" && \
-    cd /tmp && unzip -q sqlite.zip && cd "sqlite-amalgamation-${SQLITE_VERSION}" && \
-    gcc -O2 -fPIC -shared -Wl,-soname,libsqlite3.so.0 \
-      -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS \
-      -DSQLITE_ENABLE_FTS4 -DSQLITE_ENABLE_FTS5 \
-      -DSQLITE_ENABLE_RTREE -DSQLITE_ENABLE_JSON1 \
-      -DSQLITE_ENABLE_COLUMN_METADATA -DSQLITE_ENABLE_DBSTAT_VTAB \
-      -DSQLITE_ENABLE_LOAD_EXTENSION -DSQLITE_ENABLE_UNLOCK_NOTIFY \
-      -DSQLITE_SECURE_DELETE -DSQLITE_THREADSAFE=1 \
-      -o libsqlite3.so.0 sqlite3.c -lm -lpthread -ldl && \
-    mkdir -p /out && cp libsqlite3.so.0 /out/libsqlite3.so.0
-
-# --- Runtime image --------------------------------------------------------
 FROM ${BASE_IMAGE}
 
 # Optional extra apt packages (validated below). base already provides git,
-# curl, ripgrep, and ca-certificates; only Python is missing. (base ships no
-# compiler; the SQLite fix above compiles in a separate builder stage.)
+# curl, ripgrep, and ca-certificates. Debian's python3 (3.11) is installed only
+# so `python3` stays on PATH for tools run inside the sandbox; Hermes itself
+# runs on the uv-managed interpreter installed below.
 ARG EXTRA_PACKAGES=""
 USER root
 RUN set -e && \
@@ -71,28 +26,11 @@ RUN set -e && \
     fi && \
     apt-get update && apt-get install -y --no-install-recommends $PACKAGES \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
-# python3-dev is deliberately omitted: the chosen extras (cli/mcp/acp) plus core
-# resolve as prebuilt wheels. If a future dep needs to compile from source, add
-# python3-dev AND build-essential here — the runtime base ships no compiler (it
-# lives only in base's throwaway git-builder stage).
-
-# Install the WAL-reset-fixed SQLite built in the sqlite-builder stage over the
-# libsqlite3.so.0 that python3's sqlite3 module links. Runs after the python3
-# install above (which pulls libsqlite3-0, so the target symlink exists). The
-# final python3 check confirms the interpreter now links the fixed release; the
-# glob resolves the multiarch dir without needing a compiler here. See the
-# sqlite-builder stage and docs/agents/hermes.md for the why. `hermes doctor`'s
-# "run hermes update" remedy does not apply in this image — that only updates the
-# Python package, never the linked C library, and the checkout is read-only.
-COPY --from=sqlite-builder /out/libsqlite3.so.0 /tmp/libsqlite3.so.0
-RUN set -e && \
-    SYS="$(ls /usr/lib/*/libsqlite3.so.0 2>/dev/null | head -n1)" && \
-    [ -n "$SYS" ] || { echo "ERROR: system libsqlite3.so.0 not found under /usr/lib" >&2; exit 1; } && \
-    TARGET="$(readlink -f "$SYS")" && \
-    install -m 0644 /tmp/libsqlite3.so.0 "$TARGET" && \
-    rm -f /tmp/libsqlite3.so.0 && \
-    ldconfig && \
-    python3 -c "import sqlite3; v=tuple(map(int, sqlite3.sqlite_version.split('.'))); print('linked SQLite', sqlite3.sqlite_version); assert v >= (3,51,3), f'WAL-reset fix missing: {sqlite3.sqlite_version}'"
+# No compiler is installed: the chosen extras (mcp/acp) plus core resolve as
+# prebuilt wheels. The uv-managed interpreter ships its own headers, so if a
+# future dep needs to compile from source, only build-essential is missing — the
+# runtime base ships no compiler (it lives only in base's throwaway git-builder
+# stage).
 
 # Install a pinned, checksum-verified uv (build-time only) for the locked,
 # editable install below. Download the binary straight from the GitHub release
@@ -145,7 +83,22 @@ ARG HERMES_EXTRAS="mcp,acp"
 # doctor` probes for, so its "Reinstall entry point" check passes natively (no
 # site-packages symlink hack). The source lives at /opt/hermes/hermes-agent,
 # outside the HERMES_HOME state volume, so the runtime mount never shadows it.
-ENV UV_NO_CACHE=1 UV_LINK_MODE=copy
+#
+# Python comes from uv's managed builds (python-build-standalone), not Debian.
+# Upstream locks for 3.14 only (`[tool.uv] environments`), and bookworm ships
+# 3.11, so `uv sync --locked` against the system interpreter fails. With
+# UV_PYTHON_PREFERENCE=only-managed, uv picks the version from the tag's
+# .python-version / requires-python and downloads it, verified against the
+# SHA-256 that the pinned uv release carries for each build. The interpreter
+# lands in /opt/hermes/python so the lockdown below covers it too.
+#
+# SQLite: python-build-standalone links its own SQLite into the interpreter, so
+# Hermes no longer uses bookworm's libsqlite3 3.40.1, which is inside the range
+# hit by the SQLite WAL-reset bug (3.7.0-3.51.2). The gateway and CLI are two
+# processes on one WAL-mode state DB, so that bug is reachable here. The final
+# check fails the build if the venv's interpreter ever links an unfixed release.
+# See https://www.sqlite.org/wal.html and docs/agents/hermes.md.
+ENV UV_NO_CACHE=1 UV_LINK_MODE=copy UV_PYTHON_INSTALL_DIR=/opt/hermes/python
 RUN set -e && \
     git clone --depth 1 --branch "$HERMES_REF" \
       https://github.com/NousResearch/hermes-agent.git /opt/hermes/hermes-agent && \
@@ -156,7 +109,8 @@ RUN set -e && \
     fi && \
     EXTRA_FLAGS="" && \
     for e in $(printf '%s' "$HERMES_EXTRAS" | tr ',' ' '); do EXTRA_FLAGS="$EXTRA_FLAGS --extra $e"; done && \
-    uv sync --locked --python python3 $EXTRA_FLAGS && \
+    UV_PYTHON_PREFERENCE=only-managed uv sync --locked $EXTRA_FLAGS && \
+    /opt/hermes/hermes-agent/.venv/bin/python -c "import sqlite3, sys; v=tuple(map(int, sqlite3.sqlite_version.split('.'))); print('Python', sys.version.split()[0], 'linked SQLite', sqlite3.sqlite_version); assert v >= (3,51,3), f'WAL-reset fix missing: {sqlite3.sqlite_version}'" && \
     /opt/hermes/hermes-agent/.venv/bin/hermes --version
 
 # Work around upstream hermes-agent#15768: setup's free-text prompts call bare
