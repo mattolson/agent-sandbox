@@ -4,7 +4,9 @@
 ARG BASE_IMAGE=agent-sandbox-base:local
 FROM ${BASE_IMAGE}
 
-# Install bubblewrap so Codex's startup probe finds /usr/bin/bwrap.
+# Install system bubblewrap. Codex looks for bwrap on PATH at startup and warns
+# when it is missing, even though the package bundles codex-resources/bwrap as
+# a fallback.
 # Optional extra packages can be layered on top via EXTRA_PACKAGES.
 ARG EXTRA_PACKAGES=""
 USER root
@@ -34,16 +36,19 @@ ENV PATH="/home/dev/.local/bin:$PATH"
 # Tell Codex where its config/state lives
 ENV CODEX_HOME="/home/dev/.codex"
 
-# Install Codex CLI binaries from GitHub releases
-# CODEX_VERSION: "latest" or a specific version like "0.104.0"
+# Install Codex CLI from GitHub releases
+# CODEX_VERSION: "latest" or a specific version like "X.Y.Z"
 #
-# Codex ships as separate per-binary archives. The main `codex` binary is
-# required. `codex-code-mode-host` is the Code Mode helper that Codex looks for
-# next to its own executable; without it every session warns that Code Mode is
-# unavailable. Releases before it existed simply do not publish the asset, so a
-# 404 for the host is tolerated with a warning while any other failure aborts.
+# Releases ship a complete package archive (bin/codex,
+# bin/codex-code-mode-host, codex-path/rg, codex-resources/bwrap, and
+# codex-package.json). The codex binary refuses to start unless it runs from
+# inside that layout, so the package is unpacked to /opt/codex and only the
+# entrypoint is symlinked onto PATH. The archive is verified against the
+# release's codex-package_SHA256SUMS. Releases that predate the package are
+# not supported; any download failure aborts the build.
 ARG CODEX_VERSION=latest
 ARG TARGETARCH
+USER root
 RUN set -e && \
     case "$TARGETARCH" in \
       amd64) TRIPLE="x86_64-unknown-linux-musl" ;; \
@@ -55,26 +60,32 @@ RUN set -e && \
     else \
       BASE_URL="https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}"; \
     fi && \
-    for BIN in codex codex-code-mode-host; do \
-      ASSET="${BIN}-${TRIPLE}.tar.gz" && \
-      URL="${BASE_URL}/${ASSET}" && \
-      echo "Downloading ${BIN} from ${URL}..." && \
-      STATUS=$(curl -sSL -w '%{http_code}' -o "/tmp/${ASSET}" "$URL") && \
+    PACKAGE="codex-package-${TRIPLE}.tar.gz" && \
+    for ASSET in "$PACKAGE" codex-package_SHA256SUMS; do \
+      echo "Downloading ${BASE_URL}/${ASSET}..." && \
+      STATUS=$(curl -sSL -w '%{http_code}' -o "/tmp/${ASSET}" "${BASE_URL}/${ASSET}") && \
       if [ "$STATUS" != "200" ]; then \
-        rm -f "/tmp/${ASSET}"; \
-        if [ "$BIN" != "codex" ] && [ "$STATUS" = "404" ]; then \
-          echo "WARNING: ${ASSET} not published for this release (HTTP 404); skipping ${BIN}" >&2; \
-          continue; \
-        fi; \
-        echo "ERROR: failed to download ${URL} (HTTP ${STATUS})" >&2; \
+        echo "ERROR: failed to download ${BASE_URL}/${ASSET} (HTTP ${STATUS})" >&2; \
         exit 1; \
-      fi && \
-      tar -xzf "/tmp/${ASSET}" -C /tmp && \
-      mv "/tmp/${BIN}-${TRIPLE}" "/home/dev/.local/bin/${BIN}" && \
-      chmod +x "/home/dev/.local/bin/${BIN}" && \
-      rm "/tmp/${ASSET}"; \
+      fi; \
     done && \
-    codex --version
+    EXPECTED=$(awk -v a="$PACKAGE" '$2 == a { print tolower($1); exit }' /tmp/codex-package_SHA256SUMS) && \
+    if [ -z "$EXPECTED" ]; then \
+      echo "ERROR: no checksum for ${PACKAGE} in codex-package_SHA256SUMS" >&2; \
+      exit 1; \
+    fi && \
+    echo "${EXPECTED}  /tmp/${PACKAGE}" | sha256sum -c - && \
+    mkdir -p /opt/codex && \
+    tar --no-same-owner -xzf "/tmp/${PACKAGE}" -C /opt/codex && \
+    for f in codex-package.json bin/codex bin/codex-code-mode-host codex-path/rg codex-resources/bwrap; do \
+      [ -e "/opt/codex/$f" ] || { echo "ERROR: package is missing $f" >&2; exit 1; }; \
+    done && \
+    chmod 0755 /opt/codex/bin/codex /opt/codex/bin/codex-code-mode-host \
+      /opt/codex/codex-path/rg /opt/codex/codex-resources/bwrap && \
+    ln -sf /opt/codex/bin/codex /home/dev/.local/bin/codex && \
+    rm -f "/tmp/${PACKAGE}" /tmp/codex-package_SHA256SUMS
+USER dev
+RUN codex --version
 
 LABEL org.opencontainers.image.description="Agent Sandbox with OpenAI Codex CLI"
 LABEL com.mattolson.agentsandbox.codex-version="${CODEX_VERSION}"

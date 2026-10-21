@@ -35,7 +35,7 @@ set -euo pipefail
 #   GIT_VERSION=2.50.1 GIT_TARBALL_SHA256=4932f262b88b7f4f8402e331a7ee8d0a98ba350aa2269ce3a00eeda18cb4fe43 ./build.sh base
 #   YQ_VERSION=4.52.4 ./build.sh base
 #   GH_VERSION=2.100.0 GH_SHA256_AMD64=<sha> GH_SHA256_ARM64=<sha> ./build.sh base
-#   CODEX_VERSION=0.104.0 ./build.sh codex
+#   CODEX_VERSION=X.Y.Z ./build.sh codex
 #   GEMINI_VERSION=0.1.0 ./build.sh gemini
 #   CLAUDE_CODE_VERSION=1.0.0 ./build.sh claude
 #   EXTRA_PACKAGES="htop tree" ./build.sh base
